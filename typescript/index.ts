@@ -1,10 +1,11 @@
-const kMainCanvasId = "#MainCanvas";
-const canvas = document.getElementById(kMainCanvasId) as HTMLCanvasElement;
-canvas.width = canvas.clientWidth;
-canvas.height = canvas.clientHeight;
-// Initialize the GL context
-const gl = canvas.getContext("webgl2");
 function main() {
+  const kMainCanvasId = "#MainCanvas";
+  const canvas = document.getElementById(kMainCanvasId) as HTMLCanvasElement;
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+  // Initialize the GL context
+  const gl = canvas.getContext("webgl2");
+  gl.viewport(0, 0, canvas.width, canvas.height);
   // Only continue if WebGL is available and working
   if (gl === null) {
     alert(
@@ -30,16 +31,25 @@ function main() {
   gl.bindBuffer(gl.ARRAY_BUFFER, triangleGeoBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, TriangleVerticesCpuBuffer, gl.STATIC_DRAW);
 
-  const VertexShaderCode = `#version 300 es
+  const VertexShaderCode = /*glsl*/ `#version 300 es
   precision mediump float;
-  in vec2 vertexPosition;
-  void main(){
-    gl_Position = vec4(vertexPosition, 0.0,1.0);
+  
+  in vec2 VertexPosition;
+  
+  
+  uniform vec2 CanvasSize;
+  uniform vec2 ShapeLocation;
+  uniform float ShapeSize;
+  
+  void main() {  
+    vec2 WorldPosition = VertexPosition * ShapeSize + ShapeLocation;
+    vec2 ClipPosition = (WorldPosition / CanvasSize);
+  
+    gl_Position = vec4(ClipPosition, 0.0, 1.0);
   }
   `;
-  const VertexShader = CreateShader(gl.VERTEX_SHADER, VertexShaderCode);
 
-  const FragmentShaderCode = `#version 300 es
+  const FragmentShaderCode = /*glsl*/ `#version 300 es
   precision mediump float;
 
   out vec4 outputColor;
@@ -47,38 +57,49 @@ function main() {
   void main() {
     outputColor = vec4(0.294, 0.0, 0.51, 1.0);
   }`;
-  const FragmentShader = CreateShader(gl.FRAGMENT_SHADER, FragmentShaderCode);
 
-  const TriangleProgram = gl.createProgram();
-  gl.attachShader(TriangleProgram, VertexShader);
-  gl.attachShader(TriangleProgram, FragmentShader);
-  gl.linkProgram(TriangleProgram);
-  if (!gl.getProgramParameter(TriangleProgram, gl.LINK_STATUS)) {
-    const errorMessage = gl.getProgramInfoLog(TriangleProgram);
-    console.error(`Failed to link GPU program: ${errorMessage}`);
-    return;
-  }
-  const vertexPositionAttributeLocation = gl.getAttribLocation(
-    TriangleProgram,
-    "vertexPosition"
+  const TriangleProgram = CreateProgram(
+    gl,
+    VertexShaderCode,
+    FragmentShaderCode
   );
-  if (vertexPositionAttributeLocation < 0) {
-    console.error(`Failed to get attribute location for vertexPosition`);
+  const VertexPositionAttributeLocation = gl.getAttribLocation(
+    TriangleProgram,
+    "VertexPosition"
+  );
+  if (VertexPositionAttributeLocation < 0) {
+    console.error(`Failed to get attribute location for VertexPosition`);
     return;
   }
-  canvas.width = canvas.clientWidth;
-  canvas.height = canvas.clientHeight;
+  const CanvasSizeUniformLocation = gl.getUniformLocation(
+    TriangleProgram,
+    "CanvasSize"
+  );
+  const ShapeLocationUniformLocation = gl.getUniformLocation(
+    TriangleProgram,
+    "ShapeLocation"
+  );
+  const ShapeSizeUniformLocation = gl.getUniformLocation(
+    TriangleProgram,
+    "ShapeSize"
+  );
+  if (
+    CanvasSizeUniformLocation == null ||
+    ShapeLocationUniformLocation == null ||
+    ShapeSizeUniformLocation == null
+  ) {
+    console.error(
+      `Failed to get Uniform locations:CanvasSizeUniformLocation:${!!CanvasSizeUniformLocation},ShapeLocationUniformLocation:${!!ShapeLocationUniformLocation},ShapeSizeUniformLocation:${!!ShapeSizeUniformLocation}`
+    );
+  }
   // Set clear color to black, fully opaque
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   // Clear the color buffer with specified clear color
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  gl.viewport(0, 0, canvas.width, canvas.height);
-  gl.useProgram(TriangleProgram);
-  gl.enableVertexAttribArray(vertexPositionAttributeLocation);
-  gl.bindBuffer(gl.ARRAY_BUFFER, triangleGeoBuffer);
+  gl.enableVertexAttribArray(VertexPositionAttributeLocation);
   gl.vertexAttribPointer(
     // index: vertex attrib location
-    vertexPositionAttributeLocation,
+    VertexPositionAttributeLocation,
     // Size: dimensions
     2,
     /* type: type of data in the GPU buffer for this attribute */
@@ -90,6 +111,16 @@ function main() {
     /* offset: bytes between the start of the buffer and the first byte of the attribute */
     0
   );
+  gl.uniform2f(CanvasSizeUniformLocation, canvas.width, canvas.height);
+  gl.uniform2f(ShapeLocationUniformLocation, 0, 0);
+  gl.uniform1f(ShapeSizeUniformLocation, 100);
+  gl.drawArrays(
+    gl.TRIANGLES,
+    0,
+    3 /* Number of Vertices NOT number of triangles */
+  );
+  gl.uniform2f(ShapeLocationUniformLocation, -200, -100);
+  gl.uniform1f(ShapeSizeUniformLocation, 100);
   gl.drawArrays(
     gl.TRIANGLES,
     0,
@@ -98,7 +129,35 @@ function main() {
 }
 
 main();
-function CreateShader(ShaderType, ShaderCode) {
+function CreateProgram(
+  gl: WebGL2RenderingContext,
+  VertexShaderCode: string,
+  FragmentShaderCode: string
+) {
+  const VertexShader = CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
+  const FragmentShader = CreateShader(
+    gl,
+    gl.FRAGMENT_SHADER,
+    FragmentShaderCode
+  );
+  const Program = gl.createProgram();
+  gl.attachShader(Program, VertexShader);
+  gl.attachShader(Program, FragmentShader);
+  gl.linkProgram(Program);
+
+  if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
+    const errorMessage = gl.getProgramInfoLog(Program);
+    console.error(`Failed to link GPU program: ${errorMessage}`);
+    return;
+  }
+  gl.useProgram(Program);
+  return Program;
+}
+function CreateShader(
+  gl: WebGL2RenderingContext,
+  ShaderType,
+  ShaderCode: string
+) {
   const Shader = gl.createShader(ShaderType);
   gl.shaderSource(Shader, ShaderCode);
   gl.compileShader(Shader);
