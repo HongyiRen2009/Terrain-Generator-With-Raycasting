@@ -1,7 +1,7 @@
 import { glMatrix, mat4 } from "gl-matrix";
 import { TriangleVertices } from "./geomatry";
 import { FragmentShaderCode, VertexShaderCode } from "./glsl";
-import { CreateProgram, CreateStaticVertexBuffer } from "./gl-utilities";
+import { CreateProgram, CreateStaticVertexBuffer, CreateTransformations } from "./gl-utilities";
 
 function main() {
   const kMainCanvasId = "#MainCanvas";
@@ -42,8 +42,8 @@ function main() {
     TriangleProgram,
     "MatrixTransform"
   );
-  const modelMatrix = mat4.create();
-  mat4.rotateY(modelMatrix, modelMatrix, Math.PI / 4); // Rotate 45° around Y-axis
+  const modelMatrix = CreateTransformations([0.7,0,0], null, [0.3,0.3,0.3]);
+  console.log(modelMatrix);
   gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
   if (VertexPositionAttributeLocation < 0) {
     console.error(`Failed to get attribute location for VertexPosition`);
