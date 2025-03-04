@@ -7831,13 +7831,15 @@ exports.TriangleVertices = [
 /*!*****************************!*\
   !*** ./src/gl-utilities.ts ***!
   \*****************************/
-/***/ ((__unused_webpack_module, exports) => {
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.CreateProgram = CreateProgram;
 exports.CreateShader = CreateShader;
 exports.CreateStaticVertexBuffer = CreateStaticVertexBuffer;
+exports.CreateTransformations = CreateTransformations;
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 function CreateProgram(gl, VertexShaderCode, FragmentShaderCode) {
     var VertexShader = CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
     var FragmentShader = CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
@@ -7877,6 +7879,22 @@ function CreateStaticVertexBuffer(gl, data) {
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
     return buffer;
 }
+function CreateTransformations(translation, rotation, scale) {
+    var transformMatrix = gl_matrix_1.mat4.create();
+    if (scale) {
+        gl_matrix_1.mat4.scale(transformMatrix, transformMatrix, scale);
+    }
+    if (rotation) {
+        // Apply rotation around X, Y, and Z axes using Euler angles
+        gl_matrix_1.mat4.rotateX(transformMatrix, transformMatrix, rotation[0]);
+        gl_matrix_1.mat4.rotateY(transformMatrix, transformMatrix, rotation[1]);
+        gl_matrix_1.mat4.rotateZ(transformMatrix, transformMatrix, rotation[2]);
+    }
+    if (translation) {
+        gl_matrix_1.mat4.translate(transformMatrix, transformMatrix, translation);
+    }
+    return transformMatrix;
+}
 
 
 /***/ }),
@@ -7890,7 +7908,7 @@ function CreateStaticVertexBuffer(gl, data) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.FragmentShaderCode = exports.VertexShaderCode = void 0;
-exports.VertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nuniform mat4 MatrixTransform;\n\nvoid main() {  \n  gl_Position = VertexPosition*MatrixTransform;\n}\n";
+exports.VertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nuniform mat4 MatrixTransform;\n\nvoid main() {  \n  gl_Position = MatrixTransform*VertexPosition;\n}\n";
 exports.FragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(0.294, 0.0, 0.51, 1.0);\n}";
 
 
@@ -7961,7 +7979,6 @@ var exports = __webpack_exports__;
   \**********************/
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var geomatry_1 = __webpack_require__(/*! ./geomatry */ "./src/geomatry.ts");
 var glsl_1 = __webpack_require__(/*! ./glsl */ "./src/glsl.ts");
 var gl_utilities_1 = __webpack_require__(/*! ./gl-utilities */ "./src/gl-utilities.ts");
@@ -7984,8 +8001,8 @@ function main() {
     var TriangleProgram = (0, gl_utilities_1.CreateProgram)(gl, glsl_1.VertexShaderCode, glsl_1.FragmentShaderCode);
     var VertexPositionAttributeLocation = gl.getAttribLocation(TriangleProgram, "VertexPosition");
     var MatrixTransformUniformLocation = gl.getUniformLocation(TriangleProgram, "MatrixTransform");
-    var modelMatrix = gl_matrix_1.mat4.create();
-    gl_matrix_1.mat4.rotateY(modelMatrix, modelMatrix, Math.PI / 4); // Rotate 45° around Y-axis
+    var modelMatrix = (0, gl_utilities_1.CreateTransformations)([0.7, 0, 0], null, [0.3, 0.3, 0.3]);
+    console.log(modelMatrix);
     gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
     if (VertexPositionAttributeLocation < 0) {
         console.error("Failed to get attribute location for VertexPosition");

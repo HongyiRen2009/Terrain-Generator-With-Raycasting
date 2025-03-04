@@ -1,3 +1,5 @@
+import { mat4, vec3 } from "gl-matrix";
+
 export function CreateProgram(
   gl: WebGL2RenderingContext,
   VertexShaderCode: string,
@@ -53,4 +55,21 @@ export function CreateStaticVertexBuffer(gl, data) {
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
   return buffer;
+}
+
+export function CreateTransformations(translation?: vec3, rotation?: vec3, scale?: vec3){
+    let transformMatrix = mat4.create();
+    if(scale){
+      mat4.scale(transformMatrix, transformMatrix, scale);
+    }
+    if (rotation) {
+      // Apply rotation around X, Y, and Z axes using Euler angles
+      mat4.rotateX(transformMatrix, transformMatrix, rotation[0]);
+      mat4.rotateY(transformMatrix, transformMatrix, rotation[1]);
+      mat4.rotateZ(transformMatrix, transformMatrix, rotation[2]);
+    }
+    if(translation){
+      mat4.translate(transformMatrix, transformMatrix, translation);
+    }
+    return transformMatrix;
 }

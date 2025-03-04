@@ -5,7 +5,7 @@ in vec4 VertexPosition;
 uniform mat4 MatrixTransform;
 
 void main() {  
-  gl_Position = VertexPosition*MatrixTransform;
+  gl_Position = MatrixTransform*VertexPosition;
 }
 `;
 
