@@ -7814,7 +7814,7 @@ var forEach = function () {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.TriangleVertices = void 0;
+exports.CubeVertices = exports.TriangleVertices = void 0;
 exports.TriangleVertices = [
     // Top middle
     0.0, 0.5, 0.0,
@@ -7822,6 +7822,20 @@ exports.TriangleVertices = [
     -0.5, -0.5, 0.0,
     // Bottom Right
     0.5, -0.5, 0.0,
+];
+exports.CubeVertices = [
+    // Front face
+    -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0,
+    // Back face
+    -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0,
+    // Top face
+    -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0,
+    // Bottom face
+    -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0,
+    // Right face
+    1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0,
+    // Left face
+    -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0,
 ];
 
 
@@ -7837,8 +7851,9 @@ exports.TriangleVertices = [
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.CreateProgram = CreateProgram;
 exports.CreateShader = CreateShader;
-exports.CreateStaticVertexBuffer = CreateStaticVertexBuffer;
+exports.CreateStaticBuffer = CreateStaticBuffer;
 exports.CreateTransformations = CreateTransformations;
+exports.CreateIndexBuffer = CreateIndexBuffer;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 function CreateProgram(gl, VertexShaderCode, FragmentShaderCode) {
     var VertexShader = CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
@@ -7869,7 +7884,7 @@ function CreateShader(gl, ShaderType, ShaderCode) {
     }
     return Shader;
 }
-function CreateStaticVertexBuffer(gl, data) {
+function CreateStaticBuffer(gl, data) {
     var buffer = gl.createBuffer();
     if (!buffer) {
         console.error("Failed to create buffer");
@@ -7877,7 +7892,12 @@ function CreateStaticVertexBuffer(gl, data) {
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    return buffer;
+    var indexBuffer = CreateIndexBuffer(gl);
+    return {
+        position: buffer,
+        // color: colorBuffer,
+        indices: indexBuffer,
+    };
 }
 function CreateTransformations(translation, rotation, scale) {
     var transformMatrix = gl_matrix_1.mat4.create();
@@ -7894,6 +7914,55 @@ function CreateTransformations(translation, rotation, scale) {
         gl_matrix_1.mat4.translate(transformMatrix, transformMatrix, translation);
     }
     return transformMatrix;
+}
+//Will change it later to feature length manipulations
+function CreateIndexBuffer(gl) {
+    var indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    // This array defines each face as two triangles, using the
+    // indices into the vertex array to specify each triangle's
+    // position.
+    var indices = [
+        0,
+        1,
+        2,
+        0,
+        2,
+        3, // front
+        4,
+        5,
+        6,
+        4,
+        6,
+        7, // back
+        8,
+        9,
+        10,
+        8,
+        10,
+        11, // top
+        12,
+        13,
+        14,
+        12,
+        14,
+        15, // bottom
+        16,
+        17,
+        18,
+        16,
+        18,
+        19, // right
+        20,
+        21,
+        22,
+        20,
+        22,
+        23, // left
+    ];
+    // Now send the element array to GL
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+    return indexBuffer;
 }
 
 
@@ -7979,6 +8048,7 @@ var exports = __webpack_exports__;
   \**********************/
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var geomatry_1 = __webpack_require__(/*! ./geomatry */ "./src/geomatry.ts");
 var glsl_1 = __webpack_require__(/*! ./glsl */ "./src/glsl.ts");
 var gl_utilities_1 = __webpack_require__(/*! ./gl-utilities */ "./src/gl-utilities.ts");
@@ -7996,37 +8066,49 @@ function main() {
         return;
     }
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
-    var TriangleVerticesCpuBuffer = new Float32Array(geomatry_1.TriangleVertices);
-    var triangleGeoBuffer = (0, gl_utilities_1.CreateStaticVertexBuffer)(gl, TriangleVerticesCpuBuffer);
+    var CubeCPUBuffer = new Float32Array(geomatry_1.CubeVertices);
+    var CubeBuffer = (0, gl_utilities_1.CreateStaticBuffer)(gl, CubeCPUBuffer);
     var TriangleProgram = (0, gl_utilities_1.CreateProgram)(gl, glsl_1.VertexShaderCode, glsl_1.FragmentShaderCode);
     var VertexPositionAttributeLocation = gl.getAttribLocation(TriangleProgram, "VertexPosition");
-    var MatrixTransformUniformLocation = gl.getUniformLocation(TriangleProgram, "MatrixTransform");
-    var modelMatrix = (0, gl_utilities_1.CreateTransformations)([0.7, 0, 0], null, [0.3, 0.3, 0.3]);
-    console.log(modelMatrix);
-    gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
     if (VertexPositionAttributeLocation < 0) {
         console.error("Failed to get attribute location for VertexPosition");
         return;
     }
-    // Set clear color to black, fully opaque
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    // Clear the color buffer with specified clear color
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enableVertexAttribArray(VertexPositionAttributeLocation);
-    gl.vertexAttribPointer(
-    // index: vertex attrib location
-    VertexPositionAttributeLocation, 
-    // Size: dimensions
-    3, 
-    /* type: type of data in the GPU buffer for this attribute */
-    gl.FLOAT, 
-    /* normalized: if type=float and is writing to a vec(n) float input, should WebGL normalize the ints first? */
-    false, 
-    /* stride: bytes between starting byte of attribute for a vertex and the same attrib for the next vertex */
-    0, 
-    /* offset: bytes between the start of the buffer and the first byte of the attribute */
-    0);
-    gl.drawArrays(gl.TRIANGLES, 0, 3 /* Number of Vertices NOT number of triangles */);
+    var MatrixTransformUniformLocation = gl.getUniformLocation(TriangleProgram, "MatrixTransform");
+    var modelMatrix = (0, gl_utilities_1.CreateTransformations)([0.7, 0, 0], null, [0.3, 0.3, 0.3]);
+    var lastRenderTime = 0;
+    var fps = 60;
+    var fpsInterval = 1000 / fps; // 60 FPS
+    var render = function (timestamp) {
+        if (timestamp - lastRenderTime < fpsInterval) {
+            requestAnimationFrame(render);
+            return;
+        }
+        lastRenderTime = timestamp;
+        gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
+        // Set clear color to black, fully opaque
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // Clear the color buffer with specified clear color
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enableVertexAttribArray(VertexPositionAttributeLocation);
+        gl.vertexAttribPointer(
+        // index: vertex attrib location
+        VertexPositionAttributeLocation, 
+        // Size: dimensions
+        3, 
+        /* type: type of data in the GPU buffer for this attribute */
+        gl.FLOAT, 
+        /* normalized: if type=float and is writing to a vec(n) float input, should WebGL normalize the ints first? */
+        false, 
+        /* stride: bytes between starting byte of attribute for a vertex and the same attrib for the next vertex */
+        0, 
+        /* offset: bytes between the start of the buffer and the first byte of the attribute */
+        0);
+        gl.drawElements(gl.TRIANGLES, 36 /*Vertex count */, gl.UNSIGNED_SHORT, 0);
+        gl_matrix_1.mat4.rotateY(modelMatrix, modelMatrix, 0.05);
+        requestAnimationFrame(render);
+    };
+    requestAnimationFrame(render);
 }
 main();
 
