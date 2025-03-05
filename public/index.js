@@ -7814,7 +7814,7 @@ var forEach = function () {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.CubeVertices = exports.TriangleVertices = void 0;
+exports.cubeIndices = exports.CubeVertices = exports.TriangleVertices = void 0;
 exports.TriangleVertices = [
     // Top middle
     0.0, 0.5, 0.0,
@@ -7824,18 +7824,79 @@ exports.TriangleVertices = [
     0.5, -0.5, 0.0,
 ];
 exports.CubeVertices = [
-    // Front face
-    -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0,
-    // Back face
-    -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0,
-    // Top face
-    -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0,
-    // Bottom face
-    -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0,
-    // Right face
-    1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0,
-    // Left face
-    -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0,
+    // X, Y, Z,       R, G, B
+    // Front face (red)
+    -0.5, -0.5, 0.5, 1.0, 0.0, 0.0,
+    0.5, -0.5, 0.5, 1.0, 0.0, 0.0,
+    0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
+    -0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
+    // Back face (green)
+    -0.5, -0.5, -0.5, 0.0, 1.0, 0.0,
+    0.5, -0.5, -0.5, 0.0, 1.0, 0.0,
+    0.5, 0.5, -0.5, 0.0, 1.0, 0.0,
+    -0.5, 0.5, -0.5, 0.0, 1.0, 0.0,
+    /*
+      // Top face (blue)
+      -0.5,  0.5, -0.5,   0.0, 0.0, 1.0,
+       0.5,  0.5, -0.5,   0.0, 0.0, 1.0,
+       0.5,  0.5,  0.5,   0.0, 0.0, 1.0,
+      -0.5,  0.5,  0.5,   0.0, 0.0, 1.0,
+    
+      // Bottom face (yellow)
+      -0.5, -0.5, -0.5,   1.0, 1.0, 0.0,
+       0.5, -0.5, -0.5,   1.0, 1.0, 0.0,
+       0.5, -0.5,  0.5,   1.0, 1.0, 0.0,
+      -0.5, -0.5,  0.5,   1.0, 1.0, 0.0,
+    
+      // Right face (magenta)
+       0.5, -0.5, -0.5,   1.0, 0.0, 1.0,
+       0.5,  0.5, -0.5,   1.0, 0.0, 1.0,
+       0.5,  0.5,  0.5,   1.0, 0.0, 1.0,
+       0.5, -0.5,  0.5,   1.0, 0.0, 1.0,
+    
+      // Left face (cyan)
+      -0.5, -0.5, -0.5,   0.0, 1.0, 1.0,
+      -0.5,  0.5, -0.5,   0.0, 1.0, 1.0,
+      -0.5,  0.5,  0.5,   0.0, 1.0, 1.0,
+      -0.5, -0.5,  0.5,   0.0, 1.0, 1.0, */
+];
+exports.cubeIndices = [
+    0,
+    1,
+    2,
+    0,
+    2,
+    3, // front
+    4,
+    5,
+    6,
+    4,
+    6,
+    7, // back
+    /*8,
+    9,
+    10,
+    8,
+    10,
+    11, // top
+    12,
+    13,
+    14,
+    12,
+    14,
+    15, // bottom
+    16,
+    17,
+    18,
+    16,
+    18,
+    19, // right
+    20,
+    21,
+    22,
+    20,
+    22,
+    23, // left */
 ];
 
 
@@ -7854,7 +7915,9 @@ exports.CreateShader = CreateShader;
 exports.CreateStaticBuffer = CreateStaticBuffer;
 exports.CreateTransformations = CreateTransformations;
 exports.CreateIndexBuffer = CreateIndexBuffer;
+exports.create3dPosColorInterleavedVao = create3dPosColorInterleavedVao;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+var geomatry_1 = __webpack_require__(/*! ./geomatry */ "./src/geomatry.ts");
 function CreateProgram(gl, VertexShaderCode, FragmentShaderCode) {
     var VertexShader = CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
     var FragmentShader = CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
@@ -7892,7 +7955,7 @@ function CreateStaticBuffer(gl, data) {
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    var indexBuffer = CreateIndexBuffer(gl);
+    var indexBuffer = CreateIndexBuffer(gl, geomatry_1.cubeIndices);
     return {
         position: buffer,
         // color: colorBuffer,
@@ -7916,53 +7979,30 @@ function CreateTransformations(translation, rotation, scale) {
     return transformMatrix;
 }
 //Will change it later to feature length manipulations
-function CreateIndexBuffer(gl) {
+function CreateIndexBuffer(gl, indices) {
     var indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
     // This array defines each face as two triangles, using the
     // indices into the vertex array to specify each triangle's
     // position.
-    var indices = [
-        0,
-        1,
-        2,
-        0,
-        2,
-        3, // front
-        4,
-        5,
-        6,
-        4,
-        6,
-        7, // back
-        8,
-        9,
-        10,
-        8,
-        10,
-        11, // top
-        12,
-        13,
-        14,
-        12,
-        14,
-        15, // bottom
-        16,
-        17,
-        18,
-        16,
-        18,
-        19, // right
-        20,
-        21,
-        22,
-        20,
-        22,
-        23, // left
-    ];
     // Now send the element array to GL
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
     return indexBuffer;
+}
+function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib) {
+    var vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.enableVertexAttribArray(posAttrib);
+    gl.enableVertexAttribArray(colorAttrib);
+    // Interleaved format: (x, y, z, r, g, b) (all f32)
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 0);
+    gl.vertexAttribPointer(colorAttrib, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // Not sure if necessary, but not a bad idea.
+    return vao;
 }
 
 
@@ -7977,8 +8017,8 @@ function CreateIndexBuffer(gl) {
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.FragmentShaderCode = exports.VertexShaderCode = void 0;
-exports.VertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nuniform mat4 MatrixTransform;\n\nvoid main() {  \n  gl_Position = MatrixTransform*VertexPosition;\n}\n";
-exports.FragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(0.294, 0.0, 0.51, 1.0);\n}";
+exports.VertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
+exports.FragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1.0);\n}";
 
 
 /***/ })
@@ -8055,8 +8095,8 @@ var gl_utilities_1 = __webpack_require__(/*! ./gl-utilities */ "./src/gl-utiliti
 function main() {
     var kMainCanvasId = "#MainCanvas";
     var canvas = document.getElementById(kMainCanvasId);
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    canvas.width = canvas.clientWidth * devicePixelRatio;
+    canvas.height = canvas.clientHeight * devicePixelRatio;
     // Initialize the GL context
     var gl = canvas.getContext("webgl2");
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -8068,14 +8108,17 @@ function main() {
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
     var CubeCPUBuffer = new Float32Array(geomatry_1.CubeVertices);
     var CubeBuffer = (0, gl_utilities_1.CreateStaticBuffer)(gl, CubeCPUBuffer);
-    var TriangleProgram = (0, gl_utilities_1.CreateProgram)(gl, glsl_1.VertexShaderCode, glsl_1.FragmentShaderCode);
-    var VertexPositionAttributeLocation = gl.getAttribLocation(TriangleProgram, "VertexPosition");
-    if (VertexPositionAttributeLocation < 0) {
-        console.error("Failed to get attribute location for VertexPosition");
-        return;
-    }
-    var MatrixTransformUniformLocation = gl.getUniformLocation(TriangleProgram, "MatrixTransform");
-    var modelMatrix = (0, gl_utilities_1.CreateTransformations)([0.7, 0, 0], null, [0.3, 0.3, 0.3]);
+    var CubeProgram = (0, gl_utilities_1.CreateProgram)(gl, glsl_1.VertexShaderCode, glsl_1.FragmentShaderCode);
+    var VertexPositionAttributeLocation = gl.getAttribLocation(CubeProgram, "VertexPosition");
+    var VertexColorAttributeLocation = gl.getAttribLocation(CubeProgram, "VertexColor");
+    var MatrixTransformUniformLocation = gl.getUniformLocation(CubeProgram, "MatrixTransform");
+    var matViewProjUniform = gl.getUniformLocation(CubeProgram, "matViewProj");
+    var modelMatrix = (0, gl_utilities_1.CreateTransformations)(null, null, null);
+    //Camera View and Projections not yet implemented
+    var matView = (0, gl_utilities_1.CreateTransformations)(null, null, null);
+    var matProj = (0, gl_utilities_1.CreateTransformations)(null, null, null);
+    var matViewProj = (0, gl_utilities_1.CreateTransformations)(null, null, null);
+    var cameraAngle = 0;
     var lastRenderTime = 0;
     var fps = 60;
     var fpsInterval = 1000 / fps; // 60 FPS
@@ -8086,26 +8129,27 @@ function main() {
         }
         lastRenderTime = timestamp;
         gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
+        gl.uniformMatrix4fv(matViewProjUniform, false, matViewProj);
+        var cubeVao = (0, gl_utilities_1.create3dPosColorInterleavedVao)(gl, CubeBuffer.position, CubeBuffer.indices, VertexPositionAttributeLocation, VertexColorAttributeLocation);
+        //equivalent GLM (C++): matViewProj = matProj*matView
+        var cameraX = 3 * Math.sin(cameraAngle);
+        var cameraZ = 3 * Math.cos(cameraAngle);
+        gl_matrix_1.mat4.lookAt(matView, 
+        /* pos= */ gl_matrix_1.vec3.fromValues(cameraX, 1, cameraZ), 
+        /* lookAt= */ gl_matrix_1.vec3.fromValues(0, 0, 0), 
+        /* up= */ gl_matrix_1.vec3.fromValues(0, 1, 0));
+        gl_matrix_1.mat4.perspective(matProj, 
+        /* fovy= */ gl_matrix_1.glMatrix.toRadian(80), 
+        /* aspectRatio= */ canvas.width / canvas.height, 
+        /* near, far= */ 0.1, 100.0);
+        gl_matrix_1.mat4.multiply(matViewProj, matProj, matView);
         // Set clear color to black, fully opaque
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         // Clear the color buffer with specified clear color
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.enableVertexAttribArray(VertexPositionAttributeLocation);
-        gl.vertexAttribPointer(
-        // index: vertex attrib location
-        VertexPositionAttributeLocation, 
-        // Size: dimensions
-        3, 
-        /* type: type of data in the GPU buffer for this attribute */
-        gl.FLOAT, 
-        /* normalized: if type=float and is writing to a vec(n) float input, should WebGL normalize the ints first? */
-        false, 
-        /* stride: bytes between starting byte of attribute for a vertex and the same attrib for the next vertex */
-        0, 
-        /* offset: bytes between the start of the buffer and the first byte of the attribute */
-        0);
-        gl.drawElements(gl.TRIANGLES, 36 /*Vertex count */, gl.UNSIGNED_SHORT, 0);
-        gl_matrix_1.mat4.rotateY(modelMatrix, modelMatrix, 0.05);
+        gl.bindVertexArray(cubeVao);
+        gl.drawElements(gl.TRIANGLES, 12 /*Vertex count */, gl.UNSIGNED_SHORT, 0);
+        gl.bindVertexArray(null);
         requestAnimationFrame(render);
     };
     requestAnimationFrame(render);
