@@ -7,7 +7,61 @@ import {
   CreateStaticBuffer,
   CreateTransformations
 } from "./gl-utilities";
+import { isPointerLocked, toRadians } from "./misc_functions";
+class Camera {
+  position: vec3;
+  sensitivity = 0.1;
+  yaw = -90; // Left right rotation in degrees
+  pitch = 0; // Up down rotation in degrees
+  //Computed Dynamically
+  front = vec3.fromValues(0, 0, -1);
+  right = vec3.fromValues(1, 0, 0);
 
+  up = vec3.fromValues(0, 1, 0);
+  speed = 0;
+  constructor(
+    position: vec3,
+    yaw: number,
+    pitch: number,
+    sensativity: number,
+    speed: number
+  ) {
+    this.position = position;
+    this.yaw = yaw;
+    this.pitch = pitch;
+    this.sensitivity = sensativity;
+    this.speed = speed;
+    this.UpdateCameraVectors();
+  }
+  //enables Camera.XPosition instead of Camera.position[0]
+  get XPosition() {
+    return this.position[0];
+  }
+  set XPosition(value) {
+    this.position[0] = value;
+  }
+  get YPosition() {
+    return this.position[0];
+  }
+  set YPosition(value) {
+    this.position[0] = value;
+  }
+  get ZPosition() {
+    return this.position[0];
+  }
+  set ZPosition(value) {
+    this.position[0] = value;
+  }
+  UpdateCameraVectors() {
+    let front = vec3.create();
+    front[0] = Math.cos(toRadians(this.yaw)) * Math.cos(toRadians(this.pitch));
+    front[1] = Math.sin(toRadians(this.pitch));
+    front[2] = Math.sin(toRadians(this.yaw)) * Math.cos(toRadians(this.pitch));
+    vec3.normalize(this.front, front); // Normalize to maintain unit length
+    vec3.cross(this.right, this.front, this.up);
+    vec3.normalize(this.right, this.right);
+  }
+}
 function main() {
   const kMainCanvasId = "#MainCanvas";
   const canvas = document.getElementById(kMainCanvasId) as HTMLCanvasElement;
@@ -17,10 +71,11 @@ function main() {
     canvas.requestPointerLock();
     canvas.requestFullscreen();
   };
+
   // Initialize the GL context
   const gl = canvas.getContext("webgl2");
   gl.viewport(0, 0, canvas.width, canvas.height);
-  
+
   window.addEventListener("resize", () => {
     resizeCanvas(gl, canvas);
   });
@@ -57,42 +112,36 @@ function main() {
   );
   const matViewProjUniform = gl.getUniformLocation(CubeProgram, "matViewProj");
   const modelMatrix = CreateTransformations(null, null, null);
-  //Camera View and Projections not yet implemented
-  const matView = mat4.create(); //Identity matrices
+  let matView = mat4.create(); //Identity matrices
   const matProj = mat4.create();
   const matViewProj = mat4.create();
-  let cameraX = 10,
-    cameraY = 10,
-    cameraZ = 10;
 
+  const MainCamera = new Camera(vec3.fromValues(0, 0, 3), -90, 0, 0.1, 0.05);
   let lastRenderTime = 0;
   const fps = 60;
   const fpsInterval = 1000 / fps; // 60 FPS
+  canvas.addEventListener("mousemove", (event) => {
+    if (isPointerLocked()) {
+      let { movementX, movementY } = event;
 
+      // Convert pixels to angles
+      MainCamera.yaw += movementX * MainCamera.sensitivity;
+      MainCamera.pitch -= movementY * MainCamera.sensitivity;
+
+      // Constrain pitch (to prevent flipping)
+      if (MainCamera.pitch > 89) MainCamera.pitch = 89;
+      if (MainCamera.pitch < -89) MainCamera.pitch = -89;
+      MainCamera.UpdateCameraVectors();
+    }
+  });
   const frame = (timestamp: number) => {
     if (timestamp - lastRenderTime < fpsInterval) {
       requestAnimationFrame(frame);
       return;
     }
     lastRenderTime = timestamp;
-    if (keysPressed["KeyA"]) {
-      cameraX -= 0.2;
-    }
-    if (keysPressed["KeyD"]) {
-      cameraX += 0.2;
-    }
-    if (keysPressed["KeyW"]) {
-      cameraZ += 0.2;
-    }
-    if (keysPressed["KeyS"]) {
-      cameraZ -= 0.2;
-    }
-
-    if (keysPressed["ShiftLeft"] || keysPressed["ShiftRight"]) {
-      cameraY -= 0.2;
-    }
-    if (keysPressed["Space"]) {
-      cameraY += 0.2;
+    if (isPointerLocked()) {
+      updateCameraPosition(MainCamera, keysPressed);
     }
     render();
     requestAnimationFrame(frame);
@@ -110,12 +159,7 @@ function main() {
       VertexColorAttributeLocation
     );
     //equivalent GLM (C++): matViewProj = matProj*matView
-    mat4.lookAt(
-      matView,
-      /* pos= */ vec3.fromValues(cameraX, cameraY, cameraZ),
-      /* lookAt= */ vec3.fromValues(0, 0, 0),
-      /* up= */ vec3.fromValues(0, 1, 0)
-    );
+    matView = getViewMatrix(MainCamera);
     mat4.perspective(
       matProj,
       /* fovy= */ glMatrix.toRadian(80),
@@ -136,8 +180,32 @@ function main() {
   };
   requestAnimationFrame(frame);
 }
+function updateCameraPosition(camera: Camera, keys: Object) {
+  let velocity = camera.speed;
+  let movement = vec3.create();
+  //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
+  if (keys["KeyW"])
+    vec3.scaleAndAdd(movement, movement, camera.front, velocity); // Forward
+  if (keys["KeyS"])
+    vec3.scaleAndAdd(movement, movement, camera.front, -velocity); // Backward
+  if (keys["KeyA"])
+    vec3.scaleAndAdd(movement, movement, camera.right, -velocity); // Left
+  if (keys["KeyD"])
+    vec3.scaleAndAdd(movement, movement, camera.right, velocity); // Right
+  if (keys["Space"]) vec3.scaleAndAdd(movement, movement, camera.up, velocity); // Up
+  if (keys["ShiftLeft"])
+    vec3.scaleAndAdd(movement, movement, camera.up, -velocity); // Down
 
-function resizeCanvas(gl: WebGL2RenderingContext,canvas: HTMLCanvasElement) {
+  vec3.add(camera.position, camera.position, movement);
+}
+function getViewMatrix(camera: Camera) {
+  let viewMatrix = mat4.create();
+  let target = vec3.create();
+  vec3.add(target, camera.position, camera.front); // Look-at target
+  mat4.lookAt(viewMatrix, camera.position, target, camera.up);
+  return viewMatrix;
+}
+function resizeCanvas(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement) {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   gl.viewport(0, 0, canvas.width, canvas.height);
