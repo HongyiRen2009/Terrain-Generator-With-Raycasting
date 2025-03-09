@@ -111,7 +111,7 @@ function main() {
     "MatrixTransform"
   );
   const matViewProjUniform = gl.getUniformLocation(CubeProgram, "matViewProj");
-  const modelMatrix = CreateTransformations(null, null, null);
+  let modelMatrix = CreateTransformations(null, null, null);
   let matView = mat4.create(); //Identity matrices
   const matProj = mat4.create();
   const matViewProj = mat4.create();
@@ -148,6 +148,15 @@ function main() {
     //The function repeats over and over at 60 fps because it calls itself
   };
   const render = () => {
+    mat4.multiply(
+      modelMatrix,
+      modelMatrix,
+      CreateTransformations(
+        vec3.fromValues(0, 0, 0),
+        vec3.fromValues(0.1, 0.1, 0),
+        vec3.fromValues(1, 1, 1)
+      )
+    );
     gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
     gl.uniformMatrix4fv(matViewProjUniform, false, matViewProj);
     //Create vertice array object
