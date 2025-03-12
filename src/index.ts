@@ -11,14 +11,14 @@ import { isPointerLocked, toRadians } from "./misc_functions";
 
 class Camera {
   position: vec3;
-  sensitivity: number = 0.1;
-  yaw: number = -90; // Left right rotation in degrees
-  pitch: number = 0; // Up down rotation in degrees
+  sensitivity = 0.1;
+  yaw = -90; // Left right rotation in degrees
+  pitch = 0; // Up down rotation in degrees
   //Computed Dynamically
   front: vec3 = vec3.fromValues(0, 0, -1);
   right: vec3 = vec3.fromValues(1, 0, 0);
   up: vec3 = vec3.fromValues(0, 1, 0);
-  speed: number = 0;
+  speed = 0;
 
   constructor(
     position: vec3,
@@ -56,7 +56,7 @@ class Camera {
   }
 
   UpdateCameraVectors() {
-    let front: vec3 = vec3.create();
+    let front = vec3.create();
     front[0] = Math.cos(toRadians(this.yaw)) * Math.cos(toRadians(this.pitch));
     front[1] = Math.sin(toRadians(this.pitch));
     front[2] = Math.sin(toRadians(this.yaw)) * Math.cos(toRadians(this.pitch));
@@ -67,10 +67,8 @@ class Camera {
 }
 
 function main() {
-  const kMainCanvasId: string = "#MainCanvas";
-  const canvas: HTMLCanvasElement = document.getElementById(
-    kMainCanvasId
-  ) as HTMLCanvasElement;
+  const kMainCanvasId = "#MainCanvas";
+  const canvas = document.getElementById(kMainCanvasId) as HTMLCanvasElement;
   canvas.width = window.innerWidth * devicePixelRatio;
   canvas.height = window.innerHeight * devicePixelRatio;
   canvas.onmousedown = (event: MouseEvent) => {
@@ -79,9 +77,7 @@ function main() {
   };
 
   // Initialize the GL context
-  const gl: WebGL2RenderingContext = canvas.getContext(
-    "webgl2"
-  ) as WebGL2RenderingContext;
+  const gl = canvas.getContext("webgl2") as WebGL2RenderingContext;
   gl.viewport(0, 0, canvas.width, canvas.height);
 
   window.addEventListener("resize", () => {
@@ -102,46 +98,35 @@ function main() {
   }
 
   // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
-  const CubeCPUBuffer: Float32Array = new Float32Array(CubeVertices);
+  const CubeCPUBuffer = new Float32Array(CubeVertices);
   const CubeBuffer = CreateStaticBuffer(gl, CubeCPUBuffer);
-  const CubeProgram: WebGLProgram = CreateProgram(
-    gl,
-    VertexShaderCode,
-    FragmentShaderCode
-  );
-  const VertexPositionAttributeLocation: number = gl.getAttribLocation(
+  const CubeProgram = CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
+  const VertexPositionAttributeLocation = gl.getAttribLocation(
     CubeProgram,
     "VertexPosition"
   );
-  const VertexColorAttributeLocation: number = gl.getAttribLocation(
+  const VertexColorAttributeLocation = gl.getAttribLocation(
     CubeProgram,
     "VertexColor"
   );
 
-  const MatrixTransformUniformLocation: WebGLUniformLocation =
-    gl.getUniformLocation(
-      CubeProgram,
-      "MatrixTransform"
-    ) as WebGLUniformLocation;
-  const matViewProjUniform: WebGLUniformLocation = gl.getUniformLocation(
+  const MatrixTransformUniformLocation = gl.getUniformLocation(
+    CubeProgram,
+    "MatrixTransform"
+  ) as WebGLUniformLocation;
+  const matViewProjUniform = gl.getUniformLocation(
     CubeProgram,
     "matViewProj"
   ) as WebGLUniformLocation;
-  let modelMatrix: mat4 = CreateTransformations(null, null, null);
-  let matView: mat4 = mat4.create(); //Identity matrices
-  const matProj: mat4 = mat4.create();
-  const matViewProj: mat4 = mat4.create();
+  let modelMatrix = CreateTransformations(null, null, null);
+  let matView = mat4.create(); //Identity matrices
+  const matProj = mat4.create();
+  const matViewProj = mat4.create();
 
-  const MainCamera: Camera = new Camera(
-    vec3.fromValues(0, 0, 3),
-    -90,
-    0,
-    0.1,
-    0.05
-  );
-  let lastRenderTime: number = 0;
-  const fps: number = 60;
-  const fpsInterval: number = 1000 / fps; // 60 FPS
+  const MainCamera = new Camera(vec3.fromValues(0, 0, 3), -90, 0, 0.1, 0.05);
+  let lastRenderTime = 0;
+  const fps = 60;
+  const fpsInterval = 1000 / fps; // 60 FPS
   canvas.addEventListener("mousemove", (event: MouseEvent) => {
     if (isPointerLocked()) {
       let { movementX, movementY } = event;
@@ -184,7 +169,7 @@ function main() {
     gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
     gl.uniformMatrix4fv(matViewProjUniform, false, matViewProj);
     //Create vertice array object
-    const cubeVao: WebGLVertexArrayObject = create3dPosColorInterleavedVao(
+    const cubeVao = create3dPosColorInterleavedVao(
       gl,
       CubeBuffer.position,
       CubeBuffer.indices,
@@ -218,8 +203,8 @@ function updateCameraPosition(
   camera: Camera,
   keys: { [key: string]: boolean }
 ) {
-  let velocity: number = camera.speed;
-  let movement: vec3 = vec3.create();
+  let velocity = camera.speed;
+  let movement = vec3.create();
   //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
   if (keys["KeyW"])
     vec3.scaleAndAdd(movement, movement, camera.front, velocity); // Forward
@@ -237,8 +222,8 @@ function updateCameraPosition(
 }
 
 function getViewMatrix(camera: Camera): mat4 {
-  let viewMatrix: mat4 = mat4.create();
-  let target: vec3 = vec3.create();
+  let viewMatrix = mat4.create();
+  let target = vec3.create();
   vec3.add(target, camera.position, camera.front); // Look-at target
   mat4.lookAt(viewMatrix, camera.position, target, camera.up);
   return viewMatrix;

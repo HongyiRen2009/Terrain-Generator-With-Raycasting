@@ -6,23 +6,19 @@ export function CreateProgram(
   VertexShaderCode: string,
   FragmentShaderCode: string
 ): WebGLProgram | undefined {
-  const VertexShader: WebGLShader = CreateShader(
-    gl,
-    gl.VERTEX_SHADER,
-    VertexShaderCode
-  );
-  const FragmentShader: WebGLShader = CreateShader(
+  const VertexShader = CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
+  const FragmentShader = CreateShader(
     gl,
     gl.FRAGMENT_SHADER,
     FragmentShaderCode
   );
-  const Program: WebGLProgram = gl.createProgram() as WebGLProgram;
+  const Program = gl.createProgram() as WebGLProgram;
   gl.attachShader(Program, VertexShader);
   gl.attachShader(Program, FragmentShader);
   gl.linkProgram(Program);
 
   if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
-    const errorMessage: string | null = gl.getProgramInfoLog(Program);
+    const errorMessage = gl.getProgramInfoLog(Program);
     console.error(`Failed to link GPU program: ${errorMessage}`);
     return;
   }
@@ -35,7 +31,7 @@ export function CreateShader(
   ShaderType: GLenum,
   ShaderCode: string
 ): WebGLShader {
-  const Shader: WebGLShader | null = gl.createShader(ShaderType);
+  const Shader = gl.createShader(ShaderType);
 
   if (!Shader) {
     throw new Error("Failed to create WebGL shader.");
@@ -57,14 +53,14 @@ export function CreateStaticBuffer(
   gl: WebGL2RenderingContext,
   data: Float32Array
 ) {
-  const buffer: WebGLBuffer | null = gl.createBuffer();
+  const buffer = gl.createBuffer();
   if (!buffer) {
     console.error("Failed to create buffer");
     return;
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-  const indexBuffer: WebGLBuffer = CreateIndexBuffer(gl, cubeIndices);
+  const indexBuffer = CreateIndexBuffer(gl, cubeIndices);
 
   return {
     position: buffer,
@@ -78,7 +74,7 @@ export function CreateTransformations(
   rotation?: vec3,
   scale?: vec3
 ): mat4 {
-  let transformMatrix: mat4 = mat4.create();
+  let transformMatrix = mat4.create();
   if (scale) {
     mat4.scale(transformMatrix, transformMatrix, scale);
   }
@@ -99,7 +95,7 @@ export function CreateIndexBuffer(
   gl: WebGL2RenderingContext,
   indices: number[]
 ): WebGLBuffer {
-  const indexBuffer: WebGLBuffer | null = gl.createBuffer();
+  const indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
   // This array defines each face as two triangles, using the
@@ -124,7 +120,7 @@ export function create3dPosColorInterleavedVao(
   posAttrib: number,
   colorAttrib: number
 ): WebGLVertexArrayObject {
-  const vao: WebGLVertexArrayObject | null = gl.createVertexArray();
+  const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
   gl.enableVertexAttribArray(posAttrib);
