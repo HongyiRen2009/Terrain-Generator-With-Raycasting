@@ -1,8 +1,13 @@
 {
-    "compilerOptions": {
-      "target": "ES5",
-      "module": "CommonJS",
-      "outDir": "js"
-    }
-  }
-  
+	"compilerOptions": {
+		"target": "ES5",
+		"module": "NodeNext",
+		"outDir": "dist",
+		"sourceMap": true,
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+    "moduleResolution": "nodenext",
+    "strict": true
+	},
+	"include": ["src"]
+}
