@@ -15,9 +15,9 @@ class Camera {
   yaw = -90; // Left right rotation in degrees
   pitch = 0; // Up down rotation in degrees
   //Computed Dynamically
-  front: vec3 = vec3.fromValues(0, 0, -1);
-  right: vec3 = vec3.fromValues(1, 0, 0);
-  up: vec3 = vec3.fromValues(0, 1, 0);
+  front = vec3.fromValues(0, 0, -1);
+  right = vec3.fromValues(1, 0, 0);
+  up = vec3.fromValues(0, 1, 0);
   speed = 0;
 
   constructor(
@@ -71,13 +71,20 @@ function main() {
   const canvas = document.getElementById(kMainCanvasId) as HTMLCanvasElement;
   canvas.width = window.innerWidth * devicePixelRatio;
   canvas.height = window.innerHeight * devicePixelRatio;
-  canvas.onmousedown = (event: MouseEvent) => {
+  canvas.onmousedown = () => {
     canvas.requestPointerLock();
     canvas.requestFullscreen();
   };
 
   // Initialize the GL context
-  const gl = canvas.getContext("webgl2") as WebGL2RenderingContext;
+  const gl = canvas.getContext("webgl2");
+
+  // Only continue if WebGL is available and working
+  if (!gl)
+    return alert(
+      "Unable to initialize WebGL. Your browser or machine may not support it."
+    );
+
   gl.viewport(0, 0, canvas.width, canvas.height);
 
   window.addEventListener("resize", () => {
@@ -89,18 +96,13 @@ function main() {
   const keysPressed: { [key: string]: boolean } = {};
   addKeys(keysPressed);
 
-  // Only continue if WebGL is available and working
-  if (gl === null) {
-    alert(
-      "Unable to initialize WebGL. Your browser or machine may not support it."
-    );
-    return;
-  }
-
   // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
   const CubeCPUBuffer = new Float32Array(CubeVertices);
   const CubeBuffer = CreateStaticBuffer(gl, CubeCPUBuffer);
   const CubeProgram = CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
+
+  if (!CubeBuffer || !CubeProgram) return alert("Error initializing program");
+
   const VertexPositionAttributeLocation = gl.getAttribLocation(
     CubeProgram,
     "VertexPosition"
@@ -118,7 +120,7 @@ function main() {
     CubeProgram,
     "matViewProj"
   ) as WebGLUniformLocation;
-  let modelMatrix = CreateTransformations(null, null, null);
+  let modelMatrix = CreateTransformations(undefined, undefined, undefined);
   let matView = mat4.create(); //Identity matrices
   const matProj = mat4.create();
   const matViewProj = mat4.create();
@@ -221,7 +223,7 @@ function updateCameraPosition(
   vec3.add(camera.position, camera.position, movement);
 }
 
-function getViewMatrix(camera: Camera): mat4 {
+function getViewMatrix(camera: Camera) {
   let viewMatrix = mat4.create();
   let target = vec3.create();
   vec3.add(target, camera.position, camera.front); // Look-at target

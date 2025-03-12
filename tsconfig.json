@@ -6,7 +6,8 @@
 		"sourceMap": true,
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
-    "moduleResolution": "nodenext"
+    "moduleResolution": "nodenext",
+    "strict": true
 	},
 	"include": ["src"]
 }

@@ -5,14 +5,14 @@ export function CreateProgram(
   gl: WebGL2RenderingContext,
   VertexShaderCode: string,
   FragmentShaderCode: string
-): WebGLProgram | undefined {
+) {
   const VertexShader = CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
   const FragmentShader = CreateShader(
     gl,
     gl.FRAGMENT_SHADER,
     FragmentShaderCode
   );
-  const Program = gl.createProgram() as WebGLProgram;
+  const Program = gl.createProgram();
   gl.attachShader(Program, VertexShader);
   gl.attachShader(Program, FragmentShader);
   gl.linkProgram(Program);
@@ -30,7 +30,7 @@ export function CreateShader(
   gl: WebGL2RenderingContext,
   ShaderType: GLenum,
   ShaderCode: string
-): WebGLShader {
+) {
   const Shader = gl.createShader(ShaderType);
 
   if (!Shader) {
@@ -73,7 +73,7 @@ export function CreateTransformations(
   translation?: vec3,
   rotation?: vec3,
   scale?: vec3
-): mat4 {
+) {
   let transformMatrix = mat4.create();
   if (scale) {
     mat4.scale(transformMatrix, transformMatrix, scale);
@@ -94,7 +94,7 @@ export function CreateTransformations(
 export function CreateIndexBuffer(
   gl: WebGL2RenderingContext,
   indices: number[]
-): WebGLBuffer {
+) {
   const indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
@@ -110,7 +110,7 @@ export function CreateIndexBuffer(
     gl.STATIC_DRAW
   );
 
-  return indexBuffer as WebGLBuffer;
+  return indexBuffer;
 }
 
 export function create3dPosColorInterleavedVao(
@@ -119,7 +119,7 @@ export function create3dPosColorInterleavedVao(
   indexBuffer: WebGLBuffer,
   posAttrib: number,
   colorAttrib: number
-): WebGLVertexArrayObject {
+) {
   const vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
 
@@ -151,5 +151,5 @@ export function create3dPosColorInterleavedVao(
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // Not sure if necessary, but not a bad idea.
 
-  return vao as WebGLVertexArrayObject;
+  return vao;
 }
