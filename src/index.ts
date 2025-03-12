@@ -8,17 +8,18 @@ import {
   CreateTransformations
 } from "./gl-utilities";
 import { isPointerLocked, toRadians } from "./misc_functions";
+
 class Camera {
   position: vec3;
-  sensitivity = 0.1;
-  yaw = -90; // Left right rotation in degrees
-  pitch = 0; // Up down rotation in degrees
+  sensitivity: number = 0.1;
+  yaw: number = -90; // Left right rotation in degrees
+  pitch: number = 0; // Up down rotation in degrees
   //Computed Dynamically
-  front = vec3.fromValues(0, 0, -1);
-  right = vec3.fromValues(1, 0, 0);
+  front: vec3 = vec3.fromValues(0, 0, -1);
+  right: vec3 = vec3.fromValues(1, 0, 0);
+  up: vec3 = vec3.fromValues(0, 1, 0);
+  speed: number = 0;
 
-  up = vec3.fromValues(0, 1, 0);
-  speed = 0;
   constructor(
     position: vec3,
     yaw: number,
@@ -33,6 +34,7 @@ class Camera {
     this.speed = speed;
     this.UpdateCameraVectors();
   }
+
   //enables Camera.XPosition instead of Camera.position[0]
   get XPosition() {
     return this.position[0];
@@ -41,19 +43,20 @@ class Camera {
     this.position[0] = value;
   }
   get YPosition() {
-    return this.position[0];
+    return this.position[1];
   }
   set YPosition(value) {
-    this.position[0] = value;
+    this.position[1] = value;
   }
   get ZPosition() {
-    return this.position[0];
+    return this.position[2];
   }
   set ZPosition(value) {
-    this.position[0] = value;
+    this.position[2] = value;
   }
+
   UpdateCameraVectors() {
-    let front = vec3.create();
+    let front: vec3 = vec3.create();
     front[0] = Math.cos(toRadians(this.yaw)) * Math.cos(toRadians(this.pitch));
     front[1] = Math.sin(toRadians(this.pitch));
     front[2] = Math.sin(toRadians(this.yaw)) * Math.cos(toRadians(this.pitch));
@@ -62,18 +65,23 @@ class Camera {
     vec3.normalize(this.right, this.right);
   }
 }
+
 function main() {
-  const kMainCanvasId = "#MainCanvas";
-  const canvas = document.getElementById(kMainCanvasId) as HTMLCanvasElement;
+  const kMainCanvasId: string = "#MainCanvas";
+  const canvas: HTMLCanvasElement = document.getElementById(
+    kMainCanvasId
+  ) as HTMLCanvasElement;
   canvas.width = window.innerWidth * devicePixelRatio;
   canvas.height = window.innerHeight * devicePixelRatio;
-  canvas.onmousedown = function (event) {
+  canvas.onmousedown = (event: MouseEvent) => {
     canvas.requestPointerLock();
     canvas.requestFullscreen();
   };
 
   // Initialize the GL context
-  const gl = canvas.getContext("webgl2");
+  const gl: WebGL2RenderingContext = canvas.getContext(
+    "webgl2"
+  ) as WebGL2RenderingContext;
   gl.viewport(0, 0, canvas.width, canvas.height);
 
   window.addEventListener("resize", () => {
@@ -82,45 +90,59 @@ function main() {
 
   gl.enable(gl.DEPTH_TEST);
   gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
-  const keysPressed = {};
+  const keysPressed: { [key: string]: boolean } = {};
   addKeys(keysPressed);
+
   // Only continue if WebGL is available and working
   if (gl === null) {
     alert(
       "Unable to initialize WebGL. Your browser or machine may not support it."
     );
-
     return;
   }
 
   // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
-  const CubeCPUBuffer = new Float32Array(CubeVertices);
+  const CubeCPUBuffer: Float32Array = new Float32Array(CubeVertices);
   const CubeBuffer = CreateStaticBuffer(gl, CubeCPUBuffer);
-  const CubeProgram = CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
-  const VertexPositionAttributeLocation = gl.getAttribLocation(
+  const CubeProgram: WebGLProgram = CreateProgram(
+    gl,
+    VertexShaderCode,
+    FragmentShaderCode
+  );
+  const VertexPositionAttributeLocation: number = gl.getAttribLocation(
     CubeProgram,
     "VertexPosition"
   );
-  const VertexColorAttributeLocation = gl.getAttribLocation(
+  const VertexColorAttributeLocation: number = gl.getAttribLocation(
     CubeProgram,
     "VertexColor"
   );
 
-  const MatrixTransformUniformLocation = gl.getUniformLocation(
+  const MatrixTransformUniformLocation: WebGLUniformLocation =
+    gl.getUniformLocation(
+      CubeProgram,
+      "MatrixTransform"
+    ) as WebGLUniformLocation;
+  const matViewProjUniform: WebGLUniformLocation = gl.getUniformLocation(
     CubeProgram,
-    "MatrixTransform"
-  );
-  const matViewProjUniform = gl.getUniformLocation(CubeProgram, "matViewProj");
-  let modelMatrix = CreateTransformations(null, null, null);
-  let matView = mat4.create(); //Identity matrices
-  const matProj = mat4.create();
-  const matViewProj = mat4.create();
+    "matViewProj"
+  ) as WebGLUniformLocation;
+  let modelMatrix: mat4 = CreateTransformations(null, null, null);
+  let matView: mat4 = mat4.create(); //Identity matrices
+  const matProj: mat4 = mat4.create();
+  const matViewProj: mat4 = mat4.create();
 
-  const MainCamera = new Camera(vec3.fromValues(0, 0, 3), -90, 0, 0.1, 0.05);
-  let lastRenderTime = 0;
-  const fps = 60;
-  const fpsInterval = 1000 / fps; // 60 FPS
-  canvas.addEventListener("mousemove", (event) => {
+  const MainCamera: Camera = new Camera(
+    vec3.fromValues(0, 0, 3),
+    -90,
+    0,
+    0.1,
+    0.05
+  );
+  let lastRenderTime: number = 0;
+  const fps: number = 60;
+  const fpsInterval: number = 1000 / fps; // 60 FPS
+  canvas.addEventListener("mousemove", (event: MouseEvent) => {
     if (isPointerLocked()) {
       let { movementX, movementY } = event;
 
@@ -134,6 +156,7 @@ function main() {
       MainCamera.UpdateCameraVectors();
     }
   });
+
   const frame = (timestamp: number) => {
     if (timestamp - lastRenderTime < fpsInterval) {
       requestAnimationFrame(frame);
@@ -147,6 +170,7 @@ function main() {
     requestAnimationFrame(frame);
     //The function repeats over and over at 60 fps because it calls itself
   };
+
   const render = () => {
     mat4.multiply(
       modelMatrix,
@@ -160,7 +184,7 @@ function main() {
     gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
     gl.uniformMatrix4fv(matViewProjUniform, false, matViewProj);
     //Create vertice array object
-    const cubeVao = create3dPosColorInterleavedVao(
+    const cubeVao: WebGLVertexArrayObject = create3dPosColorInterleavedVao(
       gl,
       CubeBuffer.position,
       CubeBuffer.indices,
@@ -189,9 +213,13 @@ function main() {
   };
   requestAnimationFrame(frame);
 }
-function updateCameraPosition(camera: Camera, keys: Object) {
-  let velocity = camera.speed;
-  let movement = vec3.create();
+
+function updateCameraPosition(
+  camera: Camera,
+  keys: { [key: string]: boolean }
+) {
+  let velocity: number = camera.speed;
+  let movement: vec3 = vec3.create();
   //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
   if (keys["KeyW"])
     vec3.scaleAndAdd(movement, movement, camera.front, velocity); // Forward
@@ -207,13 +235,15 @@ function updateCameraPosition(camera: Camera, keys: Object) {
 
   vec3.add(camera.position, camera.position, movement);
 }
-function getViewMatrix(camera: Camera) {
-  let viewMatrix = mat4.create();
-  let target = vec3.create();
+
+function getViewMatrix(camera: Camera): mat4 {
+  let viewMatrix: mat4 = mat4.create();
+  let target: vec3 = vec3.create();
   vec3.add(target, camera.position, camera.front); // Look-at target
   mat4.lookAt(viewMatrix, camera.position, target, camera.up);
   return viewMatrix;
 }
+
 function resizeCanvas(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement) {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -221,13 +251,14 @@ function resizeCanvas(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement) {
   console.log(canvas.width);
 }
 
-function addKeys(keys: Object) {
-  window.addEventListener("keydown", (event) => {
+function addKeys(keys: { [key: string]: boolean }) {
+  window.addEventListener("keydown", (event: KeyboardEvent) => {
     keys[event.code] = true;
   });
 
-  window.addEventListener("keyup", (event) => {
+  window.addEventListener("keyup", (event: KeyboardEvent) => {
     keys[event.code] = false;
   });
 }
+
 main();
