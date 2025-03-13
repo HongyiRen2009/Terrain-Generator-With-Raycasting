@@ -1,5 +1,5 @@
-import { glMatrix, mat4, vec3 } from "gl-matrix";
-import { CubeVertices } from "./geomatry";
+import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
+import { CubeVertices, WirFrameCubeIndices } from "./geomatry";
 import { FragmentShaderCode, VertexShaderCode } from "./glsl";
 import {
   create3dPosColorInterleavedVao,
@@ -8,6 +8,7 @@ import {
   CreateTransformations
 } from "./gl-utilities";
 import { isPointerLocked, toRadians } from "./misc_functions";
+import { Chunk } from "./marching_cubes";
 
 class Camera {
   position: vec3;
@@ -98,7 +99,7 @@ function main() {
 
   // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
   const CubeCPUBuffer = new Float32Array(CubeVertices);
-  const CubeBuffer = CreateStaticBuffer(gl, CubeCPUBuffer);
+  const CubeBuffer = CreateStaticBuffer(gl, CubeCPUBuffer, WirFrameCubeIndices);
   const CubeProgram = CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
 
   if (!CubeBuffer || !CubeProgram) return alert("Error initializing program");
@@ -143,6 +144,9 @@ function main() {
       MainCamera.UpdateCameraVectors();
     }
   });
+  const Chunks = [
+    new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
+  ];
 
   const frame = (timestamp: number) => {
     if (timestamp - lastRenderTime < fpsInterval) {
@@ -159,48 +163,60 @@ function main() {
   };
 
   const render = () => {
-    mat4.multiply(
-      modelMatrix,
-      modelMatrix,
-      CreateTransformations(
-        vec3.fromValues(0, 0, 0),
-        vec3.fromValues(0.1, 0.1, 0),
-        vec3.fromValues(1, 1, 1)
-      )
-    );
-    gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
-    gl.uniformMatrix4fv(matViewProjUniform, false, matViewProj);
-    //Create vertice array object
-    const cubeVao = create3dPosColorInterleavedVao(
-      gl,
-      CubeBuffer.position,
-      CubeBuffer.indices,
-      VertexPositionAttributeLocation,
-      VertexColorAttributeLocation
-    );
-    //equivalent GLM (C++): matViewProj = matProj*matView
-    matView = getViewMatrix(MainCamera);
-    mat4.perspective(
-      matProj,
-      /* fovy= */ glMatrix.toRadian(80),
-      /* aspectRatio= */ canvas.width / canvas.height,
-      /* near, far= */ 0.1,
-      100.0
-    );
-    mat4.multiply(matViewProj, matProj, matView);
-
     // Set clear color to black, fully opaque
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
     // Clear the color buffer with specified clear color
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.bindVertexArray(cubeVao);
+    const DrawWireFrameCube = (TransformationMatrix: mat4) => {
+      gl.uniformMatrix4fv(
+        MatrixTransformUniformLocation,
+        false,
+        TransformationMatrix
+      );
+      gl.uniformMatrix4fv(matViewProjUniform, false, matViewProj);
+      //Create vertice array object
+      const cubeVao = create3dPosColorInterleavedVao(
+        gl,
+        CubeBuffer.position,
+        CubeBuffer.indices,
+        VertexPositionAttributeLocation,
+        VertexColorAttributeLocation
+      );
+      //equivalent GLM (C++): matViewProj = matProj*matView
+      matView = getViewMatrix(MainCamera);
+      mat4.perspective(
+        matProj,
+        /* fovy= */ glMatrix.toRadian(80),
+        /* aspectRatio= */ canvas.width / canvas.height,
+        /* near, far= */ 0.1,
+        100.0
+      );
+      mat4.multiply(matViewProj, matProj, matView);
 
-    gl.drawElements(gl.TRIANGLES, 36 /*Vertex count */, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(null);
+      gl.bindVertexArray(cubeVao);
+
+      gl.drawElements(gl.LINES, 48 /*Vertex count */, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(null);
+    };
+
+    for (let i = 0; i < Chunks.length; i++) {
+      for (let x = 0; i < Chunks[i].GridSize[0]; x++) {
+        for (let y = 0; i < Chunks[i].GridSize[1]; y++) {
+          for (let z = 0; i < Chunks[i].GridSize[2]; z++) {
+            DrawWireFrameCube(
+              CreateTransformations(
+                vec3.fromValues(x, y, z),
+                undefined,
+                undefined
+              )
+            );
+          }
+        }
+      }
+    }
   };
   requestAnimationFrame(frame);
 }
-
 function updateCameraPosition(
   camera: Camera,
   keys: { [key: string]: boolean }

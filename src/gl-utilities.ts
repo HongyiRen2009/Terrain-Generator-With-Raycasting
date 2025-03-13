@@ -1,5 +1,5 @@
 import { mat4, vec3 } from "gl-matrix";
-import { cubeIndices } from "./geomatry";
+import { CubeIndices, WirFrameCubeIndices } from "./geomatry";
 
 export function CreateProgram(
   gl: WebGL2RenderingContext,
@@ -51,7 +51,8 @@ export function CreateShader(
 
 export function CreateStaticBuffer(
   gl: WebGL2RenderingContext,
-  data: Float32Array
+  CPUPositionBuffer: Float32Array,
+  CPUIndexBuffer: number[]
 ) {
   const buffer = gl.createBuffer();
   if (!buffer) {
@@ -59,13 +60,13 @@ export function CreateStaticBuffer(
     return;
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-  const indexBuffer = CreateIndexBuffer(gl, cubeIndices);
+  gl.bufferData(gl.ARRAY_BUFFER, CPUPositionBuffer, gl.STATIC_DRAW);
+  const IndexBuffer = CreateIndexBuffer(gl, CPUIndexBuffer);
 
   return {
     position: buffer,
     // color: colorBuffer,
-    indices: indexBuffer
+    indices: IndexBuffer
   };
 }
 
