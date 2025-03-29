@@ -200,9 +200,9 @@ function main() {
     };
 
     for (let i = 0; i < Chunks.length; i++) {
-      for (let x = 0; i < Chunks[i].GridSize[0]; x++) {
-        for (let y = 0; i < Chunks[i].GridSize[1]; y++) {
-          for (let z = 0; i < Chunks[i].GridSize[2]; z++) {
+      for (let x = 0; x < 5; x++) {
+        for (let y = 0; y < 5; y++) {
+          for (let z = 0; z < 5; z++) {
             DrawWireFrameCube(
               CreateTransformations(
                 vec3.fromValues(x, y, z),
