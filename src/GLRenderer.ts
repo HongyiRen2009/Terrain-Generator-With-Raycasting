@@ -91,16 +91,6 @@ export class GLRenderer {
       this.VertexPositionAttributeLocation,
       this.VertexColorAttributeLocation
     );
-    //equivalent GLM (C++): matViewProj = matProj*matView
-    this.matView = this.camera.getViewMatrix();
-    mat4.perspective(
-      this.matProj,
-      /* fovy= */ glMatrix.toRadian(80),
-      /* aspectRatio= */ this.canvas.width / this.canvas.height,
-      /* near, far= */ 0.1,
-      100.0
-    );
-    mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
     this.gl.bindVertexArray(cubeVao);
 
@@ -119,6 +109,17 @@ export class GLRenderer {
     // Clear the color buffer with specified clear color
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
+    // Calculate view and projection matrices once per frame
+    this.matView = this.camera.getViewMatrix();
+    mat4.perspective(
+      this.matProj,
+      /* fovy= */ glMatrix.toRadian(80),
+      /* aspectRatio= */ this.canvas.width / this.canvas.height,
+      /* near, far= */ 0.1,
+      100.0
+    );
+    mat4.multiply(this.matViewProj, this.matProj, this.matView);
+
     const Chunks = [
       new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
     ];
@@ -127,9 +128,6 @@ export class GLRenderer {
       for (let x = 0; x < 5; x++) {
         for (let y = 0; y < 5; y++) {
           for (let z = 0; z < 5; z++) {
-            if (x === 0 && y === 0 && z === 0) {
-              continue;
-            }
             this.DrawWireFrameCube(
               CreateTransformations(
                 vec3.fromValues(x, y, z),
