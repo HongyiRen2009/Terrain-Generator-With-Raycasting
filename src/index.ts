@@ -65,10 +65,11 @@ function main() {
       requestAnimationFrame(frame);
       return;
     }
+    const timePassed = timestamp - lastRenderTime;
     lastRenderTime = timestamp;
     if (isPointerLocked()) {
       console.log("Updating camera position");
-      updateCameraPosition(MainCamera, keysPressed);
+      updateCameraPosition(MainCamera, keysPressed, timePassed);
     }
     renderer.render();
     requestAnimationFrame(frame);
@@ -80,9 +81,10 @@ function main() {
 
 function updateCameraPosition(
   camera: Camera,
-  keys: { [key: string]: boolean }
+  keys: { [key: string]: boolean },
+  timePassed: number
 ) {
-  let velocity = camera.speed;
+  let velocity = camera.speed * timePassed;
   let movement = vec3.create();
 
   //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
