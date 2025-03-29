@@ -76,52 +76,49 @@ export class GLRenderer {
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
   }
+  DrawWireFrameCube(TransformationMatrix: mat4) {
+    this.gl.uniformMatrix4fv(
+      this.MatrixTransformUniformLocation,
+      false,
+      TransformationMatrix
+    );
+    this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
+    //Create vertice array object
+    const cubeVao = create3dPosColorInterleavedVao(
+      this.gl,
+      this.CubeBuffer!.position,
+      this.CubeBuffer!.indices,
+      this.VertexPositionAttributeLocation,
+      this.VertexColorAttributeLocation
+    );
+    //equivalent GLM (C++): matViewProj = matProj*matView
+    this.matView = this.camera.getViewMatrix();
+    mat4.perspective(
+      this.matProj,
+      /* fovy= */ glMatrix.toRadian(80),
+      /* aspectRatio= */ this.canvas.width / this.canvas.height,
+      /* near, far= */ 0.1,
+      100.0
+    );
+    mat4.multiply(this.matViewProj, this.matProj, this.matView);
+
+    this.gl.bindVertexArray(cubeVao);
+
+    this.gl.drawElements(
+      this.gl.LINES,
+      48 /*Vertex count */,
+      this.gl.UNSIGNED_SHORT,
+      0
+    );
+    this.gl.bindVertexArray(null);
+  }
 
   render() {
     // Set clear color to black, fully opaque
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
     // Clear the color buffer with specified clear color
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    const DrawWireFrameCube = (TransformationMatrix: mat4) => {
-      this.gl.uniformMatrix4fv(
-        this.MatrixTransformUniformLocation,
-        false,
-        TransformationMatrix
-      );
-      this.gl.uniformMatrix4fv(
-        this.matViewProjUniform,
-        false,
-        this.matViewProj
-      );
-      //Create vertice array object
-      const cubeVao = create3dPosColorInterleavedVao(
-        this.gl,
-        this.CubeBuffer!.position,
-        this.CubeBuffer!.indices,
-        this.VertexPositionAttributeLocation,
-        this.VertexColorAttributeLocation
-      );
-      //equivalent GLM (C++): matViewProj = matProj*matView
-      this.matView = this.camera.getViewMatrix();
-      mat4.perspective(
-        this.matProj,
-        /* fovy= */ glMatrix.toRadian(80),
-        /* aspectRatio= */ this.canvas.width / this.canvas.height,
-        /* near, far= */ 0.1,
-        100.0
-      );
-      mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
-      this.gl.bindVertexArray(cubeVao);
-
-      this.gl.drawElements(
-        this.gl.LINES,
-        48 /*Vertex count */,
-        this.gl.UNSIGNED_SHORT,
-        0
-      );
-      this.gl.bindVertexArray(null);
-    };
     const Chunks = [
       new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
     ];
@@ -130,7 +127,10 @@ export class GLRenderer {
       for (let x = 0; x < 5; x++) {
         for (let y = 0; y < 5; y++) {
           for (let z = 0; z < 5; z++) {
-            DrawWireFrameCube(
+            if (x === 0 && y === 0 && z === 0) {
+              continue;
+            }
+            this.DrawWireFrameCube(
               CreateTransformations(
                 vec3.fromValues(x, y, z),
                 undefined,
