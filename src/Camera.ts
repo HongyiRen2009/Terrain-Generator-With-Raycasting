@@ -10,7 +10,7 @@ export class Camera {
   front = vec3.fromValues(0, 0, -1);
   right = vec3.fromValues(1, 0, 0);
   up = vec3.fromValues(0, 1, 0);
-  speed = 0.05;
+  speed = 0.005;
 
   constructor(position: vec3) {
     this.position = position;
