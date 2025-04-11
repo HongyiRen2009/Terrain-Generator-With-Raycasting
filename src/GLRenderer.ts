@@ -1,5 +1,9 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
-import { CubeVertices, WirFrameCubeIndices } from "./geomatry";
+import {
+  CubeVertices,
+  WirFrameCubeIndices,
+  TriangleVertices
+} from "./geomatry";
 import {
   create3dPosColorInterleavedVao,
   CreateProgram,
@@ -15,7 +19,8 @@ export class GLRenderer {
   canvas: HTMLCanvasElement;
   camera: Camera;
 
-  CubeBuffer: { position: WebGLBuffer; indices: WebGLBuffer } | undefined;
+  CubeBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
+  TriangleBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
 
   MatrixTransformUniformLocation: WebGLUniformLocation;
   matViewProjUniform: WebGLUniformLocation;
@@ -47,6 +52,11 @@ export class GLRenderer {
       CubeCPUBuffer,
       WirFrameCubeIndices
     );
+
+    const TriangleCPUBuffer = new Float32Array(TriangleVertices);
+    const TriangleBuffer = CreateStaticBuffer(gl, TriangleCPUBuffer, [0, 1, 2]);
+    this.TriangleBuffer = TriangleBuffer;
+
     const CubeProgram = CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
 
     if (!this.CubeBuffer || !CubeProgram) {
@@ -87,8 +97,8 @@ export class GLRenderer {
     //Create vertice array object
     const triangleVao = create3dPosColorInterleavedVao(
       this.gl,
-      this.CubeBuffer!.position,
-      this.CubeBuffer!.indices,
+      this.TriangleBuffer.position,
+      this.TriangleBuffer.indices,
       this.VertexPositionAttributeLocation,
       this.VertexColorAttributeLocation
     );
@@ -97,7 +107,7 @@ export class GLRenderer {
 
     this.gl.drawElements(
       this.gl.TRIANGLES,
-      48 /*Vertex count */,
+      3 /*Vertex count */,
       this.gl.UNSIGNED_SHORT,
       0
     );
