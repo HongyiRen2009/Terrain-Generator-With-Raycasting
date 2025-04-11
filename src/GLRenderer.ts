@@ -190,33 +190,6 @@ export class GLRenderer {
     }
 
     this.drawMesh(CreateTransformations(vec3.fromValues(0, 0, 0)));
-
-    // // marching cubes
-    // const mesh = march(Chunks[0]);
-    // const positionBuffer = this.gl.createBuffer();
-    // this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer);
-    // this.gl.bufferData(
-    //   this.gl.ARRAY_BUFFER,
-    //   new Float32Array(
-    //     // mesh.flatMap((triangle) => triangle.map((vertex) => vertex.x))
-    //     [0, 0, 0, 0, 1, 1, 1, 1, 1]
-    //   ),
-    //   this.gl.STATIC_DRAW
-    // );
-
-    // const vao = this.gl.createVertexArray();
-    // this.gl.bindVertexArray(vao);
-    // this.gl.enableVertexAttribArray(this.VertexPositionAttributeLocation);
-    // this.gl.vertexAttribPointer(
-    //   this.VertexPositionAttributeLocation,
-    //   3,
-    //   this.gl.FLOAT,
-    //   false,
-    //   0,
-    //   0
-    // );
-
-    // this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
   }
 }
 
