@@ -1,8 +1,8 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
 import {
   CubeVertices,
-  WirFrameCubeIndices,
-  TriangleVertices
+  TriangleVertices,
+  WirFrameCubeIndices
 } from "./geomatry";
 import {
   create3dPosColorInterleavedVao,
@@ -12,7 +12,7 @@ import {
 } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import { Chunk, march } from "./marching_cubes";
+import { Chunk, march, meshToVertices } from "./marching_cubes";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -21,6 +21,8 @@ export class GLRenderer {
 
   CubeBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
   TriangleBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
+
+  MeshSize: number;
 
   MatrixTransformUniformLocation: WebGLUniformLocation;
   matViewProjUniform: WebGLUniformLocation;
@@ -53,9 +55,23 @@ export class GLRenderer {
       WirFrameCubeIndices
     );
 
-    const TriangleCPUBuffer = new Float32Array(TriangleVertices);
-    const TriangleBuffer = CreateStaticBuffer(gl, TriangleCPUBuffer, [0, 1, 2]);
-    this.TriangleBuffer = TriangleBuffer;
+    //TODO: this is not the right place to be doing this
+    const triangleMesh = march(
+      new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
+    );
+    const triangleVertices = meshToVertices(triangleMesh);
+    console.log(triangleVertices);
+    // since we don't reuse any vertices right now, each index is unique
+    const triangleIndices = Array(triangleMesh.length * 3)
+      .fill(0)
+      .map((_, i) => i);
+
+    this.MeshSize = triangleMesh.length;
+    this.TriangleBuffer = CreateStaticBuffer(
+      gl,
+      triangleVertices,
+      triangleIndices
+    );
 
     const CubeProgram = CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
 
@@ -87,7 +103,7 @@ export class GLRenderer {
     this.matViewProj = mat4.create();
   }
 
-  drawTriangle(TransformationMatrix: mat4) {
+  drawMesh(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
       this.MatrixTransformUniformLocation,
       false,
@@ -105,12 +121,7 @@ export class GLRenderer {
 
     this.gl.bindVertexArray(triangleVao);
 
-    this.gl.drawElements(
-      this.gl.TRIANGLES,
-      3 /*Vertex count */,
-      this.gl.UNSIGNED_SHORT,
-      0
-    );
+    this.gl.drawArrays(this.gl.TRIANGLES, 0, this.MeshSize * 3);
     this.gl.bindVertexArray(null);
   }
 
@@ -178,7 +189,7 @@ export class GLRenderer {
       }
     }
 
-    this.drawTriangle(CreateTransformations(vec3.fromValues(0, 0, 0)));
+    this.drawMesh(CreateTransformations(vec3.fromValues(0, 0, 0)));
 
     // // marching cubes
     // const mesh = march(Chunks[0]);

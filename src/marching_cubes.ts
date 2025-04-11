@@ -54,12 +54,51 @@ type Triangle = [Coordinate, Coordinate, Coordinate];
 type Mesh = Triangle[];
 
 export const march = (chunk: Chunk): Mesh => {
-  const triangle: Triangle = [
+  const triangle1: Triangle = [
     { x: 0, y: 0, z: 0 },
     { x: 1, y: 0, z: 0 },
     { x: 0, y: 1, z: 0 }
   ];
 
-  return [triangle];
+  const triangle2: Triangle = [
+    { x: 1, y: 1, z: 0 },
+    { x: 2, y: 1, z: 0 },
+    { x: 1, y: 2, z: 0 }
+  ];
+
+  const triangle3: Triangle = [
+    { x: 0, y: 0, z: 1 },
+    { x: 1, y: 0, z: 1 },
+    { x: 0, y: 1, z: 1 }
+  ];
+
+  const triangle4: Triangle = [
+    { x: 1, y: 1, z: 1 },
+    { x: 2, y: 1, z: 2 },
+    { x: 1, y: 2, z: 3 }
+  ];
+
+  return [triangle1, triangle2, triangle3, triangle4];
+};
+
+export const meshToVertices = (mesh: Mesh): Float32Array => {
+  console.log({ mesh });
+  // for each vertex: x,y,z, r,g,b
+  const vertices = new Float32Array(mesh.length * 18);
+  // for each triangle
+  for (let i = 0; i < mesh.length; i++) {
+    // for each vertex in the triangle
+    for (let j = 0; j < 3; j++) {
+      const vertex = mesh[i][j];
+      vertices[i * 18 + j * 6 + 0] = vertex.x;
+      vertices[i * 18 + j * 6 + 1] = vertex.y;
+      vertices[i * 18 + j * 6 + 2] = vertex.z;
+      vertices[i * 18 + j * 6 + 3] = 1;
+      vertices[i * 18 + j * 6 + 4] = 1;
+      vertices[i * 18 + j * 6 + 5] = 1;
+    }
+  }
+
+  return vertices;
 };
 
