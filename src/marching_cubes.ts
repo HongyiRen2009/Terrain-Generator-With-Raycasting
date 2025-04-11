@@ -82,7 +82,6 @@ export const march = (chunk: Chunk): Mesh => {
 };
 
 export const meshToVertices = (mesh: Mesh): Float32Array => {
-  console.log({ mesh });
   // for each vertex: x,y,z, r,g,b
   const vertices = new Float32Array(mesh.length * 18);
   // for each triangle
@@ -93,9 +92,11 @@ export const meshToVertices = (mesh: Mesh): Float32Array => {
       vertices[i * 18 + j * 6 + 0] = vertex.x;
       vertices[i * 18 + j * 6 + 1] = vertex.y;
       vertices[i * 18 + j * 6 + 2] = vertex.z;
-      vertices[i * 18 + j * 6 + 3] = 1;
-      vertices[i * 18 + j * 6 + 4] = 1;
-      vertices[i * 18 + j * 6 + 5] = 1;
+
+      // change the colors based on the vertex position
+      vertices[i * 18 + j * 6 + 3] = [1, 0, 0][j];
+      vertices[i * 18 + j * 6 + 4] = [0, 1, 0][j];
+      vertices[i * 18 + j * 6 + 5] = [0, 0, 1][j];
     }
   }
 
