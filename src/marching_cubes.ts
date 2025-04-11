@@ -43,3 +43,23 @@ export class Chunk {
     }
   }
 }
+
+interface Coordinate {
+  x: number;
+  y: number;
+  z: number;
+}
+
+type Triangle = [Coordinate, Coordinate, Coordinate];
+type Mesh = Triangle[];
+
+export const march = (chunk: Chunk): Mesh => {
+  const triangle: Triangle = [
+    { x: 0, y: 0, z: 0 },
+    { x: 1, y: 0, z: 0 },
+    { x: 0, y: 1, z: 0 }
+  ];
+
+  return [triangle];
+};
+

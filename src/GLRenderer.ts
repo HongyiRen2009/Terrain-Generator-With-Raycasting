@@ -8,7 +8,7 @@ import {
 } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import { Chunk } from "./marching_cubes";
+import { Chunk, march } from "./marching_cubes";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -76,6 +76,34 @@ export class GLRenderer {
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
   }
+
+  drawTriangle(TransformationMatrix: mat4) {
+    this.gl.uniformMatrix4fv(
+      this.MatrixTransformUniformLocation,
+      false,
+      TransformationMatrix
+    );
+    this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
+    //Create vertice array object
+    const triangleVao = create3dPosColorInterleavedVao(
+      this.gl,
+      this.CubeBuffer!.position,
+      this.CubeBuffer!.indices,
+      this.VertexPositionAttributeLocation,
+      this.VertexColorAttributeLocation
+    );
+
+    this.gl.bindVertexArray(triangleVao);
+
+    this.gl.drawElements(
+      this.gl.TRIANGLES,
+      48 /*Vertex count */,
+      this.gl.UNSIGNED_SHORT,
+      0
+    );
+    this.gl.bindVertexArray(null);
+  }
+
   DrawWireFrameCube(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
       this.MatrixTransformUniformLocation,
@@ -139,5 +167,35 @@ export class GLRenderer {
         }
       }
     }
+
+    this.drawTriangle(CreateTransformations(vec3.fromValues(0, 0, 0)));
+
+    // // marching cubes
+    // const mesh = march(Chunks[0]);
+    // const positionBuffer = this.gl.createBuffer();
+    // this.gl.bindBuffer(this.gl.ARRAY_BUFFER, positionBuffer);
+    // this.gl.bufferData(
+    //   this.gl.ARRAY_BUFFER,
+    //   new Float32Array(
+    //     // mesh.flatMap((triangle) => triangle.map((vertex) => vertex.x))
+    //     [0, 0, 0, 0, 1, 1, 1, 1, 1]
+    //   ),
+    //   this.gl.STATIC_DRAW
+    // );
+
+    // const vao = this.gl.createVertexArray();
+    // this.gl.bindVertexArray(vao);
+    // this.gl.enableVertexAttribArray(this.VertexPositionAttributeLocation);
+    // this.gl.vertexAttribPointer(
+    //   this.VertexPositionAttributeLocation,
+    //   3,
+    //   this.gl.FLOAT,
+    //   false,
+    //   0,
+    //   0
+    // );
+
+    // this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
   }
 }
+
