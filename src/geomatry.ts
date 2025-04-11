@@ -1,10 +1,10 @@
 export const TriangleVertices: readonly number[] = [
   // Top middle
-  0.0, 0.5, 0.0,
+  0.0, 0.5, 0.0, 1, 1, 1,
   // Bottom Left
-  -0.5, -0.5, 0.0,
+  -0.5, -0.5, 0.0, 1, 1, 1,
   // Bottom Right
-  0.5, -0.5, 0.0
+  0.5, -0.5, 0.0, 1, 1, 1
 ];
 export const CubeVertices: readonly number[] = [
   // X, Y, Z,       R, G, B
@@ -85,3 +85,4 @@ export const WirFrameCubeIndices = [
   // Left face
   20, 21, 21, 22, 22, 23, 23, 20
 ];
+
