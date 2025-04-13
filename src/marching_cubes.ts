@@ -1,5 +1,7 @@
 import { vec2, vec3 } from "gl-matrix";
-import { createNoise2D, createNoise3D } from "simplex-noise";
+
+import { createNoise3D } from "simplex-noise";
+import type { NoiseFunction3D } from "simplex-noise";
 
 const VERTICES = [
   [0, 0, 0],
@@ -298,11 +300,39 @@ export class Chunk {
   ChunkPosition: vec2;
   GridSize: vec3;
   Field: Float32Array;
+  noise: NoiseFunction3D;
+
   constructor(ChunkPosition: vec2, GridSize: vec3) {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
-    this.Field = new Float32Array(32 * 32 * 32).map((i) => Math.random()); //32 X width, 32 Z width and 32 height
+    this.noise = createNoise3D();
+    //@ts-ignore
+    window.__NOISE = this.noise.bind(this);
+    this.Field = this.generateFieldValues(); //32 X width, 32 Z width and 32 height
   }
+
+  generateFieldValues(): Float32Array {
+    const field = new Float32Array(32 * 32 * 32);
+
+    for (let x = 0; x < 32; x++) {
+      for (let y = 0; y < 32; y++) {
+        for (let z = 0; z < 32; z++) {
+          field[x + 32 * y + 32 * 32 * z] = this.noiseFunction(x, y, z);
+        }
+      }
+    }
+
+    return field;
+  }
+
+  noiseFunction(x: number, y: number, z: number): number {
+    const noiseScaleFactor = 10;
+    // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
+    const simplexNoise = this.noise(x / 10, y / 10, z / 10);
+
+    return (simplexNoise + 1) / 2;
+  }
+
   getTerrainValue(x: number, y: number, z: number) {
     return this.Field[
       x + y * this.GridSize[0] + z * this.GridSize[0] * this.GridSize[1]
