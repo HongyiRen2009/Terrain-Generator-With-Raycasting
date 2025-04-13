@@ -1,9 +1,5 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
-import {
-  CubeVertices,
-  TriangleVertices,
-  WirFrameCubeIndices
-} from "./geomatry";
+import { CubeVertices, WirFrameCubeIndices } from "./geomatry";
 import {
   create3dPosColorInterleavedVao,
   CreateProgram,
