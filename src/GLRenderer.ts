@@ -12,7 +12,7 @@ import {
 } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import { Chunk, march, meshToVertices } from "./marching_cubes";
+import { Chunk, meshToVertices } from "./marching_cubes";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -62,7 +62,7 @@ export class GLRenderer {
     // console.log(chunk.CreateMarchingCubes());
 
     const triangleVertices = meshToVertices(triangleMesh);
-    console.log(triangleVertices);
+
     // since we don't reuse any vertices right now, each index is unique
     const triangleIndices = Array(triangleMesh.length * 3)
       .fill(0)

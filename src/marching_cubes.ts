@@ -1,9 +1,9 @@
-import { vec2, vec3 } from "gl-matrix";
+import { vec2, vec3, vec4 } from "gl-matrix";
 
 import { createNoise3D } from "simplex-noise";
 import type { NoiseFunction3D } from "simplex-noise";
 
-const VERTICES = [
+const VERTICES: [number, number, number][] = [
   [0, 0, 0],
   [1, 0, 0],
   [1, 1, 0],
@@ -287,28 +287,26 @@ const CASES: [number, number, number][][] = [[],
  [[3, 0, 8]],
  []];
 
-interface Coordinate {
-  x: number;
-  y: number;
-  z: number;
-}
-
-type Triangle = [Coordinate, Coordinate, Coordinate];
+type Triangle = [vec3, vec3, vec3];
 type Mesh = Triangle[];
 
+//!NOTE: current code assumes a chunk size of 32x32x32
 export class Chunk {
   ChunkPosition: vec2;
   GridSize: vec3;
   Field: Float32Array;
-  noise: NoiseFunction3D;
+
+  simplexNoise: NoiseFunction3D;
 
   constructor(ChunkPosition: vec2, GridSize: vec3) {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
-    this.noise = createNoise3D();
-    //@ts-ignore
-    window.__NOISE = this.noise.bind(this);
-    this.Field = this.generateFieldValues(); //32 X width, 32 Z width and 32 height
+    this.simplexNoise = createNoise3D();
+    this.Field = this.generateFieldValues();
+  }
+
+  chunkCoordinateToIndex(c: vec3): number {
+    return c[0] + c[1] * 32 + c[2] * 32 * 32;
   }
 
   generateFieldValues(): Float32Array {
@@ -317,7 +315,10 @@ export class Chunk {
     for (let x = 0; x < 32; x++) {
       for (let y = 0; y < 32; y++) {
         for (let z = 0; z < 32; z++) {
-          field[x + 32 * y + 32 * 32 * z] = this.noiseFunction(x, y, z);
+          let c = vec3.fromValues(x, y, z);
+
+          const idx = this.chunkCoordinateToIndex(c);
+          field[idx] = this.noiseFunction(c);
         }
       }
     }
@@ -325,29 +326,26 @@ export class Chunk {
     return field;
   }
 
-  noiseFunction(x: number, y: number, z: number): number {
+  noiseFunction(c: vec3): number {
     const noiseScaleFactor = 10;
     // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
-    const simplexNoise = this.noise(x / 10, y / 10, z / 10);
+    const simplexNoise = this.simplexNoise(c[0] / 10, c[1] / 10, c[2] / 10);
 
     return (simplexNoise + 1) / 2;
   }
 
-  getTerrainValue(x: number, y: number, z: number) {
-    return this.Field[
-      x + y * this.GridSize[0] + z * this.GridSize[0] * this.GridSize[1]
-    ];
+  set(c: vec3, value: number) {
+    this.Field[this.chunkCoordinateToIndex(c)] = value;
   }
 
-  isSolid(x: number, y: number, z: number) {
-    return this.getTerrainValue(x, y, z) > 0.5;
+  getTerrainValue(c: vec3) {
+    return this.Field[this.chunkCoordinateToIndex(c)];
   }
 
-  set(x: number, y: number, z: number, value: number) {
-    this.Field[
-      x + y * this.GridSize[0] + z * this.GridSize[0] * this.GridSize[1]
-    ] = value;
+  isSolid(c: vec3) {
+    return this.getTerrainValue(c) > 0.5;
   }
+
   GenerateTerrainChunk() {}
 
   CreateMarchingCubes(): Mesh {
@@ -356,8 +354,10 @@ export class Chunk {
     for (let x = 0; x < this.GridSize[0] - 1; x++) {
       for (let y = 0; y < this.GridSize[1] - 1; y++) {
         for (let z = 0; z < this.GridSize[2] - 1; z++) {
-          const cubeCase = this.GenerateCase(x, y, z);
-          mesh.push(...this.caseToMesh(x, y, z, cubeCase));
+          let c = vec3.fromValues(x, y, z);
+
+          const cubeCase = this.GenerateCase(c);
+          mesh.push(...caseToMesh(c, cubeCase));
         }
       }
     }
@@ -365,7 +365,7 @@ export class Chunk {
     return mesh;
   }
 
-  GenerateCase(x: number, y: number, z: number): number {
+  GenerateCase(cubeCoordinates: vec3): number {
     /*
       Given the coordinate of a cube in the world,
       return the corresponding index into the marching cubes lookup.
@@ -375,83 +375,47 @@ export class Chunk {
     let caseIndex = 0;
 
     for (let i = 0; i < VERTICES.length; i++) {
-      const vertexOffset = VERTICES[i];
+      let vertexOffset = vec3.fromValues(...VERTICES[i]);
 
-      // the coordinate of the vertex
-      const [nx, ny, nz] = [
-        x + vertexOffset[0],
-        y + vertexOffset[1],
-        z + vertexOffset[2]
-      ];
+      vec3.add(vertexOffset, vertexOffset, cubeCoordinates);
 
-      const isTerrain = Number(this.isSolid(nx, ny, nz));
+      const isTerrain = Number(this.isSolid(vertexOffset));
       caseIndex += isTerrain << i;
     }
 
     return caseIndex;
   }
-
-  caseToMesh(x: number, y: number, z: number, caseNumber: number): Mesh {
-    const caseMesh: Mesh = [];
-    const caseLookup = CASES[caseNumber];
-    for (const triangleLookup of caseLookup) {
-      // each triangle is represented as list of the three edges which it is located on
-      // for now, place the actual triangle's vertices as the midpoint of the edge
-      let triangle = triangleLookup.map((edgeIndex) =>
-        this.edgeIndexToCoordinate(x, y, z, edgeIndex)
-      ) as Triangle;
-      caseMesh.push(triangle);
-    }
-
-    return caseMesh;
-  }
-
-  // eventually this would take into account weight but for now just places it in the middle of the edge
-  edgeIndexToCoordinate(
-    x: number,
-    y: number,
-    z: number,
-    edgeIndex: number
-  ): Coordinate {
-    const [a, b] = EDGES[edgeIndex];
-
-    const [x1, y1, z1] = VERTICES[a];
-    const [x2, y2, z2] = VERTICES[b];
-
-    return {
-      x: (x1 + x2) / 2 + x,
-      y: (y1 + y2) / 2 + y,
-      z: (z1 + z2) / 2 + z
-    };
-  }
 }
 
-export const march = (chunk: Chunk): Mesh => {
-  const triangle1: Triangle = [
-    { x: 0, y: 0, z: 0 },
-    { x: 1, y: 0, z: 0 },
-    { x: 0, y: 1, z: 0 }
-  ];
+const caseToMesh = (c: vec3, caseNumber: number): Mesh => {
+  const caseMesh: Mesh = [];
+  const caseLookup = CASES[caseNumber];
+  for (const triangleLookup of caseLookup) {
+    // each triangle is represented as list of the three edges which it is located on
+    // for now, place the actual triangle's vertices as the midpoint of the edge
+    let triangle = triangleLookup.map((edgeIndex) =>
+      edgeIndexToCoordinate(c, edgeIndex)
+    ) as Triangle;
+    caseMesh.push(triangle);
+  }
 
-  const triangle2: Triangle = [
-    { x: 1, y: 1, z: 0 },
-    { x: 2, y: 1, z: 0 },
-    { x: 1, y: 2, z: 0 }
-  ];
+  return caseMesh;
+};
 
-  const triangle3: Triangle = [
-    { x: 0, y: 0, z: 1 },
-    { x: 1, y: 0, z: 1 },
-    { x: 0, y: 1, z: 1 }
-  ];
+// eventually this would take into account weight but for now just places it in the middle of the edge
+const edgeIndexToCoordinate = (c: vec3, edgeIndex: number): vec3 => {
+  const [a, b] = EDGES[edgeIndex];
 
-  const triangle4: Triangle = [
-    { x: 1, y: 1, z: 1 },
-    { x: 2, y: 1, z: 2 },
-    { x: 1, y: 2, z: 3 }
-  ];
+  const v1 = vec3.fromValues(...VERTICES[a]);
+  const v2 = vec3.fromValues(...VERTICES[b]);
 
-  return [triangle1, triangle2, triangle3, triangle4];
+  let edgeCoordinate = vec3.create();
+
+  // exactly in the middle
+  vec3.lerp(edgeCoordinate, v1, v2, 0.5);
+  vec3.add(edgeCoordinate, edgeCoordinate, c);
+
+  return edgeCoordinate;
 };
 
 export const meshToVertices = (mesh: Mesh): Float32Array => {
@@ -462,9 +426,9 @@ export const meshToVertices = (mesh: Mesh): Float32Array => {
     // for each vertex in the triangle
     for (let j = 0; j < 3; j++) {
       const vertex = mesh[i][j];
-      vertices[i * 18 + j * 6 + 0] = vertex.x;
-      vertices[i * 18 + j * 6 + 1] = vertex.y;
-      vertices[i * 18 + j * 6 + 2] = vertex.z;
+      vertices[i * 18 + j * 6 + 0] = vertex[0];
+      vertices[i * 18 + j * 6 + 1] = vertex[1];
+      vertices[i * 18 + j * 6 + 2] = vertex[2];
 
       // change the colors based on the vertex position
       vertices[i * 18 + j * 6 + 3] = [1, 0.7, 0.2][j];
