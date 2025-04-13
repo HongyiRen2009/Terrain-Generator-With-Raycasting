@@ -331,7 +331,14 @@ export class Chunk {
     // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
     const simplexNoise = this.simplexNoise(c[0] / 10, c[1] / 10, c[2] / 10);
 
-    return (simplexNoise + 1) / 2;
+    const normalizedNoise = (simplexNoise + 1) / 2;
+
+    // Encourage the surface to be closer to the ground
+    const heightParameter = 1 / 1.07 ** c[1];
+
+    const floor = +(c[1] == 0);
+
+    return Math.max(normalizedNoise * heightParameter, floor);
   }
 
   set(c: vec3, value: number) {
