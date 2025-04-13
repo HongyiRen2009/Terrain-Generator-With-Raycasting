@@ -437,9 +437,9 @@ export const meshToVertices = (mesh: Mesh): Float32Array => {
       vertices[i * 18 + j * 6 + 2] = vertex.z;
 
       // change the colors based on the vertex position
-      vertices[i * 18 + j * 6 + 3] = [1, 0, 0][j];
-      vertices[i * 18 + j * 6 + 4] = [0, 1, 0][j];
-      vertices[i * 18 + j * 6 + 5] = [0, 0, 1][j];
+      vertices[i * 18 + j * 6 + 3] = [1, 0.7, 0.2][j];
+      vertices[i * 18 + j * 6 + 4] = [1, 0.7, 0.2][j];
+      vertices[i * 18 + j * 6 + 5] = [1, 0.7, 0.2][j];
     }
   }
 
