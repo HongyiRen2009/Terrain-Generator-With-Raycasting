@@ -56,7 +56,7 @@ export class GLRenderer {
     );
 
     //TODO: this is not the right place to be doing this
-    const chunk = new Chunk(vec2.fromValues(0, 0), vec3.fromValues(5, 5, 5));
+    const chunk = new Chunk(vec2.fromValues(0, 0), vec3.fromValues(10, 10, 10));
     const triangleMesh = chunk.CreateMarchingCubes();
 
     // console.log(chunk.CreateMarchingCubes());
