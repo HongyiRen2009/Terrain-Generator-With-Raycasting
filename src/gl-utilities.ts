@@ -1,5 +1,4 @@
 import { mat4, vec3 } from "gl-matrix";
-import { CubeIndices, WirFrameCubeIndices } from "./geomatry";
 
 export function CreateProgram(
   gl: WebGL2RenderingContext,

@@ -1,4 +1,4 @@
-import { vec2, vec3, vec4 } from "gl-matrix";
+import { vec2, vec3 } from "gl-matrix";
 
 import { createNoise3D } from "simplex-noise";
 import type { NoiseFunction3D } from "simplex-noise";
