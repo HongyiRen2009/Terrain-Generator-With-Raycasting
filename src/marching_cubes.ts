@@ -3,6 +3,7 @@ import { vec2, vec3 } from "gl-matrix";
 import { createNoise3D } from "simplex-noise";
 import type { NoiseFunction3D } from "simplex-noise";
 
+// Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 const VERTICES: [number, number, number][] = [
   [0, 0, 0],
   [1, 0, 0],
@@ -364,7 +365,7 @@ export class Chunk {
           let c = vec3.fromValues(x, y, z);
 
           const cubeCase = this.GenerateCase(c);
-          mesh.push(...caseToMesh(c, cubeCase));
+          mesh.push(...this.caseToMesh(c, cubeCase));
         }
       }
     }
@@ -392,38 +393,47 @@ export class Chunk {
 
     return caseIndex;
   }
-}
 
-const caseToMesh = (c: vec3, caseNumber: number): Mesh => {
-  const caseMesh: Mesh = [];
-  const caseLookup = CASES[caseNumber];
-  for (const triangleLookup of caseLookup) {
-    // each triangle is represented as list of the three edges which it is located on
-    // for now, place the actual triangle's vertices as the midpoint of the edge
-    let triangle = triangleLookup.map((edgeIndex) =>
-      edgeIndexToCoordinate(c, edgeIndex)
-    ) as Triangle;
-    caseMesh.push(triangle);
+  caseToMesh(c: vec3, caseNumber: number): Mesh {
+    const caseMesh: Mesh = [];
+    const caseLookup = CASES[caseNumber];
+    for (const triangleLookup of caseLookup) {
+      // each triangle is represented as list of the three edges which it is located on
+      // for now, place the actual triangle's vertices as the midpoint of the edge
+      let triangle = triangleLookup.map((edgeIndex) =>
+        this.edgeIndexToCoordinate(c, edgeIndex)
+      ) as Triangle;
+      caseMesh.push(triangle);
+    }
+
+    return caseMesh;
   }
 
-  return caseMesh;
-};
+  // eventually this would take into account weight but for now just places it in the middle of the edge
+  edgeIndexToCoordinate(c: vec3, edgeIndex: number): vec3 {
+    const [a, b] = EDGES[edgeIndex];
 
-// eventually this would take into account weight but for now just places it in the middle of the edge
-const edgeIndexToCoordinate = (c: vec3, edgeIndex: number): vec3 => {
-  const [a, b] = EDGES[edgeIndex];
+    const v1 = vec3.fromValues(...VERTICES[a]);
+    const v2 = vec3.fromValues(...VERTICES[b]);
 
-  const v1 = vec3.fromValues(...VERTICES[a]);
-  const v2 = vec3.fromValues(...VERTICES[b]);
+    vec3.add(v1, v1, c);
+    vec3.add(v2, v2, c);
 
-  let edgeCoordinate = vec3.create();
+    // this formula works by guessing where along the edge you would find 0.5
+    // Is there a bettwe way to write this? :/
+    const weight1 = this.getTerrainValue(v1) - 0.5;
+    const weight2 = this.getTerrainValue(v2) - 0.5;
 
-  // exactly in the middle
-  vec3.lerp(edgeCoordinate, v1, v2, 0.5);
-  vec3.add(edgeCoordinate, edgeCoordinate, c);
+    const lerpAmount = weight1 / (weight1 - weight2);
 
-  return edgeCoordinate;
-};
+    let edgeCoordinate = vec3.create();
+
+    // exactly in the middle
+    vec3.lerp(edgeCoordinate, v1, v2, lerpAmount);
+
+    return edgeCoordinate;
+  }
+}
 
 const calculateTriangleNormal = (triangle: Triangle): vec3 => {
   const v1 = vec3.sub(vec3.create(), triangle[1], triangle[0]);
@@ -456,3 +466,4 @@ export const meshToVertices = (mesh: Mesh): Float32Array => {
 
   return vertices;
 };
+
