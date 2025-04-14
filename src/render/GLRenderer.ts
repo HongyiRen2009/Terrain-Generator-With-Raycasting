@@ -8,7 +8,7 @@ import {
 } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import { Chunk, meshToVertices } from "./Map/marching_cubes";
+import { Chunk, meshToVertices } from "../map/marching_cubes";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;

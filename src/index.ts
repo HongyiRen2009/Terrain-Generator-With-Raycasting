@@ -1,7 +1,7 @@
 import { vec3 } from "gl-matrix";
 import { isPointerLocked } from "./misc_functions";
-import { Camera } from "./Camera";
-import { GLRenderer } from "./GLRenderer";
+import { Camera } from "./render/Camera";
+import { GLRenderer } from "./render/GLRenderer";
 
 function main() {
   const kMainCanvasId = "#MainCanvas";
