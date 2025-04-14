@@ -1,5 +1,4 @@
 import { mat4, vec3 } from "gl-matrix";
-import { CubeIndices, WirFrameCubeIndices } from "./geomatry";
 
 export function CreateProgram(
   gl: WebGL2RenderingContext,
@@ -56,8 +55,7 @@ export function CreateStaticBuffer(
 ) {
   const buffer = gl.createBuffer();
   if (!buffer) {
-    console.error("Failed to create buffer");
-    return;
+    throw new Error("Failed to create buffer");
   }
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, CPUPositionBuffer, gl.STATIC_DRAW);
@@ -154,3 +152,4 @@ export function create3dPosColorInterleavedVao(
 
   return vao;
 }
+

@@ -1,16 +1,7 @@
-import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
-import { CubeVertices, WirFrameCubeIndices } from "./geomatry";
-import { FragmentShaderCode, VertexShaderCode } from "./glsl";
-import {
-  create3dPosColorInterleavedVao,
-  CreateProgram,
-  CreateStaticBuffer,
-  CreateTransformations
-} from "./gl-utilities";
+import { vec3 } from "gl-matrix";
 import { isPointerLocked } from "./misc_functions";
-import { Chunk } from "./marching_cubes";
-import { Camera } from "./Camera";
-import { GLRenderer } from "./GLRenderer";
+import { Camera } from "./render/Camera";
+import { GLRenderer } from "./render/GLRenderer";
 
 function main() {
   const kMainCanvasId = "#MainCanvas";
