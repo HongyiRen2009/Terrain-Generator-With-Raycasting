@@ -425,11 +425,21 @@ const edgeIndexToCoordinate = (c: vec3, edgeIndex: number): vec3 => {
   return edgeCoordinate;
 };
 
+const calculateTriangleNormal = (triangle: Triangle): vec3 => {
+  const v1 = vec3.sub(vec3.create(), triangle[1], triangle[0]);
+  const v2 = vec3.sub(vec3.create(), triangle[2], triangle[0]);
+  const normal = vec3.create();
+  vec3.cross(normal, v1, v2);
+  vec3.normalize(normal, normal);
+  return normal;
+};
+
 export const meshToVertices = (mesh: Mesh): Float32Array => {
   // for each vertex: x,y,z, r,g,b
   const vertices = new Float32Array(mesh.length * 18);
   // for each triangle
   for (let i = 0; i < mesh.length; i++) {
+    const normal = calculateTriangleNormal(mesh[i]);
     // for each vertex in the triangle
     for (let j = 0; j < 3; j++) {
       const vertex = mesh[i][j];
@@ -437,10 +447,10 @@ export const meshToVertices = (mesh: Mesh): Float32Array => {
       vertices[i * 18 + j * 6 + 1] = vertex[1];
       vertices[i * 18 + j * 6 + 2] = vertex[2];
 
-      // change the colors based on the vertex position
-      vertices[i * 18 + j * 6 + 3] = [1, 0.7, 0.2][j];
-      vertices[i * 18 + j * 6 + 4] = [1, 0.7, 0.2][j];
-      vertices[i * 18 + j * 6 + 5] = [1, 0.7, 0.2][j];
+      // Use normal components for color, mapping from [-1,1] to [0,1]
+      vertices[i * 18 + j * 6 + 3] = (normal[0] + 1) * 0.5; // R
+      vertices[i * 18 + j * 6 + 4] = (normal[1] + 1) * 0.5; // G
+      vertices[i * 18 + j * 6 + 5] = (normal[2] + 1) * 0.5; // B
     }
   }
 
