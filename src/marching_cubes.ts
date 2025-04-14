@@ -409,7 +409,6 @@ export class Chunk {
     return caseMesh;
   }
 
-  // eventually this would take into account weight but for now just places it in the middle of the edge
   edgeIndexToCoordinate(c: vec3, edgeIndex: number): vec3 {
     const [a, b] = EDGES[edgeIndex];
 
@@ -420,7 +419,7 @@ export class Chunk {
     vec3.add(v2, v2, c);
 
     // this formula works by guessing where along the edge you would find 0.5
-    // Is there a bettwe way to write this? :/
+    // Is there a better way to write this? :/
     const weight1 = this.getTerrainValue(v1) - 0.5;
     const weight2 = this.getTerrainValue(v2) - 0.5;
 
@@ -428,7 +427,6 @@ export class Chunk {
 
     let edgeCoordinate = vec3.create();
 
-    // exactly in the middle
     vec3.lerp(edgeCoordinate, v1, v2, lerpAmount);
 
     return edgeCoordinate;
