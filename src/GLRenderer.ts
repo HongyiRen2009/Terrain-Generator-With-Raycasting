@@ -8,14 +8,17 @@ import {
 } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import { Chunk } from "./marching_cubes";
+import { Chunk, meshToVertices } from "./marching_cubes";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
   canvas: HTMLCanvasElement;
   camera: Camera;
 
-  CubeBuffer: { position: WebGLBuffer; indices: WebGLBuffer } | undefined;
+  CubeBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
+  TriangleBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
+
+  MeshSize: number;
 
   MatrixTransformUniformLocation: WebGLUniformLocation;
   matViewProjUniform: WebGLUniformLocation;
@@ -47,6 +50,27 @@ export class GLRenderer {
       CubeCPUBuffer,
       WirFrameCubeIndices
     );
+
+    //TODO: this is not the right place to be doing this
+    const chunk = new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32));
+    const triangleMesh = chunk.CreateMarchingCubes();
+
+    // console.log(chunk.CreateMarchingCubes());
+
+    const triangleVertices = meshToVertices(triangleMesh);
+
+    // since we don't reuse any vertices right now, each index is unique
+    const triangleIndices = Array(triangleMesh.length * 3)
+      .fill(0)
+      .map((_, i) => i);
+
+    this.MeshSize = triangleMesh.length;
+    this.TriangleBuffer = CreateStaticBuffer(
+      gl,
+      triangleVertices,
+      triangleIndices
+    );
+
     const CubeProgram = CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
 
     if (!this.CubeBuffer || !CubeProgram) {
@@ -75,7 +99,33 @@ export class GLRenderer {
     this.matView = mat4.create(); //Identity matrices
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
+    const Chunks = [
+      new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
+    ];
   }
+
+  drawMesh(TransformationMatrix: mat4) {
+    this.gl.uniformMatrix4fv(
+      this.MatrixTransformUniformLocation,
+      false,
+      TransformationMatrix
+    );
+    this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
+    //Create vertice array object
+    const triangleVao = create3dPosColorInterleavedVao(
+      this.gl,
+      this.TriangleBuffer.position,
+      this.TriangleBuffer.indices,
+      this.VertexPositionAttributeLocation,
+      this.VertexColorAttributeLocation
+    );
+
+    this.gl.bindVertexArray(triangleVao);
+
+    this.gl.drawArrays(this.gl.TRIANGLES, 0, this.MeshSize * 3);
+    this.gl.bindVertexArray(null);
+  }
+
   DrawWireFrameCube(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
       this.MatrixTransformUniformLocation,
@@ -120,11 +170,7 @@ export class GLRenderer {
     );
     mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
-    const Chunks = [
-      new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
-    ];
-
-    for (let i = 0; i < Chunks.length; i++) {
+    for (let i = 0; i < 1; i++) {
       for (let x = 0; x < 5; x++) {
         for (let y = 0; y < 5; y++) {
           for (let z = 0; z < 5; z++) {
@@ -139,5 +185,8 @@ export class GLRenderer {
         }
       }
     }
+
+    this.drawMesh(CreateTransformations(vec3.fromValues(0, 0, 0)));
   }
 }
+
