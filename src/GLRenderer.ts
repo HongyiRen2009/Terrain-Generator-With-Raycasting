@@ -170,7 +170,7 @@ export class GLRenderer {
     );
     mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
-    /* for (let i = 0; i < Chunks.length; i++) {
+    for (let i = 0; i < 1; i++) {
       for (let x = 0; x < 5; x++) {
         for (let y = 0; y < 5; y++) {
           for (let z = 0; z < 5; z++) {
@@ -184,8 +184,9 @@ export class GLRenderer {
           }
         }
       }
-    } */
+    }
 
     this.drawMesh(CreateTransformations(vec3.fromValues(0, 0, 0)));
   }
 }
+
