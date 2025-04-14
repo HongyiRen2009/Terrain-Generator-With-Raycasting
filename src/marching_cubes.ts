@@ -448,12 +448,11 @@ export const meshToVertices = (mesh: Mesh): Float32Array => {
       vertices[i * 18 + j * 6 + 2] = vertex[2];
 
       // Use normal components for color, mapping from [-1,1] to [0,1]
-      vertices[i * 18 + j * 6 + 3] = (normal[0] + 1) * 0.5; // R
+      vertices[i * 18 + j * 6 + 3] = 0; // R
       vertices[i * 18 + j * 6 + 4] = (normal[1] + 1) * 0.5; // G
-      vertices[i * 18 + j * 6 + 5] = (normal[2] + 1) * 0.5; // B
+      vertices[i * 18 + j * 6 + 5] = 0; // B
     }
   }
 
   return vertices;
 };
-

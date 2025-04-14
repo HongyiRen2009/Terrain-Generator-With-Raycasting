@@ -99,6 +99,9 @@ export class GLRenderer {
     this.matView = mat4.create(); //Identity matrices
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
+    const Chunks = [
+      new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
+    ];
   }
 
   drawMesh(TransformationMatrix: mat4) {
@@ -167,11 +170,7 @@ export class GLRenderer {
     );
     mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
-    const Chunks = [
-      new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
-    ];
-
-    for (let i = 0; i < Chunks.length; i++) {
+    /* for (let i = 0; i < Chunks.length; i++) {
       for (let x = 0; x < 5; x++) {
         for (let y = 0; y < 5; y++) {
           for (let z = 0; z < 5; z++) {
@@ -185,9 +184,8 @@ export class GLRenderer {
           }
         }
       }
-    }
+    } */
 
     this.drawMesh(CreateTransformations(vec3.fromValues(0, 0, 0)));
   }
 }
-
