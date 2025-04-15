@@ -314,7 +314,7 @@ export class Chunk {
   }
 
   generateFieldValues(): Float32Array {
-    const field = new Float32Array(32 * 32 * 32);
+    const field = new Float32Array((32 + 1) * (32 + 1) * (32 + 1)); // Add 1 to include boundary values
 
     for (let x = 0; x < 32; x++) {
       for (let y = 0; y < 32; y++) {
