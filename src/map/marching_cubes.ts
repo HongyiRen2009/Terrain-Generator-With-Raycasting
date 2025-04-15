@@ -308,7 +308,7 @@ export class Chunk {
     this.SimplexNoise = SimplexNoise;
     this.Field = this.generateFieldValues();
   }
-
+  
   chunkCoordinateToIndex(c: vec3): number {
     return c[0] + c[1] * 32 + c[2] * 32 * 32;
   }
@@ -491,9 +491,9 @@ export const meshToVertices = (
       const normal = vertexNormals.get(key)!;
 
       // Vertex position
-      vertices[i * 18 + j * 6 + 0] = vertex[0] + ChunkPosition[0];
+      vertices[i * 18 + j * 6 + 0] = vertex[0] + ChunkPosition[0]*32;
       vertices[i * 18 + j * 6 + 1] = vertex[1];
-      vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1];
+      vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1]*32;
 
       // Vertex normal
       vertices[i * 18 + j * 6 + 3] = 0;

@@ -64,11 +64,10 @@ export class GLRenderer {
       );
 
       // since we don't reuse any vertices right now, each index is unique
-      triangleIndices.concat(
-        Array(triangleMesh.length * 3)
-          .fill(0)
-          .map((_, i) => i)
+      triangleIndices.push(
+        ...Array(triangleMesh.length * 3).fill(0).map((_, i) => i + this.MeshSize * 3)
       );
+      
 
       this.MeshSize += triangleMesh.length;
     }
@@ -129,7 +128,7 @@ export class GLRenderer {
     this.gl.drawArrays(this.gl.TRIANGLES, 0, this.MeshSize * 3);
     this.gl.bindVertexArray(null);
   }
-
+  /*
   DrawWireFrameCube(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
       this.MatrixTransformUniformLocation,
@@ -150,13 +149,13 @@ export class GLRenderer {
 
     this.gl.drawElements(
       this.gl.LINES,
-      48 /*Vertex count */,
+      48,
       this.gl.UNSIGNED_SHORT,
       0
     );
     this.gl.bindVertexArray(null);
   }
-
+  */
   render() {
     // Set clear color to black, fully opaque
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
