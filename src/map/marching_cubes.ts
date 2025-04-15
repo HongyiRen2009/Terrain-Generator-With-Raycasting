@@ -1,7 +1,7 @@
 import { vec2, vec3 } from "gl-matrix";
 
 import { createNoise3D } from "simplex-noise";
-import type { NoiseFunction3D } from "simplex-noise";
+import type { NoiseFunction2D, NoiseFunction3D } from "simplex-noise";
 
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 const VERTICES: [number, number, number][] = [
@@ -296,13 +296,16 @@ export class Chunk {
   ChunkPosition: vec2;
   GridSize: vec3;
   Field: Float32Array;
+  SimplexNoise: NoiseFunction3D;
 
-  simplexNoise: NoiseFunction3D;
-
-  constructor(ChunkPosition: vec2, GridSize: vec3) {
+  constructor(
+    ChunkPosition: vec2,
+    GridSize: vec3,
+    SimplexNoise: NoiseFunction3D
+  ) {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
-    this.simplexNoise = createNoise3D();
+    this.SimplexNoise = SimplexNoise;
     this.Field = this.generateFieldValues();
   }
 
@@ -330,9 +333,14 @@ export class Chunk {
   noiseFunction(c: vec3): number {
     const noiseScaleFactor = 10;
     // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
-    const simplexNoise = this.simplexNoise(c[0] / 10, c[1] / 10, c[2] / 10);
+    vec3.add(
+      c,
+      c,
+      vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
+    ); // Offset the coordinates by the chunk position
+    const SimplexNoise = this.SimplexNoise(c[0] / 10, c[1] / 10, c[2] / 10);
 
-    const normalizedNoise = (simplexNoise + 1) / 2;
+    const normalizedNoise = (SimplexNoise + 1) / 2;
 
     // Encourage the surface to be closer to the ground
     const heightParameter = 1 / 1.07 ** c[1];
@@ -441,27 +449,58 @@ const calculateTriangleNormal = (triangle: Triangle): vec3 => {
   vec3.normalize(normal, normal);
   return normal;
 };
+const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
+  const vertexNormals = new Map<string, vec3>();
 
-export const meshToVertices = (mesh: Mesh): Float32Array => {
-  // for each vertex: x,y,z, r,g,b
+  for (const triangle of mesh) {
+    // Calculate the normal for the triangle
+    const normal = calculateTriangleNormal(triangle);
+
+    // Add the triangle's normal to each of its vertices
+    for (const vertex of triangle) {
+      const key = vertex.toString(); // Use the vertex position as a key
+      if (!vertexNormals.has(key)) {
+        vertexNormals.set(key, vec3.create());
+      }
+      vec3.add(vertexNormals.get(key)!, vertexNormals.get(key)!, normal);
+    }
+  }
+
+  // Normalize all vertex normals
+  for (const [key, normal] of Array.from(vertexNormals.entries())) {
+    vec3.normalize(normal, normal);
+  }
+
+  return vertexNormals;
+};
+export const meshToVertices = (
+  mesh: Mesh,
+  ChunkPosition: vec2
+): Float32Array => {
+  const vertexNormals = calculateVertexNormals(mesh);
+
+  // For each vertex: x, y, z, r, g, b
   const vertices = new Float32Array(mesh.length * 18);
-  // for each triangle
-  for (let i = 0; i < mesh.length; i++) {
-    const normal = calculateTriangleNormal(mesh[i]);
-    // for each vertex in the triangle
-    for (let j = 0; j < 3; j++) {
-      const vertex = mesh[i][j];
-      vertices[i * 18 + j * 6 + 0] = vertex[0];
-      vertices[i * 18 + j * 6 + 1] = vertex[1];
-      vertices[i * 18 + j * 6 + 2] = vertex[2];
 
-      // Use normal components for color, mapping from [-1,1] to [0,1]
-      vertices[i * 18 + j * 6 + 3] = 0; // R
-      vertices[i * 18 + j * 6 + 4] = (normal[1] + 1) * 0.5; // G
-      vertices[i * 18 + j * 6 + 5] = 0; // B
+  for (let i = 0; i < mesh.length; i++) {
+    const triangle = mesh[i];
+
+    for (let j = 0; j < 3; j++) {
+      const vertex = triangle[j];
+      const key = vertex.toString();
+      const normal = vertexNormals.get(key)!;
+
+      // Vertex position
+      vertices[i * 18 + j * 6 + 0] = vertex[0] + ChunkPosition[0];
+      vertices[i * 18 + j * 6 + 1] = vertex[1];
+      vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1];
+
+      // Vertex normal
+      vertices[i * 18 + j * 6 + 3] = 0;
+      vertices[i * 18 + j * 6 + 4] = normal[1] * 0.5 + 0.5;
+      vertices[i * 18 + j * 6 + 5] = 0;
     }
   }
 
   return vertices;
 };
-
