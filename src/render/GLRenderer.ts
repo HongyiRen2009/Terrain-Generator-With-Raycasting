@@ -9,6 +9,7 @@ import {
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
 import { Chunk, meshToVertices } from "../map/marching_cubes";
+import { WorldMap } from "../map/Map";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -18,7 +19,7 @@ export class GLRenderer {
   CubeBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
   TriangleBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
 
-  MeshSize: number;
+  MeshSize: number = 0;
 
   MatrixTransformUniformLocation: WebGLUniformLocation;
   matViewProjUniform: WebGLUniformLocation;
@@ -50,24 +51,30 @@ export class GLRenderer {
       CubeCPUBuffer,
       WirFrameCubeIndices
     );
+    let triangleVertices: number[] = [];
+    const triangleIndices: number[] = [];
+    const world = new WorldMap(1000, 1000, 1000);
+    for (const chunk of world.chunks) {
+      const triangleMesh = chunk.CreateMarchingCubes();
 
-    //TODO: this is not the right place to be doing this
-    const chunk = new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32));
-    const triangleMesh = chunk.CreateMarchingCubes();
+      // console.log(chunk.CreateMarchingCubes());
 
-    // console.log(chunk.CreateMarchingCubes());
+      triangleVertices = triangleVertices.concat(
+        Array.from(meshToVertices(triangleMesh, chunk.ChunkPosition))
+      );
 
-    const triangleVertices = meshToVertices(triangleMesh);
+      // since we don't reuse any vertices right now, each index is unique
+      triangleIndices.concat(
+        Array(triangleMesh.length * 3)
+          .fill(0)
+          .map((_, i) => i)
+      );
 
-    // since we don't reuse any vertices right now, each index is unique
-    const triangleIndices = Array(triangleMesh.length * 3)
-      .fill(0)
-      .map((_, i) => i);
-
-    this.MeshSize = triangleMesh.length;
+      this.MeshSize += triangleMesh.length;
+    }
     this.TriangleBuffer = CreateStaticBuffer(
       gl,
-      triangleVertices,
+      new Float32Array(triangleVertices),
       triangleIndices
     );
 
@@ -99,9 +106,6 @@ export class GLRenderer {
     this.matView = mat4.create(); //Identity matrices
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
-    const Chunks = [
-      new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
-    ];
   }
 
   drawMesh(TransformationMatrix: mat4) {
@@ -170,7 +174,7 @@ export class GLRenderer {
     );
     mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
-    for (let i = 0; i < 1; i++) {
+    /* for (let i = 0; i < 1; i++) {
       for (let x = 0; x < 5; x++) {
         for (let y = 0; y < 5; y++) {
           for (let z = 0; z < 5; z++) {
@@ -184,9 +188,8 @@ export class GLRenderer {
           }
         }
       }
-    }
+    } */
 
     this.drawMesh(CreateTransformations(vec3.fromValues(0, 0, 0)));
   }
 }
-
