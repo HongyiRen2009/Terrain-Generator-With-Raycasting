@@ -33,13 +33,9 @@ export class Chunk {
   }
 
   generateFieldValues(): Float32Array {
-<<<<<<< HEAD
     const field = new Float32Array(
       (this.GridSize[0]+1) * (this.GridSize[1]+1) * (this.GridSize[2]+1)
     );
-=======
-    const field = new Float32Array((32 + 1) * (32 + 1) * (32 + 1)); // Add 1 to include boundary values
->>>>>>> 241339674cd886f29c2dc329dc68379bf5fe739e
 
     for (let x = 0; x < this.GridSize[0]+1; x++) {
       for (let y = 0; y < this.GridSize[1]+1; y++) {
@@ -222,15 +218,9 @@ export const meshToVertices = (
       const normal = vertexNormals.get(key)!;
 
       // Vertex position
-<<<<<<< HEAD
       vertices[i * 18 + j * 6 + 0] = vertex[0] + ChunkPosition[0];
       vertices[i * 18 + j * 6 + 1] = vertex[1];
       vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1];
-=======
-      vertices[i * 18 + j * 6 + 0] = vertex[0] + ChunkPosition[0] * 32;
-      vertices[i * 18 + j * 6 + 1] = vertex[1];
-      vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1] * 32;
->>>>>>> 241339674cd886f29c2dc329dc68379bf5fe739e
 
       // Vertex normal
       vertices[i * 18 + j * 6 + 3] = 0;
