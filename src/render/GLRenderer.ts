@@ -1,5 +1,5 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
-import { CubeVertices, WirFrameCubeIndices } from "./geomatry";
+import { CubeVertices, WirFrameCubeIndices } from "../map/geometry";
 import {
   create3dPosColorInterleavedVao,
   CreateProgram,
@@ -8,7 +8,8 @@ import {
 } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import { Chunk, meshToVertices } from "../map/marching_cubes";
+import { calculateVertexNormals, Chunk, Mesh, meshToVertices } from "../map/marching_cubes";
+import { WorldMap } from "../map/Map";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -18,7 +19,7 @@ export class GLRenderer {
   CubeBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
   TriangleBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
 
-  MeshSize: number;
+  MeshSize: number = 0;
 
   MatrixTransformUniformLocation: WebGLUniformLocation;
   matViewProjUniform: WebGLUniformLocation;
@@ -50,24 +51,36 @@ export class GLRenderer {
       CubeCPUBuffer,
       WirFrameCubeIndices
     );
+    let triangleVertices: number[] = [];
+    const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
+    let combinedMesh: Mesh = []; // Combine all chunks' meshes into one
+    const world = new WorldMap(1000, 1000, 1000);
+    debugger
+    for (const chunk of world.chunks) {
+      const triangleMesh = chunk.CreateMarchingCubes();
+      triangleMeshes.push(triangleMesh); // Store the chunk's mesh
+      combinedMesh = combinedMesh.concat(triangleMesh); // Add the chunk's mesh to the combined mesh
+      // console.log(chunk.CreateMarchingCubes());
+    }
+    const VertexNormals = calculateVertexNormals(combinedMesh);
+    for(let i=0; i<triangleMeshes.length; i++){ 
+      const Mesh = triangleMeshes[i];
+      const ChunkPosition = world.chunks[i].ChunkPosition;
+      triangleVertices = triangleVertices.concat(
+        Array.from(meshToVertices(Mesh,VertexNormals, ChunkPosition))
+      );
+    }
+      // since we don't reuse any vertices right now, each index is unique
+      const triangleIndices = 
+        Array(combinedMesh.length * 3).fill(0).map((_, i) => i + this.MeshSize * 3)
+      ;
+      
 
-    //TODO: this is not the right place to be doing this
-    const chunk = new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32));
-    const triangleMesh = chunk.CreateMarchingCubes();
-
-    // console.log(chunk.CreateMarchingCubes());
-
-    const triangleVertices = meshToVertices(triangleMesh);
-
-    // since we don't reuse any vertices right now, each index is unique
-    const triangleIndices = Array(triangleMesh.length * 3)
-      .fill(0)
-      .map((_, i) => i);
-
-    this.MeshSize = triangleMesh.length;
+      this.MeshSize =combinedMesh.length;
+    
     this.TriangleBuffer = CreateStaticBuffer(
       gl,
-      triangleVertices,
+      new Float32Array(triangleVertices),
       triangleIndices
     );
 
@@ -99,11 +112,8 @@ export class GLRenderer {
     this.matView = mat4.create(); //Identity matrices
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
-    const Chunks = [
-      new Chunk(vec2.fromValues(0, 0), vec3.fromValues(32, 32, 32))
-    ];
   }
-
+  
   drawMesh(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
       this.MatrixTransformUniformLocation,
@@ -125,7 +135,6 @@ export class GLRenderer {
     this.gl.drawArrays(this.gl.TRIANGLES, 0, this.MeshSize * 3);
     this.gl.bindVertexArray(null);
   }
-
   DrawWireFrameCube(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
       this.MatrixTransformUniformLocation,
@@ -146,13 +155,12 @@ export class GLRenderer {
 
     this.gl.drawElements(
       this.gl.LINES,
-      48 /*Vertex count */,
+      48,
       this.gl.UNSIGNED_SHORT,
       0
     );
     this.gl.bindVertexArray(null);
   }
-
   render() {
     // Set clear color to black, fully opaque
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -170,23 +178,21 @@ export class GLRenderer {
     );
     mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
-    for (let i = 0; i < 1; i++) {
+     for (let i = 0; i < 1; i++) {
       for (let x = 0; x < 5; x++) {
-        for (let y = 0; y < 5; y++) {
           for (let z = 0; z < 5; z++) {
             this.DrawWireFrameCube(
               CreateTransformations(
-                vec3.fromValues(x, y, z),
+                vec3.fromValues(x+0.5, 0.5, z+0.5),
                 undefined,
-                undefined
+                vec3.fromValues(32,32,32)
               )
             );
-          }
+          
         }
       }
-    }
+    } 
 
     this.drawMesh(CreateTransformations(vec3.fromValues(0, 0, 0)));
   }
 }
-

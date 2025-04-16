@@ -10,7 +10,7 @@ export class Camera {
   front = vec3.fromValues(0, 0, -1);
   right = vec3.fromValues(1, 0, 0);
   up = vec3.fromValues(0, 1, 0);
-  speed = 0.005;
+  speed = 0.02;
 
   constructor(position: vec3) {
     this.position = position;
@@ -55,4 +55,3 @@ export class Camera {
     vec3.normalize(this.right, this.right);
   }
 }
-
