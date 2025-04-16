@@ -42,7 +42,7 @@ export class WorldMap {
         this.simplexNoise
       ),
       new Chunk(
-        vec2.fromValues(-32, 0),
+        vec2.fromValues(64, 0),
         vec3.fromValues(32, 32, 32),
         this.simplexNoise
       ),

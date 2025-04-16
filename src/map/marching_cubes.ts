@@ -1,13 +1,12 @@
 import { vec2, vec3 } from "gl-matrix";
-import { VERTICES, EDGES, CASES} from "./geometry";
+import { VERTICES, EDGES, CASES } from "./geometry";
 import { createNoise3D } from "simplex-noise";
 import type { NoiseFunction2D, NoiseFunction3D } from "simplex-noise";
 
-
 type Triangle = [vec3, vec3, vec3];
-type Mesh = Triangle[];
+export type Mesh = Triangle[];
 
-//!NOTE: current code assumes a chunk size of 32x32x32
+//!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 export class Chunk {
   ChunkPosition: vec2;
   GridSize: vec3;
@@ -24,17 +23,23 @@ export class Chunk {
     this.SimplexNoise = SimplexNoise;
     this.Field = this.generateFieldValues();
   }
-  
+
   chunkCoordinateToIndex(c: vec3): number {
-    return c[0] + c[1] * 32 + c[2] * 32 * 32;
+    return (
+      c[0] +
+      c[1] * (this.GridSize[0]+1) +
+      c[2] * (this.GridSize[0]+1) * (this.GridSize[1]+1)
+    );
   }
 
   generateFieldValues(): Float32Array {
-    const field = new Float32Array(32 * 32 * 32); 
+    const field = new Float32Array(
+      (this.GridSize[0]+1) * (this.GridSize[1]+1) * (this.GridSize[2]+1)
+    );
 
-    for (let x = 0; x < 32; x++) {
-      for (let y = 0; y < 32; y++) {
-        for (let z = 0; z < 32; z++) {
+    for (let x = 0; x < this.GridSize[0]+1; x++) {
+      for (let y = 0; y < this.GridSize[1]+1; y++) {
+        for (let z = 0; z < this.GridSize[2]+1; z++) {
           let c = vec3.fromValues(x, y, z);
 
           const idx = this.chunkCoordinateToIndex(c);
@@ -83,9 +88,10 @@ export class Chunk {
   CreateMarchingCubes(): Mesh {
     const mesh: Mesh = [];
 
-    for (let x = 0; x < this.GridSize[0] - 1; x++) {
-      for (let y = 0; y < this.GridSize[1] - 1; y++) {
-        for (let z = 0; z < this.GridSize[2] - 1; z++) {
+    for (let x = 0; x < this.GridSize[0]; x++) {
+      for (let y = 0; y < this.GridSize[1]; y++) {
+        for (let z = 0; z < this.GridSize[2]; z++) {
+
           let c = vec3.fromValues(x, y, z);
 
           const cubeCase = this.GenerateCase(c);
@@ -156,7 +162,11 @@ export class Chunk {
     return edgeCoordinate;
   }
 }
+const roundToPrecision = (value: number, precision: number): number =>
+  Math.round(value * precision) / precision;
 
+const vertexKey = (vertex: vec3): string =>
+  `${roundToPrecision(vertex[0], 1e2)},${roundToPrecision(vertex[1], 1e2)},${roundToPrecision(vertex[2], 1e2)}`;
 const calculateTriangleNormal = (triangle: Triangle): vec3 => {
   const v1 = vec3.sub(vec3.create(), triangle[1], triangle[0]);
   const v2 = vec3.sub(vec3.create(), triangle[2], triangle[0]);
@@ -165,16 +175,17 @@ const calculateTriangleNormal = (triangle: Triangle): vec3 => {
   vec3.normalize(normal, normal);
   return normal;
 };
-const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
+export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
   const vertexNormals = new Map<string, vec3>();
-
+  
   for (const triangle of mesh) {
     // Calculate the normal for the triangle
     const normal = calculateTriangleNormal(triangle);
 
     // Add the triangle's normal to each of its vertices
     for (const vertex of triangle) {
-      const key = vertex.toString(); // Use the vertex position as a key
+      console.log(vertex)
+      const key = vertexKey(vertex); // Use the vertex position as a key
       if (!vertexNormals.has(key)) {
         vertexNormals.set(key, vec3.create());
       }
@@ -189,11 +200,11 @@ const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
 
   return vertexNormals;
 };
+
 export const meshToVertices = (
-  mesh: Mesh,
+  mesh: Mesh,vertexNormals: Map<string, vec3>,
   ChunkPosition: vec2
 ): Float32Array => {
-  const vertexNormals = calculateVertexNormals(mesh);
 
   // For each vertex: x, y, z, r, g, b
   const vertices = new Float32Array(mesh.length * 18);
@@ -203,13 +214,13 @@ export const meshToVertices = (
 
     for (let j = 0; j < 3; j++) {
       const vertex = triangle[j];
-      const key = vertex.toString();
+      const key = vertexKey(vertex);
       const normal = vertexNormals.get(key)!;
 
       // Vertex position
-      vertices[i * 18 + j * 6 + 0] = vertex[0] + ChunkPosition[0]*32;
+      vertices[i * 18 + j * 6 + 0] = vertex[0] + ChunkPosition[0];
       vertices[i * 18 + j * 6 + 1] = vertex[1];
-      vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1]*32;
+      vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1];
 
       // Vertex normal
       vertices[i * 18 + j * 6 + 3] = 0;
