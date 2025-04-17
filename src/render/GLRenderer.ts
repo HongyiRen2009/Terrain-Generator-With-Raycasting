@@ -8,8 +8,9 @@ import {
 } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import { calculateVertexNormals, Chunk, Mesh, meshToVertices } from "../map/marching_cubes";
+import { calculateVertexNormals, Chunk, meshToVertices } from "../map/marching_cubes";
 import { WorldMap } from "../map/Map";
+import { Mesh } from "../map/Mesh";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -53,13 +54,13 @@ export class GLRenderer {
     );
     let triangleVertices: number[] = [];
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
-    let combinedMesh: Mesh = []; // Combine all chunks' meshes into one
+    let combinedMesh: Mesh = new Mesh(); // Combine all chunks' meshes into one
     const world = new WorldMap(1000, 1000, 1000);
     debugger
     for (const chunk of world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
-      combinedMesh = combinedMesh.concat(triangleMesh); // Add the chunk's mesh to the combined mesh
+      combinedMesh.mesh = combinedMesh.mesh.concat(triangleMesh.mesh); // Add the chunk's mesh to the combined mesh
       // console.log(chunk.CreateMarchingCubes());
     }
     const VertexNormals = calculateVertexNormals(combinedMesh);
@@ -72,11 +73,11 @@ export class GLRenderer {
     }
       // since we don't reuse any vertices right now, each index is unique
       const triangleIndices = 
-        Array(combinedMesh.length * 3).fill(0).map((_, i) => i + this.MeshSize * 3)
+        Array(combinedMesh.mesh.length * 3).fill(0).map((_, i) => i + this.MeshSize * 3)
       ;
       
 
-      this.MeshSize =combinedMesh.length;
+      this.MeshSize =combinedMesh.mesh.length;
     
     this.TriangleBuffer = CreateStaticBuffer(
       gl,

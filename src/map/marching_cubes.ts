@@ -2,9 +2,9 @@ import { vec2, vec3 } from "gl-matrix";
 import { VERTICES, EDGES, CASES } from "./geometry";
 import { createNoise3D } from "simplex-noise";
 import type { NoiseFunction2D, NoiseFunction3D } from "simplex-noise";
+import { Triangle, Mesh } from "./Mesh";
 
-type Triangle = [vec3, vec3, vec3];
-export type Mesh = Triangle[];
+//export type Mesh = Triangle[];
 
 //!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 export class Chunk {
@@ -86,7 +86,7 @@ export class Chunk {
   GenerateTerrainChunk() {}
 
   CreateMarchingCubes(): Mesh {
-    const mesh: Mesh = [];
+    const mesh: Mesh = new Mesh();
 
     for (let x = 0; x < this.GridSize[0]; x++) {
       for (let y = 0; y < this.GridSize[1]; y++) {
@@ -95,7 +95,7 @@ export class Chunk {
           let c = vec3.fromValues(x, y, z);
 
           const cubeCase = this.GenerateCase(c);
-          mesh.push(...this.caseToMesh(c, cubeCase));
+          mesh.mesh.push(...this.caseToMesh(c, cubeCase).mesh);
         }
       }
     }
@@ -125,7 +125,7 @@ export class Chunk {
   }
 
   caseToMesh(c: vec3, caseNumber: number): Mesh {
-    const caseMesh: Mesh = [];
+    const caseMesh: Mesh = new Mesh();
     const caseLookup = CASES[caseNumber];
     for (const triangleLookup of caseLookup) {
       // each triangle is represented as list of the three edges which it is located on
@@ -133,7 +133,7 @@ export class Chunk {
       let triangle = triangleLookup.map((edgeIndex) =>
         this.edgeIndexToCoordinate(c, edgeIndex)
       ) as Triangle;
-      caseMesh.push(triangle);
+      caseMesh.mesh.push(triangle);
     }
 
     return caseMesh;
@@ -178,7 +178,7 @@ const calculateTriangleNormal = (triangle: Triangle): vec3 => {
 export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
   const vertexNormals = new Map<string, vec3>();
   
-  for (const triangle of mesh) {
+  for (const triangle of mesh.mesh) {
     // Calculate the normal for the triangle
     const normal = calculateTriangleNormal(triangle);
 
@@ -207,10 +207,10 @@ export const meshToVertices = (
 ): Float32Array => {
 
   // For each vertex: x, y, z, r, g, b
-  const vertices = new Float32Array(mesh.length * 18);
+  const vertices = new Float32Array(mesh.mesh.length * 18);
 
-  for (let i = 0; i < mesh.length; i++) {
-    const triangle = mesh[i];
+  for (let i = 0; i < mesh.mesh.length; i++) {
+    const triangle = mesh.mesh[i];
 
     for (let j = 0; j < 3; j++) {
       const vertex = triangle[j];
