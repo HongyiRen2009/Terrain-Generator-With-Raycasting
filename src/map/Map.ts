@@ -13,7 +13,7 @@ export class WorldMap {
   //In Chunks
   private width: number;
   private length: number;
-  private lighting: vec3[] = [vec3.fromValues(0,0,1000)];
+  private lighting: vec3[] = [vec3.fromValues(0, 0, 1000)];
 
   public chunks: Chunk[];
   public simplexNoise!: NoiseFunction3D;

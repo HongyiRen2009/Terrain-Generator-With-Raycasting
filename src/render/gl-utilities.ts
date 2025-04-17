@@ -152,4 +152,3 @@ export function create3dPosColorInterleavedVao(
 
   return vao;
 }
-

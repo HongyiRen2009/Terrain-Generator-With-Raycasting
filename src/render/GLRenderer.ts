@@ -8,7 +8,11 @@ import {
 } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import { calculateVertexNormals, Chunk, meshToVertices } from "../map/marching_cubes";
+import {
+  calculateVertexNormals,
+  Chunk,
+  meshToVertices
+} from "../map/marching_cubes";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 
@@ -56,7 +60,7 @@ export class GLRenderer {
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let combinedMesh: Mesh = new Mesh(); // Combine all chunks' meshes into one
     const world = new WorldMap(1000, 1000, 1000);
-    debugger
+    debugger;
     for (const chunk of world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
@@ -64,21 +68,19 @@ export class GLRenderer {
       // console.log(chunk.CreateMarchingCubes());
     }
     const VertexNormals = calculateVertexNormals(combinedMesh);
-    for(let i=0; i<triangleMeshes.length; i++){ 
+    for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
       const ChunkPosition = world.chunks[i].ChunkPosition;
       triangleVertices = triangleVertices.concat(
-        Array.from(meshToVertices(Mesh,VertexNormals, ChunkPosition))
+        Array.from(meshToVertices(Mesh, VertexNormals, ChunkPosition))
       );
     }
-      // since we don't reuse any vertices right now, each index is unique
-      const triangleIndices = 
-        Array(combinedMesh.mesh.length * 3).fill(0).map((_, i) => i + this.MeshSize * 3)
-      ;
-      
+    // since we don't reuse any vertices right now, each index is unique
+    const triangleIndices = Array(combinedMesh.mesh.length * 3)
+      .fill(0)
+      .map((_, i) => i + this.MeshSize * 3);
+    this.MeshSize = combinedMesh.mesh.length;
 
-      this.MeshSize =combinedMesh.mesh.length;
-    
     this.TriangleBuffer = CreateStaticBuffer(
       gl,
       new Float32Array(triangleVertices),
@@ -114,7 +116,7 @@ export class GLRenderer {
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
   }
-  
+
   drawMesh(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
       this.MatrixTransformUniformLocation,
@@ -154,12 +156,7 @@ export class GLRenderer {
 
     this.gl.bindVertexArray(cubeVao);
 
-    this.gl.drawElements(
-      this.gl.LINES,
-      48,
-      this.gl.UNSIGNED_SHORT,
-      0
-    );
+    this.gl.drawElements(this.gl.LINES, 48, this.gl.UNSIGNED_SHORT, 0);
     this.gl.bindVertexArray(null);
   }
   render() {
@@ -179,20 +176,19 @@ export class GLRenderer {
     );
     mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
-     for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < 1; i++) {
       for (let x = 0; x < 5; x++) {
-          for (let z = 0; z < 5; z++) {
-            this.DrawWireFrameCube(
-              CreateTransformations(
-                vec3.fromValues(x+0.5, 0.5, z+0.5),
-                undefined,
-                vec3.fromValues(32,32,32)
-              )
-            );
-          
+        for (let z = 0; z < 5; z++) {
+          this.DrawWireFrameCube(
+            CreateTransformations(
+              vec3.fromValues(x + 0.5, 0.5, z + 0.5),
+              undefined,
+              vec3.fromValues(32, 32, 32)
+            )
+          );
         }
       }
-    } 
+    }
 
     this.drawMesh(CreateTransformations(vec3.fromValues(0, 0, 0)));
   }

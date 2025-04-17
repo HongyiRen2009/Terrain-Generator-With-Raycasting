@@ -27,19 +27,19 @@ export class Chunk {
   chunkCoordinateToIndex(c: vec3): number {
     return (
       c[0] +
-      c[1] * (this.GridSize[0]+1) +
-      c[2] * (this.GridSize[0]+1) * (this.GridSize[1]+1)
+      c[1] * (this.GridSize[0] + 1) +
+      c[2] * (this.GridSize[0] + 1) * (this.GridSize[1] + 1)
     );
   }
 
   generateFieldValues(): Float32Array {
     const field = new Float32Array(
-      (this.GridSize[0]+1) * (this.GridSize[1]+1) * (this.GridSize[2]+1)
+      (this.GridSize[0] + 1) * (this.GridSize[1] + 1) * (this.GridSize[2] + 1)
     );
 
-    for (let x = 0; x < this.GridSize[0]+1; x++) {
-      for (let y = 0; y < this.GridSize[1]+1; y++) {
-        for (let z = 0; z < this.GridSize[2]+1; z++) {
+    for (let x = 0; x < this.GridSize[0] + 1; x++) {
+      for (let y = 0; y < this.GridSize[1] + 1; y++) {
+        for (let z = 0; z < this.GridSize[2] + 1; z++) {
           let c = vec3.fromValues(x, y, z);
 
           const idx = this.chunkCoordinateToIndex(c);
@@ -91,7 +91,6 @@ export class Chunk {
     for (let x = 0; x < this.GridSize[0]; x++) {
       for (let y = 0; y < this.GridSize[1]; y++) {
         for (let z = 0; z < this.GridSize[2]; z++) {
-
           let c = vec3.fromValues(x, y, z);
 
           const cubeCase = this.GenerateCase(c);
@@ -177,14 +176,14 @@ const calculateTriangleNormal = (triangle: Triangle): vec3 => {
 };
 export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
   const vertexNormals = new Map<string, vec3>();
-  
+
   for (const triangle of mesh.mesh) {
     // Calculate the normal for the triangle
     const normal = calculateTriangleNormal(triangle);
 
     // Add the triangle's normal to each of its vertices
     for (const vertex of triangle) {
-      console.log(vertex)
+      console.log(vertex);
       const key = vertexKey(vertex); // Use the vertex position as a key
       if (!vertexNormals.has(key)) {
         vertexNormals.set(key, vec3.create());
@@ -202,10 +201,10 @@ export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
 };
 
 export const meshToVertices = (
-  mesh: Mesh,vertexNormals: Map<string, vec3>,
+  mesh: Mesh,
+  vertexNormals: Map<string, vec3>,
   ChunkPosition: vec2
 ): Float32Array => {
-
   // For each vertex: x, y, z, r, g, b
   const vertices = new Float32Array(mesh.mesh.length * 18);
 

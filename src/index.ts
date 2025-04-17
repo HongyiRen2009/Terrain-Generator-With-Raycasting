@@ -112,4 +112,3 @@ function addKeys(keys: { [key: string]: boolean }) {
 }
 
 main();
-
