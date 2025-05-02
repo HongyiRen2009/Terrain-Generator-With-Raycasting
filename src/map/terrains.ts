@@ -1,0 +1,21 @@
+export class Color{
+    public r : number;
+    public g: number;
+    public b: number;
+    constructor(r: number, g: number, b: number){
+        this.r = r;
+        this.g = g;
+        this.b = b;
+    }
+}
+
+interface terrain{
+    color: Color;
+    illuminosity: number;
+    reflectiveness: number;
+    //TODO: More stuff as more implementations
+}
+
+export var Terrains: { [id: number]: terrain; } = {
+    0: {color: new Color(0,255,0), illuminosity: 1, reflectiveness: 0},
+};
