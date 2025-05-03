@@ -9,13 +9,13 @@ export class Color{
     }
 }
 
-interface terrain{
+export interface Terrain{
     color: Color;
     illuminosity: number; // Decimal 0-1
     reflectiveness: number; // Decimal 0-1
     //TODO: More stuff as more implementations
 }
 
-export var Terrains: { [id: number]: terrain; } = {
+export var Terrains: { [id: number]: Terrain; } = {
     0: {color: new Color(0,255,0), illuminosity: 1, reflectiveness: 0},
 };

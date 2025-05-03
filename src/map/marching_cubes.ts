@@ -4,6 +4,7 @@ import { createNoise3D } from "simplex-noise";
 import type { NoiseFunction2D, NoiseFunction3D } from "simplex-noise";
 import { Triangle, Mesh } from "./Mesh";
 import { Terrains } from "./terrains";
+import { glUtils } from "../render/gl-utilities";
 
 
 //!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
@@ -224,14 +225,12 @@ export const meshToVertices = (
 
       // Vertex normal
 
-      //TODO: Implement everything else and tune stuff
       const type = Terrains[types[j]];
-      const color = type.color
-      const shadow = Math.pow(normal[1],0.30103);
-      vertices[i * 18 + j * 6 + 3] = color.r/255*shadow*type.illuminosity;
-      vertices[i * 18 + j * 6 + 4] = color.g/255*shadow*type.illuminosity;
-      vertices[i * 18 + j * 6 + 5] = color.b/255*shadow*type.illuminosity;
-      console.log(normal[1] * 0.5 + 0.5);
+      
+      const color = glUtils.getMeshColor(normal[1],type);
+      vertices[i * 18 + j * 6 + 3] = color.r/255;
+      vertices[i * 18 + j * 6 + 4] = color.g/255;
+      vertices[i * 18 + j * 6 + 5] = color.b/255;
     }
   }
 
