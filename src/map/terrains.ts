@@ -11,8 +11,8 @@ export class Color{
 
 interface terrain{
     color: Color;
-    illuminosity: number;
-    reflectiveness: number;
+    illuminosity: number; // Decimal 0-1
+    reflectiveness: number; // Decimal 0-1
     //TODO: More stuff as more implementations
 }
 

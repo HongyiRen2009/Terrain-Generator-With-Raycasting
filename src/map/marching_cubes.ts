@@ -3,8 +3,8 @@ import { VERTICES, EDGES, CASES } from "./geometry";
 import { createNoise3D } from "simplex-noise";
 import type { NoiseFunction2D, NoiseFunction3D } from "simplex-noise";
 import { Triangle, Mesh } from "./Mesh";
+import { Terrains } from "./terrains";
 
-//export type Mesh = Triangle[];
 
 //!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 export class Chunk {
@@ -94,7 +94,8 @@ export class Chunk {
           let c = vec3.fromValues(x, y, z);
 
           const cubeCase = this.GenerateCase(c);
-          mesh.mesh.push(...this.caseToMesh(c, cubeCase).mesh);
+          const newMesh = this.caseToMesh(c, cubeCase);
+          mesh.merge(newMesh);
         }
       }
     }
@@ -132,7 +133,7 @@ export class Chunk {
       let triangle = triangleLookup.map((edgeIndex) =>
         this.edgeIndexToCoordinate(c, edgeIndex)
       ) as Triangle;
-      caseMesh.mesh.push(triangle);
+      caseMesh.addTriangle(triangle);
     }
 
     return caseMesh;
@@ -210,7 +211,7 @@ export const meshToVertices = (
 
   for (let i = 0; i < mesh.mesh.length; i++) {
     const triangle = mesh.mesh[i];
-
+    const types = mesh.type[i];
     for (let j = 0; j < 3; j++) {
       const vertex = triangle[j];
       const key = vertexKey(vertex);
@@ -222,9 +223,15 @@ export const meshToVertices = (
       vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1];
 
       // Vertex normal
-      vertices[i * 18 + j * 6 + 3] = 0;
-      vertices[i * 18 + j * 6 + 4] = normal[1] * 0.5 + 0.5;
-      vertices[i * 18 + j * 6 + 5] = 0;
+
+      //TODO: Implement everything else and tune stuff
+      const type = Terrains[types[j]];
+      const color = type.color
+      const shadow = Math.pow(normal[1],0.30103);
+      vertices[i * 18 + j * 6 + 3] = color.r/255*shadow*type.illuminosity;
+      vertices[i * 18 + j * 6 + 4] = color.g/255*shadow*type.illuminosity;
+      vertices[i * 18 + j * 6 + 5] = color.b/255*shadow*type.illuminosity;
+      console.log(normal[1] * 0.5 + 0.5);
     }
   }
 
