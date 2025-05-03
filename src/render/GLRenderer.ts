@@ -5,9 +5,8 @@ import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
 import {
   calculateVertexNormals,
-  Chunk,
   meshToVertices
-} from "../map/marching_cubes";
+} from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 

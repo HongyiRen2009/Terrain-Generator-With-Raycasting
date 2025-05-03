@@ -1,5 +1,5 @@
 import { vec3 } from "gl-matrix";
-import { isPointerLocked } from "./misc_functions";
+import { isPointerLocked } from "./gen_utils";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 
