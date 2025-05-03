@@ -1,5 +1,5 @@
 import { mat4, vec3 } from "gl-matrix";
-import { toRadians } from "../misc_functions";
+import { toRadians } from "../gen_utils";
 
 export class Camera {
   position: vec3;
