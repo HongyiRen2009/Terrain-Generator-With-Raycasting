@@ -1,12 +1,9 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
 import { CubeVertices, WirFrameCubeIndices } from "../map/geometry";
-import {glUtils} from "./gl-utilities";
+import { glUtils } from "./gl-utilities";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
-import {
-  calculateVertexNormals,
-  meshToVertices
-} from "../map/cubes_utils";
+import { calculateVertexNormals, meshToVertices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 
@@ -81,7 +78,11 @@ export class GLRenderer {
       triangleIndices
     );
 
-    const CubeProgram = glUtils.CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
+    const CubeProgram = glUtils.CreateProgram(
+      gl,
+      VertexShaderCode,
+      FragmentShaderCode
+    );
 
     if (!this.CubeBuffer || !CubeProgram) {
       throw new Error("Error initializing program");

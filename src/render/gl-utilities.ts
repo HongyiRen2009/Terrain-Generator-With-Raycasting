@@ -7,7 +7,11 @@ export class glUtils {
     VertexShaderCode: string,
     FragmentShaderCode: string
   ) {
-    const VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
+    const VertexShader = this.CreateShader(
+      gl,
+      gl.VERTEX_SHADER,
+      VertexShaderCode
+    );
     const FragmentShader = this.CreateShader(
       gl,
       gl.FRAGMENT_SHADER,
@@ -92,10 +96,7 @@ export class glUtils {
   }
 
   //Will change it later to feature length manipulations
-  static CreateIndexBuffer(
-    gl: WebGL2RenderingContext,
-    indices: number[]
-  ) {
+  static CreateIndexBuffer(gl: WebGL2RenderingContext, indices: number[]) {
     const indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
@@ -155,14 +156,14 @@ export class glUtils {
     return vao;
   }
 
-  static getMeshColor(normal: number, terrain: Terrain){
+  static getMeshColor(normal: number, terrain: Terrain) {
     //TODO: Implement everything, tune models
     const color = terrain.color;
-    const shadow = 0.5*normal+0.5;
+    const shadow = 0.5 * normal + 0.5;
     return new Color(
-      color.r*shadow*terrain.illuminosity,
-      color.g*shadow*terrain.illuminosity,
-      color.b*shadow*terrain.illuminosity,
-    )
+      color.r * shadow * terrain.illuminosity,
+      color.g * shadow * terrain.illuminosity,
+      color.b * shadow * terrain.illuminosity
+    );
   }
 }

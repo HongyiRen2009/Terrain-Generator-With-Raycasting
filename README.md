@@ -21,7 +21,7 @@ Please follow the following naming conventions:
 - **"style:"** - Changes that are formatting related (white-space, formatting, missing semi-colons, etc)
 - **"test:"** - New tests or correcting existing tests
 - **"perf:"** - Improves performance
-- **"chore:"** - Miscellaneous changes
+- **"chore:"** - Miscellaneous changes  
   Is this tedious? Yes! Do I want to do this? No! _but_ given we will being dealing with like a billion commits (and a lot of merge conflicts) it is best to have some practice in place.
   Like you don't have to do this for like "fix spelling" But DEFINITELY for any notable change/feature/rework.
   SO DO IT!
