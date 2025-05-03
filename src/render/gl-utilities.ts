@@ -158,7 +158,7 @@ export class glUtils {
   static getMeshColor(normal: number, terrain: Terrain){
     //TODO: Implement everything, tune models
     const color = terrain.color;
-    const shadow = Math.pow(normal,0.30103);
+    const shadow = 0.5*normal+0.5;
     return new Color(
       color.r*shadow*terrain.illuminosity,
       color.g*shadow*terrain.illuminosity,
