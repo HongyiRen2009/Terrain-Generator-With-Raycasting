@@ -10,12 +10,12 @@ type Supplier<T> = () => T;
  */
 export class debugMenu{
     private object: HTMLElement;
-    private things: Dictionary<Supplier<number>>; // Only working with numbers to lazy to do smth else
+    private objects: Dictionary<Supplier<number>>; // Only working with numbers to lazy to do smth else
     private _debugMode: boolean = true;
     private lastUpdate: number;
     constructor(mode: boolean = true){
         this.object = document.getElementById("debugMenu")!;
-        this.things = {}
+        this.objects = {}
         this.debugMode = mode;
         this.lastUpdate = 0;
     }
@@ -24,8 +24,8 @@ export class debugMenu{
             //cause our fps is capped at 60, and generally 5 frame of old data won't hurt, we should only update ever 1000/12 milliseconds (editing dom is very slow)
             if(Date.now() - this.lastUpdate >= 1000/12){
                 this.object.innerHTML= "";
-                for (let key in this.things) {
-                    let val = this.things[key];
+                for (let key in this.objects) {
+                    let val = this.objects[key];
                     let a = val();
                     this.object.innerHTML += 
                     `
@@ -42,10 +42,10 @@ export class debugMenu{
      * @param supplier Has to be the SUPPLIER to the object you now want to read. Essentially, if you want it to always show the variable counter, then you would put ()=>counter in this area
      */
     addElement(key: string, supplier: Supplier<number>): void {
-        this.things[key]=supplier;
+        this.objects[key]=supplier;
     }
     removeElement(key: string){
-        eval(`delete this.things.${key}`);
+        delete this.objects[key];
     }
     set debugMode(mode: boolean){
         this._debugMode = mode;
