@@ -11,7 +11,7 @@ function main() {
   canvas.height = window.innerHeight * devicePixelRatio;
   canvas.onmousedown = () => {
     canvas.requestPointerLock();
-    canvas.requestFullscreen();
+    document.getElementById("body")!.requestFullscreen();
   };
 
   // Initialize the GL context
