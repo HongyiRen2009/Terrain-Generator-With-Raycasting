@@ -6,6 +6,7 @@ import { Camera } from "./Camera";
 import { calculateVertexNormals, meshToVertices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
+import { debugMenu } from "../debug";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -26,14 +27,22 @@ export class GLRenderer {
   matProj: mat4;
   matViewProj: mat4;
 
+  fpslastcheck: number;
+  fpscounter: number;
+  currentFPS: number;
+
+  debug: debugMenu;
+
   constructor(
     gl: WebGL2RenderingContext,
     canvas: HTMLCanvasElement,
-    camera: Camera
+    camera: Camera,
+    debug: debugMenu
   ) {
     this.gl = gl;
     this.canvas = canvas;
     this.camera = camera;
+    this.debug = debug;
 
     gl.viewport(0, 0, canvas.width, canvas.height);
 
@@ -110,6 +119,12 @@ export class GLRenderer {
     this.matView = mat4.create(); //Identity matrices
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
+
+    //fps stuff
+    this.fpslastcheck= Date.now();
+    this.fpscounter = 0;
+    this.currentFPS = 0;
+    this.debug.addElement("FPS",()=>Math.round(this.currentFPS));
   }
 
   drawMesh(TransformationMatrix: mat4) {
@@ -186,5 +201,13 @@ export class GLRenderer {
     }
 
     this.drawMesh(glUtils.CreateTransformations(vec3.fromValues(0, 0, 0)));
+
+    this.fpscounter += 1;
+    if(Date.now() - this.fpslastcheck >= 1000){
+      this.currentFPS = this.fpscounter/((Date.now() - this.fpslastcheck)/1000);
+      this.fpslastcheck= Date.now();
+      this.fpscounter = 0;
+    }
+    this.debug.update();
   }
 }

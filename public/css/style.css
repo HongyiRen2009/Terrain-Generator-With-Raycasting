@@ -5,3 +5,21 @@ html, body, canvas {
     display: block;
     overflow: hidden;
 }
+#debugMenu{
+    background-color: rgb(39, 39, 39);
+    color: white;
+    border-radius: 10px;
+    height: fit-content;
+    width: 200px;
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    z-index: 9999;
+    outline-style: solid;
+    outline-color: red;
+}
+#debugMenu p{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
