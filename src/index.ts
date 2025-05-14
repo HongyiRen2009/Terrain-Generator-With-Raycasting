@@ -2,6 +2,7 @@ import { vec3 } from "gl-matrix";
 import { isPointerLocked } from "./gen_utils";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
+import { DebugMenu } from "./DebugMenu";
 
 function main() {
   const kMainCanvasId = "#MainCanvas";
@@ -10,11 +11,15 @@ function main() {
   canvas.height = window.innerHeight * devicePixelRatio;
   canvas.onmousedown = () => {
     canvas.requestPointerLock();
-    canvas.requestFullscreen();
+    document.getElementById("body")!.requestFullscreen();
   };
 
   // Initialize the GL context
   const gl = canvas.getContext("webgl2");
+
+  //initialize debugger
+  const debug = new DebugMenu(true); // When you want to use just pass it into
+
 
   // Only continue if WebGL is available and working
   if (!gl)
@@ -27,8 +32,8 @@ function main() {
 
   const MainCamera = new Camera(vec3.fromValues(0, 0, 3));
   let lastRenderTime = 0;
-  const fps = 60;
-  const fpsInterval = 1000 / fps; // 60 FPS
+  const maxFPS = 60;
+  const frameInterval = 1000 / maxFPS; // 60 FPS
 
   canvas.addEventListener("mousemove", (event: MouseEvent) => {
     if (isPointerLocked()) {
@@ -45,14 +50,14 @@ function main() {
     }
   });
 
-  const renderer = new GLRenderer(gl, canvas, MainCamera);
+  const renderer = new GLRenderer(gl, canvas, MainCamera, debug);
 
   window.addEventListener("resize", () => {
     resizeCanvas(gl, canvas);
   });
 
   const frame = (timestamp: number) => {
-    if (timestamp - lastRenderTime < fpsInterval) {
+    if (timestamp - lastRenderTime < frameInterval) {
       requestAnimationFrame(frame);
       return;
     }
