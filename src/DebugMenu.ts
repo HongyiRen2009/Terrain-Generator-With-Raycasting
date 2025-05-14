@@ -8,7 +8,7 @@ type Supplier<T> = () => T;
  * Our class for debug screen
  * Note: using this slows down performance. To disable set the attribute debugMode to false.
  */
-export class debugMenu{
+export class DebugMenu{
     private object: HTMLElement;
     private objects: Dictionary<Supplier<number>>; // Only working with numbers to lazy to do smth else
     private _debugMode: boolean = true;

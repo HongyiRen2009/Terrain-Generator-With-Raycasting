@@ -6,7 +6,7 @@ import { Camera } from "./Camera";
 import { calculateVertexNormals, meshToVertices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
-import { debugMenu } from "../debug";
+import { DebugMenu } from "../DebugMenu";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -31,13 +31,13 @@ export class GLRenderer {
   fpscounter: number;
   currentFPS: number;
 
-  debug: debugMenu;
+  debug: DebugMenu;
 
   constructor(
     gl: WebGL2RenderingContext,
     canvas: HTMLCanvasElement,
     camera: Camera,
-    debug: debugMenu
+    debug: DebugMenu
   ) {
     this.gl = gl;
     this.canvas = canvas;

@@ -2,7 +2,7 @@ import { vec3 } from "gl-matrix";
 import { isPointerLocked } from "./gen_utils";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
-import { debugMenu } from "./debug";
+import { DebugMenu } from "./DebugMenu";
 
 function main() {
   const kMainCanvasId = "#MainCanvas";
@@ -18,7 +18,7 @@ function main() {
   const gl = canvas.getContext("webgl2");
 
   //initialize debugger
-  const debug = new debugMenu(true); // When you want to use just pass it into
+  const debug = new DebugMenu(true); // When you want to use just pass it into
 
 
   // Only continue if WebGL is available and working
