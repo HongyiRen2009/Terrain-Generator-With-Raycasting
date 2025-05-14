@@ -13,24 +13,24 @@ export class debugMenu{
     private objects: Dictionary<Supplier<number>>; // Only working with numbers to lazy to do smth else
     private _debugMode: boolean = true;
     private lastUpdate: number;
+    private updateSpeed: number; //In fps
     constructor(mode: boolean = true){
         this.object = document.getElementById("debugMenu")!;
         this.objects = {}
         this.debugMode = mode;
         this.lastUpdate = 0;
+        this.updateSpeed = 10;
     }
     update(): void{
         if(this.debugMode){
-            //cause our fps is capped at 60, and generally 5 frame of old data won't hurt, we should only update ever 1000/12 milliseconds (editing dom is very slow)
-            if(Date.now() - this.lastUpdate >= 1000/12){
+            if(Date.now() - this.lastUpdate >= 1000/this.updateSpeed){
                 this.object.innerHTML= "";
                 for (let key in this.objects) {
                     let val = this.objects[key];
                     let a = val();
-                    this.object.innerHTML += 
-                    `
-                    <p>${key}: ${a}</p>
-                    `;
+                    let elem = document.createElement("p");
+                    elem.textContent = `${key}: ${a}`;
+                    this.object.appendChild(elem);
                 }
                 this.lastUpdate = Date.now();
             }
