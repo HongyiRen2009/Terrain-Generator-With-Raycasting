@@ -7806,57 +7806,882 @@ var forEach = function () {
 
 /***/ }),
 
-/***/ "./src/geomatry.ts":
+/***/ "./node_modules/simplex-noise/dist/cjs/simplex-noise.js":
+/*!**************************************************************!*\
+  !*** ./node_modules/simplex-noise/dist/cjs/simplex-noise.js ***!
+  \**************************************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+/*
+ * A fast javascript implementation of simplex noise by Jonas Wagner
+
+Based on a speed-improved simplex noise algorithm for 2D, 3D and 4D in Java.
+Which is based on example code by Stefan Gustavson (stegu@itn.liu.se).
+With Optimisations by Peter Eastman (peastman@drizzle.stanford.edu).
+Better rank ordering method by Stefan Gustavson in 2012.
+
+ Copyright (c) 2024 Jonas Wagner
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ */
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.buildPermutationTable = exports.createNoise4D = exports.createNoise3D = exports.createNoise2D = void 0;
+// these __PURE__ comments help uglifyjs with dead code removal
+//
+const SQRT3 = /*#__PURE__*/ Math.sqrt(3.0);
+const SQRT5 = /*#__PURE__*/ Math.sqrt(5.0);
+const F2 = 0.5 * (SQRT3 - 1.0);
+const G2 = (3.0 - SQRT3) / 6.0;
+const F3 = 1.0 / 3.0;
+const G3 = 1.0 / 6.0;
+const F4 = (SQRT5 - 1.0) / 4.0;
+const G4 = (5.0 - SQRT5) / 20.0;
+// I'm really not sure why this | 0 (basically a coercion to int)
+// is making this faster but I get ~5 million ops/sec more on the
+// benchmarks across the board or a ~10% speedup.
+const fastFloor = (x) => Math.floor(x) | 0;
+const grad2 = /*#__PURE__*/ new Float64Array([1, 1,
+    -1, 1,
+    1, -1,
+    -1, -1,
+    1, 0,
+    -1, 0,
+    1, 0,
+    -1, 0,
+    0, 1,
+    0, -1,
+    0, 1,
+    0, -1]);
+// double seems to be faster than single or int's
+// probably because most operations are in double precision
+const grad3 = /*#__PURE__*/ new Float64Array([1, 1, 0,
+    -1, 1, 0,
+    1, -1, 0,
+    -1, -1, 0,
+    1, 0, 1,
+    -1, 0, 1,
+    1, 0, -1,
+    -1, 0, -1,
+    0, 1, 1,
+    0, -1, 1,
+    0, 1, -1,
+    0, -1, -1]);
+// double is a bit quicker here as well
+const grad4 = /*#__PURE__*/ new Float64Array([0, 1, 1, 1, 0, 1, 1, -1, 0, 1, -1, 1, 0, 1, -1, -1,
+    0, -1, 1, 1, 0, -1, 1, -1, 0, -1, -1, 1, 0, -1, -1, -1,
+    1, 0, 1, 1, 1, 0, 1, -1, 1, 0, -1, 1, 1, 0, -1, -1,
+    -1, 0, 1, 1, -1, 0, 1, -1, -1, 0, -1, 1, -1, 0, -1, -1,
+    1, 1, 0, 1, 1, 1, 0, -1, 1, -1, 0, 1, 1, -1, 0, -1,
+    -1, 1, 0, 1, -1, 1, 0, -1, -1, -1, 0, 1, -1, -1, 0, -1,
+    1, 1, 1, 0, 1, 1, -1, 0, 1, -1, 1, 0, 1, -1, -1, 0,
+    -1, 1, 1, 0, -1, 1, -1, 0, -1, -1, 1, 0, -1, -1, -1, 0]);
+/**
+ * Creates a 2D noise function
+ * @param random the random function that will be used to build the permutation table
+ * @returns {NoiseFunction2D}
+ */
+function createNoise2D(random = Math.random) {
+    const perm = buildPermutationTable(random);
+    // precalculating this yields a little ~3% performance improvement.
+    const permGrad2x = new Float64Array(perm).map(v => grad2[(v % 12) * 2]);
+    const permGrad2y = new Float64Array(perm).map(v => grad2[(v % 12) * 2 + 1]);
+    return function noise2D(x, y) {
+        // if(!isFinite(x) || !isFinite(y)) return 0;
+        let n0 = 0; // Noise contributions from the three corners
+        let n1 = 0;
+        let n2 = 0;
+        // Skew the input space to determine which simplex cell we're in
+        const s = (x + y) * F2; // Hairy factor for 2D
+        const i = fastFloor(x + s);
+        const j = fastFloor(y + s);
+        const t = (i + j) * G2;
+        const X0 = i - t; // Unskew the cell origin back to (x,y) space
+        const Y0 = j - t;
+        const x0 = x - X0; // The x,y distances from the cell origin
+        const y0 = y - Y0;
+        // For the 2D case, the simplex shape is an equilateral triangle.
+        // Determine which simplex we are in.
+        let i1, j1; // Offsets for second (middle) corner of simplex in (i,j) coords
+        if (x0 > y0) {
+            i1 = 1;
+            j1 = 0;
+        } // lower triangle, XY order: (0,0)->(1,0)->(1,1)
+        else {
+            i1 = 0;
+            j1 = 1;
+        } // upper triangle, YX order: (0,0)->(0,1)->(1,1)
+        // A step of (1,0) in (i,j) means a step of (1-c,-c) in (x,y), and
+        // a step of (0,1) in (i,j) means a step of (-c,1-c) in (x,y), where
+        // c = (3-sqrt(3))/6
+        const x1 = x0 - i1 + G2; // Offsets for middle corner in (x,y) unskewed coords
+        const y1 = y0 - j1 + G2;
+        const x2 = x0 - 1.0 + 2.0 * G2; // Offsets for last corner in (x,y) unskewed coords
+        const y2 = y0 - 1.0 + 2.0 * G2;
+        // Work out the hashed gradient indices of the three simplex corners
+        const ii = i & 255;
+        const jj = j & 255;
+        // Calculate the contribution from the three corners
+        let t0 = 0.5 - x0 * x0 - y0 * y0;
+        if (t0 >= 0) {
+            const gi0 = ii + perm[jj];
+            const g0x = permGrad2x[gi0];
+            const g0y = permGrad2y[gi0];
+            t0 *= t0;
+            // n0 = t0 * t0 * (grad2[gi0] * x0 + grad2[gi0 + 1] * y0); // (x,y) of grad3 used for 2D gradient
+            n0 = t0 * t0 * (g0x * x0 + g0y * y0);
+        }
+        let t1 = 0.5 - x1 * x1 - y1 * y1;
+        if (t1 >= 0) {
+            const gi1 = ii + i1 + perm[jj + j1];
+            const g1x = permGrad2x[gi1];
+            const g1y = permGrad2y[gi1];
+            t1 *= t1;
+            // n1 = t1 * t1 * (grad2[gi1] * x1 + grad2[gi1 + 1] * y1);
+            n1 = t1 * t1 * (g1x * x1 + g1y * y1);
+        }
+        let t2 = 0.5 - x2 * x2 - y2 * y2;
+        if (t2 >= 0) {
+            const gi2 = ii + 1 + perm[jj + 1];
+            const g2x = permGrad2x[gi2];
+            const g2y = permGrad2y[gi2];
+            t2 *= t2;
+            // n2 = t2 * t2 * (grad2[gi2] * x2 + grad2[gi2 + 1] * y2);
+            n2 = t2 * t2 * (g2x * x2 + g2y * y2);
+        }
+        // Add contributions from each corner to get the final noise value.
+        // The result is scaled to return values in the interval [-1,1].
+        return 70.0 * (n0 + n1 + n2);
+    };
+}
+exports.createNoise2D = createNoise2D;
+/**
+ * Creates a 3D noise function
+ * @param random the random function that will be used to build the permutation table
+ * @returns {NoiseFunction3D}
+ */
+function createNoise3D(random = Math.random) {
+    const perm = buildPermutationTable(random);
+    // precalculating these seems to yield a speedup of over 15%
+    const permGrad3x = new Float64Array(perm).map(v => grad3[(v % 12) * 3]);
+    const permGrad3y = new Float64Array(perm).map(v => grad3[(v % 12) * 3 + 1]);
+    const permGrad3z = new Float64Array(perm).map(v => grad3[(v % 12) * 3 + 2]);
+    return function noise3D(x, y, z) {
+        let n0, n1, n2, n3; // Noise contributions from the four corners
+        // Skew the input space to determine which simplex cell we're in
+        const s = (x + y + z) * F3; // Very nice and simple skew factor for 3D
+        const i = fastFloor(x + s);
+        const j = fastFloor(y + s);
+        const k = fastFloor(z + s);
+        const t = (i + j + k) * G3;
+        const X0 = i - t; // Unskew the cell origin back to (x,y,z) space
+        const Y0 = j - t;
+        const Z0 = k - t;
+        const x0 = x - X0; // The x,y,z distances from the cell origin
+        const y0 = y - Y0;
+        const z0 = z - Z0;
+        // For the 3D case, the simplex shape is a slightly irregular tetrahedron.
+        // Determine which simplex we are in.
+        let i1, j1, k1; // Offsets for second corner of simplex in (i,j,k) coords
+        let i2, j2, k2; // Offsets for third corner of simplex in (i,j,k) coords
+        if (x0 >= y0) {
+            if (y0 >= z0) {
+                i1 = 1;
+                j1 = 0;
+                k1 = 0;
+                i2 = 1;
+                j2 = 1;
+                k2 = 0;
+            } // X Y Z order
+            else if (x0 >= z0) {
+                i1 = 1;
+                j1 = 0;
+                k1 = 0;
+                i2 = 1;
+                j2 = 0;
+                k2 = 1;
+            } // X Z Y order
+            else {
+                i1 = 0;
+                j1 = 0;
+                k1 = 1;
+                i2 = 1;
+                j2 = 0;
+                k2 = 1;
+            } // Z X Y order
+        }
+        else { // x0<y0
+            if (y0 < z0) {
+                i1 = 0;
+                j1 = 0;
+                k1 = 1;
+                i2 = 0;
+                j2 = 1;
+                k2 = 1;
+            } // Z Y X order
+            else if (x0 < z0) {
+                i1 = 0;
+                j1 = 1;
+                k1 = 0;
+                i2 = 0;
+                j2 = 1;
+                k2 = 1;
+            } // Y Z X order
+            else {
+                i1 = 0;
+                j1 = 1;
+                k1 = 0;
+                i2 = 1;
+                j2 = 1;
+                k2 = 0;
+            } // Y X Z order
+        }
+        // A step of (1,0,0) in (i,j,k) means a step of (1-c,-c,-c) in (x,y,z),
+        // a step of (0,1,0) in (i,j,k) means a step of (-c,1-c,-c) in (x,y,z), and
+        // a step of (0,0,1) in (i,j,k) means a step of (-c,-c,1-c) in (x,y,z), where
+        // c = 1/6.
+        const x1 = x0 - i1 + G3; // Offsets for second corner in (x,y,z) coords
+        const y1 = y0 - j1 + G3;
+        const z1 = z0 - k1 + G3;
+        const x2 = x0 - i2 + 2.0 * G3; // Offsets for third corner in (x,y,z) coords
+        const y2 = y0 - j2 + 2.0 * G3;
+        const z2 = z0 - k2 + 2.0 * G3;
+        const x3 = x0 - 1.0 + 3.0 * G3; // Offsets for last corner in (x,y,z) coords
+        const y3 = y0 - 1.0 + 3.0 * G3;
+        const z3 = z0 - 1.0 + 3.0 * G3;
+        // Work out the hashed gradient indices of the four simplex corners
+        const ii = i & 255;
+        const jj = j & 255;
+        const kk = k & 255;
+        // Calculate the contribution from the four corners
+        let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+        if (t0 < 0)
+            n0 = 0.0;
+        else {
+            const gi0 = ii + perm[jj + perm[kk]];
+            t0 *= t0;
+            n0 = t0 * t0 * (permGrad3x[gi0] * x0 + permGrad3y[gi0] * y0 + permGrad3z[gi0] * z0);
+        }
+        let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+        if (t1 < 0)
+            n1 = 0.0;
+        else {
+            const gi1 = ii + i1 + perm[jj + j1 + perm[kk + k1]];
+            t1 *= t1;
+            n1 = t1 * t1 * (permGrad3x[gi1] * x1 + permGrad3y[gi1] * y1 + permGrad3z[gi1] * z1);
+        }
+        let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+        if (t2 < 0)
+            n2 = 0.0;
+        else {
+            const gi2 = ii + i2 + perm[jj + j2 + perm[kk + k2]];
+            t2 *= t2;
+            n2 = t2 * t2 * (permGrad3x[gi2] * x2 + permGrad3y[gi2] * y2 + permGrad3z[gi2] * z2);
+        }
+        let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+        if (t3 < 0)
+            n3 = 0.0;
+        else {
+            const gi3 = ii + 1 + perm[jj + 1 + perm[kk + 1]];
+            t3 *= t3;
+            n3 = t3 * t3 * (permGrad3x[gi3] * x3 + permGrad3y[gi3] * y3 + permGrad3z[gi3] * z3);
+        }
+        // Add contributions from each corner to get the final noise value.
+        // The result is scaled to stay just inside [-1,1]
+        return 32.0 * (n0 + n1 + n2 + n3);
+    };
+}
+exports.createNoise3D = createNoise3D;
+/**
+ * Creates a 4D noise function
+ * @param random the random function that will be used to build the permutation table
+ * @returns {NoiseFunction4D}
+ */
+function createNoise4D(random = Math.random) {
+    const perm = buildPermutationTable(random);
+    // precalculating these leads to a ~10% speedup
+    const permGrad4x = new Float64Array(perm).map(v => grad4[(v % 32) * 4]);
+    const permGrad4y = new Float64Array(perm).map(v => grad4[(v % 32) * 4 + 1]);
+    const permGrad4z = new Float64Array(perm).map(v => grad4[(v % 32) * 4 + 2]);
+    const permGrad4w = new Float64Array(perm).map(v => grad4[(v % 32) * 4 + 3]);
+    return function noise4D(x, y, z, w) {
+        let n0, n1, n2, n3, n4; // Noise contributions from the five corners
+        // Skew the (x,y,z,w) space to determine which cell of 24 simplices we're in
+        const s = (x + y + z + w) * F4; // Factor for 4D skewing
+        const i = fastFloor(x + s);
+        const j = fastFloor(y + s);
+        const k = fastFloor(z + s);
+        const l = fastFloor(w + s);
+        const t = (i + j + k + l) * G4; // Factor for 4D unskewing
+        const X0 = i - t; // Unskew the cell origin back to (x,y,z,w) space
+        const Y0 = j - t;
+        const Z0 = k - t;
+        const W0 = l - t;
+        const x0 = x - X0; // The x,y,z,w distances from the cell origin
+        const y0 = y - Y0;
+        const z0 = z - Z0;
+        const w0 = w - W0;
+        // For the 4D case, the simplex is a 4D shape I won't even try to describe.
+        // To find out which of the 24 possible simplices we're in, we need to
+        // determine the magnitude ordering of x0, y0, z0 and w0.
+        // Six pair-wise comparisons are performed between each possible pair
+        // of the four coordinates, and the results are used to rank the numbers.
+        let rankx = 0;
+        let ranky = 0;
+        let rankz = 0;
+        let rankw = 0;
+        if (x0 > y0)
+            rankx++;
+        else
+            ranky++;
+        if (x0 > z0)
+            rankx++;
+        else
+            rankz++;
+        if (x0 > w0)
+            rankx++;
+        else
+            rankw++;
+        if (y0 > z0)
+            ranky++;
+        else
+            rankz++;
+        if (y0 > w0)
+            ranky++;
+        else
+            rankw++;
+        if (z0 > w0)
+            rankz++;
+        else
+            rankw++;
+        // simplex[c] is a 4-vector with the numbers 0, 1, 2 and 3 in some order.
+        // Many values of c will never occur, since e.g. x>y>z>w makes x<z, y<w and x<w
+        // impossible. Only the 24 indices which have non-zero entries make any sense.
+        // We use a thresholding to set the coordinates in turn from the largest magnitude.
+        // Rank 3 denotes the largest coordinate.
+        // Rank 2 denotes the second largest coordinate.
+        // Rank 1 denotes the second smallest coordinate.
+        // The integer offsets for the second simplex corner
+        const i1 = rankx >= 3 ? 1 : 0;
+        const j1 = ranky >= 3 ? 1 : 0;
+        const k1 = rankz >= 3 ? 1 : 0;
+        const l1 = rankw >= 3 ? 1 : 0;
+        // The integer offsets for the third simplex corner
+        const i2 = rankx >= 2 ? 1 : 0;
+        const j2 = ranky >= 2 ? 1 : 0;
+        const k2 = rankz >= 2 ? 1 : 0;
+        const l2 = rankw >= 2 ? 1 : 0;
+        // The integer offsets for the fourth simplex corner
+        const i3 = rankx >= 1 ? 1 : 0;
+        const j3 = ranky >= 1 ? 1 : 0;
+        const k3 = rankz >= 1 ? 1 : 0;
+        const l3 = rankw >= 1 ? 1 : 0;
+        // The fifth corner has all coordinate offsets = 1, so no need to compute that.
+        const x1 = x0 - i1 + G4; // Offsets for second corner in (x,y,z,w) coords
+        const y1 = y0 - j1 + G4;
+        const z1 = z0 - k1 + G4;
+        const w1 = w0 - l1 + G4;
+        const x2 = x0 - i2 + 2.0 * G4; // Offsets for third corner in (x,y,z,w) coords
+        const y2 = y0 - j2 + 2.0 * G4;
+        const z2 = z0 - k2 + 2.0 * G4;
+        const w2 = w0 - l2 + 2.0 * G4;
+        const x3 = x0 - i3 + 3.0 * G4; // Offsets for fourth corner in (x,y,z,w) coords
+        const y3 = y0 - j3 + 3.0 * G4;
+        const z3 = z0 - k3 + 3.0 * G4;
+        const w3 = w0 - l3 + 3.0 * G4;
+        const x4 = x0 - 1.0 + 4.0 * G4; // Offsets for last corner in (x,y,z,w) coords
+        const y4 = y0 - 1.0 + 4.0 * G4;
+        const z4 = z0 - 1.0 + 4.0 * G4;
+        const w4 = w0 - 1.0 + 4.0 * G4;
+        // Work out the hashed gradient indices of the five simplex corners
+        const ii = i & 255;
+        const jj = j & 255;
+        const kk = k & 255;
+        const ll = l & 255;
+        // Calculate the contribution from the five corners
+        let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0 - w0 * w0;
+        if (t0 < 0)
+            n0 = 0.0;
+        else {
+            const gi0 = ii + perm[jj + perm[kk + perm[ll]]];
+            t0 *= t0;
+            n0 = t0 * t0 * (permGrad4x[gi0] * x0 + permGrad4y[gi0] * y0 + permGrad4z[gi0] * z0 + permGrad4w[gi0] * w0);
+        }
+        let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1 - w1 * w1;
+        if (t1 < 0)
+            n1 = 0.0;
+        else {
+            const gi1 = ii + i1 + perm[jj + j1 + perm[kk + k1 + perm[ll + l1]]];
+            t1 *= t1;
+            n1 = t1 * t1 * (permGrad4x[gi1] * x1 + permGrad4y[gi1] * y1 + permGrad4z[gi1] * z1 + permGrad4w[gi1] * w1);
+        }
+        let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2 - w2 * w2;
+        if (t2 < 0)
+            n2 = 0.0;
+        else {
+            const gi2 = ii + i2 + perm[jj + j2 + perm[kk + k2 + perm[ll + l2]]];
+            t2 *= t2;
+            n2 = t2 * t2 * (permGrad4x[gi2] * x2 + permGrad4y[gi2] * y2 + permGrad4z[gi2] * z2 + permGrad4w[gi2] * w2);
+        }
+        let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3 - w3 * w3;
+        if (t3 < 0)
+            n3 = 0.0;
+        else {
+            const gi3 = ii + i3 + perm[jj + j3 + perm[kk + k3 + perm[ll + l3]]];
+            t3 *= t3;
+            n3 = t3 * t3 * (permGrad4x[gi3] * x3 + permGrad4y[gi3] * y3 + permGrad4z[gi3] * z3 + permGrad4w[gi3] * w3);
+        }
+        let t4 = 0.6 - x4 * x4 - y4 * y4 - z4 * z4 - w4 * w4;
+        if (t4 < 0)
+            n4 = 0.0;
+        else {
+            const gi4 = ii + 1 + perm[jj + 1 + perm[kk + 1 + perm[ll + 1]]];
+            t4 *= t4;
+            n4 = t4 * t4 * (permGrad4x[gi4] * x4 + permGrad4y[gi4] * y4 + permGrad4z[gi4] * z4 + permGrad4w[gi4] * w4);
+        }
+        // Sum up and scale the result to cover the range [-1,1]
+        return 27.0 * (n0 + n1 + n2 + n3 + n4);
+    };
+}
+exports.createNoise4D = createNoise4D;
+/**
+ * Builds a random permutation table.
+ * This is exported only for (internal) testing purposes.
+ * Do not rely on this export.
+ * @private
+ */
+function buildPermutationTable(random) {
+    const tableSize = 512;
+    const p = new Uint8Array(tableSize);
+    for (let i = 0; i < tableSize / 2; i++) {
+        p[i] = i;
+    }
+    for (let i = 0; i < tableSize / 2 - 1; i++) {
+        const r = i + ~~(random() * (256 - i));
+        const aux = p[i];
+        p[i] = p[r];
+        p[r] = aux;
+    }
+    for (let i = 256; i < tableSize; i++) {
+        p[i] = p[i - 256];
+    }
+    return p;
+}
+exports.buildPermutationTable = buildPermutationTable;
+//# sourceMappingURL=simplex-noise.js.map
+
+/***/ }),
+
+/***/ "./src/DebugMenu.ts":
+/*!**************************!*\
+  !*** ./src/DebugMenu.ts ***!
+  \**************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.DebugMenu = void 0;
+/**
+ * Our class for debug screen
+ * Note: using this slows down performance. To disable set the attribute debugMode to false.
+ */
+var DebugMenu = /** @class */ (function () {
+    function DebugMenu(mode) {
+        if (mode === void 0) { mode = true; }
+        this._debugMode = true;
+        this.object = document.getElementById("debugMenu");
+        this.objects = {};
+        this.debugMode = mode;
+        this.lastUpdate = 0;
+        this.updateSpeed = 10;
+    }
+    DebugMenu.prototype.update = function () {
+        if (this.debugMode) {
+            if (Date.now() - this.lastUpdate >= 1000 / this.updateSpeed) {
+                this.object.innerHTML = "";
+                for (var key in this.objects) {
+                    var val = this.objects[key];
+                    var a = val();
+                    var elem = document.createElement("p");
+                    elem.textContent = "".concat(key, ": ").concat(a);
+                    this.object.appendChild(elem);
+                }
+                this.lastUpdate = Date.now();
+            }
+        }
+    };
+    /**
+     * Adds thing to be debug
+     * @param key The id/identifier on screen
+     * @param supplier Has to be the SUPPLIER to the object you now want to read. Essentially, if you want it to always show the variable counter, then you would put ()=>counter in this area
+     */
+    DebugMenu.prototype.addElement = function (key, supplier) {
+        this.objects[key] = supplier;
+    };
+    DebugMenu.prototype.removeElement = function (key) {
+        delete this.objects[key];
+    };
+    Object.defineProperty(DebugMenu.prototype, "debugMode", {
+        get: function () {
+            return this._debugMode;
+        },
+        set: function (mode) {
+            this._debugMode = mode;
+            if (mode == true) {
+                this.object.style.display = 'block';
+            }
+            else {
+                this.object.style.display = 'none';
+            }
+        },
+        enumerable: false,
+        configurable: true
+    });
+    return DebugMenu;
+}());
+exports.DebugMenu = DebugMenu;
+
+
+/***/ }),
+
+/***/ "./src/gen_utils.ts":
+/*!**************************!*\
+  !*** ./src/gen_utils.ts ***!
+  \**************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.isPointerLocked = isPointerLocked;
+exports.toRadians = toRadians;
+function isPointerLocked() {
+    return document.pointerLockElement;
+}
+function toRadians(degrees) {
+    return degrees * (Math.PI / 180);
+}
+
+
+/***/ }),
+
+/***/ "./src/index.ts":
+/*!**********************!*\
+  !*** ./src/index.ts ***!
+  \**********************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+var gen_utils_1 = __webpack_require__(/*! ./gen_utils */ "./src/gen_utils.ts");
+var Camera_1 = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
+var GLRenderer_1 = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
+var DebugMenu_1 = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
+function main() {
+    var kMainCanvasId = "#MainCanvas";
+    var canvas = document.getElementById(kMainCanvasId);
+    canvas.width = window.innerWidth * devicePixelRatio;
+    canvas.height = window.innerHeight * devicePixelRatio;
+    canvas.onmousedown = function () {
+        canvas.requestPointerLock();
+        document.getElementById("body").requestFullscreen();
+    };
+    // Initialize the GL context
+    var gl = canvas.getContext("webgl2");
+    //initialize debugger
+    var debug = new DebugMenu_1.DebugMenu(true); // When you want to use just pass it into
+    // Only continue if WebGL is available and working
+    if (!gl)
+        return alert("Unable to initialize WebGL. Your browser or machine may not support it.");
+    var keysPressed = {};
+    addKeys(keysPressed);
+    var MainCamera = new Camera_1.Camera(gl_matrix_1.vec3.fromValues(0, 0, 3));
+    var lastRenderTime = 0;
+    var maxFPS = 60;
+    var frameInterval = 1000 / maxFPS; // 60 FPS
+    canvas.addEventListener("mousemove", function (event) {
+        if ((0, gen_utils_1.isPointerLocked)()) {
+            var movementX = event.movementX, movementY = event.movementY;
+            // Convert pixels to angles
+            MainCamera.yaw += movementX * MainCamera.sensitivity;
+            MainCamera.pitch -= movementY * MainCamera.sensitivity;
+            // Constrain pitch (to prevent flipping)
+            if (MainCamera.pitch > 89)
+                MainCamera.pitch = 89;
+            if (MainCamera.pitch < -89)
+                MainCamera.pitch = -89;
+            MainCamera.UpdateCameraVectors();
+        }
+    });
+    var renderer = new GLRenderer_1.GLRenderer(gl, canvas, MainCamera, debug);
+    window.addEventListener("resize", function () {
+        resizeCanvas(gl, canvas);
+    });
+    var frame = function (timestamp) {
+        if (timestamp - lastRenderTime < frameInterval) {
+            requestAnimationFrame(frame);
+            return;
+        }
+        var timePassed = timestamp - lastRenderTime;
+        lastRenderTime = timestamp;
+        if ((0, gen_utils_1.isPointerLocked)()) {
+            console.log("Updating camera position");
+            updateCameraPosition(MainCamera, keysPressed, timePassed);
+        }
+        renderer.render();
+        requestAnimationFrame(frame);
+        //The function repeats over and over at 60 fps because it calls itself
+    };
+    requestAnimationFrame(frame);
+}
+function updateCameraPosition(camera, keys, timePassed) {
+    var velocity = camera.speed * timePassed;
+    var movement = gl_matrix_1.vec3.create();
+    //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
+    if (keys["KeyW"])
+        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.front, velocity); // Forward
+    if (keys["KeyS"])
+        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.front, -velocity); // Backward
+    if (keys["KeyA"])
+        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.right, -velocity); // Left
+    if (keys["KeyD"])
+        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.right, velocity); // Right
+    if (keys["Space"])
+        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.up, velocity); // Up
+    if (keys["ShiftLeft"])
+        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.up, -velocity); // Down
+    gl_matrix_1.vec3.add(camera.position, camera.position, movement);
+}
+function resizeCanvas(gl, canvas) {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    console.log(canvas.width);
+}
+function addKeys(keys) {
+    window.addEventListener("keydown", function (event) {
+        keys[event.code] = true;
+    });
+    window.addEventListener("keyup", function (event) {
+        keys[event.code] = false;
+    });
+}
+main();
+
+
+/***/ }),
+
+/***/ "./src/map/Map.ts":
+/*!************************!*\
+  !*** ./src/map/Map.ts ***!
+  \************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+//Wrapper classes (will write stuff later)
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.WorldMap = void 0;
+var simplex_noise_1 = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/cjs/simplex-noise.js");
+var marching_cubes_1 = __webpack_require__(/*! ./marching_cubes */ "./src/map/marching_cubes.ts");
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+//Check README for implementation pattern
+//Center chunk starts at 0,0 (probably)
+//Entirety of the map
+var WorldMap = /** @class */ (function () {
+    //TODO: Insert parameters
+    function WorldMap(width, length, height) {
+        this.lighting = [gl_matrix_1.vec3.fromValues(0, 0, 1000)];
+        this.width = width;
+        this.length = length;
+        this.height = height;
+        this.chunks = [];
+        this.simplexNoise = (0, simplex_noise_1.createNoise3D)();
+        this.generate();
+    }
+    //Generates map
+    WorldMap.prototype.generate = function () {
+        this.chunks = [
+            new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(0, 0), gl_matrix_1.vec3.fromValues(32, 32, 32), this.simplexNoise),
+            new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(32, 0), gl_matrix_1.vec3.fromValues(32, 32, 32), this.simplexNoise),
+            new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(64, 0), gl_matrix_1.vec3.fromValues(32, 32, 32), this.simplexNoise),
+            new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(0, 32), gl_matrix_1.vec3.fromValues(32, 32, 32), this.simplexNoise)
+        ];
+    };
+    //Renders map (later implementation we don't care abt it rn.)
+    WorldMap.prototype.render = function () { };
+    return WorldMap;
+}());
+exports.WorldMap = WorldMap;
+
+
+/***/ }),
+
+/***/ "./src/map/Mesh.ts":
 /*!*************************!*\
-  !*** ./src/geomatry.ts ***!
+  !*** ./src/map/Mesh.ts ***!
   \*************************/
 /***/ ((__unused_webpack_module, exports) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.cubeIndices = exports.CubeVertices = exports.TriangleVertices = void 0;
+exports.Mesh = void 0;
+var Mesh = /** @class */ (function () {
+    function Mesh() {
+        this.mesh = [];
+        this.type = []; // To be used when terrain types are implemented
+    }
+    Mesh.prototype.merge = function (mesh2) {
+        var _a, _b;
+        (_a = this.mesh).push.apply(_a, mesh2.mesh);
+        (_b = this.type).push.apply(_b, mesh2.type);
+    };
+    Mesh.prototype.addTriangle = function (triangle, type) {
+        if (type === void 0) { type = [0, 0, 0]; }
+        this.mesh.push(triangle);
+        this.type.push(type);
+    };
+    return Mesh;
+}());
+exports.Mesh = Mesh;
+
+
+/***/ }),
+
+/***/ "./src/map/cubes_utils.ts":
+/*!********************************!*\
+  !*** ./src/map/cubes_utils.ts ***!
+  \********************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.meshToVertices = exports.calculateVertexNormals = void 0;
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+var terrains_1 = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+var gl_utilities_1 = __webpack_require__(/*! ../render/gl-utilities */ "./src/render/gl-utilities.ts");
+var roundToPrecision = function (value, precision) {
+    return Math.round(value * precision) / precision;
+};
+var vertexKey = function (vertex) {
+    return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
+};
+var calculateTriangleNormal = function (triangle) {
+    var v1 = gl_matrix_1.vec3.sub(gl_matrix_1.vec3.create(), triangle[1], triangle[0]);
+    var v2 = gl_matrix_1.vec3.sub(gl_matrix_1.vec3.create(), triangle[2], triangle[0]);
+    var normal = gl_matrix_1.vec3.create();
+    gl_matrix_1.vec3.cross(normal, v1, v2);
+    gl_matrix_1.vec3.normalize(normal, normal);
+    return normal;
+};
+var calculateVertexNormals = function (mesh) {
+    var vertexNormals = new Map();
+    for (var _i = 0, _a = mesh.mesh; _i < _a.length; _i++) {
+        var triangle = _a[_i];
+        // Calculate the normal for the triangle
+        var normal = calculateTriangleNormal(triangle);
+        // Add the triangle's normal to each of its vertices
+        for (var _b = 0, triangle_1 = triangle; _b < triangle_1.length; _b++) {
+            var vertex = triangle_1[_b];
+            console.log(vertex);
+            var key = vertexKey(vertex); // Use the vertex position as a key
+            if (!vertexNormals.has(key)) {
+                vertexNormals.set(key, gl_matrix_1.vec3.create());
+            }
+            gl_matrix_1.vec3.add(vertexNormals.get(key), vertexNormals.get(key), normal);
+        }
+    }
+    // Normalize all vertex normals
+    for (var _c = 0, _d = Array.from(vertexNormals.entries()); _c < _d.length; _c++) {
+        var _e = _d[_c], key = _e[0], normal = _e[1];
+        gl_matrix_1.vec3.normalize(normal, normal);
+    }
+    return vertexNormals;
+};
+exports.calculateVertexNormals = calculateVertexNormals;
+var meshToVertices = function (mesh, vertexNormals, ChunkPosition) {
+    // For each vertex: x, y, z, r, g, b
+    var vertices = new Float32Array(mesh.mesh.length * 18);
+    for (var i = 0; i < mesh.mesh.length; i++) {
+        var triangle = mesh.mesh[i];
+        var types = mesh.type[i];
+        for (var j = 0; j < 3; j++) {
+            var vertex = triangle[j];
+            var key = vertexKey(vertex);
+            var normal = vertexNormals.get(key);
+            // Vertex position
+            vertices[i * 18 + j * 6 + 0] = vertex[0] + ChunkPosition[0];
+            vertices[i * 18 + j * 6 + 1] = vertex[1];
+            vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1];
+            // Vertex normal
+            var type = terrains_1.Terrains[types[j]];
+            var color = gl_utilities_1.glUtils.getMeshColor(normal[1], type);
+            vertices[i * 18 + j * 6 + 3] = color.r / 255;
+            vertices[i * 18 + j * 6 + 4] = color.g / 255;
+            vertices[i * 18 + j * 6 + 5] = color.b / 255;
+        }
+    }
+    return vertices;
+};
+exports.meshToVertices = meshToVertices;
+
+
+/***/ }),
+
+/***/ "./src/map/geometry.ts":
+/*!*****************************!*\
+  !*** ./src/map/geometry.ts ***!
+  \*****************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.CASES = exports.EDGES = exports.VERTICES = exports.WirFrameCubeIndices = exports.CubeIndices = exports.CubeVertices = exports.TriangleVertices = void 0;
 exports.TriangleVertices = [
     // Top middle
-    0.0, 0.5, 0.0,
+    0.0, 0.5, 0.0, 1, 1, 1,
     // Bottom Left
-    -0.5, -0.5, 0.0,
+    -0.5, -0.5, 0.0, 1, 1, 1,
     // Bottom Right
-    0.5, -0.5, 0.0,
+    0.5, -0.5, 0.0, 1, 1, 1
 ];
 exports.CubeVertices = [
     // X, Y, Z,       R, G, B
     // Front face (red)
-    -0.5, -0.5, 0.5, 1.0, 0.0, 0.0,
-    0.5, -0.5, 0.5, 1.0, 0.0, 0.0,
-    0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
-    -0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
+    -0.5, -0.5, 0.5, 1.0, 0.0, 0.0, 0.5, -0.5, 0.5, 1.0, 0.0, 0.0, 0.5, 0.5, 0.5,
+    1.0, 0.0, 0.0, -0.5, 0.5, 0.5, 1.0, 0.0, 0.0,
     // Back face (green)
-    -0.5, -0.5, -0.5, 0.0, 1.0, 0.0,
-    0.5, -0.5, -0.5, 0.0, 1.0, 0.0,
-    0.5, 0.5, -0.5, 0.0, 1.0, 0.0,
-    -0.5, 0.5, -0.5, 0.0, 1.0, 0.0,
+    -0.5, -0.5, -0.5, 0.0, 1.0, 0.0, 0.5, -0.5, -0.5, 0.0, 1.0, 0.0, 0.5, 0.5,
+    -0.5, 0.0, 1.0, 0.0, -0.5, 0.5, -0.5, 0.0, 1.0, 0.0,
     // Top face (blue)
-    -0.5, 0.5, -0.5, 0.0, 0.0, 1.0,
-    0.5, 0.5, -0.5, 0.0, 0.0, 1.0,
-    0.5, 0.5, 0.5, 0.0, 0.0, 1.0,
-    -0.5, 0.5, 0.5, 0.0, 0.0, 1.0,
+    -0.5, 0.5, -0.5, 0.0, 0.0, 1.0, 0.5, 0.5, -0.5, 0.0, 0.0, 1.0, 0.5, 0.5, 0.5,
+    0.0, 0.0, 1.0, -0.5, 0.5, 0.5, 0.0, 0.0, 1.0,
     // Bottom face (yellow)
-    -0.5, -0.5, -0.5, 1.0, 1.0, 0.0,
-    0.5, -0.5, -0.5, 1.0, 1.0, 0.0,
-    0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
-    -0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
+    -0.5, -0.5, -0.5, 1.0, 1.0, 0.0, 0.5, -0.5, -0.5, 1.0, 1.0, 0.0, 0.5, -0.5,
+    0.5, 1.0, 1.0, 0.0, -0.5, -0.5, 0.5, 1.0, 1.0, 0.0,
     // Right face (magenta)
-    0.5, -0.5, -0.5, 1.0, 0.0, 1.0,
-    0.5, 0.5, -0.5, 1.0, 0.0, 1.0,
-    0.5, 0.5, 0.5, 1.0, 0.0, 1.0,
-    0.5, -0.5, 0.5, 1.0, 0.0, 1.0,
+    0.5, -0.5, -0.5, 1.0, 0.0, 1.0, 0.5, 0.5, -0.5, 1.0, 0.0, 1.0, 0.5, 0.5, 0.5,
+    1.0, 0.0, 1.0, 0.5, -0.5, 0.5, 1.0, 0.0, 1.0,
     // Left face (cyan)
-    -0.5, -0.5, -0.5, 0.0, 1.0, 1.0,
-    -0.5, 0.5, -0.5, 0.0, 1.0, 1.0,
-    -0.5, 0.5, 0.5, 0.0, 1.0, 1.0,
-    -0.5, -0.5, 0.5, 0.0, 1.0, 1.0,
+    -0.5, -0.5, -0.5, 0.0, 1.0, 1.0, -0.5, 0.5, -0.5, 0.0, 1.0, 1.0, -0.5, 0.5,
+    0.5, 0.0, 1.0, 1.0, -0.5, -0.5, 0.5, 0.0, 1.0, 1.0
 ];
-exports.cubeIndices = [
+exports.CubeIndices = [
     0,
     1,
     2,
@@ -7892,148 +8717,473 @@ exports.cubeIndices = [
     22,
     20,
     22,
-    23, // left
+    23 // left
 ];
+exports.WirFrameCubeIndices = [
+    // Front face
+    0, 1, 1, 2, 2, 3, 3, 0,
+    // Back face
+    4, 5, 5, 6, 6, 7, 7, 4,
+    // Top face
+    8, 9, 9, 10, 10, 11, 11, 8,
+    // Bottom face
+    12, 13, 13, 14, 14, 15, 15, 12,
+    // Right face
+    16, 17, 17, 18, 18, 19, 19, 16,
+    // Left face
+    20, 21, 21, 22, 22, 23, 23, 20
+];
+// Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
+exports.VERTICES = [
+    [0, 0, 0],
+    [1, 0, 0],
+    [1, 1, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 0, 1],
+    [1, 1, 1],
+    [0, 1, 1]
+];
+exports.EDGES = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7]
+];
+//prettier-ignore
+exports.CASES = [[],
+    [[8, 0, 3]],
+    [[1, 0, 9]],
+    [[8, 1, 3], [8, 9, 1]],
+    [[10, 2, 1]],
+    [[8, 0, 3], [1, 10, 2]],
+    [[9, 2, 0], [9, 10, 2]],
+    [[3, 8, 2], [2, 8, 10], [10, 8, 9]],
+    [[3, 2, 11]],
+    [[0, 2, 8], [2, 11, 8]],
+    [[1, 0, 9], [2, 11, 3]],
+    [[2, 9, 1], [11, 9, 2], [8, 9, 11]],
+    [[3, 10, 11], [3, 1, 10]],
+    [[1, 10, 0], [0, 10, 8], [8, 10, 11]],
+    [[0, 11, 3], [9, 11, 0], [10, 11, 9]],
+    [[8, 9, 11], [11, 9, 10]],
+    [[7, 4, 8]],
+    [[3, 7, 0], [7, 4, 0]],
+    [[7, 4, 8], [9, 1, 0]],
+    [[9, 1, 4], [4, 1, 7], [7, 1, 3]],
+    [[7, 4, 8], [2, 1, 10]],
+    [[4, 3, 7], [4, 0, 3], [2, 1, 10]],
+    [[2, 0, 10], [0, 9, 10], [7, 4, 8]],
+    [[9, 10, 4], [4, 10, 3], [3, 10, 2], [4, 3, 7]],
+    [[4, 8, 7], [3, 2, 11]],
+    [[7, 4, 11], [11, 4, 2], [2, 4, 0]],
+    [[1, 0, 9], [2, 11, 3], [8, 7, 4]],
+    [[2, 11, 1], [1, 11, 9], [9, 11, 7], [9, 7, 4]],
+    [[10, 11, 1], [11, 3, 1], [4, 8, 7]],
+    [[4, 0, 7], [7, 0, 10], [0, 1, 10], [7, 10, 11]],
+    [[7, 4, 8], [0, 11, 3], [9, 11, 0], [10, 11, 9]],
+    [[4, 11, 7], [9, 11, 4], [10, 11, 9]],
+    [[9, 4, 5]],
+    [[9, 4, 5], [0, 3, 8]],
+    [[0, 5, 1], [0, 4, 5]],
+    [[4, 3, 8], [5, 3, 4], [1, 3, 5]],
+    [[5, 9, 4], [10, 2, 1]],
+    [[8, 0, 3], [1, 10, 2], [4, 5, 9]],
+    [[10, 4, 5], [2, 4, 10], [0, 4, 2]],
+    [[3, 10, 2], [8, 10, 3], [5, 10, 8], [4, 5, 8]],
+    [[9, 4, 5], [11, 3, 2]],
+    [[11, 0, 2], [11, 8, 0], [9, 4, 5]],
+    [[5, 1, 4], [1, 0, 4], [11, 3, 2]],
+    [[5, 1, 4], [4, 1, 11], [1, 2, 11], [4, 11, 8]],
+    [[3, 10, 11], [3, 1, 10], [5, 9, 4]],
+    [[9, 4, 5], [1, 10, 0], [0, 10, 8], [8, 10, 11]],
+    [[5, 0, 4], [11, 0, 5], [11, 3, 0], [10, 11, 5]],
+    [[5, 10, 4], [4, 10, 8], [8, 10, 11]],
+    [[9, 7, 5], [9, 8, 7]],
+    [[0, 5, 9], [3, 5, 0], [7, 5, 3]],
+    [[8, 7, 0], [0, 7, 1], [1, 7, 5]],
+    [[7, 5, 3], [3, 5, 1]],
+    [[7, 5, 8], [5, 9, 8], [2, 1, 10]],
+    [[10, 2, 1], [0, 5, 9], [3, 5, 0], [7, 5, 3]],
+    [[8, 2, 0], [5, 2, 8], [10, 2, 5], [7, 5, 8]],
+    [[2, 3, 10], [10, 3, 5], [5, 3, 7]],
+    [[9, 7, 5], [9, 8, 7], [11, 3, 2]],
+    [[0, 2, 9], [9, 2, 7], [7, 2, 11], [9, 7, 5]],
+    [[3, 2, 11], [8, 7, 0], [0, 7, 1], [1, 7, 5]],
+    [[11, 1, 2], [7, 1, 11], [5, 1, 7]],
+    [[3, 1, 11], [11, 1, 10], [8, 7, 9], [9, 7, 5]],
+    [[11, 7, 0], [7, 5, 0], [5, 9, 0], [10, 11, 0], [1, 10, 0]],
+    [[0, 5, 10], [0, 7, 5], [0, 8, 7], [0, 10, 11], [0, 11, 3]],
+    [[10, 11, 5], [11, 7, 5]],
+    [[5, 6, 10]],
+    [[8, 0, 3], [10, 5, 6]],
+    [[0, 9, 1], [5, 6, 10]],
+    [[8, 1, 3], [8, 9, 1], [10, 5, 6]],
+    [[1, 6, 2], [1, 5, 6]],
+    [[6, 2, 5], [2, 1, 5], [8, 0, 3]],
+    [[5, 6, 9], [9, 6, 0], [0, 6, 2]],
+    [[5, 8, 9], [2, 8, 5], [3, 8, 2], [6, 2, 5]],
+    [[3, 2, 11], [10, 5, 6]],
+    [[0, 2, 8], [2, 11, 8], [5, 6, 10]],
+    [[3, 2, 11], [0, 9, 1], [10, 5, 6]],
+    [[5, 6, 10], [2, 9, 1], [11, 9, 2], [8, 9, 11]],
+    [[11, 3, 6], [6, 3, 5], [5, 3, 1]],
+    [[11, 8, 6], [6, 8, 1], [1, 8, 0], [6, 1, 5]],
+    [[5, 0, 9], [6, 0, 5], [3, 0, 6], [11, 3, 6]],
+    [[6, 9, 5], [11, 9, 6], [8, 9, 11]],
+    [[7, 4, 8], [6, 10, 5]],
+    [[3, 7, 0], [7, 4, 0], [10, 5, 6]],
+    [[7, 4, 8], [6, 10, 5], [9, 1, 0]],
+    [[5, 6, 10], [9, 1, 4], [4, 1, 7], [7, 1, 3]],
+    [[1, 6, 2], [1, 5, 6], [7, 4, 8]],
+    [[6, 1, 5], [2, 1, 6], [0, 7, 4], [3, 7, 0]],
+    [[4, 8, 7], [5, 6, 9], [9, 6, 0], [0, 6, 2]],
+    [[2, 3, 9], [3, 7, 9], [7, 4, 9], [6, 2, 9], [5, 6, 9]],
+    [[2, 11, 3], [7, 4, 8], [10, 5, 6]],
+    [[6, 10, 5], [7, 4, 11], [11, 4, 2], [2, 4, 0]],
+    [[1, 0, 9], [8, 7, 4], [3, 2, 11], [5, 6, 10]],
+    [[1, 2, 9], [9, 2, 11], [9, 11, 4], [4, 11, 7], [5, 6, 10]],
+    [[7, 4, 8], [11, 3, 6], [6, 3, 5], [5, 3, 1]],
+    [[11, 0, 1], [11, 4, 0], [11, 7, 4], [11, 1, 5], [11, 5, 6]],
+    [[6, 9, 5], [0, 9, 6], [11, 0, 6], [3, 0, 11], [4, 8, 7]],
+    [[5, 6, 9], [9, 6, 11], [9, 11, 7], [9, 7, 4]],
+    [[4, 10, 9], [4, 6, 10]],
+    [[10, 4, 6], [10, 9, 4], [8, 0, 3]],
+    [[1, 0, 10], [10, 0, 6], [6, 0, 4]],
+    [[8, 1, 3], [6, 1, 8], [6, 10, 1], [4, 6, 8]],
+    [[9, 2, 1], [4, 2, 9], [6, 2, 4]],
+    [[3, 8, 0], [9, 2, 1], [4, 2, 9], [6, 2, 4]],
+    [[0, 4, 2], [2, 4, 6]],
+    [[8, 2, 3], [4, 2, 8], [6, 2, 4]],
+    [[4, 10, 9], [4, 6, 10], [2, 11, 3]],
+    [[11, 8, 2], [2, 8, 0], [6, 10, 4], [4, 10, 9]],
+    [[2, 11, 3], [1, 0, 10], [10, 0, 6], [6, 0, 4]],
+    [[8, 4, 1], [4, 6, 1], [6, 10, 1], [11, 8, 1], [2, 11, 1]],
+    [[3, 1, 11], [11, 1, 4], [1, 9, 4], [11, 4, 6]],
+    [[6, 11, 1], [11, 8, 1], [8, 0, 1], [4, 6, 1], [9, 4, 1]],
+    [[3, 0, 11], [11, 0, 6], [6, 0, 4]],
+    [[4, 11, 8], [4, 6, 11]],
+    [[6, 8, 7], [10, 8, 6], [9, 8, 10]],
+    [[3, 7, 0], [0, 7, 10], [7, 6, 10], [0, 10, 9]],
+    [[1, 6, 10], [0, 6, 1], [7, 6, 0], [8, 7, 0]],
+    [[10, 1, 6], [6, 1, 7], [7, 1, 3]],
+    [[9, 8, 1], [1, 8, 6], [6, 8, 7], [1, 6, 2]],
+    [[9, 7, 6], [9, 3, 7], [9, 0, 3], [9, 6, 2], [9, 2, 1]],
+    [[7, 6, 8], [8, 6, 0], [0, 6, 2]],
+    [[3, 6, 2], [3, 7, 6]],
+    [[3, 2, 11], [6, 8, 7], [10, 8, 6], [9, 8, 10]],
+    [[7, 9, 0], [7, 10, 9], [7, 6, 10], [7, 0, 2], [7, 2, 11]],
+    [[0, 10, 1], [6, 10, 0], [8, 6, 0], [7, 6, 8], [2, 11, 3]],
+    [[1, 6, 10], [7, 6, 1], [11, 7, 1], [2, 11, 1]],
+    [[1, 9, 6], [9, 8, 6], [8, 7, 6], [3, 1, 6], [11, 3, 6]],
+    [[9, 0, 1], [11, 7, 6]],
+    [[0, 11, 3], [6, 11, 0], [7, 6, 0], [8, 7, 0]],
+    [[7, 6, 11]],
+    [[11, 6, 7]],
+    [[3, 8, 0], [11, 6, 7]],
+    [[1, 0, 9], [6, 7, 11]],
+    [[1, 3, 9], [3, 8, 9], [6, 7, 11]],
+    [[10, 2, 1], [6, 7, 11]],
+    [[10, 2, 1], [3, 8, 0], [6, 7, 11]],
+    [[9, 2, 0], [9, 10, 2], [11, 6, 7]],
+    [[11, 6, 7], [3, 8, 2], [2, 8, 10], [10, 8, 9]],
+    [[2, 6, 3], [6, 7, 3]],
+    [[8, 6, 7], [0, 6, 8], [2, 6, 0]],
+    [[7, 2, 6], [7, 3, 2], [1, 0, 9]],
+    [[8, 9, 7], [7, 9, 2], [2, 9, 1], [7, 2, 6]],
+    [[6, 1, 10], [7, 1, 6], [3, 1, 7]],
+    [[8, 0, 7], [7, 0, 6], [6, 0, 1], [6, 1, 10]],
+    [[7, 3, 6], [6, 3, 9], [3, 0, 9], [6, 9, 10]],
+    [[7, 8, 6], [6, 8, 10], [10, 8, 9]],
+    [[8, 11, 4], [11, 6, 4]],
+    [[11, 0, 3], [6, 0, 11], [4, 0, 6]],
+    [[6, 4, 11], [4, 8, 11], [1, 0, 9]],
+    [[1, 3, 9], [9, 3, 6], [3, 11, 6], [9, 6, 4]],
+    [[8, 11, 4], [11, 6, 4], [1, 10, 2]],
+    [[1, 10, 2], [11, 0, 3], [6, 0, 11], [4, 0, 6]],
+    [[2, 9, 10], [0, 9, 2], [4, 11, 6], [8, 11, 4]],
+    [[3, 4, 9], [3, 6, 4], [3, 11, 6], [3, 9, 10], [3, 10, 2]],
+    [[3, 2, 8], [8, 2, 4], [4, 2, 6]],
+    [[2, 4, 0], [6, 4, 2]],
+    [[0, 9, 1], [3, 2, 8], [8, 2, 4], [4, 2, 6]],
+    [[1, 2, 9], [9, 2, 4], [4, 2, 6]],
+    [[10, 3, 1], [4, 3, 10], [4, 8, 3], [6, 4, 10]],
+    [[10, 0, 1], [6, 0, 10], [4, 0, 6]],
+    [[3, 10, 6], [3, 9, 10], [3, 0, 9], [3, 6, 4], [3, 4, 8]],
+    [[9, 10, 4], [10, 6, 4]],
+    [[9, 4, 5], [7, 11, 6]],
+    [[9, 4, 5], [7, 11, 6], [0, 3, 8]],
+    [[0, 5, 1], [0, 4, 5], [6, 7, 11]],
+    [[11, 6, 7], [4, 3, 8], [5, 3, 4], [1, 3, 5]],
+    [[1, 10, 2], [9, 4, 5], [6, 7, 11]],
+    [[8, 0, 3], [4, 5, 9], [10, 2, 1], [11, 6, 7]],
+    [[7, 11, 6], [10, 4, 5], [2, 4, 10], [0, 4, 2]],
+    [[8, 2, 3], [10, 2, 8], [4, 10, 8], [5, 10, 4], [11, 6, 7]],
+    [[2, 6, 3], [6, 7, 3], [9, 4, 5]],
+    [[5, 9, 4], [8, 6, 7], [0, 6, 8], [2, 6, 0]],
+    [[7, 3, 6], [6, 3, 2], [4, 5, 0], [0, 5, 1]],
+    [[8, 1, 2], [8, 5, 1], [8, 4, 5], [8, 2, 6], [8, 6, 7]],
+    [[9, 4, 5], [6, 1, 10], [7, 1, 6], [3, 1, 7]],
+    [[7, 8, 6], [6, 8, 0], [6, 0, 10], [10, 0, 1], [5, 9, 4]],
+    [[3, 0, 10], [0, 4, 10], [4, 5, 10], [7, 3, 10], [6, 7, 10]],
+    [[8, 6, 7], [10, 6, 8], [5, 10, 8], [4, 5, 8]],
+    [[5, 9, 6], [6, 9, 11], [11, 9, 8]],
+    [[11, 6, 3], [3, 6, 0], [0, 6, 5], [0, 5, 9]],
+    [[8, 11, 0], [0, 11, 5], [5, 11, 6], [0, 5, 1]],
+    [[6, 3, 11], [5, 3, 6], [1, 3, 5]],
+    [[10, 2, 1], [5, 9, 6], [6, 9, 11], [11, 9, 8]],
+    [[3, 11, 0], [0, 11, 6], [0, 6, 9], [9, 6, 5], [1, 10, 2]],
+    [[0, 8, 5], [8, 11, 5], [11, 6, 5], [2, 0, 5], [10, 2, 5]],
+    [[11, 6, 3], [3, 6, 5], [3, 5, 10], [3, 10, 2]],
+    [[3, 9, 8], [6, 9, 3], [5, 9, 6], [2, 6, 3]],
+    [[9, 6, 5], [0, 6, 9], [2, 6, 0]],
+    [[6, 5, 8], [5, 1, 8], [1, 0, 8], [2, 6, 8], [3, 2, 8]],
+    [[2, 6, 1], [6, 5, 1]],
+    [[6, 8, 3], [6, 9, 8], [6, 5, 9], [6, 3, 1], [6, 1, 10]],
+    [[1, 10, 0], [0, 10, 6], [0, 6, 5], [0, 5, 9]],
+    [[3, 0, 8], [6, 5, 10]],
+    [[10, 6, 5]],
+    [[5, 11, 10], [5, 7, 11]],
+    [[5, 11, 10], [5, 7, 11], [3, 8, 0]],
+    [[11, 10, 7], [10, 5, 7], [0, 9, 1]],
+    [[5, 7, 10], [10, 7, 11], [9, 1, 8], [8, 1, 3]],
+    [[2, 1, 11], [11, 1, 7], [7, 1, 5]],
+    [[3, 8, 0], [2, 1, 11], [11, 1, 7], [7, 1, 5]],
+    [[2, 0, 11], [11, 0, 5], [5, 0, 9], [11, 5, 7]],
+    [[2, 9, 5], [2, 8, 9], [2, 3, 8], [2, 5, 7], [2, 7, 11]],
+    [[10, 3, 2], [5, 3, 10], [7, 3, 5]],
+    [[10, 0, 2], [7, 0, 10], [8, 0, 7], [5, 7, 10]],
+    [[0, 9, 1], [10, 3, 2], [5, 3, 10], [7, 3, 5]],
+    [[7, 8, 2], [8, 9, 2], [9, 1, 2], [5, 7, 2], [10, 5, 2]],
+    [[3, 1, 7], [7, 1, 5]],
+    [[0, 7, 8], [1, 7, 0], [5, 7, 1]],
+    [[9, 5, 0], [0, 5, 3], [3, 5, 7]],
+    [[5, 7, 9], [7, 8, 9]],
+    [[4, 10, 5], [8, 10, 4], [11, 10, 8]],
+    [[3, 4, 0], [10, 4, 3], [10, 5, 4], [11, 10, 3]],
+    [[1, 0, 9], [4, 10, 5], [8, 10, 4], [11, 10, 8]],
+    [[4, 3, 11], [4, 1, 3], [4, 9, 1], [4, 11, 10], [4, 10, 5]],
+    [[1, 5, 2], [2, 5, 8], [5, 4, 8], [2, 8, 11]],
+    [[5, 4, 11], [4, 0, 11], [0, 3, 11], [1, 5, 11], [2, 1, 11]],
+    [[5, 11, 2], [5, 8, 11], [5, 4, 8], [5, 2, 0], [5, 0, 9]],
+    [[5, 4, 9], [2, 3, 11]],
+    [[3, 4, 8], [2, 4, 3], [5, 4, 2], [10, 5, 2]],
+    [[5, 4, 10], [10, 4, 2], [2, 4, 0]],
+    [[2, 8, 3], [4, 8, 2], [10, 4, 2], [5, 4, 10], [0, 9, 1]],
+    [[4, 10, 5], [2, 10, 4], [1, 2, 4], [9, 1, 4]],
+    [[8, 3, 4], [4, 3, 5], [5, 3, 1]],
+    [[1, 5, 0], [5, 4, 0]],
+    [[5, 0, 9], [3, 0, 5], [8, 3, 5], [4, 8, 5]],
+    [[5, 4, 9]],
+    [[7, 11, 4], [4, 11, 9], [9, 11, 10]],
+    [[8, 0, 3], [7, 11, 4], [4, 11, 9], [9, 11, 10]],
+    [[0, 4, 1], [1, 4, 11], [4, 7, 11], [1, 11, 10]],
+    [[10, 1, 4], [1, 3, 4], [3, 8, 4], [11, 10, 4], [7, 11, 4]],
+    [[9, 4, 1], [1, 4, 2], [2, 4, 7], [2, 7, 11]],
+    [[1, 9, 2], [2, 9, 4], [2, 4, 11], [11, 4, 7], [3, 8, 0]],
+    [[11, 4, 7], [2, 4, 11], [0, 4, 2]],
+    [[7, 11, 4], [4, 11, 2], [4, 2, 3], [4, 3, 8]],
+    [[10, 9, 2], [2, 9, 7], [7, 9, 4], [2, 7, 3]],
+    [[2, 10, 7], [10, 9, 7], [9, 4, 7], [0, 2, 7], [8, 0, 7]],
+    [[10, 4, 7], [10, 0, 4], [10, 1, 0], [10, 7, 3], [10, 3, 2]],
+    [[8, 4, 7], [10, 1, 2]],
+    [[4, 1, 9], [7, 1, 4], [3, 1, 7]],
+    [[8, 0, 7], [7, 0, 1], [7, 1, 9], [7, 9, 4]],
+    [[0, 7, 3], [0, 4, 7]],
+    [[8, 4, 7]],
+    [[9, 8, 10], [10, 8, 11]],
+    [[3, 11, 0], [0, 11, 9], [9, 11, 10]],
+    [[0, 10, 1], [8, 10, 0], [11, 10, 8]],
+    [[11, 10, 3], [10, 1, 3]],
+    [[1, 9, 2], [2, 9, 11], [11, 9, 8]],
+    [[9, 2, 1], [11, 2, 9], [3, 11, 9], [0, 3, 9]],
+    [[8, 2, 0], [8, 11, 2]],
+    [[11, 2, 3]],
+    [[2, 8, 3], [10, 8, 2], [9, 8, 10]],
+    [[0, 2, 9], [2, 10, 9]],
+    [[3, 2, 8], [8, 2, 10], [8, 10, 1], [8, 1, 0]],
+    [[1, 2, 10]],
+    [[3, 1, 8], [1, 9, 8]],
+    [[9, 0, 1]],
+    [[3, 0, 8]],
+    []];
 
 
 /***/ }),
 
-/***/ "./src/gl-utilities.ts":
-/*!*****************************!*\
-  !*** ./src/gl-utilities.ts ***!
-  \*****************************/
+/***/ "./src/map/marching_cubes.ts":
+/*!***********************************!*\
+  !*** ./src/map/marching_cubes.ts ***!
+  \***********************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.CreateProgram = CreateProgram;
-exports.CreateShader = CreateShader;
-exports.CreateStaticBuffer = CreateStaticBuffer;
-exports.CreateTransformations = CreateTransformations;
-exports.CreateIndexBuffer = CreateIndexBuffer;
-exports.create3dPosColorInterleavedVao = create3dPosColorInterleavedVao;
+exports.Chunk = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
-var geomatry_1 = __webpack_require__(/*! ./geomatry */ "./src/geomatry.ts");
-function CreateProgram(gl, VertexShaderCode, FragmentShaderCode) {
-    var VertexShader = CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
-    var FragmentShader = CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
-    var Program = gl.createProgram();
-    gl.attachShader(Program, VertexShader);
-    gl.attachShader(Program, FragmentShader);
-    gl.linkProgram(Program);
-    if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
-        var errorMessage = gl.getProgramInfoLog(Program);
-        console.error("Failed to link GPU program: ".concat(errorMessage));
-        return;
+var geometry_1 = __webpack_require__(/*! ./geometry */ "./src/map/geometry.ts");
+var Mesh_1 = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
+//!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
+var Chunk = /** @class */ (function () {
+    function Chunk(ChunkPosition, GridSize, SimplexNoise) {
+        this.GridSize = GridSize;
+        this.ChunkPosition = ChunkPosition;
+        this.SimplexNoise = SimplexNoise;
+        this.Field = this.generateFieldValues();
     }
-    gl.useProgram(Program);
-    return Program;
-}
-function CreateShader(gl, ShaderType, ShaderCode) {
-    var Shader = gl.createShader(ShaderType);
-    if (!Shader) {
-        throw new Error("Failed to create WebGL shader.");
-    }
-    gl.shaderSource(Shader, ShaderCode);
-    gl.compileShader(Shader);
-    if (!gl.getShaderParameter(Shader, gl.COMPILE_STATUS)) {
-        console.error("Shader compilation error: ", gl.getShaderInfoLog(Shader));
-        gl.deleteShader(Shader); // Clean up the failed shader
-        throw new Error("Shader compilation failed.");
-    }
-    return Shader;
-}
-function CreateStaticBuffer(gl, data) {
-    var buffer = gl.createBuffer();
-    if (!buffer) {
-        console.error("Failed to create buffer");
-        return;
-    }
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-    var indexBuffer = CreateIndexBuffer(gl, geomatry_1.cubeIndices);
-    return {
-        position: buffer,
-        // color: colorBuffer,
-        indices: indexBuffer
+    Chunk.prototype.chunkCoordinateToIndex = function (c) {
+        return (c[0] +
+            c[1] * (this.GridSize[0] + 1) +
+            c[2] * (this.GridSize[0] + 1) * (this.GridSize[1] + 1));
     };
-}
-function CreateTransformations(translation, rotation, scale) {
-    var transformMatrix = gl_matrix_1.mat4.create();
-    if (scale) {
-        gl_matrix_1.mat4.scale(transformMatrix, transformMatrix, scale);
-    }
-    if (rotation) {
-        // Apply rotation around X, Y, and Z axes using Euler angles
-        gl_matrix_1.mat4.rotateX(transformMatrix, transformMatrix, rotation[0]);
-        gl_matrix_1.mat4.rotateY(transformMatrix, transformMatrix, rotation[1]);
-        gl_matrix_1.mat4.rotateZ(transformMatrix, transformMatrix, rotation[2]);
-    }
-    if (translation) {
-        gl_matrix_1.mat4.translate(transformMatrix, transformMatrix, translation);
-    }
-    return transformMatrix;
-}
-//Will change it later to feature length manipulations
-function CreateIndexBuffer(gl, indices) {
-    var indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    // This array defines each face as two triangles, using the
-    // indices into the vertex array to specify each triangle's
-    // position.
-    // Now send the element array to GL
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-    return indexBuffer;
-}
-function create3dPosColorInterleavedVao(gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib) {
-    var vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-    gl.enableVertexAttribArray(posAttrib);
-    gl.enableVertexAttribArray(colorAttrib);
-    // Interleaved format: (x, y, z, r, g, b) (all f32)
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 0);
-    gl.vertexAttribPointer(colorAttrib, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bindVertexArray(null);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // Not sure if necessary, but not a bad idea.
-    return vao;
-}
+    Chunk.prototype.generateFieldValues = function () {
+        var field = new Float32Array((this.GridSize[0] + 1) * (this.GridSize[1] + 1) * (this.GridSize[2] + 1));
+        for (var x = 0; x < this.GridSize[0] + 1; x++) {
+            for (var y = 0; y < this.GridSize[1] + 1; y++) {
+                for (var z = 0; z < this.GridSize[2] + 1; z++) {
+                    var c = gl_matrix_1.vec3.fromValues(x, y, z);
+                    var idx = this.chunkCoordinateToIndex(c);
+                    field[idx] = this.noiseFunction(c);
+                }
+            }
+        }
+        return field;
+    };
+    Chunk.prototype.noiseFunction = function (c) {
+        var noiseScaleFactor = 10;
+        // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
+        gl_matrix_1.vec3.add(c, c, gl_matrix_1.vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])); // Offset the coordinates by the chunk position
+        var SimplexNoise = this.SimplexNoise(c[0] / 10, c[1] / 10, c[2] / 10);
+        var normalizedNoise = (SimplexNoise + 1) / 2;
+        // Encourage the surface to be closer to the ground
+        var heightParameter = 1 / Math.pow(1.07, c[1]);
+        var floor = +(c[1] == 0);
+        return Math.max(normalizedNoise * heightParameter, floor);
+    };
+    Chunk.prototype.set = function (c, value) {
+        this.Field[this.chunkCoordinateToIndex(c)] = value;
+    };
+    Chunk.prototype.getTerrainValue = function (c) {
+        return this.Field[this.chunkCoordinateToIndex(c)];
+    };
+    Chunk.prototype.isSolid = function (c) {
+        return this.getTerrainValue(c) > 0.5;
+    };
+    Chunk.prototype.GenerateTerrainChunk = function () { };
+    Chunk.prototype.CreateMarchingCubes = function () {
+        var mesh = new Mesh_1.Mesh();
+        for (var x = 0; x < this.GridSize[0]; x++) {
+            for (var y = 0; y < this.GridSize[1]; y++) {
+                for (var z = 0; z < this.GridSize[2]; z++) {
+                    var c = gl_matrix_1.vec3.fromValues(x, y, z);
+                    var cubeCase = this.GenerateCase(c);
+                    var newMesh = this.caseToMesh(c, cubeCase);
+                    mesh.merge(newMesh);
+                }
+            }
+        }
+        return mesh;
+    };
+    Chunk.prototype.GenerateCase = function (cubeCoordinates) {
+        /*
+          Given the coordinate of a cube in the world,
+          return the corresponding index into the marching cubes lookup.
+          Involves looking at each of the eight vertices.
+        */
+        var caseIndex = 0;
+        for (var i = 0; i < geometry_1.VERTICES.length; i++) {
+            var vertexOffset = gl_matrix_1.vec3.fromValues.apply(gl_matrix_1.vec3, geometry_1.VERTICES[i]);
+            gl_matrix_1.vec3.add(vertexOffset, vertexOffset, cubeCoordinates);
+            var isTerrain = Number(this.isSolid(vertexOffset));
+            caseIndex += isTerrain << i;
+        }
+        return caseIndex;
+    };
+    Chunk.prototype.caseToMesh = function (c, caseNumber) {
+        var _this = this;
+        var caseMesh = new Mesh_1.Mesh();
+        var caseLookup = geometry_1.CASES[caseNumber];
+        for (var _i = 0, caseLookup_1 = caseLookup; _i < caseLookup_1.length; _i++) {
+            var triangleLookup = caseLookup_1[_i];
+            // each triangle is represented as list of the three edges which it is located on
+            // for now, place the actual triangle's vertices as the midpoint of the edge
+            var triangle = triangleLookup.map(function (edgeIndex) {
+                return _this.edgeIndexToCoordinate(c, edgeIndex);
+            });
+            caseMesh.addTriangle(triangle);
+        }
+        return caseMesh;
+    };
+    Chunk.prototype.edgeIndexToCoordinate = function (c, edgeIndex) {
+        var _a = geometry_1.EDGES[edgeIndex], a = _a[0], b = _a[1];
+        var v1 = gl_matrix_1.vec3.fromValues.apply(gl_matrix_1.vec3, geometry_1.VERTICES[a]);
+        var v2 = gl_matrix_1.vec3.fromValues.apply(gl_matrix_1.vec3, geometry_1.VERTICES[b]);
+        gl_matrix_1.vec3.add(v1, v1, c);
+        gl_matrix_1.vec3.add(v2, v2, c);
+        // this formula works by guessing where along the edge you would find 0.5
+        // Is there a better way to write this? :/
+        var weight1 = this.getTerrainValue(v1) - 0.5;
+        var weight2 = this.getTerrainValue(v2) - 0.5;
+        var lerpAmount = weight1 / (weight1 - weight2);
+        var edgeCoordinate = gl_matrix_1.vec3.create();
+        gl_matrix_1.vec3.lerp(edgeCoordinate, v1, v2, lerpAmount);
+        return edgeCoordinate;
+    };
+    return Chunk;
+}());
+exports.Chunk = Chunk;
 
 
 /***/ }),
 
-/***/ "./src/glsl.ts":
-/*!*********************!*\
-  !*** ./src/glsl.ts ***!
-  \*********************/
+/***/ "./src/map/terrains.ts":
+/*!*****************************!*\
+  !*** ./src/map/terrains.ts ***!
+  \*****************************/
 /***/ ((__unused_webpack_module, exports) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.FragmentShaderCode = exports.VertexShaderCode = void 0;
-exports.VertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-exports.FragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1.0);\n}";
+exports.Terrains = exports.Color = void 0;
+var Color = /** @class */ (function () {
+    function Color(r, g, b) {
+        this.r = r;
+        this.g = g;
+        this.b = b;
+    }
+    return Color;
+}());
+exports.Color = Color;
+exports.Terrains = {
+    0: { color: new Color(0, 255, 0), illuminosity: 1, reflectiveness: 0 },
+    1: { color: new Color(0, 0, 255), illuminosity: 1, reflectiveness: 0 },
+    2: { color: new Color(255, 0, 0), illuminosity: 1, reflectiveness: 0 },
+};
 
 
 /***/ }),
 
-/***/ "./src/index.ts":
-/*!**********************!*\
-  !*** ./src/index.ts ***!
-  \**********************/
+/***/ "./src/render/Camera.ts":
+/*!******************************!*\
+  !*** ./src/render/Camera.ts ***!
+  \******************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Camera = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
-var geomatry_1 = __webpack_require__(/*! ./geomatry */ "./src/geomatry.ts");
-var glsl_1 = __webpack_require__(/*! ./glsl */ "./src/glsl.ts");
-var gl_utilities_1 = __webpack_require__(/*! ./gl-utilities */ "./src/gl-utilities.ts");
-var misc_functions_1 = __webpack_require__(/*! ./misc_functions */ "./src/misc_functions.ts");
+var gen_utils_1 = __webpack_require__(/*! ../gen_utils */ "./src/gen_utils.ts");
 var Camera = /** @class */ (function () {
-    function Camera(position, yaw, pitch, sensativity, speed) {
+    function Camera(position) {
         this.sensitivity = 0.1;
         this.yaw = -90; // Left right rotation in degrees
         this.pitch = 0; // Up down rotation in degrees
@@ -8041,12 +9191,8 @@ var Camera = /** @class */ (function () {
         this.front = gl_matrix_1.vec3.fromValues(0, 0, -1);
         this.right = gl_matrix_1.vec3.fromValues(1, 0, 0);
         this.up = gl_matrix_1.vec3.fromValues(0, 1, 0);
-        this.speed = 0;
+        this.speed = 0.02;
         this.position = position;
-        this.yaw = yaw;
-        this.pitch = pitch;
-        this.sensitivity = sensativity;
-        this.speed = speed;
         this.UpdateCameraVectors();
     }
     Object.defineProperty(Camera.prototype, "XPosition", {
@@ -8080,167 +9226,276 @@ var Camera = /** @class */ (function () {
         enumerable: false,
         configurable: true
     });
+    Camera.prototype.getViewMatrix = function () {
+        var viewMatrix = gl_matrix_1.mat4.create();
+        var target = gl_matrix_1.vec3.create();
+        gl_matrix_1.vec3.add(target, this.position, this.front); // Look-at target
+        gl_matrix_1.mat4.lookAt(viewMatrix, this.position, target, this.up);
+        return viewMatrix;
+    };
     Camera.prototype.UpdateCameraVectors = function () {
         var front = gl_matrix_1.vec3.create();
-        front[0] = Math.cos((0, misc_functions_1.toRadians)(this.yaw)) * Math.cos((0, misc_functions_1.toRadians)(this.pitch));
-        front[1] = Math.sin((0, misc_functions_1.toRadians)(this.pitch));
-        front[2] = Math.sin((0, misc_functions_1.toRadians)(this.yaw)) * Math.cos((0, misc_functions_1.toRadians)(this.pitch));
+        front[0] = Math.cos((0, gen_utils_1.toRadians)(this.yaw)) * Math.cos((0, gen_utils_1.toRadians)(this.pitch));
+        front[1] = Math.sin((0, gen_utils_1.toRadians)(this.pitch));
+        front[2] = Math.sin((0, gen_utils_1.toRadians)(this.yaw)) * Math.cos((0, gen_utils_1.toRadians)(this.pitch));
         gl_matrix_1.vec3.normalize(this.front, front); // Normalize to maintain unit length
         gl_matrix_1.vec3.cross(this.right, this.front, this.up);
         gl_matrix_1.vec3.normalize(this.right, this.right);
     };
     return Camera;
 }());
-function main() {
-    var kMainCanvasId = "#MainCanvas";
-    var canvas = document.getElementById(kMainCanvasId);
-    canvas.width = window.innerWidth * devicePixelRatio;
-    canvas.height = window.innerHeight * devicePixelRatio;
-    canvas.onmousedown = function () {
-        canvas.requestPointerLock();
-        canvas.requestFullscreen();
-    };
-    // Initialize the GL context
-    var gl = canvas.getContext("webgl2");
-    // Only continue if WebGL is available and working
-    if (!gl)
-        return alert("Unable to initialize WebGL. Your browser or machine may not support it.");
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    window.addEventListener("resize", function () {
-        resizeCanvas(gl, canvas);
-    });
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
-    var keysPressed = {};
-    addKeys(keysPressed);
-    // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
-    var CubeCPUBuffer = new Float32Array(geomatry_1.CubeVertices);
-    var CubeBuffer = (0, gl_utilities_1.CreateStaticBuffer)(gl, CubeCPUBuffer);
-    var CubeProgram = (0, gl_utilities_1.CreateProgram)(gl, glsl_1.VertexShaderCode, glsl_1.FragmentShaderCode);
-    if (!CubeBuffer || !CubeProgram)
-        return alert("Error initializing program");
-    var VertexPositionAttributeLocation = gl.getAttribLocation(CubeProgram, "VertexPosition");
-    var VertexColorAttributeLocation = gl.getAttribLocation(CubeProgram, "VertexColor");
-    var MatrixTransformUniformLocation = gl.getUniformLocation(CubeProgram, "MatrixTransform");
-    var matViewProjUniform = gl.getUniformLocation(CubeProgram, "matViewProj");
-    var modelMatrix = (0, gl_utilities_1.CreateTransformations)(undefined, undefined, undefined);
-    var matView = gl_matrix_1.mat4.create(); //Identity matrices
-    var matProj = gl_matrix_1.mat4.create();
-    var matViewProj = gl_matrix_1.mat4.create();
-    var MainCamera = new Camera(gl_matrix_1.vec3.fromValues(0, 0, 3), -90, 0, 0.1, 0.05);
-    var lastRenderTime = 0;
-    var fps = 60;
-    var fpsInterval = 1000 / fps; // 60 FPS
-    canvas.addEventListener("mousemove", function (event) {
-        if ((0, misc_functions_1.isPointerLocked)()) {
-            var movementX = event.movementX, movementY = event.movementY;
-            // Convert pixels to angles
-            MainCamera.yaw += movementX * MainCamera.sensitivity;
-            MainCamera.pitch -= movementY * MainCamera.sensitivity;
-            // Constrain pitch (to prevent flipping)
-            if (MainCamera.pitch > 89)
-                MainCamera.pitch = 89;
-            if (MainCamera.pitch < -89)
-                MainCamera.pitch = -89;
-            MainCamera.UpdateCameraVectors();
-        }
-    });
-    var frame = function (timestamp) {
-        if (timestamp - lastRenderTime < fpsInterval) {
-            requestAnimationFrame(frame);
-            return;
-        }
-        lastRenderTime = timestamp;
-        if ((0, misc_functions_1.isPointerLocked)()) {
-            updateCameraPosition(MainCamera, keysPressed);
-        }
-        render();
-        requestAnimationFrame(frame);
-        //The function repeats over and over at 60 fps because it calls itself
-    };
-    var render = function () {
-        gl_matrix_1.mat4.multiply(modelMatrix, modelMatrix, (0, gl_utilities_1.CreateTransformations)(gl_matrix_1.vec3.fromValues(0, 0, 0), gl_matrix_1.vec3.fromValues(0.1, 0.1, 0), gl_matrix_1.vec3.fromValues(1, 1, 1)));
-        gl.uniformMatrix4fv(MatrixTransformUniformLocation, false, modelMatrix);
-        gl.uniformMatrix4fv(matViewProjUniform, false, matViewProj);
-        //Create vertice array object
-        var cubeVao = (0, gl_utilities_1.create3dPosColorInterleavedVao)(gl, CubeBuffer.position, CubeBuffer.indices, VertexPositionAttributeLocation, VertexColorAttributeLocation);
-        //equivalent GLM (C++): matViewProj = matProj*matView
-        matView = getViewMatrix(MainCamera);
-        gl_matrix_1.mat4.perspective(matProj, 
-        /* fovy= */ gl_matrix_1.glMatrix.toRadian(80), 
-        /* aspectRatio= */ canvas.width / canvas.height, 
-        /* near, far= */ 0.1, 100.0);
-        gl_matrix_1.mat4.multiply(matViewProj, matProj, matView);
-        // Set clear color to black, fully opaque
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        // Clear the color buffer with specified clear color
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.bindVertexArray(cubeVao);
-        gl.drawElements(gl.TRIANGLES, 36 /*Vertex count */, gl.UNSIGNED_SHORT, 0);
-        gl.bindVertexArray(null);
-    };
-    requestAnimationFrame(frame);
-}
-function updateCameraPosition(camera, keys) {
-    var velocity = camera.speed;
-    var movement = gl_matrix_1.vec3.create();
-    //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
-    if (keys["KeyW"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.front, velocity); // Forward
-    if (keys["KeyS"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.front, -velocity); // Backward
-    if (keys["KeyA"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.right, -velocity); // Left
-    if (keys["KeyD"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.right, velocity); // Right
-    if (keys["Space"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.up, velocity); // Up
-    if (keys["ShiftLeft"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.up, -velocity); // Down
-    gl_matrix_1.vec3.add(camera.position, camera.position, movement);
-}
-function getViewMatrix(camera) {
-    var viewMatrix = gl_matrix_1.mat4.create();
-    var target = gl_matrix_1.vec3.create();
-    gl_matrix_1.vec3.add(target, camera.position, camera.front); // Look-at target
-    gl_matrix_1.mat4.lookAt(viewMatrix, camera.position, target, camera.up);
-    return viewMatrix;
-}
-function resizeCanvas(gl, canvas) {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    console.log(canvas.width);
-}
-function addKeys(keys) {
-    window.addEventListener("keydown", function (event) {
-        keys[event.code] = true;
-    });
-    window.addEventListener("keyup", function (event) {
-        keys[event.code] = false;
-    });
-}
-main();
+exports.Camera = Camera;
 
 
 /***/ }),
 
-/***/ "./src/misc_functions.ts":
-/*!*******************************!*\
-  !*** ./src/misc_functions.ts ***!
-  \*******************************/
+/***/ "./src/render/GLRenderer.ts":
+/*!**********************************!*\
+  !*** ./src/render/GLRenderer.ts ***!
+  \**********************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.GLRenderer = void 0;
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+var geometry_1 = __webpack_require__(/*! ../map/geometry */ "./src/map/geometry.ts");
+var gl_utilities_1 = __webpack_require__(/*! ./gl-utilities */ "./src/render/gl-utilities.ts");
+var glsl_1 = __webpack_require__(/*! ./glsl */ "./src/render/glsl.ts");
+var cubes_utils_1 = __webpack_require__(/*! ../map/cubes_utils */ "./src/map/cubes_utils.ts");
+var Map_1 = __webpack_require__(/*! ../map/Map */ "./src/map/Map.ts");
+var Mesh_1 = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
+var GLRenderer = /** @class */ (function () {
+    function GLRenderer(gl, canvas, camera, debug) {
+        var _this = this;
+        this.MeshSize = 0;
+        this.gl = gl;
+        this.canvas = canvas;
+        this.camera = camera;
+        this.debug = debug;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
+        // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
+        var CubeCPUBuffer = new Float32Array(geometry_1.CubeVertices);
+        this.CubeBuffer = gl_utilities_1.glUtils.CreateStaticBuffer(gl, CubeCPUBuffer, geometry_1.WirFrameCubeIndices);
+        var triangleVertices = [];
+        var triangleMeshes = []; // Store all chunks' meshes
+        var combinedMesh = new Mesh_1.Mesh(); // Combine all chunks' meshes into one
+        var world = new Map_1.WorldMap(1000, 1000, 1000);
+        debugger;
+        for (var _i = 0, _a = world.chunks; _i < _a.length; _i++) {
+            var chunk = _a[_i];
+            var triangleMesh = chunk.CreateMarchingCubes();
+            triangleMeshes.push(triangleMesh); // Store the chunk's mesh
+            combinedMesh.mesh = combinedMesh.mesh.concat(triangleMesh.mesh); // Add the chunk's mesh to the combined mesh
+            // console.log(chunk.CreateMarchingCubes());
+        }
+        var VertexNormals = (0, cubes_utils_1.calculateVertexNormals)(combinedMesh);
+        for (var i = 0; i < triangleMeshes.length; i++) {
+            var Mesh_2 = triangleMeshes[i];
+            var ChunkPosition = world.chunks[i].ChunkPosition;
+            triangleVertices = triangleVertices.concat(Array.from((0, cubes_utils_1.meshToVertices)(Mesh_2, VertexNormals, ChunkPosition)));
+        }
+        // since we don't reuse any vertices right now, each index is unique
+        var triangleIndices = Array(combinedMesh.mesh.length * 3)
+            .fill(0)
+            .map(function (_, i) { return i + _this.MeshSize * 3; });
+        this.MeshSize = combinedMesh.mesh.length;
+        this.TriangleBuffer = gl_utilities_1.glUtils.CreateStaticBuffer(gl, new Float32Array(triangleVertices), triangleIndices);
+        var CubeProgram = gl_utilities_1.glUtils.CreateProgram(gl, glsl_1.VertexShaderCode, glsl_1.FragmentShaderCode);
+        if (!this.CubeBuffer || !CubeProgram) {
+            throw new Error("Error initializing program");
+        }
+        this.VertexPositionAttributeLocation = gl.getAttribLocation(CubeProgram, "VertexPosition");
+        this.VertexColorAttributeLocation = gl.getAttribLocation(CubeProgram, "VertexColor");
+        this.MatrixTransformUniformLocation = gl.getUniformLocation(CubeProgram, "MatrixTransform");
+        this.matViewProjUniform = gl.getUniformLocation(CubeProgram, "matViewProj");
+        this.matView = gl_matrix_1.mat4.create(); //Identity matrices
+        this.matProj = gl_matrix_1.mat4.create();
+        this.matViewProj = gl_matrix_1.mat4.create();
+        //fps stuff
+        this.fpslastcheck = Date.now();
+        this.fpscounter = 0;
+        this.currentFPS = 0;
+        this.debug.addElement("FPS", function () { return Math.round(_this.currentFPS); });
+    }
+    GLRenderer.prototype.drawMesh = function (TransformationMatrix) {
+        this.gl.uniformMatrix4fv(this.MatrixTransformUniformLocation, false, TransformationMatrix);
+        this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
+        //Create vertice array object
+        var triangleVao = gl_utilities_1.glUtils.create3dPosColorInterleavedVao(this.gl, this.TriangleBuffer.position, this.TriangleBuffer.indices, this.VertexPositionAttributeLocation, this.VertexColorAttributeLocation);
+        this.gl.bindVertexArray(triangleVao);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, this.MeshSize * 3);
+        this.gl.bindVertexArray(null);
+    };
+    GLRenderer.prototype.DrawWireFrameCube = function (TransformationMatrix) {
+        this.gl.uniformMatrix4fv(this.MatrixTransformUniformLocation, false, TransformationMatrix);
+        this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
+        //Create vertice array object
+        var cubeVao = gl_utilities_1.glUtils.create3dPosColorInterleavedVao(this.gl, this.CubeBuffer.position, this.CubeBuffer.indices, this.VertexPositionAttributeLocation, this.VertexColorAttributeLocation);
+        this.gl.bindVertexArray(cubeVao);
+        this.gl.drawElements(this.gl.LINES, 48, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+    };
+    GLRenderer.prototype.render = function () {
+        // Set clear color to black, fully opaque
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // Clear the color buffer with specified clear color
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        // Calculate view and projection matrices once per frame
+        this.matView = this.camera.getViewMatrix();
+        gl_matrix_1.mat4.perspective(this.matProj, 
+        /* fovy= */ gl_matrix_1.glMatrix.toRadian(80), 
+        /* aspectRatio= */ this.canvas.width / this.canvas.height, 
+        /* near, far= */ 0.1, 100.0);
+        gl_matrix_1.mat4.multiply(this.matViewProj, this.matProj, this.matView);
+        for (var i = 0; i < 1; i++) {
+            for (var x = 0; x < 5; x++) {
+                for (var z = 0; z < 5; z++) {
+                    this.DrawWireFrameCube(gl_utilities_1.glUtils.CreateTransformations(gl_matrix_1.vec3.fromValues(x + 0.5, 0.5, z + 0.5), undefined, gl_matrix_1.vec3.fromValues(32, 32, 32)));
+                }
+            }
+        }
+        this.drawMesh(gl_utilities_1.glUtils.CreateTransformations(gl_matrix_1.vec3.fromValues(0, 0, 0)));
+        this.fpscounter += 1;
+        if (Date.now() - this.fpslastcheck >= 1000) {
+            this.currentFPS = this.fpscounter / ((Date.now() - this.fpslastcheck) / 1000);
+            this.fpslastcheck = Date.now();
+            this.fpscounter = 0;
+        }
+        this.debug.update();
+    };
+    return GLRenderer;
+}());
+exports.GLRenderer = GLRenderer;
+
+
+/***/ }),
+
+/***/ "./src/render/gl-utilities.ts":
+/*!************************************!*\
+  !*** ./src/render/gl-utilities.ts ***!
+  \************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.glUtils = void 0;
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+var terrains_1 = __webpack_require__(/*! ../map/terrains */ "./src/map/terrains.ts");
+var glUtils = /** @class */ (function () {
+    function glUtils() {
+    }
+    glUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
+        var VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
+        var FragmentShader = this.CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
+        var Program = gl.createProgram();
+        gl.attachShader(Program, VertexShader);
+        gl.attachShader(Program, FragmentShader);
+        gl.linkProgram(Program);
+        if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
+            var errorMessage = gl.getProgramInfoLog(Program);
+            console.error("Failed to link GPU program: ".concat(errorMessage));
+            return;
+        }
+        gl.useProgram(Program);
+        return Program;
+    };
+    glUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
+        var Shader = gl.createShader(ShaderType);
+        if (!Shader) {
+            throw new Error("Failed to create WebGL shader.");
+        }
+        gl.shaderSource(Shader, ShaderCode);
+        gl.compileShader(Shader);
+        if (!gl.getShaderParameter(Shader, gl.COMPILE_STATUS)) {
+            console.error("Shader compilation error: ", gl.getShaderInfoLog(Shader));
+            gl.deleteShader(Shader); // Clean up the failed shader
+            throw new Error("Shader compilation failed.");
+        }
+        return Shader;
+    };
+    glUtils.CreateStaticBuffer = function (gl, CPUPositionBuffer, CPUIndexBuffer) {
+        var buffer = gl.createBuffer();
+        if (!buffer) {
+            throw new Error("Failed to create buffer");
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, CPUPositionBuffer, gl.STATIC_DRAW);
+        var IndexBuffer = this.CreateIndexBuffer(gl, CPUIndexBuffer);
+        return {
+            position: buffer,
+            // color: colorBuffer,
+            indices: IndexBuffer
+        };
+    };
+    glUtils.CreateTransformations = function (translation, rotation, scale) {
+        var transformMatrix = gl_matrix_1.mat4.create();
+        if (scale) {
+            gl_matrix_1.mat4.scale(transformMatrix, transformMatrix, scale);
+        }
+        if (rotation) {
+            // Apply rotation around X, Y, and Z axes using Euler angles
+            gl_matrix_1.mat4.rotateX(transformMatrix, transformMatrix, rotation[0]);
+            gl_matrix_1.mat4.rotateY(transformMatrix, transformMatrix, rotation[1]);
+            gl_matrix_1.mat4.rotateZ(transformMatrix, transformMatrix, rotation[2]);
+        }
+        if (translation) {
+            gl_matrix_1.mat4.translate(transformMatrix, transformMatrix, translation);
+        }
+        return transformMatrix;
+    };
+    //Will change it later to feature length manipulations
+    glUtils.CreateIndexBuffer = function (gl, indices) {
+        var indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        // This array defines each face as two triangles, using the
+        // indices into the vertex array to specify each triangle's
+        // position.
+        // Now send the element array to GL
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+        return indexBuffer;
+    };
+    glUtils.create3dPosColorInterleavedVao = function (gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib) {
+        var vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+        gl.enableVertexAttribArray(posAttrib);
+        gl.enableVertexAttribArray(colorAttrib);
+        // Interleaved format: (x, y, z, r, g, b) (all f32)
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 0);
+        gl.vertexAttribPointer(colorAttrib, 3, gl.FLOAT, false, 6 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // Not sure if necessary, but not a bad idea.
+        return vao;
+    };
+    glUtils.getMeshColor = function (normal, terrain) {
+        //TODO: Implement everything, tune models
+        var color = terrain.color;
+        var shadow = 0.5 * normal + 0.5;
+        return new terrains_1.Color(color.r * shadow * terrain.illuminosity, color.g * shadow * terrain.illuminosity, color.b * shadow * terrain.illuminosity);
+    };
+    return glUtils;
+}());
+exports.glUtils = glUtils;
+
+
+/***/ }),
+
+/***/ "./src/render/glsl.ts":
+/*!****************************!*\
+  !*** ./src/render/glsl.ts ***!
+  \****************************/
 /***/ ((__unused_webpack_module, exports) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isPointerLocked = isPointerLocked;
-exports.toRadians = toRadians;
-function isPointerLocked() {
-    return document.pointerLockElement;
-}
-function toRadians(degrees) {
-    return degrees * (Math.PI / 180);
-}
+exports.FragmentShaderCode = exports.VertexShaderCode = void 0;
+exports.VertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
+exports.FragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1);\n}";
 
 
 /***/ })
@@ -8318,7 +9573,7 @@ function toRadians(degrees) {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("56e2785a7440bf00a126")
+/******/ 		__webpack_require__.h = () => ("a1db8a1ed4bfabbd2b00")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */
