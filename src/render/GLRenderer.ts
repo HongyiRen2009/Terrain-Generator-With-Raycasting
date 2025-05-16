@@ -33,16 +33,20 @@ export class GLRenderer {
 
   debug: DebugMenu;
 
+  world: WorldMap;
+
   constructor(
     gl: WebGL2RenderingContext,
     canvas: HTMLCanvasElement,
     camera: Camera,
-    debug: DebugMenu
+    debug: DebugMenu,
+    world: WorldMap
   ) {
     this.gl = gl;
     this.canvas = canvas;
     this.camera = camera;
     this.debug = debug;
+    this.world = world;
 
     gl.viewport(0, 0, canvas.width, canvas.height);
 
@@ -59,9 +63,9 @@ export class GLRenderer {
     let triangleVertices: number[] = [];
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let combinedMesh: Mesh = new Mesh(); // Combine all chunks' meshes into one
-    const world = new WorldMap(1000, 1000, 1000);
+    
     debugger;
-    for (const chunk of world.chunks) {
+    for (const chunk of this.world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
       combinedMesh.mesh = combinedMesh.mesh.concat(triangleMesh.mesh); // Add the chunk's mesh to the combined mesh
@@ -70,7 +74,7 @@ export class GLRenderer {
     const VertexNormals = calculateVertexNormals(combinedMesh);
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
-      const ChunkPosition = world.chunks[i].ChunkPosition;
+      const ChunkPosition = this.world.chunks[i].ChunkPosition;
       triangleVertices = triangleVertices.concat(
         Array.from(meshToVertices(Mesh, VertexNormals, ChunkPosition))
       );

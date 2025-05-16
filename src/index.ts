@@ -3,6 +3,7 @@ import { isPointerLocked } from "./gen_utils";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { DebugMenu } from "./DebugMenu";
+import { WorldMap } from "./map/Map";
 
 function main() {
   const kMainCanvasId = "#MainCanvas";
@@ -19,7 +20,8 @@ function main() {
 
   //initialize debugger
   const debug = new DebugMenu(true); // When you want to use just pass it into
-
+  
+  const world = new WorldMap(1000, 1000, 1000);
 
   // Only continue if WebGL is available and working
   if (!gl)
@@ -50,7 +52,7 @@ function main() {
     }
   });
 
-  const renderer = new GLRenderer(gl, canvas, MainCamera, debug);
+  const renderer = new GLRenderer(gl, canvas, MainCamera, debug, world);
 
   window.addEventListener("resize", () => {
     resizeCanvas(gl, canvas);
