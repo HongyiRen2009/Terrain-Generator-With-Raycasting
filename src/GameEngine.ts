@@ -3,6 +3,7 @@ import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
+import { PathTracer } from "./Pathtracing/PathTracer";
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -13,6 +14,7 @@ export class GameEngine {
   private world: WorldMap;
   private mainCamera: Camera;
   private renderer: GLRenderer;
+  private pathTracer: PathTracer;
 
   //
   private keys: { [key: string]: boolean } = {};
@@ -53,6 +55,8 @@ export class GameEngine {
       this.debug,
       this.world
     );
+    //Initial pathTracer
+    this.pathTracer = new PathTracer(this.canvas,this.gl,this.world,this.mainCamera);
 
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
