@@ -1,7 +1,7 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
 import { CubeVertices, WirFrameCubeIndices } from "../map/geometry";
 import { glUtils } from "./gl-utilities";
-import { VertexShaderCode, FragmentShaderCode } from "./glsl";
+import { VertexShaderCode, FragmentShaderCode, Shader } from "./glsl";
 import { Camera } from "./Camera";
 import { calculateVertexNormals, meshToVertices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
@@ -18,11 +18,6 @@ export class GLRenderer {
 
   MeshSize: number = 0;
 
-  MatrixTransformUniformLocation: WebGLUniformLocation;
-  matViewProjUniform: WebGLUniformLocation;
-  VertexPositionAttributeLocation: number;
-  VertexColorAttributeLocation: number;
-
   matView: mat4;
   matProj: mat4;
   matViewProj: mat4;
@@ -35,6 +30,7 @@ export class GLRenderer {
 
   world: WorldMap;
 
+  MeshShader: Shader;
   constructor(
     gl: WebGL2RenderingContext,
     canvas: HTMLCanvasElement,
@@ -62,89 +58,65 @@ export class GLRenderer {
     );
     let triangleVertices: number[] = [];
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
-    let combinedMesh: Mesh = new Mesh(); // Combine all chunks' meshes into one
-    
-    debugger;
+    const vertexNormals = [];
+
     for (const chunk of this.world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
-      combinedMesh.mesh = combinedMesh.mesh.concat(triangleMesh.mesh); // Add the chunk's mesh to the combined mesh
-      // console.log(chunk.CreateMarchingCubes());
+      vertexNormals.push(calculateVertexNormals(triangleMesh));
     }
-    const VertexNormals = calculateVertexNormals(combinedMesh);
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
       const ChunkPosition = this.world.chunks[i].ChunkPosition;
       triangleVertices = triangleVertices.concat(
-        Array.from(meshToVertices(Mesh, VertexNormals, ChunkPosition))
+        Array.from(meshToVertices(Mesh, vertexNormals[i], ChunkPosition))
       );
     }
+    this.MeshSize = triangleMeshes.reduce(
+      (acc, mesh) => acc + mesh.mesh.length,
+      0
+    );
     // since we don't reuse any vertices right now, each index is unique
-    const triangleIndices = Array(combinedMesh.mesh.length * 3)
+    const triangleIndices = Array(this.MeshSize * 3)
       .fill(0)
       .map((_, i) => i + this.MeshSize * 3);
-    this.MeshSize = combinedMesh.mesh.length;
 
     this.TriangleBuffer = glUtils.CreateStaticBuffer(
       gl,
       new Float32Array(triangleVertices),
       triangleIndices
     );
-
-    const CubeProgram = glUtils.CreateProgram(
-      gl,
-      VertexShaderCode,
-      FragmentShaderCode
-    );
-
-    if (!this.CubeBuffer || !CubeProgram) {
-      throw new Error("Error initializing program");
-    }
-
-    this.VertexPositionAttributeLocation = gl.getAttribLocation(
-      CubeProgram,
-      "VertexPosition"
-    );
-    this.VertexColorAttributeLocation = gl.getAttribLocation(
-      CubeProgram,
-      "VertexColor"
-    );
-
-    this.MatrixTransformUniformLocation = gl.getUniformLocation(
-      CubeProgram,
-      "MatrixTransform"
-    ) as WebGLUniformLocation;
-
-    this.matViewProjUniform = gl.getUniformLocation(
-      CubeProgram,
-      "matViewProj"
-    ) as WebGLUniformLocation;
+    this.MeshShader = new Shader(gl, VertexShaderCode, FragmentShaderCode);
 
     this.matView = mat4.create(); //Identity matrices
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
 
     //fps stuff
-    this.fpslastcheck= Date.now();
+    this.fpslastcheck = Date.now();
     this.fpscounter = 0;
     this.currentFPS = 0;
-    this.debug.addElement("FPS",()=>Math.round(this.currentFPS));
+    this.debug.addElement("FPS", () => Math.round(this.currentFPS));
   }
 
   drawMesh(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
-      this.MatrixTransformUniformLocation,
+      this.MeshShader.VertexUniforms["MatrixTransform"].location,
       false,
       TransformationMatrix
     );
-    this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
+    this.gl.uniformMatrix4fv(
+      this.MeshShader.VertexUniforms["matViewProj"].location,
+      false,
+      this.matViewProj
+    );
     //Create vertice array object
     const triangleVao = glUtils.create3dPosColorInterleavedVao(
       this.gl,
       this.TriangleBuffer.position,
       this.TriangleBuffer.indices,
-      this.VertexPositionAttributeLocation,
-      this.VertexColorAttributeLocation
+      this.MeshShader.VertexInputs["VertexPosition"].location,
+      this.MeshShader.VertexInputs["VertexColor"].location
     );
 
     this.gl.bindVertexArray(triangleVao);
@@ -154,18 +126,22 @@ export class GLRenderer {
   }
   DrawWireFrameCube(TransformationMatrix: mat4) {
     this.gl.uniformMatrix4fv(
-      this.MatrixTransformUniformLocation,
+      this.MeshShader.VertexUniforms["MatrixTransform"].location,
       false,
       TransformationMatrix
     );
-    this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
+    this.gl.uniformMatrix4fv(
+      this.MeshShader.VertexUniforms["matViewProj"].location,
+      false,
+      this.matViewProj
+    );
     //Create vertice array object
     const cubeVao = glUtils.create3dPosColorInterleavedVao(
       this.gl,
       this.CubeBuffer!.position,
       this.CubeBuffer!.indices,
-      this.VertexPositionAttributeLocation,
-      this.VertexColorAttributeLocation
+      this.MeshShader.VertexInputs["VertexPosition"].location,
+      this.MeshShader.VertexInputs["VertexColor"].location
     );
 
     this.gl.bindVertexArray(cubeVao);
@@ -206,10 +182,12 @@ export class GLRenderer {
 
     this.drawMesh(glUtils.CreateTransformations(vec3.fromValues(0, 0, 0)));
 
+    //FPS counter
     this.fpscounter += 1;
-    if(Date.now() - this.fpslastcheck >= 1000){
-      this.currentFPS = this.fpscounter/((Date.now() - this.fpslastcheck)/1000);
-      this.fpslastcheck= Date.now();
+    if (Date.now() - this.fpslastcheck >= 1000) {
+      this.currentFPS =
+        this.fpscounter / ((Date.now() - this.fpslastcheck) / 1000);
+      this.fpslastcheck = Date.now();
       this.fpscounter = 0;
     }
     this.debug.update();
