@@ -27,7 +27,6 @@ export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
 
     // Add the triangle's normal to each of its vertices
     for (const vertex of triangle) {
-      console.log(vertex);
       const key = vertexKey(vertex); // Use the vertex position as a key
       if (!vertexNormals.has(key)) {
         vertexNormals.set(key, vec3.create());

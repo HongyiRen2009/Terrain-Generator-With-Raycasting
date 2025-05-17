@@ -77,14 +77,12 @@ export class GameEngine {
    * Our Game Loop
    */
   tick(timestamp: number) {
-    console.log("Hi");
     if (timestamp - this.lastRenderTime < this.frameInterval) {
       return;
     }
     const timePassed = timestamp - this.lastRenderTime;
     this.lastRenderTime = timestamp;
     if (GameEngine.getLockedElement()) {
-      //console.log("Updating camera position");
       this.updateCamera(timePassed);
     }
 
@@ -152,7 +150,6 @@ export class GameEngine {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    console.log(this.canvas.width);
   }
 
   static getLockedElement() {

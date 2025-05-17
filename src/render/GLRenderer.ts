@@ -64,7 +64,6 @@ export class GLRenderer {
       const triangleMesh = chunk.CreateMarchingCubes();
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
       combinedMesh.mesh = combinedMesh.mesh.concat(triangleMesh.mesh); // Add the chunk's mesh to the combined mesh
-      // console.log(chunk.CreateMarchingCubes());
     }
     const VertexNormals = calculateVertexNormals(combinedMesh);
     for (let i = 0; i < triangleMeshes.length; i++) {
