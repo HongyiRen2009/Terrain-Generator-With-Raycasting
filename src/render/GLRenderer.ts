@@ -1,6 +1,6 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
 import { CubeVertices, WirFrameCubeIndices } from "../map/geometry";
-import { glUtils } from "./gl-utilities";
+import { GlUtils } from "./GlUtils";
 import { VertexShaderCode, FragmentShaderCode } from "./glsl";
 import { Camera } from "./Camera";
 import { calculateVertexNormals, meshToVertices } from "../map/cubes_utils";
@@ -51,7 +51,7 @@ export class GLRenderer {
 
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
     const CubeCPUBuffer = new Float32Array(CubeVertices);
-    this.CubeBuffer = glUtils.CreateStaticBuffer(
+    this.CubeBuffer = GlUtils.CreateStaticBuffer(
       gl,
       CubeCPUBuffer,
       WirFrameCubeIndices
@@ -59,7 +59,7 @@ export class GLRenderer {
     let triangleVertices: number[] = [];
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let combinedMesh: Mesh = new Mesh(); // Combine all chunks' meshes into one
-    
+
     for (const chunk of this.world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
@@ -80,13 +80,13 @@ export class GLRenderer {
       .map((_, i) => i + this.MeshSize * 3);
     this.MeshSize = combinedMesh.mesh.length;
 
-    this.TriangleBuffer = glUtils.CreateStaticBuffer(
+    this.TriangleBuffer = GlUtils.CreateStaticBuffer(
       gl,
       new Float32Array(triangleVertices),
       triangleIndices
     );
 
-    const CubeProgram = glUtils.CreateProgram(
+    const CubeProgram = GlUtils.CreateProgram(
       gl,
       VertexShaderCode,
       FragmentShaderCode
@@ -128,7 +128,7 @@ export class GLRenderer {
     );
     this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
     //Create vertice array object
-    const triangleVao = glUtils.create3dPosColorInterleavedVao(
+    const triangleVao = GlUtils.create3dPosColorInterleavedVao(
       this.gl,
       this.TriangleBuffer.position,
       this.TriangleBuffer.indices,
@@ -149,7 +149,7 @@ export class GLRenderer {
     );
     this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
     //Create vertice array object
-    const cubeVao = glUtils.create3dPosColorInterleavedVao(
+    const cubeVao = GlUtils.create3dPosColorInterleavedVao(
       this.gl,
       this.CubeBuffer!.position,
       this.CubeBuffer!.indices,
@@ -183,7 +183,7 @@ export class GLRenderer {
       for (let x = 0; x < 5; x++) {
         for (let z = 0; z < 5; z++) {
           this.DrawWireFrameCube(
-            glUtils.CreateTransformations(
+            GlUtils.CreateTransformations(
               vec3.fromValues(x + 0.5, 0.5, z + 0.5),
               undefined,
               vec3.fromValues(32, 32, 32)
@@ -193,6 +193,6 @@ export class GLRenderer {
       }
     }
 
-    this.drawMesh(glUtils.CreateTransformations(vec3.fromValues(0, 0, 0)));
+    this.drawMesh(GlUtils.CreateTransformations(vec3.fromValues(0, 0, 0)));
   }
 }

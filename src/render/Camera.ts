@@ -47,9 +47,13 @@ export class Camera {
 
   UpdateCameraVectors() {
     let front = vec3.create();
-    front[0] = Math.cos(GameEngine.toRadians(this.yaw)) * Math.cos(GameEngine.toRadians(this.pitch));
+    front[0] =
+      Math.cos(GameEngine.toRadians(this.yaw)) *
+      Math.cos(GameEngine.toRadians(this.pitch));
     front[1] = Math.sin(GameEngine.toRadians(this.pitch));
-    front[2] = Math.sin(GameEngine.toRadians(this.yaw)) * Math.cos(GameEngine.toRadians(this.pitch));
+    front[2] =
+      Math.sin(GameEngine.toRadians(this.yaw)) *
+      Math.cos(GameEngine.toRadians(this.pitch));
     vec3.normalize(this.front, front); // Normalize to maintain unit length
     vec3.cross(this.right, this.front, this.up);
     vec3.normalize(this.right, this.right);
