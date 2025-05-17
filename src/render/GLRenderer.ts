@@ -64,7 +64,6 @@ export class GLRenderer {
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let combinedMesh: Mesh = new Mesh(); // Combine all chunks' meshes into one
     
-    debugger;
     for (const chunk of this.world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
