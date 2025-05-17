@@ -1,7 +1,7 @@
 import { mat4, vec3 } from "gl-matrix";
 import { Color, Terrain } from "../map/terrains";
 
-export class glUtils {
+export class GlUtils {
   static CreateProgram(
     gl: WebGL2RenderingContext,
     VertexShaderCode: string,

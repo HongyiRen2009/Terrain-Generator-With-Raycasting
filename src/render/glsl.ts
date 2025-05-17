@@ -1,4 +1,4 @@
-import { glUtils } from "./gl-utilities";
+import { GlUtils } from "./GlUtils";
 
 export const VertexShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
@@ -59,7 +59,7 @@ export class Shader {
   ) {
     this.VertexShaderCode = VertexShaderCode;
     this.FragmentShaderCode = FragmentShaderCode;
-    this.Program = glUtils.CreateProgram(
+    this.Program = GlUtils.CreateProgram(
       gl,
       VertexShaderCode,
       FragmentShaderCode

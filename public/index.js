@@ -8344,10 +8344,10 @@ var DebugMenu = /** @class */ (function () {
         set: function (mode) {
             this._debugMode = mode;
             if (mode == true) {
-                this.object.style.display = 'block';
+                this.object.style.display = "block";
             }
             else {
-                this.object.style.display = 'none';
+                this.object.style.display = "none";
             }
         },
         enumerable: false,
@@ -8360,22 +8360,146 @@ exports.DebugMenu = DebugMenu;
 
 /***/ }),
 
-/***/ "./src/gen_utils.ts":
-/*!**************************!*\
-  !*** ./src/gen_utils.ts ***!
-  \**************************/
-/***/ ((__unused_webpack_module, exports) => {
+/***/ "./src/GameEngine.ts":
+/*!***************************!*\
+  !*** ./src/GameEngine.ts ***!
+  \***************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isPointerLocked = isPointerLocked;
-exports.toRadians = toRadians;
-function isPointerLocked() {
-    return document.pointerLockElement;
-}
-function toRadians(degrees) {
-    return degrees * (Math.PI / 180);
-}
+exports.GameEngine = void 0;
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+var DebugMenu_1 = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
+var Map_1 = __webpack_require__(/*! ./map/Map */ "./src/map/Map.ts");
+var Camera_1 = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
+var GLRenderer_1 = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
+var GameEngine = /** @class */ (function () {
+    function GameEngine(canvasId) {
+        var _this = this;
+        //
+        this.keys = {};
+        this.maxFPS = 60;
+        this.frameInterval = 1000 / this.maxFPS;
+        this.lastRenderTime = 0;
+        //
+        this.frameCounter = 0;
+        this.lastFPSCheck = 0;
+        this.currentFPS = 0;
+        //Debugger
+        this.debug = new DebugMenu_1.DebugMenu(true); // Pass into class when want to use
+        this.canvas = document.getElementById(canvasId);
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        //GL Context
+        this.gl = this.canvas.getContext("webgl2");
+        //Initialize controls
+        this.addKeys();
+        //Initialize world
+        this.world = new Map_1.WorldMap(1000, 1000, 1000);
+        //Initialize Camera
+        this.mainCamera = new Camera_1.Camera(gl_matrix_1.vec3.fromValues(0, 0, 3));
+        //Initialize Renderer
+        this.renderer = new GLRenderer_1.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
+        //Events
+        this.canvas.addEventListener("mousedown", function () { return _this.requestScreenLock(); });
+        this.canvas.addEventListener("mousemove", function (e) {
+            return _this.mouseMove(e);
+        });
+        window.addEventListener("resize", function () { return _this.resizeCanvas(); });
+        //Debugging
+        this.debug.addElement("FPS", function () { return Math.round(_this.currentFPS); });
+        //Check to see if WebGL working
+        if (!this.gl) {
+            alert("Unable to initialize WebGL. Your browser or machine may not support it.");
+            return;
+        }
+    }
+    /**
+     * Our Game Loop
+     */
+    GameEngine.prototype.tick = function (timestamp) {
+        console.log("Hi");
+        if (timestamp - this.lastRenderTime < this.frameInterval) {
+            return;
+        }
+        var timePassed = timestamp - this.lastRenderTime;
+        this.lastRenderTime = timestamp;
+        if (GameEngine.getLockedElement()) {
+            //console.log("Updating camera position");
+            this.updateCamera(timePassed);
+        }
+        this.renderer.render();
+        this.frameCounter += 1;
+        if (Date.now() - this.lastFPSCheck >= 1000) {
+            this.currentFPS =
+                this.frameCounter / ((Date.now() - this.lastFPSCheck) / 1000);
+            this.lastFPSCheck = Date.now();
+            this.frameCounter = 0;
+        }
+        this.debug.update();
+    };
+    GameEngine.prototype.updateCamera = function (time) {
+        var velocity = this.mainCamera.speed * time;
+        var movement = gl_matrix_1.vec3.create();
+        //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
+        if (this.keys["KeyW"])
+            gl_matrix_1.vec3.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
+        if (this.keys["KeyS"])
+            gl_matrix_1.vec3.scaleAndAdd(movement, movement, this.mainCamera.front, -velocity); // Backward
+        if (this.keys["KeyA"])
+            gl_matrix_1.vec3.scaleAndAdd(movement, movement, this.mainCamera.right, -velocity); // Left
+        if (this.keys["KeyD"])
+            gl_matrix_1.vec3.scaleAndAdd(movement, movement, this.mainCamera.right, velocity); // Right
+        if (this.keys["Space"])
+            gl_matrix_1.vec3.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
+        if (this.keys["ShiftLeft"])
+            gl_matrix_1.vec3.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
+        gl_matrix_1.vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
+    };
+    GameEngine.prototype.addKeys = function () {
+        var _this = this;
+        window.addEventListener("keydown", function (event) {
+            _this.keys[event.code] = true;
+        });
+        window.addEventListener("keyup", function (event) {
+            _this.keys[event.code] = false;
+        });
+    };
+    /*--------------------------------Utilities--------------------------------*/
+    GameEngine.prototype.requestScreenLock = function () {
+        this.canvas.requestPointerLock();
+        document.getElementById("body").requestFullscreen();
+    };
+    GameEngine.prototype.mouseMove = function (event) {
+        if (GameEngine.getLockedElement()) {
+            var movementX = event.movementX, movementY = event.movementY;
+            // Convert pixels to angles
+            this.mainCamera.yaw += movementX * this.mainCamera.sensitivity;
+            this.mainCamera.pitch -= movementY * this.mainCamera.sensitivity;
+            // Constrain pitch (to prevent flipping)
+            if (this.mainCamera.pitch > 89)
+                this.mainCamera.pitch = 89;
+            if (this.mainCamera.pitch < -89)
+                this.mainCamera.pitch = -89;
+            this.mainCamera.UpdateCameraVectors();
+        }
+    };
+    GameEngine.prototype.resizeCanvas = function () {
+        this.canvas.width = window.innerWidth;
+        this.canvas.height = window.innerHeight;
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        console.log(this.canvas.width);
+    };
+    GameEngine.getLockedElement = function () {
+        return document.pointerLockElement;
+    };
+    GameEngine.toRadians = function (degrees) {
+        return degrees * (Math.PI / 180);
+    };
+    return GameEngine;
+}());
+exports.GameEngine = GameEngine;
 
 
 /***/ }),
@@ -8388,101 +8512,15 @@ function toRadians(degrees) {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
-var gen_utils_1 = __webpack_require__(/*! ./gen_utils */ "./src/gen_utils.ts");
-var Camera_1 = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
-var GLRenderer_1 = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
-var DebugMenu_1 = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
-function main() {
-    var kMainCanvasId = "#MainCanvas";
-    var canvas = document.getElementById(kMainCanvasId);
-    canvas.width = window.innerWidth * devicePixelRatio;
-    canvas.height = window.innerHeight * devicePixelRatio;
-    canvas.onmousedown = function () {
-        canvas.requestPointerLock();
-        document.getElementById("body").requestFullscreen();
-    };
-    // Initialize the GL context
-    var gl = canvas.getContext("webgl2");
-    //initialize debugger
-    var debug = new DebugMenu_1.DebugMenu(true); // When you want to use just pass it into
-    // Only continue if WebGL is available and working
-    if (!gl)
-        return alert("Unable to initialize WebGL. Your browser or machine may not support it.");
-    var keysPressed = {};
-    addKeys(keysPressed);
-    var MainCamera = new Camera_1.Camera(gl_matrix_1.vec3.fromValues(0, 0, 3));
-    var lastRenderTime = 0;
-    var maxFPS = 60;
-    var frameInterval = 1000 / maxFPS; // 60 FPS
-    canvas.addEventListener("mousemove", function (event) {
-        if ((0, gen_utils_1.isPointerLocked)()) {
-            var movementX = event.movementX, movementY = event.movementY;
-            // Convert pixels to angles
-            MainCamera.yaw += movementX * MainCamera.sensitivity;
-            MainCamera.pitch -= movementY * MainCamera.sensitivity;
-            // Constrain pitch (to prevent flipping)
-            if (MainCamera.pitch > 89)
-                MainCamera.pitch = 89;
-            if (MainCamera.pitch < -89)
-                MainCamera.pitch = -89;
-            MainCamera.UpdateCameraVectors();
-        }
-    });
-    var renderer = new GLRenderer_1.GLRenderer(gl, canvas, MainCamera, debug);
-    window.addEventListener("resize", function () {
-        resizeCanvas(gl, canvas);
-    });
-    var frame = function (timestamp) {
-        if (timestamp - lastRenderTime < frameInterval) {
-            requestAnimationFrame(frame);
-            return;
-        }
-        var timePassed = timestamp - lastRenderTime;
-        lastRenderTime = timestamp;
-        if ((0, gen_utils_1.isPointerLocked)()) {
-            console.log("Updating camera position");
-            updateCameraPosition(MainCamera, keysPressed, timePassed);
-        }
-        renderer.render();
-        requestAnimationFrame(frame);
-        //The function repeats over and over at 60 fps because it calls itself
-    };
-    requestAnimationFrame(frame);
-}
-function updateCameraPosition(camera, keys, timePassed) {
-    var velocity = camera.speed * timePassed;
-    var movement = gl_matrix_1.vec3.create();
-    //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
-    if (keys["KeyW"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.front, velocity); // Forward
-    if (keys["KeyS"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.front, -velocity); // Backward
-    if (keys["KeyA"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.right, -velocity); // Left
-    if (keys["KeyD"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.right, velocity); // Right
-    if (keys["Space"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.up, velocity); // Up
-    if (keys["ShiftLeft"])
-        gl_matrix_1.vec3.scaleAndAdd(movement, movement, camera.up, -velocity); // Down
-    gl_matrix_1.vec3.add(camera.position, camera.position, movement);
-}
-function resizeCanvas(gl, canvas) {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    console.log(canvas.width);
-}
-function addKeys(keys) {
-    window.addEventListener("keydown", function (event) {
-        keys[event.code] = true;
-    });
-    window.addEventListener("keyup", function (event) {
-        keys[event.code] = false;
-    });
-}
-main();
+//The idea is YOU SHOULD NEVER EDIT THIS FILE, Edit GameEngine.ts - Abstraction is fun or whatever.
+var GameEngine_1 = __webpack_require__(/*! ./GameEngine */ "./src/GameEngine.ts");
+var kMainCanvasId = "#MainCanvas";
+var Engine = new GameEngine_1.GameEngine(kMainCanvasId);
+var gameTick = function (timestamp) {
+    Engine.tick(timestamp);
+    requestAnimationFrame(gameTick);
+};
+requestAnimationFrame(gameTick);
 
 
 /***/ }),
@@ -8574,7 +8612,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.meshToVertices = exports.calculateVertexNormals = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var terrains_1 = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
-var gl_utilities_1 = __webpack_require__(/*! ../render/gl-utilities */ "./src/render/gl-utilities.ts");
+var GlUtils_1 = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
 var roundToPrecision = function (value, precision) {
     return Math.round(value * precision) / precision;
 };
@@ -8630,7 +8668,7 @@ var meshToVertices = function (mesh, vertexNormals, ChunkPosition) {
             vertices[i * 18 + j * 6 + 2] = vertex[2] + ChunkPosition[1];
             // Vertex normal
             var type = terrains_1.Terrains[types[j]];
-            var color = gl_utilities_1.glUtils.getMeshColor(normal[1], type);
+            var color = GlUtils_1.GlUtils.getMeshColor(normal[1], type);
             vertices[i * 18 + j * 6 + 3] = color.r / 255;
             vertices[i * 18 + j * 6 + 4] = color.g / 255;
             vertices[i * 18 + j * 6 + 5] = color.b / 255;
@@ -9165,7 +9203,7 @@ exports.Color = Color;
 exports.Terrains = {
     0: { color: new Color(0, 255, 0), illuminosity: 1, reflectiveness: 0 },
     1: { color: new Color(0, 0, 255), illuminosity: 1, reflectiveness: 0 },
-    2: { color: new Color(255, 0, 0), illuminosity: 1, reflectiveness: 0 },
+    2: { color: new Color(255, 0, 0), illuminosity: 1, reflectiveness: 0 }
 };
 
 
@@ -9181,7 +9219,7 @@ exports.Terrains = {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Camera = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
-var gen_utils_1 = __webpack_require__(/*! ../gen_utils */ "./src/gen_utils.ts");
+var GameEngine_1 = __webpack_require__(/*! ../GameEngine */ "./src/GameEngine.ts");
 var Camera = /** @class */ (function () {
     function Camera(position) {
         this.sensitivity = 0.1;
@@ -9235,9 +9273,13 @@ var Camera = /** @class */ (function () {
     };
     Camera.prototype.UpdateCameraVectors = function () {
         var front = gl_matrix_1.vec3.create();
-        front[0] = Math.cos((0, gen_utils_1.toRadians)(this.yaw)) * Math.cos((0, gen_utils_1.toRadians)(this.pitch));
-        front[1] = Math.sin((0, gen_utils_1.toRadians)(this.pitch));
-        front[2] = Math.sin((0, gen_utils_1.toRadians)(this.yaw)) * Math.cos((0, gen_utils_1.toRadians)(this.pitch));
+        front[0] =
+            Math.cos(GameEngine_1.GameEngine.toRadians(this.yaw)) *
+                Math.cos(GameEngine_1.GameEngine.toRadians(this.pitch));
+        front[1] = Math.sin(GameEngine_1.GameEngine.toRadians(this.pitch));
+        front[2] =
+            Math.sin(GameEngine_1.GameEngine.toRadians(this.yaw)) *
+                Math.cos(GameEngine_1.GameEngine.toRadians(this.pitch));
         gl_matrix_1.vec3.normalize(this.front, front); // Normalize to maintain unit length
         gl_matrix_1.vec3.cross(this.right, this.front, this.up);
         gl_matrix_1.vec3.normalize(this.right, this.right);
@@ -9260,31 +9302,29 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GLRenderer = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var geometry_1 = __webpack_require__(/*! ../map/geometry */ "./src/map/geometry.ts");
-var gl_utilities_1 = __webpack_require__(/*! ./gl-utilities */ "./src/render/gl-utilities.ts");
+var GlUtils_1 = __webpack_require__(/*! ./GlUtils */ "./src/render/GlUtils.ts");
 var glsl_1 = __webpack_require__(/*! ./glsl */ "./src/render/glsl.ts");
 var cubes_utils_1 = __webpack_require__(/*! ../map/cubes_utils */ "./src/map/cubes_utils.ts");
-var Map_1 = __webpack_require__(/*! ../map/Map */ "./src/map/Map.ts");
 var Mesh_1 = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
 var GLRenderer = /** @class */ (function () {
-    function GLRenderer(gl, canvas, camera, debug) {
+    function GLRenderer(gl, canvas, camera, debug, world) {
         var _this = this;
         this.MeshSize = 0;
         this.gl = gl;
         this.canvas = canvas;
         this.camera = camera;
         this.debug = debug;
+        this.world = world;
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
         // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
         var CubeCPUBuffer = new Float32Array(geometry_1.CubeVertices);
-        this.CubeBuffer = gl_utilities_1.glUtils.CreateStaticBuffer(gl, CubeCPUBuffer, geometry_1.WirFrameCubeIndices);
+        this.CubeBuffer = GlUtils_1.GlUtils.CreateStaticBuffer(gl, CubeCPUBuffer, geometry_1.WirFrameCubeIndices);
         var triangleVertices = [];
         var triangleMeshes = []; // Store all chunks' meshes
         var combinedMesh = new Mesh_1.Mesh(); // Combine all chunks' meshes into one
-        var world = new Map_1.WorldMap(1000, 1000, 1000);
-        debugger;
-        for (var _i = 0, _a = world.chunks; _i < _a.length; _i++) {
+        for (var _i = 0, _a = this.world.chunks; _i < _a.length; _i++) {
             var chunk = _a[_i];
             var triangleMesh = chunk.CreateMarchingCubes();
             triangleMeshes.push(triangleMesh); // Store the chunk's mesh
@@ -9294,7 +9334,7 @@ var GLRenderer = /** @class */ (function () {
         var VertexNormals = (0, cubes_utils_1.calculateVertexNormals)(combinedMesh);
         for (var i = 0; i < triangleMeshes.length; i++) {
             var Mesh_2 = triangleMeshes[i];
-            var ChunkPosition = world.chunks[i].ChunkPosition;
+            var ChunkPosition = this.world.chunks[i].ChunkPosition;
             triangleVertices = triangleVertices.concat(Array.from((0, cubes_utils_1.meshToVertices)(Mesh_2, VertexNormals, ChunkPosition)));
         }
         // since we don't reuse any vertices right now, each index is unique
@@ -9302,8 +9342,8 @@ var GLRenderer = /** @class */ (function () {
             .fill(0)
             .map(function (_, i) { return i + _this.MeshSize * 3; });
         this.MeshSize = combinedMesh.mesh.length;
-        this.TriangleBuffer = gl_utilities_1.glUtils.CreateStaticBuffer(gl, new Float32Array(triangleVertices), triangleIndices);
-        var CubeProgram = gl_utilities_1.glUtils.CreateProgram(gl, glsl_1.VertexShaderCode, glsl_1.FragmentShaderCode);
+        this.TriangleBuffer = GlUtils_1.GlUtils.CreateStaticBuffer(gl, new Float32Array(triangleVertices), triangleIndices);
+        var CubeProgram = GlUtils_1.GlUtils.CreateProgram(gl, glsl_1.VertexShaderCode, glsl_1.FragmentShaderCode);
         if (!this.CubeBuffer || !CubeProgram) {
             throw new Error("Error initializing program");
         }
@@ -9314,17 +9354,12 @@ var GLRenderer = /** @class */ (function () {
         this.matView = gl_matrix_1.mat4.create(); //Identity matrices
         this.matProj = gl_matrix_1.mat4.create();
         this.matViewProj = gl_matrix_1.mat4.create();
-        //fps stuff
-        this.fpslastcheck = Date.now();
-        this.fpscounter = 0;
-        this.currentFPS = 0;
-        this.debug.addElement("FPS", function () { return Math.round(_this.currentFPS); });
     }
     GLRenderer.prototype.drawMesh = function (TransformationMatrix) {
         this.gl.uniformMatrix4fv(this.MatrixTransformUniformLocation, false, TransformationMatrix);
         this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
         //Create vertice array object
-        var triangleVao = gl_utilities_1.glUtils.create3dPosColorInterleavedVao(this.gl, this.TriangleBuffer.position, this.TriangleBuffer.indices, this.VertexPositionAttributeLocation, this.VertexColorAttributeLocation);
+        var triangleVao = GlUtils_1.GlUtils.create3dPosColorInterleavedVao(this.gl, this.TriangleBuffer.position, this.TriangleBuffer.indices, this.VertexPositionAttributeLocation, this.VertexColorAttributeLocation);
         this.gl.bindVertexArray(triangleVao);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, this.MeshSize * 3);
         this.gl.bindVertexArray(null);
@@ -9333,7 +9368,7 @@ var GLRenderer = /** @class */ (function () {
         this.gl.uniformMatrix4fv(this.MatrixTransformUniformLocation, false, TransformationMatrix);
         this.gl.uniformMatrix4fv(this.matViewProjUniform, false, this.matViewProj);
         //Create vertice array object
-        var cubeVao = gl_utilities_1.glUtils.create3dPosColorInterleavedVao(this.gl, this.CubeBuffer.position, this.CubeBuffer.indices, this.VertexPositionAttributeLocation, this.VertexColorAttributeLocation);
+        var cubeVao = GlUtils_1.GlUtils.create3dPosColorInterleavedVao(this.gl, this.CubeBuffer.position, this.CubeBuffer.indices, this.VertexPositionAttributeLocation, this.VertexColorAttributeLocation);
         this.gl.bindVertexArray(cubeVao);
         this.gl.drawElements(this.gl.LINES, 48, this.gl.UNSIGNED_SHORT, 0);
         this.gl.bindVertexArray(null);
@@ -9353,18 +9388,11 @@ var GLRenderer = /** @class */ (function () {
         for (var i = 0; i < 1; i++) {
             for (var x = 0; x < 5; x++) {
                 for (var z = 0; z < 5; z++) {
-                    this.DrawWireFrameCube(gl_utilities_1.glUtils.CreateTransformations(gl_matrix_1.vec3.fromValues(x + 0.5, 0.5, z + 0.5), undefined, gl_matrix_1.vec3.fromValues(32, 32, 32)));
+                    this.DrawWireFrameCube(GlUtils_1.GlUtils.CreateTransformations(gl_matrix_1.vec3.fromValues(x + 0.5, 0.5, z + 0.5), undefined, gl_matrix_1.vec3.fromValues(32, 32, 32)));
                 }
             }
         }
-        this.drawMesh(gl_utilities_1.glUtils.CreateTransformations(gl_matrix_1.vec3.fromValues(0, 0, 0)));
-        this.fpscounter += 1;
-        if (Date.now() - this.fpslastcheck >= 1000) {
-            this.currentFPS = this.fpscounter / ((Date.now() - this.fpslastcheck) / 1000);
-            this.fpslastcheck = Date.now();
-            this.fpscounter = 0;
-        }
-        this.debug.update();
+        this.drawMesh(GlUtils_1.GlUtils.CreateTransformations(gl_matrix_1.vec3.fromValues(0, 0, 0)));
     };
     return GLRenderer;
 }());
@@ -9373,21 +9401,21 @@ exports.GLRenderer = GLRenderer;
 
 /***/ }),
 
-/***/ "./src/render/gl-utilities.ts":
-/*!************************************!*\
-  !*** ./src/render/gl-utilities.ts ***!
-  \************************************/
+/***/ "./src/render/GlUtils.ts":
+/*!*******************************!*\
+  !*** ./src/render/GlUtils.ts ***!
+  \*******************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.glUtils = void 0;
+exports.GlUtils = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var terrains_1 = __webpack_require__(/*! ../map/terrains */ "./src/map/terrains.ts");
-var glUtils = /** @class */ (function () {
-    function glUtils() {
+var GlUtils = /** @class */ (function () {
+    function GlUtils() {
     }
-    glUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
+    GlUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
         var VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
         var FragmentShader = this.CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
         var Program = gl.createProgram();
@@ -9402,7 +9430,7 @@ var glUtils = /** @class */ (function () {
         gl.useProgram(Program);
         return Program;
     };
-    glUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
+    GlUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
         var Shader = gl.createShader(ShaderType);
         if (!Shader) {
             throw new Error("Failed to create WebGL shader.");
@@ -9416,7 +9444,7 @@ var glUtils = /** @class */ (function () {
         }
         return Shader;
     };
-    glUtils.CreateStaticBuffer = function (gl, CPUPositionBuffer, CPUIndexBuffer) {
+    GlUtils.CreateStaticBuffer = function (gl, CPUPositionBuffer, CPUIndexBuffer) {
         var buffer = gl.createBuffer();
         if (!buffer) {
             throw new Error("Failed to create buffer");
@@ -9430,7 +9458,7 @@ var glUtils = /** @class */ (function () {
             indices: IndexBuffer
         };
     };
-    glUtils.CreateTransformations = function (translation, rotation, scale) {
+    GlUtils.CreateTransformations = function (translation, rotation, scale) {
         var transformMatrix = gl_matrix_1.mat4.create();
         if (scale) {
             gl_matrix_1.mat4.scale(transformMatrix, transformMatrix, scale);
@@ -9447,7 +9475,7 @@ var glUtils = /** @class */ (function () {
         return transformMatrix;
     };
     //Will change it later to feature length manipulations
-    glUtils.CreateIndexBuffer = function (gl, indices) {
+    GlUtils.CreateIndexBuffer = function (gl, indices) {
         var indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         // This array defines each face as two triangles, using the
@@ -9457,7 +9485,7 @@ var glUtils = /** @class */ (function () {
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
         return indexBuffer;
     };
-    glUtils.create3dPosColorInterleavedVao = function (gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib) {
+    GlUtils.create3dPosColorInterleavedVao = function (gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib) {
         var vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         gl.enableVertexAttribArray(posAttrib);
@@ -9472,15 +9500,15 @@ var glUtils = /** @class */ (function () {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // Not sure if necessary, but not a bad idea.
         return vao;
     };
-    glUtils.getMeshColor = function (normal, terrain) {
+    GlUtils.getMeshColor = function (normal, terrain) {
         //TODO: Implement everything, tune models
         var color = terrain.color;
         var shadow = 0.5 * normal + 0.5;
         return new terrains_1.Color(color.r * shadow * terrain.illuminosity, color.g * shadow * terrain.illuminosity, color.b * shadow * terrain.illuminosity);
     };
-    return glUtils;
+    return GlUtils;
 }());
-exports.glUtils = glUtils;
+exports.GlUtils = GlUtils;
 
 
 /***/ }),
@@ -9573,7 +9601,7 @@ exports.FragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nin ve
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("a1db8a1ed4bfabbd2b00")
+/******/ 		__webpack_require__.h = () => ("9e32b9f0883f2e7decf0")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

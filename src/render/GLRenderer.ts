@@ -1,6 +1,6 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
 import { CubeVertices, WirFrameCubeIndices } from "../map/geometry";
-import { glUtils } from "./gl-utilities";
+import { GlUtils } from "./GlUtils";
 import { VertexShaderCode, FragmentShaderCode, Shader } from "./glsl";
 import { Camera } from "./Camera";
 import { calculateVertexNormals, meshToVertices } from "../map/cubes_utils";
@@ -21,10 +21,6 @@ export class GLRenderer {
   matView: mat4;
   matProj: mat4;
   matViewProj: mat4;
-
-  fpslastcheck: number;
-  fpscounter: number;
-  currentFPS: number;
 
   debug: DebugMenu;
 
@@ -51,7 +47,7 @@ export class GLRenderer {
 
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
     const CubeCPUBuffer = new Float32Array(CubeVertices);
-    this.CubeBuffer = glUtils.CreateStaticBuffer(
+    this.CubeBuffer = GlUtils.CreateStaticBuffer(
       gl,
       CubeCPUBuffer,
       WirFrameCubeIndices
@@ -81,7 +77,7 @@ export class GLRenderer {
       .fill(0)
       .map((_, i) => i + this.MeshSize * 3);
 
-    this.TriangleBuffer = glUtils.CreateStaticBuffer(
+    this.TriangleBuffer = GlUtils.CreateStaticBuffer(
       gl,
       new Float32Array(triangleVertices),
       triangleIndices
@@ -91,12 +87,6 @@ export class GLRenderer {
     this.matView = mat4.create(); //Identity matrices
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
-
-    //fps stuff
-    this.fpslastcheck = Date.now();
-    this.fpscounter = 0;
-    this.currentFPS = 0;
-    this.debug.addElement("FPS", () => Math.round(this.currentFPS));
   }
 
   drawMesh(TransformationMatrix: mat4) {
@@ -111,7 +101,7 @@ export class GLRenderer {
       this.matViewProj
     );
     //Create vertice array object
-    const triangleVao = glUtils.create3dPosColorInterleavedVao(
+    const triangleVao = GlUtils.create3dPosColorInterleavedVao(
       this.gl,
       this.TriangleBuffer.position,
       this.TriangleBuffer.indices,
@@ -136,7 +126,7 @@ export class GLRenderer {
       this.matViewProj
     );
     //Create vertice array object
-    const cubeVao = glUtils.create3dPosColorInterleavedVao(
+    const cubeVao = GlUtils.create3dPosColorInterleavedVao(
       this.gl,
       this.CubeBuffer!.position,
       this.CubeBuffer!.indices,
@@ -170,7 +160,7 @@ export class GLRenderer {
       for (let x = 0; x < 5; x++) {
         for (let z = 0; z < 5; z++) {
           this.DrawWireFrameCube(
-            glUtils.CreateTransformations(
+            GlUtils.CreateTransformations(
               vec3.fromValues(x + 0.5, 0.5, z + 0.5),
               undefined,
               vec3.fromValues(32, 32, 32)
@@ -180,16 +170,6 @@ export class GLRenderer {
       }
     }
 
-    this.drawMesh(glUtils.CreateTransformations(vec3.fromValues(0, 0, 0)));
-
-    //FPS counter
-    this.fpscounter += 1;
-    if (Date.now() - this.fpslastcheck >= 1000) {
-      this.currentFPS =
-        this.fpscounter / ((Date.now() - this.fpslastcheck) / 1000);
-      this.fpslastcheck = Date.now();
-      this.fpscounter = 0;
-    }
-    this.debug.update();
+    this.drawMesh(GlUtils.CreateTransformations(vec3.fromValues(0, 0, 0)));
   }
 }
