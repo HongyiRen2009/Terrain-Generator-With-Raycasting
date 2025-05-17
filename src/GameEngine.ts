@@ -20,6 +20,11 @@ export class GameEngine{
     private frameInterval = 1000/this.maxFPS;
     private lastRenderTime: number = 0;
 
+    //
+    private frameCounter: number = 0;
+    private lastFPSCheck: number = 0;
+    private currentFPS: number = 0;
+
     constructor(canvasId: string){
         //Debugger
         this.debug = new DebugMenu(true); // Pass into class when want to use
@@ -48,6 +53,9 @@ export class GameEngine{
         this.canvas.addEventListener("mousemove",(e: MouseEvent)=>this.mouseMove(e));
         window.addEventListener("resize", ()=>this.resizeCanvas());
 
+        //Debugging
+        this.debug.addElement("FPS",()=>Math.round(this.currentFPS));
+
         //Check to see if WebGL working
         if(!this.gl){
             alert(
@@ -73,6 +81,14 @@ export class GameEngine{
         }
 
         this.renderer.render();
+
+        this.frameCounter += 1;
+        if(Date.now() - this.lastFPSCheck >= 1000){
+            this.currentFPS = this.frameCounter/((Date.now() - this.lastFPSCheck)/1000);
+            this.lastFPSCheck= Date.now();
+            this.frameCounter = 0;
+        }
+        this.debug.update()
     }
 
     updateCamera(time: number){
