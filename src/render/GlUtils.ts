@@ -120,7 +120,8 @@ export class GlUtils {
     vertexBuffer: WebGLBuffer,
     indexBuffer: WebGLBuffer,
     posAttrib: number,
-    colorAttrib: number
+    colorAttrib: number,
+    normalAttrib: number = -1
   ) {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
@@ -128,23 +129,36 @@ export class GlUtils {
     gl.enableVertexAttribArray(posAttrib);
     gl.enableVertexAttribArray(colorAttrib);
 
-    // Interleaved format: (x, y, z, r, g, b) (all f32)
+    // Interleaved format: (x, y, z,nx, ny, nz, r, g, b) (all f32)
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.vertexAttribPointer(
       posAttrib,
       3,
       gl.FLOAT,
       false,
-      6 * Float32Array.BYTES_PER_ELEMENT,
+      9 * Float32Array.BYTES_PER_ELEMENT,
       0
     );
+
+    if (normalAttrib !== -1) {
+      gl.enableVertexAttribArray(normalAttrib);
+      gl.vertexAttribPointer(
+        normalAttrib,
+        3,
+        gl.FLOAT,
+        false,
+        9 * Float32Array.BYTES_PER_ELEMENT,
+        3 * Float32Array.BYTES_PER_ELEMENT
+      );
+    }
+
     gl.vertexAttribPointer(
       colorAttrib,
       3,
       gl.FLOAT,
       false,
-      6 * Float32Array.BYTES_PER_ELEMENT,
-      3 * Float32Array.BYTES_PER_ELEMENT
+      9 * Float32Array.BYTES_PER_ELEMENT,
+      6 * Float32Array.BYTES_PER_ELEMENT
     );
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
@@ -156,14 +170,13 @@ export class GlUtils {
     return vao;
   }
 
-  static getMeshColor(normal: number, terrain: Terrain) {
+  static getMeshColor(terrain: Terrain) {
     //TODO: Implement everything, tune models
     const color = terrain.color;
-    const shadow = 0.5 * normal + 0.5;
     return new Color(
-      color.r * shadow * terrain.illuminosity,
-      color.g * shadow * terrain.illuminosity,
-      color.b * shadow * terrain.illuminosity
+      color.r * terrain.illuminosity,
+      color.g * terrain.illuminosity,
+      color.b * terrain.illuminosity
     );
   }
 }
