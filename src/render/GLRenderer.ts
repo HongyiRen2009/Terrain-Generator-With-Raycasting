@@ -166,16 +166,18 @@ export class GLRenderer {
       this.canvas.width,
       this.canvas.height
     );
-    for (let i = 0; i < 1; i++) {
-      for (let x = 0; x < 5; x++) {
-        for (let z = 0; z < 5; z++) {
-          this.DrawWireFrameCube(
-            GlUtils.CreateTransformations(
-              vec3.fromValues(x + 0.5, 0.5, z + 0.5),
-              undefined,
-              vec3.fromValues(32, 32, 32)
-            )
-          );
+    if(this.debug.debugMode){
+      for (let i = 0; i < 1; i++) {
+        for (let x = 0; x < 5; x++) {
+          for (let z = 0; z < 5; z++) {
+            this.DrawWireFrameCube(
+              GlUtils.CreateTransformations(
+                vec3.fromValues(x + 0.5, 0.5, z + 0.5),
+                undefined,
+                vec3.fromValues(32, 32, 32)
+              )
+            );
+          }
         }
       }
     }
