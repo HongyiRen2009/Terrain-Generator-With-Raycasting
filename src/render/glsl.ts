@@ -39,7 +39,7 @@ export class Shader {
       location: WebGLUniformLocation;
     };
   };
-  FragmentInputs: {
+  /* FragmentInputs: {
     [key: string]: {
       type: string;
       location: number;
@@ -50,7 +50,7 @@ export class Shader {
       type: string;
       location: WebGLUniformLocation;
     };
-  };
+  }; */
   Program: WebGLProgram | undefined;
   constructor(
     gl: WebGL2RenderingContext,
@@ -75,13 +75,13 @@ export class Shader {
     this.VertexInputs = VertexVariables[0];
     this.VertexUniforms = VertexVariables[1];
 
-    const FragmentVariables = this.extractShaderVariables(
+    /* const FragmentVariables = this.extractShaderVariables(
       gl,
       FragmentShaderCode,
       this.Program
     );
     this.FragmentInputs = FragmentVariables[0];
-    this.FragmentUniforms = FragmentVariables[1];
+    this.FragmentUniforms = FragmentVariables[1]; */
     // Don't actually know if fragment shader inputs are needed
   }
   extractShaderVariables(

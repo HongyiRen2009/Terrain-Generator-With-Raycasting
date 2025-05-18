@@ -3,7 +3,10 @@ import { CubeVertices, WirFrameCubeIndices } from "../map/geometry";
 import { GlUtils } from "./GlUtils";
 import { VertexShaderCode, FragmentShaderCode, Shader } from "./glsl";
 import { Camera } from "./Camera";
-import { calculateVertexNormals, meshToVertices } from "../map/cubes_utils";
+import {
+  calculateVertexNormals,
+  meshToVerticesAndIndices
+} from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { DebugMenu } from "../DebugMenu";
@@ -18,8 +21,6 @@ export class GLRenderer {
 
   MeshSize: number = 0;
 
-  matView: mat4;
-  matProj: mat4;
   matViewProj: mat4;
 
   debug: DebugMenu;
@@ -53,6 +54,8 @@ export class GLRenderer {
       WirFrameCubeIndices
     );
     let triangleVertices: number[] = [];
+    let triangleIndices: number[] = [];
+    let indexOffset = 0;
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     const vertexNormals = [];
 
@@ -64,18 +67,29 @@ export class GLRenderer {
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
       const ChunkPosition = this.world.chunks[i].ChunkPosition;
-      triangleVertices = triangleVertices.concat(
-        Array.from(meshToVertices(Mesh, vertexNormals[i], ChunkPosition))
+      const vertexData = meshToVerticesAndIndices(
+        Mesh,
+        vertexNormals[i],
+        ChunkPosition
       );
+
+      // Add vertices
+      triangleVertices = triangleVertices.concat(
+        Array.from(vertexData.vertices)
+      );
+
+      // Add indices with offset
+      const adjustedIndices = Array.from(vertexData.indices).map(
+        (index) => index + indexOffset
+      );
+      triangleIndices = triangleIndices.concat(adjustedIndices);
+
+      // Update offset for next chunk
+      indexOffset += vertexData.vertices.length / 6; // 6 components per vertex
     }
-    this.MeshSize = triangleMeshes.reduce(
-      (acc, mesh) => acc + mesh.mesh.length,
-      0
-    );
+    debugger;
+    this.MeshSize = triangleIndices.length;
     // since we don't reuse any vertices right now, each index is unique
-    const triangleIndices = Array(this.MeshSize * 3)
-      .fill(0)
-      .map((_, i) => i + this.MeshSize * 3);
 
     this.TriangleBuffer = GlUtils.CreateStaticBuffer(
       gl,
@@ -84,8 +98,6 @@ export class GLRenderer {
     );
     this.MeshShader = new Shader(gl, VertexShaderCode, FragmentShaderCode);
 
-    this.matView = mat4.create(); //Identity matrices
-    this.matProj = mat4.create();
     this.matViewProj = mat4.create();
   }
 
@@ -111,7 +123,12 @@ export class GLRenderer {
 
     this.gl.bindVertexArray(triangleVao);
 
-    this.gl.drawArrays(this.gl.TRIANGLES, 0, this.MeshSize * 3);
+    this.gl.drawElements(
+      this.gl.TRIANGLES,
+      this.MeshSize,
+      this.gl.UNSIGNED_INT,
+      0
+    );
     this.gl.bindVertexArray(null);
   }
   DrawWireFrameCube(TransformationMatrix: mat4) {
@@ -136,7 +153,7 @@ export class GLRenderer {
 
     this.gl.bindVertexArray(cubeVao);
 
-    this.gl.drawElements(this.gl.LINES, 48, this.gl.UNSIGNED_SHORT, 0);
+    this.gl.drawElements(this.gl.LINES, 48, this.gl.UNSIGNED_INT, 0);
     this.gl.bindVertexArray(null);
   }
   render() {
@@ -146,16 +163,10 @@ export class GLRenderer {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
     // Calculate view and projection matrices once per frame
-    this.matView = this.camera.getViewMatrix();
-    mat4.perspective(
-      this.matProj,
-      /* fovy= */ glMatrix.toRadian(80),
-      /* aspectRatio= */ this.canvas.width / this.canvas.height,
-      /* near, far= */ 0.1,
-      100.0
+    this.matViewProj = this.camera.calculateProjectionMatrix(
+      this.canvas.width,
+      this.canvas.height
     );
-    mat4.multiply(this.matViewProj, this.matProj, this.matView);
-
     for (let i = 0; i < 1; i++) {
       for (let x = 0; x < 5; x++) {
         for (let z = 0; z < 5; z++) {
