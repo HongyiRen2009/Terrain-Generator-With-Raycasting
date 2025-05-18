@@ -87,7 +87,6 @@ export class GLRenderer {
       // Update offset for next chunk
       indexOffset += vertexData.vertices.length / 6; // 6 components per vertex
     }
-    debugger;
     this.MeshSize = triangleIndices.length;
     // since we don't reuse any vertices right now, each index is unique
 
