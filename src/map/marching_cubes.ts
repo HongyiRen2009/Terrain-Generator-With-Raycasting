@@ -49,14 +49,14 @@ export class Chunk {
   }
 
   noiseFunction(c: vec3): number {
-    const noiseScaleFactor = 10;
+    const frequency = 0.07;
     // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
     vec3.add(
       c,
       c,
       vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
     ); // Offset the coordinates by the chunk position
-    const SimplexNoise = this.SimplexNoise(c[0] / 10, c[1] / 10, c[2] / 10);
+    const SimplexNoise = this.SimplexNoise(c[0] *frequency, c[1] *frequency, c[2] *frequency);
 
     const normalizedNoise = (SimplexNoise + 1) / 2;
 
