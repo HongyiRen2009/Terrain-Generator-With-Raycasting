@@ -15,7 +15,6 @@ export class WorldMap {
   private length: number;
   private lighting: vec3[] = [vec3.fromValues(0, 0, 1000)];
   public resolution: number = 64; //#of vertices per chunk
-
   public chunks: Chunk[];
   public simplexNoise!: NoiseFunction3D;
 
@@ -34,22 +33,22 @@ export class WorldMap {
     this.chunks = [
       new Chunk(
         vec2.fromValues(0, 0),
-        vec3.fromValues(this.resolution, this.resolution, this.resolution),
+        vec3.fromValues(32, 32, 32),
         this.simplexNoise
       ),
       new Chunk(
-        vec2.fromValues(this.resolution, 0),
-        vec3.fromValues(this.resolution, this.resolution, this.resolution),
+        vec2.fromValues(32, 0),
+        vec3.fromValues(32, 32, 32),
         this.simplexNoise
       ),
       new Chunk(
-        vec2.fromValues(this.resolution*2, 0),
-        vec3.fromValues(this.resolution, this.resolution, this.resolution),
+        vec2.fromValues(64, 0),
+        vec3.fromValues(32, 32, 32),
         this.simplexNoise
       ),
       new Chunk(
-        vec2.fromValues(0, this.resolution),
-        vec3.fromValues(this.resolution, this.resolution, this.resolution),
+        vec2.fromValues(0, 32),
+        vec3.fromValues(32, 32, 32),
         this.simplexNoise
       )
     ];
