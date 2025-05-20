@@ -200,6 +200,8 @@ export class GLRenderer {
       }
     } */
 
-    this.drawMesh(GlUtils.CreateTransformations(vec3.fromValues(0, 0, 0)));
+
+    const resScaleFactor = 1/(this.world.resolution/4)
+    this.drawMesh(GlUtils.CreateTransformations(vec3.fromValues(0, 0, 0),vec3.fromValues(0, 0, 0),vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)));
   }
 }
