@@ -64,20 +64,22 @@ export class GLRenderer {
     let triangleIndices: number[] = [];
     let indexOffset = 0;
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
-    const vertexNormals = [];
+    //const vertexNormals = [];
+    let mainMesh = new Mesh();
 
     for (const chunk of this.world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
+      triangleMesh.translate(vec3.fromValues(chunk.ChunkPosition[0],0,chunk.ChunkPosition[1]));
+      mainMesh.merge(triangleMesh);
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
-      vertexNormals.push(calculateVertexNormals(triangleMesh, chunk));
+      //vertexNormals.push(calculateVertexNormals(triangleMesh, chunk));
     }
+    const vertexNormals = calculateVertexNormals(mainMesh);
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
-      const ChunkPosition = this.world.chunks[i].ChunkPosition;
       const vertexData = meshToVerticesAndIndices(
         Mesh,
-        vertexNormals[i],
-        ChunkPosition
+        vertexNormals
       );
 
       // Add vertices

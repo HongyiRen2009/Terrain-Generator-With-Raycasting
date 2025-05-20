@@ -10,7 +10,7 @@ const roundToPrecision = (value: number, precision: number): number =>
 const vertexKey = (vertex: vec3): string =>
   `${roundToPrecision(vertex[0], 1e2)},${roundToPrecision(vertex[1], 1e2)},${roundToPrecision(vertex[2], 1e2)}`;
 
-const calculateTriangleNormal = (triangle: Triangle, chunk: Chunk): vec3 => {
+const calculateTriangleNormal = (triangle: Triangle): vec3 => {
   const v1 = vec3.sub(vec3.create(), triangle[1], triangle[0]);
   const v2 = vec3.sub(vec3.create(), triangle[2], triangle[0]);
   const normal = vec3.create();
@@ -20,14 +20,13 @@ const calculateTriangleNormal = (triangle: Triangle, chunk: Chunk): vec3 => {
 };
 
 export const calculateVertexNormals = (
-  mesh: Mesh,
-  chunk: Chunk
+  mesh: Mesh
 ): Map<string, vec3> => {
   const vertexNormals = new Map<string, vec3>();
 
   for (const triangle of mesh.mesh) {
     // Calculate the normal for the triangle
-    const normal = calculateTriangleNormal(triangle, chunk);
+    const normal = calculateTriangleNormal(triangle);
 
     // Add the triangle's normal to each of its vertices
     for (const vertex of triangle) {
@@ -50,7 +49,6 @@ export const calculateVertexNormals = (
 export const meshToVerticesAndIndices = (
   mesh: Mesh,
   vertexNormals: Map<string, vec3>,
-  ChunkPosition: vec2
 ): { vertices: Float32Array; indices: Uint32Array } => {
   // For each vertex: x, y, z, r, g, b
   const vertexMap = new Map<string, number>();
@@ -69,9 +67,9 @@ export const meshToVerticesAndIndices = (
         const type = Terrains[types[j]];
         const color = GlUtils.getMeshColor(type);
         vertices.push(
-          vertex[0] + ChunkPosition[0],
+          vertex[0],
           vertex[1],
-          vertex[2] + ChunkPosition[1],
+          vertex[2],
           normal[0],
           normal[1],
           normal[2],
