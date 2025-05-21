@@ -6,7 +6,7 @@ import { GlUtils } from "../render/GlUtils";
 const roundToPrecision = (value: number, precision: number): number =>
   Math.round(value * precision) / precision;
 
-const vertexKey = (vertex: vec3): string =>
+export const vertexKey = (vertex: vec3): string =>
   `${roundToPrecision(vertex[0], 1e2)},${roundToPrecision(vertex[1], 1e2)},${roundToPrecision(vertex[2], 1e2)}`;
 
 const calculateTriangleNormal = (triangle: Triangle): vec3 => {
@@ -34,7 +34,6 @@ export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
       vec3.add(vertexNormals.get(key)!, vertexNormals.get(key)!, normal);
     }
   }
-
   // Normalize all vertex normals
   for (const [key, normal] of Array.from(vertexNormals.entries())) {
     vec3.normalize(normal, normal);

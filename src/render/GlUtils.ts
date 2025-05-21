@@ -125,7 +125,7 @@ export class GlUtils {
     return indexBuffer;
   }
 
-  static createCubeVoa(
+  static createCubeVao(
     gl: WebGL2RenderingContext,
     CubeShader: Shader,
     cube: WireFrameCube

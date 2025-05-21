@@ -152,7 +152,7 @@ export class GLRenderer {
       false,
       this.matViewProj
     );
-    const cubeVao = GlUtils.createCubeVoa(this.gl, this.CubeShader, cube);
+    const cubeVao = GlUtils.createCubeVao(this.gl, this.CubeShader, cube);
     this.gl.bindVertexArray(cubeVao);
 
     this.gl.drawElements(

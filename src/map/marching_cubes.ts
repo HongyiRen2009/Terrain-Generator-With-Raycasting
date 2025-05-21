@@ -2,6 +2,7 @@ import { vec2, vec3 } from "gl-matrix";
 import { VERTICES, EDGES, CASES } from "./geometry";
 import type { NoiseFunction3D } from "simplex-noise";
 import { Triangle, Mesh } from "./Mesh";
+import { vertexKey } from "./cubes_utils";
 
 //!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 export class Chunk {
@@ -9,6 +10,7 @@ export class Chunk {
   GridSize: vec3;
   Field: Float32Array;
   SimplexNoise: NoiseFunction3D;
+  FieldMap: Map<string,number>;
 
   constructor(
     ChunkPosition: vec2,
@@ -18,6 +20,7 @@ export class Chunk {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
     this.SimplexNoise = SimplexNoise;
+    this.FieldMap = new Map<string,number>();
     this.Field = this.generateFieldValues();
   }
 
@@ -40,7 +43,10 @@ export class Chunk {
           let c = vec3.fromValues(x, y, z);
 
           const idx = this.chunkCoordinateToIndex(c);
-          field[idx] = this.noiseFunction(c);
+          const out = this.noiseFunction(c)
+          field[idx] = out;
+          vec3.add(c,c,vec3.fromValues(this.ChunkPosition[0],0,this.ChunkPosition[1]))
+          this.FieldMap.set(vertexKey(c),out);
         }
       }
     }
@@ -81,7 +87,10 @@ export class Chunk {
   }
 
   isSolid(c: vec3) {
-    return this.getTerrainValue(c) > 0.5;
+    return Chunk.solidChecker(this.getTerrainValue(c));
+  }
+  static solidChecker(a: number){
+    return a>0.5;
   }
 
   GenerateTerrainChunk() {}

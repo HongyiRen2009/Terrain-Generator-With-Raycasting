@@ -17,6 +17,7 @@ export class WorldMap {
   public resolution: number = 64; //#of vertices per chunk
   public chunks: Chunk[];
   public simplexNoise!: NoiseFunction3D;
+  public fieldMap: Map<string,number>;
 
   //TODO: Insert parameters
   public constructor(width: number, length: number, height: number) {
@@ -26,6 +27,14 @@ export class WorldMap {
     this.chunks = [];
     this.simplexNoise = createNoise3D();
     this.generate();
+
+    this.fieldMap = new Map<string,number>;
+    for(const chunk of this.chunks){
+      for(const [key, val] of Array.from(chunk.FieldMap.entries())){
+        this.fieldMap.set(key,val);
+      }
+    }
+    
   }
 
   //Generates map
