@@ -48,7 +48,7 @@ export class DebugMenu {
   /**
    * Adds thing to be debug
    * @param key The id/identifier on screen
-   * @param supplier Has to be the SUPPLIER to the object you now want to read. Essentially, if you want it to always show the variable counter, then you would put ()=>counter in this area
+   * @param supplier Has to be the SUPPLIER to the object you now want to read. If you want it to always show the variable counter, then you would use the ARROW FUNCTION ()=>counter in this area
    */
   addElement(key: string, supplier: Supplier<number>) {
     this.objects[key] = supplier;
