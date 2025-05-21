@@ -71,7 +71,7 @@ export class GameEngine {
     window.addEventListener("resize", () => this.resizeCanvas());
 
     //Debugging
-    this.debug.addElement("FPS", () => Math.round(this.currentFPS));
+    this.debug.addElement("FPS", () => `${Math.round(this.currentFPS)}`);
 
     //Check to see if WebGL working
     if (!this.gl) {

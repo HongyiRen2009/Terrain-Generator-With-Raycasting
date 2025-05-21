@@ -9,7 +9,7 @@ type Supplier<T> = () => T;
  */
 export class DebugMenu {
   private object: HTMLElement;
-  private objects: Dictionary<Supplier<number>>; // Only working with numbers to lazy to do smth else
+  private objects: Dictionary<Supplier<string>>; // Only working with numbers to lazy to do smth else
   private _debugMode = true;
   private lastUpdate: number;
   private updateSpeed: number; //In fps
@@ -48,9 +48,9 @@ export class DebugMenu {
   /**
    * Adds thing to be debug
    * @param key The id/identifier on screen
-   * @param supplier Has to be the SUPPLIER to the object you now want to read. If you want it to always show the variable counter, then you would use the ARROW FUNCTION ()=>counter in this area
+   * @param supplier Has to be the SUPPLIER to the object you now want to read. If you want it to always show the variable counter, then you would use the ARROW FUNCTION ()=>`${counter}` in this area. Note that the arrow function must always return a string
    */
-  addElement(key: string, supplier: Supplier<number>) {
+  addElement(key: string, supplier: Supplier<string>) {
     this.objects[key] = supplier;
   }
 
