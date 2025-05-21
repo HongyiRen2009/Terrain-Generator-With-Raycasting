@@ -1,5 +1,4 @@
-import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
-import { CubeVertices, WirFrameCubeIndices } from "../map/geometry";
+import { mat4, vec3 } from "gl-matrix";
 import { GlUtils, WireFrameCube } from "./GlUtils";
 import {
   CubeFragmentShaderCode,
@@ -10,7 +9,6 @@ import {
 } from "./glsl";
 import { Camera } from "./Camera";
 import {
-  calculateVertexNormals,
   meshToVerticesAndIndices
 } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
