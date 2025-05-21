@@ -18,9 +18,7 @@ const calculateTriangleNormal = (triangle: Triangle): vec3 => {
   return normal;
 };
 
-export const calculateVertexNormals = (
-  mesh: Mesh
-): Map<string, vec3> => {
+export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
   const vertexNormals = new Map<string, vec3>();
 
   for (const triangle of mesh.mesh) {
@@ -47,7 +45,7 @@ export const calculateVertexNormals = (
 
 export const meshToVerticesAndIndices = (
   mesh: Mesh,
-  vertexNormals: Map<string, vec3>,
+  vertexNormals: Map<string, vec3>
 ): { vertices: Float32Array; indices: Uint32Array } => {
   // For each vertex: x, y, z, r, g, b
   const vertexMap = new Map<string, number>();

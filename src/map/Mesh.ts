@@ -12,19 +12,19 @@ export class Mesh {
     this.mesh.push(triangle);
     this.type.push(type);
   }
-  copy(){
+  copy() {
     const a = new Mesh();
-    for(let i = 0; i < this.mesh.length; i++){
-      a.addTriangle(this.mesh[i],this.type[i]);
+    for (let i = 0; i < this.mesh.length; i++) {
+      a.addTriangle(this.mesh[i], this.type[i]);
     }
     return a;
   }
 
-  translate(a: vec3){
-    for(let i = 0; i < this.mesh.length; i++){
-      vec3.add(this.mesh[i][0],this.mesh[i][0],a);
-      vec3.add(this.mesh[i][1],this.mesh[i][1],a);
-      vec3.add(this.mesh[i][2],this.mesh[i][2],a);
+  translate(a: vec3) {
+    for (let i = 0; i < this.mesh.length; i++) {
+      vec3.add(this.mesh[i][0], this.mesh[i][0], a);
+      vec3.add(this.mesh[i][1], this.mesh[i][1], a);
+      vec3.add(this.mesh[i][2], this.mesh[i][2], a);
     }
   }
 }

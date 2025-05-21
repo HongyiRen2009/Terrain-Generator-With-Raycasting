@@ -8,9 +8,7 @@ import {
   Shader
 } from "./glsl";
 import { Camera } from "./Camera";
-import {
-  meshToVerticesAndIndices
-} from "../map/cubes_utils";
+import { meshToVerticesAndIndices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { DebugMenu } from "../DebugMenu";
@@ -55,7 +53,7 @@ export class GLRenderer {
     let triangleVertices: number[] = [];
     let triangleIndices: number[] = [];
     let indexOffset = 0;
-    this.WireFrameCubes=[];
+    this.WireFrameCubes = [];
 
     const out = GlUtils.genTerrainVertices(this.world);
     let triangleMeshes = out.triangleMeshes;
@@ -64,10 +62,7 @@ export class GLRenderer {
 
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
-      const vertexData = meshToVerticesAndIndices(
-        Mesh,
-        vertexNormals
-      );
+      const vertexData = meshToVerticesAndIndices(Mesh, vertexNormals);
 
       // Add vertices
       triangleVertices = triangleVertices.concat(
@@ -138,7 +133,14 @@ export class GLRenderer {
     );
     this.gl.bindVertexArray(null);
   }
-  DrawWireFrameCube(TransformationMatrix: mat4, cube: {positions: Float32Array<ArrayBuffer>, colors: Float32Array<ArrayBuffer>, indices: Uint16Array<ArrayBuffer>}) {
+  DrawWireFrameCube(
+    TransformationMatrix: mat4,
+    cube: {
+      positions: Float32Array<ArrayBuffer>;
+      colors: Float32Array<ArrayBuffer>;
+      indices: Uint16Array<ArrayBuffer>;
+    }
+  ) {
     this.gl.useProgram(this.CubeShader.Program!);
     this.gl.uniformMatrix4fv(
       this.CubeShader.VertexUniforms["MatrixTransform"].location,
@@ -150,12 +152,15 @@ export class GLRenderer {
       false,
       this.matViewProj
     );
-    const cubeVao = GlUtils.createCubeVoa(this.gl,this.CubeShader,cube);
+    const cubeVao = GlUtils.createCubeVoa(this.gl, this.CubeShader, cube);
     this.gl.bindVertexArray(cubeVao);
 
-    
-
-    this.gl.drawElements(this.gl.LINES, cube.indices.length, this.gl.UNSIGNED_SHORT, 0);
+    this.gl.drawElements(
+      this.gl.LINES,
+      cube.indices.length,
+      this.gl.UNSIGNED_SHORT,
+      0
+    );
     this.gl.bindVertexArray(null);
   }
   render() {
@@ -169,19 +174,25 @@ export class GLRenderer {
       this.canvas.width,
       this.canvas.height
     );
-    const resScaleFactor = 1/(this.world.resolution/4)
+    const resScaleFactor = 1 / (this.world.resolution / 4);
     if (this.debug.debugMode) {
-      for(const cube of this.WireFrameCubes){
+      for (const cube of this.WireFrameCubes) {
         this.DrawWireFrameCube(
-              GlUtils.CreateTransformations(
-                undefined,
-                undefined,
-                vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)
-              ),
-              cube
-            );
+          GlUtils.CreateTransformations(
+            undefined,
+            undefined,
+            vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)
+          ),
+          cube
+        );
       }
-    } 
-    this.drawMesh(GlUtils.CreateTransformations(vec3.fromValues(0, 0, 0),vec3.fromValues(0, 0, 0),vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)));
+    }
+    this.drawMesh(
+      GlUtils.CreateTransformations(
+        vec3.fromValues(0, 0, 0),
+        vec3.fromValues(0, 0, 0),
+        vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)
+      )
+    );
   }
 }

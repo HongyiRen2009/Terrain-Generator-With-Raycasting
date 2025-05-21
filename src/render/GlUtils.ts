@@ -5,7 +5,11 @@ import { Mesh } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
 import { calculateVertexNormals } from "../map/cubes_utils";
 
-export type WireFrameCube = {positions: Float32Array<ArrayBuffer>, colors: Float32Array<ArrayBuffer>, indices: Uint16Array<ArrayBuffer>};
+export type WireFrameCube = {
+  positions: Float32Array<ArrayBuffer>;
+  colors: Float32Array<ArrayBuffer>;
+  indices: Uint16Array<ArrayBuffer>;
+};
 
 export class GlUtils {
   static CreateProgram(
@@ -121,7 +125,11 @@ export class GlUtils {
     return indexBuffer;
   }
 
-  static createCubeVoa(gl: WebGL2RenderingContext,CubeShader: Shader, cube: WireFrameCube){
+  static createCubeVoa(
+    gl: WebGL2RenderingContext,
+    CubeShader: Shader,
+    cube: WireFrameCube
+  ) {
     const cubeVao = gl.createVertexArray()!;
     gl.bindVertexArray(cubeVao); // ✅ Bind VAO first!
 
@@ -170,20 +178,39 @@ export class GlUtils {
     const height = size[1];
     const depth = size[2];
 
-    const x0 = x, x1 = x + width;
-    const y0 = y, y1 = y + height;
-    const z0 = z, z1 = z + depth;
+    const x0 = x,
+      x1 = x + width;
+    const y0 = y,
+      y1 = y + height;
+    const z0 = z,
+      z1 = z + depth;
 
     // 8 vertices of the prism
     const vertices = new Float32Array([
-      x0, y0, z0,  // 0: front-bottom-left
-      x1, y0, z0,  // 1: front-bottom-right
-      x1, y1, z0,  // 2: front-top-right
-      x0, y1, z0,  // 3: front-top-left
-      x0, y0, z1,  // 4: back-bottom-left
-      x1, y0, z1,  // 5: back-bottom-right
-      x1, y1, z1,  // 6: back-top-right
-      x0, y1, z1   // 7: back-top-left
+      x0,
+      y0,
+      z0, // 0: front-bottom-left
+      x1,
+      y0,
+      z0, // 1: front-bottom-right
+      x1,
+      y1,
+      z0, // 2: front-top-right
+      x0,
+      y1,
+      z0, // 3: front-top-left
+      x0,
+      y0,
+      z1, // 4: back-bottom-left
+      x1,
+      y0,
+      z1, // 5: back-bottom-right
+      x1,
+      y1,
+      z1, // 6: back-top-right
+      x0,
+      y1,
+      z1 // 7: back-top-left
     ]);
 
     // Colors per vertex (random for now)
@@ -195,20 +222,32 @@ export class GlUtils {
     // Indices for edges (lines) of the rectangular prism
     // Each pair defines a line segment (edge)
     const indices = new Uint16Array([
-      0, 1,  // front bottom edge
-      1, 2,  // front right edge
-      2, 3,  // front top edge
-      3, 0,  // front left edge
+      0,
+      1, // front bottom edge
+      1,
+      2, // front right edge
+      2,
+      3, // front top edge
+      3,
+      0, // front left edge
 
-      4, 5,  // back bottom edge
-      5, 6,  // back right edge
-      6, 7,  // back top edge
-      7, 4,  // back left edge
+      4,
+      5, // back bottom edge
+      5,
+      6, // back right edge
+      6,
+      7, // back top edge
+      7,
+      4, // back left edge
 
-      0, 4,  // left bottom edge
-      1, 5,  // right bottom edge
-      2, 6,  // right top edge
-      3, 7   // left top edge
+      0,
+      4, // left bottom edge
+      1,
+      5, // right bottom edge
+      2,
+      6, // right top edge
+      3,
+      7 // left top edge
     ]);
 
     return { positions: vertices, colors, indices };
@@ -268,19 +307,26 @@ export class GlUtils {
     return vao;
   }
 
-  static genTerrainVertices(world: WorldMap){
+  static genTerrainVertices(world: WorldMap) {
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let mainMesh = new Mesh();
     const WireFrameCubes = [];
 
     for (const chunk of world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
-      triangleMesh.translate(vec3.fromValues(chunk.ChunkPosition[0],0,chunk.ChunkPosition[1]));
+      triangleMesh.translate(
+        vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
+      );
       mainMesh.merge(triangleMesh);
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
-      WireFrameCubes.push(GlUtils.createRectangularPrismWireframe(vec3.fromValues(chunk.ChunkPosition[0],0,chunk.ChunkPosition[1]),vec3.fromValues(world.resolution,world.resolution,world.resolution)))
+      WireFrameCubes.push(
+        GlUtils.createRectangularPrismWireframe(
+          vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]),
+          vec3.fromValues(world.resolution, world.resolution, world.resolution)
+        )
+      );
     }
     const vertexNormals = calculateVertexNormals(mainMesh);
-    return{triangleMeshes,vertexNormals, WireFrameCubes};
+    return { triangleMeshes, vertexNormals, WireFrameCubes };
   }
 }

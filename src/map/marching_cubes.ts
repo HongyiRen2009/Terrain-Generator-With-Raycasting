@@ -56,7 +56,11 @@ export class Chunk {
       c,
       vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
     ); // Offset the coordinates by the chunk position
-    const SimplexNoise = this.SimplexNoise(c[0] *frequency, c[1] *frequency, c[2] *frequency);
+    const SimplexNoise = this.SimplexNoise(
+      c[0] * frequency,
+      c[1] * frequency,
+      c[2] * frequency
+    );
 
     const normalizedNoise = (SimplexNoise + 1) / 2;
 
