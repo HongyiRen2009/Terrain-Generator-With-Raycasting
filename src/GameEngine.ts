@@ -34,7 +34,7 @@ export class GameEngine {
     this.canvas.height = window.innerHeight;
 
     //GL Context
-    this.gl = this.canvas.getContext("webgl2")!;
+    this.gl = this.canvas.getContext("webgl2", { antialias: true })!;
 
     //Initialize controls
     this.addKeys();

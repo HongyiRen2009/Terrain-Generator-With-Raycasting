@@ -1,6 +1,6 @@
 import { glMatrix, mat4, vec2, vec3 } from "gl-matrix";
 import { CubeVertices, WirFrameCubeIndices } from "../map/geometry";
-import { GlUtils } from "./GlUtils";
+import { GlUtils, WireFrameCube } from "./GlUtils";
 import {
   CubeFragmentShaderCode,
   CubeVertexShaderCode,
@@ -22,7 +22,7 @@ export class GLRenderer {
   canvas: HTMLCanvasElement;
   camera: Camera;
 
-  CubeBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
+  WireFrameCubes: WireFrameCube[];
   TriangleBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
 
   MeshSize: number = 0;
@@ -54,27 +54,16 @@ export class GLRenderer {
     gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
 
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
-    const CubeCPUBuffer = new Float32Array(CubeVertices);
-    this.CubeBuffer = GlUtils.CreateStaticBuffer(
-      gl,
-      CubeCPUBuffer,
-      WirFrameCubeIndices
-    );
     let triangleVertices: number[] = [];
     let triangleIndices: number[] = [];
     let indexOffset = 0;
-    const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
-    //const vertexNormals = [];
-    let mainMesh = new Mesh();
+    this.WireFrameCubes=[];
 
-    for (const chunk of this.world.chunks) {
-      const triangleMesh = chunk.CreateMarchingCubes();
-      triangleMesh.translate(vec3.fromValues(chunk.ChunkPosition[0],0,chunk.ChunkPosition[1]));
-      mainMesh.merge(triangleMesh);
-      triangleMeshes.push(triangleMesh); // Store the chunk's mesh
-      //vertexNormals.push(calculateVertexNormals(triangleMesh, chunk));
-    }
-    const vertexNormals = calculateVertexNormals(mainMesh);
+    const out = GlUtils.genTerrainVertices(this.world);
+    let triangleMeshes = out.triangleMeshes;
+    let vertexNormals = out.vertexNormals;
+    this.WireFrameCubes.push(...out.WireFrameCubes);
+
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
       const vertexData = meshToVerticesAndIndices(
@@ -120,6 +109,7 @@ export class GLRenderer {
   }
 
   drawMesh(TransformationMatrix: mat4) {
+    this.gl.useProgram(this.MeshShader.Program!);
     this.gl.uniformMatrix4fv(
       this.MeshShader.VertexUniforms["MatrixTransform"].location,
       false,
@@ -150,7 +140,8 @@ export class GLRenderer {
     );
     this.gl.bindVertexArray(null);
   }
-  DrawWireFrameCube(TransformationMatrix: mat4) {
+  DrawWireFrameCube(TransformationMatrix: mat4, cube: {positions: Float32Array<ArrayBuffer>, colors: Float32Array<ArrayBuffer>, indices: Uint16Array<ArrayBuffer>}) {
+    this.gl.useProgram(this.CubeShader.Program!);
     this.gl.uniformMatrix4fv(
       this.CubeShader.VertexUniforms["MatrixTransform"].location,
       false,
@@ -161,18 +152,12 @@ export class GLRenderer {
       false,
       this.matViewProj
     );
-    //Create vertice array object
-    const cubeVao = GlUtils.create3dPosColorInterleavedVao(
-      this.gl,
-      this.CubeBuffer!.position,
-      this.CubeBuffer!.indices,
-      this.CubeShader.VertexInputs["VertexPosition"].location,
-      this.CubeShader.VertexInputs["VertexColor"].location
-    );
-
+    const cubeVao = GlUtils.createCubeVoa(this.gl,this.CubeShader,cube);
     this.gl.bindVertexArray(cubeVao);
 
-    this.gl.drawElements(this.gl.LINES, 48, this.gl.UNSIGNED_INT, 0);
+    
+
+    this.gl.drawElements(this.gl.LINES, cube.indices.length, this.gl.UNSIGNED_SHORT, 0);
     this.gl.bindVertexArray(null);
   }
   render() {
@@ -186,24 +171,19 @@ export class GLRenderer {
       this.canvas.width,
       this.canvas.height
     );
-    /*     if (this.debug.debugMode) {
-      for (let i = 0; i < 1; i++) {
-        for (let x = 0; x < 5; x++) {
-          for (let z = 0; z < 5; z++) {
-            this.DrawWireFrameCube(
-              GlUtils.CreateTransformations(
-                vec3.fromValues(x + 0.5, 0.5, z + 0.5),
-                undefined,
-                vec3.fromValues(32, 32, 32)
-              )
-            );
-          }
-        }
-      }
-    } */
-
-
     const resScaleFactor = 1/(this.world.resolution/4)
+    if (this.debug.debugMode) {
+      for(const cube of this.WireFrameCubes){
+        this.DrawWireFrameCube(
+              GlUtils.CreateTransformations(
+                undefined,
+                undefined,
+                vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)
+              ),
+              cube
+            );
+      }
+    } 
     this.drawMesh(GlUtils.CreateTransformations(vec3.fromValues(0, 0, 0),vec3.fromValues(0, 0, 0),vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)));
   }
 }
