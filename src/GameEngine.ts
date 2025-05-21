@@ -49,10 +49,10 @@ export class GameEngine {
     this.addKeys();
 
     //Initialize world
-    this.world = new WorldMap(1000, 1000, 1000);
+    this.world = new WorldMap(1000, 64, 1000);
 
     //Initialize Camera
-    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3));
+    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3),this.world);
 
     //Initialize Renderer
     this.renderer = new GLRenderer(

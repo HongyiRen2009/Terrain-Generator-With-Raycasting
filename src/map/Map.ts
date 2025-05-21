@@ -12,12 +12,13 @@ import { vec2, vec3 } from "gl-matrix";
 */
 export class WorldMap {
   
-  private height: number;
   //In Chunks
   private width: number;
   private length: number;
-  private lighting: vec3[] = [vec3.fromValues(0, 0, 1000)];
-  public resolution: number = 64; //#of vertices per chunk
+  private lighting: vec3[] = [vec3.fromValues(0, 100, 0)];
+  
+  public height: number;
+  public resolution: number = 64; //#of vertices square size of chunk
   public chunks: Chunk[];
   public simplexNoise!: NoiseFunction3D;
   public fieldMap: Map<string,number>;
@@ -28,7 +29,7 @@ export class WorldMap {
    * @param length Length in # of chunks
    * @param height Height of world
    */
-  public constructor(width: number, length: number, height: number) {
+  public constructor(width: number, height: number, length: number) {
     this.width = width;
     this.length = length;
     this.height = height;
@@ -50,22 +51,22 @@ export class WorldMap {
     this.chunks = [
       new Chunk(
         vec2.fromValues(0, 0),
-        vec3.fromValues(this.resolution, this.resolution, this.resolution),
+        vec3.fromValues(this.resolution, this.height, this.resolution),
         this.simplexNoise
       ),
       new Chunk(
         vec2.fromValues(this.resolution, 0),
-        vec3.fromValues(this.resolution, this.resolution, this.resolution),
+        vec3.fromValues(this.resolution, this.height, this.resolution),
         this.simplexNoise
       ),
       new Chunk(
         vec2.fromValues(2 * this.resolution, 0),
-        vec3.fromValues(this.resolution, this.resolution, this.resolution),
+        vec3.fromValues(this.resolution, this.height, this.resolution),
         this.simplexNoise
       ),
       new Chunk(
         vec2.fromValues(0, this.resolution),
-        vec3.fromValues(this.resolution, this.resolution, this.resolution),
+        vec3.fromValues(this.resolution, this.height, this.resolution),
         this.simplexNoise
       )
     ];

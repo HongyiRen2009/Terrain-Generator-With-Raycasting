@@ -341,7 +341,7 @@ export class GlUtils {
       WireFrameCubes.push(
         GlUtils.createRectangularPrismWireframe(
           vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]),
-          vec3.fromValues(world.resolution, world.resolution, world.resolution)
+          vec3.fromValues(world.resolution, world.height, world.resolution)
         )
       );
     }

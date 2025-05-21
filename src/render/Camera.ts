@@ -1,5 +1,6 @@
 import { glMatrix, mat4, vec3 } from "gl-matrix";
 import { GameEngine } from "../GameEngine";
+import { WorldMap } from "../map/Map";
 
 export class Camera {
   position: vec3;
@@ -10,11 +11,12 @@ export class Camera {
   front = vec3.fromValues(0, 0, -1);
   right = vec3.fromValues(1, 0, 0);
   up = vec3.fromValues(0, 1, 0);
-  speed = 0.02 * (1 / 4);
-  constructor(position: vec3) {
+  speed: number;
+  constructor(position: vec3, world: WorldMap) {
     this.position = position;
 
     this.UpdateCameraVectors();
+    this.speed = 0.02 * (1 / (world.resolution / 4));
   }
 
   //enables Camera.XPosition instead of Camera.position[0]
