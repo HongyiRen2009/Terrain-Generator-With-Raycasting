@@ -4,6 +4,10 @@ import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 
+/**
+ * Our holding class for all game mechanics
+ * Generally doing something like this is better programming practice & may avoid bugs and merge conflicts in the future
+ */
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private gl: WebGL2RenderingContext;
@@ -25,6 +29,11 @@ export class GameEngine {
   private lastFPSCheck: number = 0;
   private currentFPS: number = 0;
 
+  /**
+   * Constructs game engine
+   * @param canvasId The ID of the canvas rendered to
+   * @returns 
+   */
   constructor(canvasId: string) {
     //Debugger
     this.debug = new DebugMenu(true); // Pass into class when want to use
@@ -74,7 +83,7 @@ export class GameEngine {
   }
 
   /**
-   * Our Game Loop
+   * Our Game Loop - Run once every frame (capped at max framerate)
    */
   tick(timestamp: number) {
     if (timestamp - this.lastRenderTime < this.frameInterval) {
@@ -98,6 +107,9 @@ export class GameEngine {
     this.debug.update();
   }
 
+  /**
+   * Controls to move the camera!
+   */
   updateCamera(time: number) {
     let velocity = this.mainCamera.speed * time;
     let movement = vec3.create();
@@ -128,10 +140,16 @@ export class GameEngine {
   }
 
   /*--------------------------------Utilities--------------------------------*/
+  /**
+   * Requests a pointer lock on the game
+   */
   requestScreenLock() {
     this.canvas.requestPointerLock();
     document.getElementById("body")!.requestFullscreen();
   }
+  /**
+   * To measure the movement of the mouse
+   */
   mouseMove(event: MouseEvent) {
     if (GameEngine.getLockedElement()) {
       let { movementX, movementY } = event;
@@ -146,12 +164,19 @@ export class GameEngine {
       this.mainCamera.UpdateCameraVectors();
     }
   }
+  /**
+   * Resize the canvas to fill screen at all times
+   */
   resizeCanvas() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
   }
 
+  /**
+   * Use when you want to see if the screen is locked or not
+   * @returns HTML Element (The locked element)
+   */
   static getLockedElement() {
     return document.pointerLockElement;
   }

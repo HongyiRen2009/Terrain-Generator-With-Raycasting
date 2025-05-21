@@ -125,6 +125,13 @@ export class GlUtils {
     return indexBuffer;
   }
 
+  /**
+   * Calculates the vao for the cube
+   * @param gl The WEBGL context
+   * @param CubeShader The shader for the wireframe cubes
+   * @param cube The cube to draw
+   * @returns The VertexArray (Vao)
+   */
   static createCubeVao(
     gl: WebGL2RenderingContext,
     CubeShader: Shader,
@@ -169,6 +176,13 @@ export class GlUtils {
       color.b * terrain.illuminosity
     );
   }
+
+  /**
+   * Calculates the wireframe of a rectangular prism
+   * @param position A vec3 of the position of the rectangular 
+   * @param size A vec3 of the size of the prism
+   * @returns WireFrameCube Object
+   */
   static createRectangularPrismWireframe(position: vec3, size: vec3) {
     const x = position[0];
     const y = position[1];
@@ -307,6 +321,11 @@ export class GlUtils {
     return vao;
   }
 
+  /**
+   * Calculates the necessary vertices, normals, and wireframes for cubes for our world
+   * @param world The world we are rendering
+   * @returns { List of triangle meshes, Map of Vertex Normals, List of WireFrameCube Type}
+   */
   static genTerrainVertices(world: WorldMap) {
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let mainMesh = new Mesh();

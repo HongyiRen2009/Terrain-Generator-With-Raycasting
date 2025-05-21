@@ -14,6 +14,10 @@ export class DebugMenu {
   private lastUpdate: number;
   private updateSpeed: number; //In fps
 
+  /**
+   * Constructs debug menu
+   * @param mode (optional) Boolean if debug mode is on or off - default to true
+   */
   constructor(mode = true) {
     this.object = document.getElementById("debugMenu")!;
     this.objects = {};
@@ -22,6 +26,9 @@ export class DebugMenu {
     this.updateSpeed = 10;
   }
 
+  /**
+   * Updates value in debug menu
+   */
   update() {
     if (this.debugMode) {
       if (Date.now() - this.lastUpdate >= 1000 / this.updateSpeed) {
@@ -47,6 +54,10 @@ export class DebugMenu {
     this.objects[key] = supplier;
   }
 
+  /**
+   * Remove element from debug menu
+   * @param key Key to remove (string)
+   */
   removeElement(key: string) {
     delete this.objects[key];
   }

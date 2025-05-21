@@ -89,6 +89,11 @@ export class Chunk {
   isSolid(c: vec3) {
     return Chunk.solidChecker(this.getTerrainValue(c));
   }
+  /**
+   * Meant to future-proof our code - when we may end up needing to use raw field values, instead of rewriting a everchanging solution to check if it is solid use this
+   * @param a The value from the field
+   * @returns A boolean if it is solid or not
+   */
   static solidChecker(a: number){
     return a>0.5;
   }

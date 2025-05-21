@@ -7,8 +7,11 @@ import { vec2, vec3 } from "gl-matrix";
 //Check README for implementation pattern
 //Center chunk starts at 0,0 (probably)
 
-//Entirety of the map
+/**
+* The object holding the map of the world
+*/
 export class WorldMap {
+  
   private height: number;
   //In Chunks
   private width: number;
@@ -19,7 +22,12 @@ export class WorldMap {
   public simplexNoise!: NoiseFunction3D;
   public fieldMap: Map<string,number>;
 
-  //TODO: Insert parameters
+  /**
+   * Constructs a world
+   * @param width Width in # of chunks
+   * @param length Length in # of chunks
+   * @param height Height of world
+   */
   public constructor(width: number, length: number, height: number) {
     this.width = width;
     this.length = length;
