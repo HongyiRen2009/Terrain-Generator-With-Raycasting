@@ -9,11 +9,15 @@ type Supplier<T> = () => T;
  */
 export class DebugMenu {
   private object: HTMLElement;
-  private objects: Dictionary<Supplier<number>>; // Only working with numbers to lazy to do smth else
+  private objects: Dictionary<Supplier<string | number>>; 
   private _debugMode = true;
   private lastUpdate: number;
   private updateSpeed: number; //In fps
 
+  /**
+   * Constructs debug menu
+   * @param mode (optional) Boolean if debug mode is on or off - default to true
+   */
   constructor(mode = true) {
     this.object = document.getElementById("debugMenu")!;
     this.objects = {};
@@ -22,6 +26,9 @@ export class DebugMenu {
     this.updateSpeed = 10;
   }
 
+  /**
+   * Updates value in debug menu
+   */
   update() {
     if (this.debugMode) {
       if (Date.now() - this.lastUpdate >= 1000 / this.updateSpeed) {
@@ -41,12 +48,16 @@ export class DebugMenu {
   /**
    * Adds thing to be debug
    * @param key The id/identifier on screen
-   * @param supplier Has to be the SUPPLIER to the object you now want to read. Essentially, if you want it to always show the variable counter, then you would put ()=>counter in this area
+   * @param supplier Has to be the SUPPLIER to the object you now want to read. If you want it to always show the variable counter, then you would use the ARROW FUNCTION ()=>`${counter}` in this area. Note that the arrow function must always return a number or string
    */
-  addElement(key: string, supplier: Supplier<number>) {
+  addElement(key: string, supplier: Supplier<string | number>) {
     this.objects[key] = supplier;
   }
 
+  /**
+   * Remove element from debug menu
+   * @param key Key to remove (string)
+   */
   removeElement(key: string) {
     delete this.objects[key];
   }

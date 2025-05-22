@@ -1,3 +1,6 @@
+/**
+ * Color class
+ */
 export class Color {
   public r: number;
   public g: number;
@@ -9,13 +12,18 @@ export class Color {
   }
 }
 
+/**
+ * Our terrain!
+ */
 export interface Terrain {
   color: Color;
   illuminosity: number; // Decimal 0-1
   reflectiveness: number; // Decimal 0-1
   //TODO: More stuff as more implementations
 }
-
+/**
+ * The class for calculating the information for all our terrain types
+ */
 export const Terrains: { [id: number]: Terrain } = {
   0: { color: new Color(0, 255, 0), illuminosity: 1, reflectiveness: 0 },
   1: { color: new Color(0, 0, 255), illuminosity: 1, reflectiveness: 0 },
