@@ -1,4 +1,4 @@
-import { vec2, vec3 } from "gl-matrix";
+import { vec3 } from "gl-matrix";
 import { Mesh, Triangle } from "./Mesh";
 import { Terrains } from "./terrains";
 import { GlUtils } from "../render/GlUtils";
@@ -6,7 +6,7 @@ import { GlUtils } from "../render/GlUtils";
 const roundToPrecision = (value: number, precision: number): number =>
   Math.round(value * precision) / precision;
 
-const vertexKey = (vertex: vec3): string =>
+export const vertexKey = (vertex: vec3): string =>
   `${roundToPrecision(vertex[0], 1e2)},${roundToPrecision(vertex[1], 1e2)},${roundToPrecision(vertex[2], 1e2)}`;
 
 const calculateTriangleNormal = (triangle: Triangle): vec3 => {
@@ -34,7 +34,6 @@ export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
       vec3.add(vertexNormals.get(key)!, vertexNormals.get(key)!, normal);
     }
   }
-
   // Normalize all vertex normals
   for (const [key, normal] of Array.from(vertexNormals.entries())) {
     vec3.normalize(normal, normal);
@@ -45,8 +44,7 @@ export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
 
 export const meshToVerticesAndIndices = (
   mesh: Mesh,
-  vertexNormals: Map<string, vec3>,
-  ChunkPosition: vec2
+  vertexNormals: Map<string, vec3>
 ): { vertices: Float32Array; indices: Uint32Array } => {
   // For each vertex: x, y, z, r, g, b
   const vertexMap = new Map<string, number>();
@@ -63,11 +61,14 @@ export const meshToVerticesAndIndices = (
         const normal = vertexNormals.get(key)!;
 
         const type = Terrains[types[j]];
-        const color = GlUtils.getMeshColor(normal[1], type);
+        const color = GlUtils.getMeshColor(type);
         vertices.push(
-          vertex[0] + ChunkPosition[0],
+          vertex[0],
           vertex[1],
-          vertex[2] + ChunkPosition[1],
+          vertex[2],
+          normal[0],
+          normal[1],
+          normal[2],
           color.r / 255,
           color.g / 255,
           color.b / 255

@@ -1,6 +1,6 @@
 import { GlUtils } from "./GlUtils";
 
-export const VertexShaderCode = /*glsl*/ `#version 300 es
+export const CubeVertexShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 //If you see lessons that use attribute, that's an old version of Webgl
 in vec4 VertexPosition;
@@ -15,7 +15,7 @@ void main() {
 }
 `;
 
-export const FragmentShaderCode = /*glsl*/ `#version 300 es
+export const CubeFragmentShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 
 in vec3 fragmentColor;
@@ -23,6 +23,41 @@ out vec4 outputColor;
 
 void main() {
   outputColor = vec4(fragmentColor, 1);
+}`;
+export const MeshVertexShaderCode = /*glsl*/ `#version 300 es
+precision mediump float;
+//If you see lessons that use attribute, that's an old version of Webgl
+in vec4 VertexPosition;
+in vec3 VertexNormal;
+in vec3 VertexColor;
+out vec3 fragmentColor;
+out vec3 fragmentNormal;
+uniform mat4 MatrixTransform;
+uniform mat4 matViewProj;
+
+void main() {  
+  fragmentColor = VertexColor;
+  fragmentNormal = VertexNormal;
+  gl_Position = matViewProj*MatrixTransform*VertexPosition;
+}
+`;
+
+export const MeshFragmentShaderCode = /*glsl*/ `#version 300 es
+precision mediump float;
+
+in vec3 fragmentColor;
+in vec3 fragmentNormal;
+out vec4 outputColor;
+
+void main() {
+  vec3 lightColor = vec3(1.0, 1.0, 1.0);
+  vec3 lightSource = vec3(0.0, 1.0, 0.0);
+  //idk if the normals are normalized when inputted.
+  float diffuseStrength = max(dot(normalize(fragmentNormal), normalize(lightSource)), 0.2);
+  vec3 diffuseColor = diffuseStrength * lightColor;
+  vec3 lighting = diffuseColor;
+  outputColor = vec4(pow(fragmentColor*lighting,vec3(1.0 / 2.2)), 1);
+
 }`;
 export class Shader {
   VertexShaderCode: string;
