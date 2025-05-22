@@ -10,6 +10,28 @@ Our world is going to consist of chunks (amount undecided) of 32x32x256 cubes/re
 
 Once the vertices are calculated, a smooth curve will be calculated from the vertices (interpolation probably?). Once said smooth curve is calculated, with some basic 3d calc the normals of the thing can be calculated, which will be used for raytracing & pathtracing
 
+## Pathtracing
+Some Pathtracing notes:
+
+CPU:
+- Calc. BVH
+- Flatten BVH
+
+GPU: (fragment shader carry)
+- Use quadbuffer (render each pixel)
+- BVH transversal
+- Blending & frame occumulation
+  - Quasi random sequences maybe?
+  - Importance sampling for lighting sources?
+- Post processing (gamma correction!)
+- Textures
+  - Grass
+  - Wood
+  - Water (maybe animated?)
+  - Light sources = light lens; Also maybe diff. colors. 
+  - Fully reflective (mirrors)
+  - Emissive materials?
+
 ## Commit Stuff.
 
 Please follow the following naming conventions:
