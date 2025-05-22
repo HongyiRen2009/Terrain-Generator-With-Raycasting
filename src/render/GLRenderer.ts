@@ -10,7 +10,6 @@ import {
 import { Camera } from "./Camera";
 import { meshToVerticesAndIndices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
-import { Mesh } from "../map/Mesh";
 import { DebugMenu } from "../DebugMenu";
 
 export class GLRenderer {

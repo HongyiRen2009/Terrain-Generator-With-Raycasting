@@ -13,12 +13,13 @@ import { vec2, vec3 } from "gl-matrix";
 export class WorldMap {
   
   //In Chunks
+  //Unused for now: placeholders and use them when actually implemented
   private width: number;
   private length: number;
   private lighting: vec3[] = [vec3.fromValues(0, 100, 0)];
   
   public height: number;
-  public resolution: number = 64; //#of vertices square size of chunk
+  public resolution = 64; //#of vertices square size of chunk
   public chunks: Chunk[];
   public simplexNoise!: NoiseFunction3D;
   public fieldMap: Map<string,number>;

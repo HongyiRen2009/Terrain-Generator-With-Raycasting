@@ -272,7 +272,7 @@ export class GlUtils {
     indexBuffer: WebGLBuffer,
     posAttrib: number,
     colorAttrib: number,
-    normalAttrib: number = -1
+    normalAttrib = -1
   ) {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
