@@ -180,20 +180,12 @@ export class Mesh {
       out.push(...left.map((val)=>{
         if(val.left != -1) val.left += i1;
         if(val.right != -1) val.right += i1;
-        if(val.t1 != -1) val.t1 += i1;
-        if(val.t2 != -1) val.t2 += i1;
-        if(val.t3 != -1) val.t3 += i1;
-        if(val.t4 != -1) val.t4 += i1;
         return val;
       }));
       let i2 = out.length;
       out.push(...right.map((val)=>{
         if(val.left != -1) val.left += i2;
         if(val.right != -1) val.right += i2;
-        if(val.t1 != -1) val.t1 += i2;
-        if(val.t2 != -1) val.t2 += i2;
-        if(val.t3 != -1) val.t3 += i2;
-        if(val.t4 != -1) val.t4 += i2;
         return val;
       }));
       out[0].left = i1;
