@@ -3,7 +3,7 @@
 import { vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
 import { Chunk } from "../map/marching_cubes";
-import { Mesh } from "../map/Mesh";
+import { BVHTriangle, Mesh, Triangle } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { MeshVertexShaderCode, MeshFragmentShaderCode } from "../render/glsl";
 import { GlUtils, WireFrameCube } from "../render/GlUtils";
@@ -50,12 +50,17 @@ export class PathTracer{
             );
         }
         //Obtain bvh from mesh.
-        const triangles = mainMesh.exportBVHTriangles();
-        const BVHtree = Mesh.exportBVH(triangles);
+        const BVHtriangles = mainMesh.exportBVHTriangles();
+        const BVHtree = Mesh.exportBVH(BVHtriangles);
         const flatBVHtree = Mesh.flattenBVH(BVHtree);
         console.log(BVHtree);
         console.log(flatBVHtree);
 
+        ////////////// Flatten everything float format to send to glsl
+        //Flatten triangles
+        const {vertices, terrains} = this.flattenTriangles(mainMesh.mesh,mainMesh.type);
+        console.log(vertices);
+        console.log(terrains);
 
         /* //Currently bottom code is irrelevant and does not to be used
         //Surely this will be fine (it was not)
@@ -86,5 +91,26 @@ export class PathTracer{
         this.context.uniform1f(this.timeLock, time * 0.001);
         */
         this.context.drawArrays(this.context.TRIANGLE_STRIP, 0, 4);
+    }
+
+    /**
+     * Flatten all the triangles into a Float32array(s) which can be passed as a RGBAF32
+     * @param tri BVH triangles
+     */
+    public flattenTriangles(mesh: Triangle[], types: [number, number, number][]){
+        let floatsPerTexel = 4; //Using rgbaf32 format, each texel (or pixel of texture) can hold up to 4 floats
+        //Currently only need to flatten into vertices and terrain types - Bounding boxes & other attributes don't matter
+        let vertices = new Float32Array(Math.ceil(mesh.length*9/floatsPerTexel)*floatsPerTexel); // Each triangle vertices has 9 attributes (3 vertices, 3 axis)
+        let terrains = new Float32Array(Math.ceil(types.length*3/floatsPerTexel)*floatsPerTexel); // 3 vertices each have different terrain values.
+        for(let i = 0; i < mesh.length; i++){ //Iterate through triangles
+            for(let a = 0; a < mesh[i].length; a++){ //Iterate through vertices in each triangle
+                vertices[i*9+3*a] = mesh[i][a][0];
+                vertices[i*9+3*a+1] = mesh[i][a][1];
+                vertices[i*9+3*a+2] = mesh[i][a][2];
+
+                terrains[i*3+a]=types[i][a];
+            }
+        }
+        return {vertices, terrains};
     }
 }
