@@ -1,20 +1,25 @@
 // Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
 
+import { vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
+import { Chunk } from "../map/marching_cubes";
+import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
-import { FragmentShaderCode, VertexShaderCode } from "../render/glsl";
+import { MeshVertexShaderCode, MeshFragmentShaderCode } from "../render/glsl";
+import { GlUtils, WireFrameCube } from "../render/GlUtils";
 
 export class PathTracer{
     //Rendering
     private canvas: HTMLCanvasElement;
     private context: WebGL2RenderingContext;
-    private program: WebGLProgram;
-    
+    private WireFrameCubes: WireFrameCube[]
+
     //Shaders
+    /* //Currently bottom code is irrelevant and does not to be used
     private vertexShader: WebGLShader;
     private fragmentShader: WebGLShader;
     private resolutionLock: WebGLUniformLocation;
-    private timeLock: WebGLUniformLocation;
+    private timeLock: WebGLUniformLocation;*/
 
     //Classes
     private world: WorldMap;
@@ -25,10 +30,37 @@ export class PathTracer{
         this.context = context;
         this.world = world;
         this.camera = camera;
-        this.program = this.context.createProgram();
+
+        ////////////////////// build flat BVH structure
+        //Get main mesh
+        let mainMesh = new Mesh();
+        this.WireFrameCubes = [];
+    
+        for (const chunk of world.chunks) {
+            const triangleMesh = chunk.CreateMarchingCubes();
+            triangleMesh.translate(
+                vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
+            );
+            mainMesh.merge(triangleMesh);
+            this.WireFrameCubes.push(
+                GlUtils.createRectangularPrismWireframe(
+                    vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]),
+                    vec3.fromValues(world.resolution, world.height, world.resolution)
+                )
+            );
+        }
+        //Obtain bvh from mesh.
+        const triangles = mainMesh.exportBVHTriangles();
+        const BVHtree = Mesh.exportBVH(triangles);
+        const flatBVHtree = Mesh.flattenBVH(BVHtree);
+        console.log(BVHtree);
+        console.log(flatBVHtree);
+
+
+        /* //Currently bottom code is irrelevant and does not to be used
         //Surely this will be fine (it was not)
-        this.vertexShader = this.compileShaderType(this.context.VERTEX_SHADER,VertexShaderCode); //this.compileShaderType(this.context.VERTEX_SHADER,"");
-        this.fragmentShader = this.compileShaderType(this.context.VERTEX_SHADER,FragmentShaderCode); //this.compileShaderType(this.context.FRAGMENT_SHADER,"");
+        this.vertexShader = this.compileShaderType(this.context.VERTEX_SHADER,MeshVertexShaderCode); //this.compileShaderType(this.context.VERTEX_SHADER,"");
+        this.fragmentShader = this.compileShaderType(this.context.VERTEX_SHADER,MeshFragmentShaderCode); //this.compileShaderType(this.context.FRAGMENT_SHADER,"");
         //this.linkShaders()
 
         //quad buffer:
@@ -45,49 +77,14 @@ export class PathTracer{
         const b = this.context.getUniformLocation(this.program,"time");
 
         this.resolutionLock = ""; //(a == null ? new WebGLUniformLocation(): a);
-        this.timeLock = ""; //(b == null ? new WebGLUniformLocation(): b);
-    }
-
-    private compileShaderType(type: number, source: string): WebGLShader {
-        const shader = this.context.createShader(type);
-        if(shader != null){
-            this.context.shaderSource(shader, source);
-            this.context.compileShader(shader);
-            if (!this.context.getShaderParameter(shader, this.context.COMPILE_STATUS)) {
-                console.error("Shader compile error:", this.context.getShaderInfoLog(shader));
-                this.context.deleteShader(shader);
-                throw new Error("Check Console");
-            }
-            this.context.VERTEX_SHADER
-            return shader;
-        }
-        throw new Error("YOU SHOULD NOT BE HERE");
-    }
-    
-    private deleteShaders(){
-        this.context.deleteShader(this.vertexShader);
-        this.context.deleteShader(this.fragmentShader);
-    }
-
-    private compileShaders(){
-        //TODO: Actually generate shader lol
-        this.vertexShader = this.compileShaderType(this.context.VERTEX_SHADER,VertexShaderCode);
-        this.fragmentShader = this.compileShaderType(this.context.FRAGMENT_SHADER,FragmentShaderCode);
-    }
-
-    private linkShaders(){
-        this.context.attachShader(this.program, this.vertexShader);
-        this.context.attachShader(this.program, this.fragmentShader);
-        this.context.linkProgram(this.program);
-        if (!this.context.getProgramParameter(this.program, this.context.LINK_STATUS)) {
-            console.error("Shader program linking error:", this.context.getProgramInfoLog(this.program));
-        }
-        this.context.useProgram(this.program);
+        this.timeLock = ""; //(b == null ? new WebGLUniformLocation(): b);*/
     }
 
     public render(time: number){
+        /*//Currently bottom code is irrelevant and does not to be used
         this.context.uniform2f(this.resolutionLock, this.canvas.width, this.canvas.height);
         this.context.uniform1f(this.timeLock, time * 0.001);
+        */
         this.context.drawArrays(this.context.TRIANGLE_STRIP, 0, 4);
     }
 }

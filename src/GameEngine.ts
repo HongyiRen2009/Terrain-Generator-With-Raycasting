@@ -187,4 +187,8 @@ export class GameEngine {
   static toRadians(degrees: number) {
     return degrees * (Math.PI / 180);
   }
+  
+  static average(l: number[]){
+    return l.reduce((a,b) => a+b)/l.length;
+  }
 }
