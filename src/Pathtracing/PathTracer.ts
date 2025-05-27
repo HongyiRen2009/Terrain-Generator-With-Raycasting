@@ -3,7 +3,7 @@
 import { vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
 import { Chunk } from "../map/marching_cubes";
-import { BVHTriangle, Mesh, Triangle } from "../map/Mesh";
+import { BVHTriangle, flatBVHNode, Mesh, Triangle } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { MeshVertexShaderCode, MeshFragmentShaderCode } from "../render/glsl";
 import { GlUtils, WireFrameCube } from "../render/GlUtils";
@@ -61,6 +61,11 @@ export class PathTracer{
         const {vertices, terrains} = this.packTriangles(mainMesh.mesh,mainMesh.type);
         console.log(vertices);
         console.log(terrains);
+        //Pack BVH
+        const {boundingBoxes, nodes, leafs} = this.packBVH(flatBVHtree);
+        console.log(boundingBoxes);
+        console.log(nodes);
+        console.log(leafs);
 
         /* //Currently bottom code is irrelevant and does not to be used
         //Surely this will be fine (it was not)
@@ -112,5 +117,35 @@ export class PathTracer{
             }
         }
         return {vertices, terrains};
+    }
+
+    /**
+     * Packs flatten BVH to F32 format to be sent to glsl.
+     * For how this works @see packTriangles
+     * @param BVH 
+     */
+    public packBVH(BVH: flatBVHNode[]){
+        let floatsPerTexel = 4 //See thing in packTriangles Method
+        let boundingBoxes = new Float32Array(Math.ceil(BVH.length*6/floatsPerTexel)*floatsPerTexel);
+        let nodes = new Float32Array(Math.ceil(BVH.length*2/floatsPerTexel)*floatsPerTexel);
+        let leafs = new Float32Array(Math.ceil(BVH.length*4/floatsPerTexel)*floatsPerTexel);
+        for(let i = 0; i < BVH.length; i++){
+            for(let j = 0; j < 3; j++){
+                boundingBoxes[i*6+j] = BVH[i].boundingBoxMin[j];
+                boundingBoxes[i*6+3+j] = BVH[i].boundingBoxMax[j];
+            }
+            nodes[i*2] = BVH[i].left;
+            nodes[i*2+1] = BVH[i].right;
+            
+            leafs[i*4] = BVH[i].t1;
+            leafs[i*4+1] = BVH[i].t2;
+            leafs[i*4+2] = BVH[i].t3;
+            leafs[i*4+3] = BVH[i].t4;
+        }
+        return{
+            boundingBoxes,
+            nodes,
+            leafs,
+        }
     }
 }
