@@ -56,9 +56,9 @@ export class PathTracer{
         console.log(BVHtree);
         console.log(flatBVHtree);
 
-        ////////////// Flatten everything float format to send to glsl
-        //Flatten triangles
-        const {vertices, terrains} = this.flattenTriangles(mainMesh.mesh,mainMesh.type);
+        ////////////// Pack everything float format to send to glsl
+        //Pack triangles
+        const {vertices, terrains} = this.packTriangles(mainMesh.mesh,mainMesh.type);
         console.log(vertices);
         console.log(terrains);
 
@@ -94,12 +94,12 @@ export class PathTracer{
     }
 
     /**
-     * Flatten all the triangles into a Float32array(s) which can be passed as a RGBAF32
+     * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
      * @param tri BVH triangles
      */
-    public flattenTriangles(mesh: Triangle[], types: [number, number, number][]){
+    public packTriangles(mesh: Triangle[], types: [number, number, number][]){
         let floatsPerTexel = 4; //Using rgbaf32 format, each texel (or pixel of texture) can hold up to 4 floats
-        //Currently only need to flatten into vertices and terrain types - Bounding boxes & other attributes don't matter
+        //Currently only need to pack the vertices and terrain types - Bounding boxes & other attributes don't matter as they will be part of the BVH
         let vertices = new Float32Array(Math.ceil(mesh.length*9/floatsPerTexel)*floatsPerTexel); // Each triangle vertices has 9 attributes (3 vertices, 3 axis)
         let terrains = new Float32Array(Math.ceil(types.length*3/floatsPerTexel)*floatsPerTexel); // 3 vertices each have different terrain values.
         for(let i = 0; i < mesh.length; i++){ //Iterate through triangles
