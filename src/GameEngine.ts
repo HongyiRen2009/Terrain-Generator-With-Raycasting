@@ -25,6 +25,7 @@ export class GameEngine {
   private maxFPS: number = 60;
   private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
+  private mode: number = 1; // 0 for rayTracer, 1 for pathtracer
 
   //
   private frameCounter: number = 0;
@@ -65,7 +66,7 @@ export class GameEngine {
       this.world
     );
     //Initial pathTracer
-    this.pathTracer = new PathTracer(this.canvas,this.gl,this.world,this.mainCamera);
+    this.pathTracer = new PathTracer(this.canvas,this.gl,this.world,this.mainCamera,this.renderer,this.debug);
 
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
@@ -99,7 +100,11 @@ export class GameEngine {
       this.updateCamera(timePassed);
     }
 
-    this.renderer.render();
+    if(this.mode == 0){
+      this.renderer.render();
+    }else{
+      this.pathTracer.render(timestamp);
+    }
 
     this.frameCounter += 1;
     if (Date.now() - this.lastFPSCheck >= 1000) {

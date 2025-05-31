@@ -7,12 +7,21 @@ import { BVHTriangle, flatBVHNode, Mesh, Triangle } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { MeshVertexShaderCode, MeshFragmentShaderCode } from "../render/glsl";
 import { GlUtils, WireFrameCube } from "../render/GlUtils";
+import { GLRenderer } from "../render/GLRenderer";
+import { DebugMenu } from "../DebugMenu";
+import { Terrains } from "../map/terrains";
 
 export class PathTracer{
     //Rendering
     private canvas: HTMLCanvasElement;
-    private context: WebGL2RenderingContext;
+    private gl: WebGL2RenderingContext;
     private WireFrameCubes: WireFrameCube[]
+    private vertices: Float32Array;
+    private terrains: Float32Array;
+    private boundingBoxes: Float32Array;
+    private nodes: Float32Array;
+    private leafs: Float32Array;
+    private terrainTypes: Float32Array;
 
     //Shaders
     /* //Currently bottom code is irrelevant and does not to be used
@@ -24,12 +33,16 @@ export class PathTracer{
     //Classes
     private world: WorldMap;
     private camera: Camera;
+    private rayRender: GLRenderer;
+    private debug: DebugMenu;
 
-    public constructor(canvas: HTMLCanvasElement, context: WebGL2RenderingContext, world: WorldMap, camera: Camera){
+    public constructor(canvas: HTMLCanvasElement, context: WebGL2RenderingContext, world: WorldMap, camera: Camera, rayRender: GLRenderer, debug: DebugMenu){
         this.canvas = canvas;
-        this.context = context;
+        this.gl = context;
         this.world = world;
         this.camera = camera;
+        this.rayRender = rayRender;
+        this.debug = debug;
 
         ////////////////////// build flat BVH structure
         //Get main mesh
@@ -66,38 +79,50 @@ export class PathTracer{
         console.log(boundingBoxes);
         console.log(nodes);
         console.log(leafs);
-
-        /* //Currently bottom code is irrelevant and does not to be used
-        //Surely this will be fine (it was not)
-        this.vertexShader = this.compileShaderType(this.context.VERTEX_SHADER,MeshVertexShaderCode); //this.compileShaderType(this.context.VERTEX_SHADER,"");
-        this.fragmentShader = this.compileShaderType(this.context.VERTEX_SHADER,MeshFragmentShaderCode); //this.compileShaderType(this.context.FRAGMENT_SHADER,"");
-        //this.linkShaders()
-
-        //quad buffer:
-        const quadBuffer = this.context.createBuffer();
-        this.context.bindBuffer(this.context.ARRAY_BUFFER, quadBuffer);
-        const quadVertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-        this.context.bufferData(this.context.ARRAY_BUFFER, quadVertices, this.context.STATIC_DRAW);
-
-        const positionAttrib = this.context.getAttribLocation(this.program, "position");
-        this.context.enableVertexAttribArray(positionAttrib);
-        this.context.vertexAttribPointer(positionAttrib, 2, this.context.FLOAT, false, 0, 0);
-
-        const a = this.context.getUniformLocation(this.program,"resolution");
-        const b = this.context.getUniformLocation(this.program,"time");
-
-        this.resolutionLock = ""; //(a == null ? new WebGLUniformLocation(): a);
-        this.timeLock = ""; //(b == null ? new WebGLUniformLocation(): b);*/
+        //Pack terrain Types
+        const terrainTypes = this.packTerrainTypes();
+        console.log(terrainTypes);
+        //save
+        this.vertices = vertices;
+        this.terrains = terrains;
+        this.boundingBoxes = boundingBoxes;
+        this.nodes = nodes;
+        this.leafs = leafs;
+        this.terrainTypes = terrainTypes;
     }
 
     public render(time: number){
-        /*//Currently bottom code is irrelevant and does not to be used
-        this.context.uniform2f(this.resolutionLock, this.canvas.width, this.canvas.height);
-        this.context.uniform1f(this.timeLock, time * 0.001);
-        */
-        this.context.drawArrays(this.context.TRIANGLE_STRIP, 0, 4);
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // Clear the color buffer with specified clear color
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+
+        const resScaleFactor = 1 / (this.world.resolution / 4);
+        this.drawWireframe(resScaleFactor);
     }
 
+    public drawWireframe(resScaleFactor: number){
+        if (this.debug.debugMode) {
+            this.rayRender.matViewProj = this.camera.calculateProjectionMatrix(
+                this.canvas.width,
+                this.canvas.height
+            );
+            for (const cube of this.WireFrameCubes) {
+                this.rayRender.DrawWireFrameCube(
+                    GlUtils.CreateTransformations(
+                        undefined,
+                        undefined,
+                        vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)
+                    ),
+                    cube
+                );
+            }
+        }
+    }
+
+    
+
+
+    /////////////////////////////// Packing BVH
     /**
      * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
      * @param tri BVH triangles
@@ -147,5 +172,22 @@ export class PathTracer{
             nodes,
             leafs,
         }
+    }
+
+    public packTerrainTypes(){
+        let floatsPerTexel = 4;
+        let numberTerrains = 3;
+        let out = new Float32Array(Math.ceil(numberTerrains*5/floatsPerTexel)*floatsPerTexel); //r,g,b,illuminosity, reflectiveness
+        let i = 0;
+        for(const key in Terrains){
+            let terrain = Terrains[key];
+            out[i*5] = terrain.color.r;
+            out[i*5+1] = terrain.color.g;
+            out[i*5+2] = terrain.color.b;
+            out[i*5+3] = terrain.illuminosity;
+            out[i*5+4] = terrain.reflectiveness;
+            i++;
+        }
+        return out;
     }
 }
