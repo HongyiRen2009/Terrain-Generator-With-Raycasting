@@ -5,30 +5,28 @@ import { WorldMap } from "../map/Map";
 import { Chunk } from "../map/marching_cubes";
 import { BVHTriangle, flatBVHNode, Mesh, Triangle } from "../map/Mesh";
 import { Camera } from "../render/Camera";
-import { MeshVertexShaderCode, MeshFragmentShaderCode } from "../render/glsl";
+import { MeshVertexShaderCode, MeshFragmentShaderCode, Shader } from "../render/glsl";
 import { GlUtils, WireFrameCube } from "../render/GlUtils";
 import { GLRenderer } from "../render/GLRenderer";
 import { DebugMenu } from "../DebugMenu";
 import { Terrains } from "../map/terrains";
+import { pathTracingFragmentShaderCode, pathTracingVertexShaderCode } from "./glslPath";
 
 export class PathTracer{
     //Rendering
     private canvas: HTMLCanvasElement;
     private gl: WebGL2RenderingContext;
     private WireFrameCubes: WireFrameCube[]
+    //Shaders
+    private shader: Shader;
+
+    //Information
     private vertices: Float32Array;
     private terrains: Float32Array;
     private boundingBoxes: Float32Array;
     private nodes: Float32Array;
     private leafs: Float32Array;
     private terrainTypes: Float32Array;
-
-    //Shaders
-    /* //Currently bottom code is irrelevant and does not to be used
-    private vertexShader: WebGLShader;
-    private fragmentShader: WebGLShader;
-    private resolutionLock: WebGLUniformLocation;
-    private timeLock: WebGLUniformLocation;*/
 
     //Classes
     private world: WorldMap;
@@ -43,6 +41,9 @@ export class PathTracer{
         this.camera = camera;
         this.rayRender = rayRender;
         this.debug = debug;
+
+        //shader
+        this.shader = new Shader(this.gl,pathTracingVertexShaderCode,pathTracingFragmentShaderCode);
 
         ////////////////////// build flat BVH structure
         //Get main mesh
@@ -98,6 +99,7 @@ export class PathTracer{
 
         const resScaleFactor = 1 / (this.world.resolution / 4);
         this.drawWireframe(resScaleFactor);
+        this.drawMesh();
     }
 
     public drawWireframe(resScaleFactor: number){
@@ -119,10 +121,105 @@ export class PathTracer{
         }
     }
 
-    
+    public drawMesh(){
+        this.gl.useProgram(this.shader.Program!);
+        this.makeVao();
 
+        let verticeTex = this.packFloatArrayToTexture(this.vertices);
+        let terrainTex = this.packFloatArrayToTexture(this.terrains);
+        let boundingBoxesTex = this.packFloatArrayToTexture(this.boundingBoxes);
+        let nodesTex = this.packFloatArrayToTexture(this.boundingBoxes);
+        let leafsTex = this.packFloatArrayToTexture(this.leafs);
+        let terrainTypeTex = this.packFloatArrayToTexture(this.terrainTypes);
 
-    /////////////////////////////// Packing BVH
+        this.bindTex(verticeTex,"u_vertices");
+        this.bindTex(terrainTex,"u_terrains");
+        this.bindTex(boundingBoxesTex,"u_boundingBox");
+        this.bindTex(nodesTex,"u_nodesTex");
+        this.bindTex(leafsTex,"u_leafsTex");
+        this.bindTex(terrainTypeTex,"u_terrainTypes");
+
+        // === Drawing
+        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+    }
+
+    public makeVao(){
+        const fullscreenTriangle = new Float32Array([
+            -1, -1,
+            3, -1,
+            -1,  3
+        ]);
+        const vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+
+        const vbo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenTriangle, this.gl.STATIC_DRAW);
+
+        this.gl.enableVertexAttribArray(0);
+        this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+    }
+
+    public bindTex(tex: WebGLTexture,key: string){
+        // Bind to texture unit
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
+        let loc = this.gl.getUniformLocation(this.shader.Program!, key);
+        if(loc === null){
+            console.warn(`Cannot find ${key} in fragmentShader`)
+        }
+        this.gl.uniform1i(loc, 0);
+    }
+
+    /////////////////////////////// Packing 
+    /**
+     * Uploads a Float32Array to GPU as a 2D RGBA32F texture.
+     * Each texel stores 4 floats (R, G, B, A).
+     * (totally not vibecoded)
+     * @param gl         - WebGL2RenderingContext
+     * @param data       - Float32Array containing your raw float data
+     * @param widthHint  - Optional: manual texture width (default auto-calculated)
+     * @returns texture: WebGLTexture
+     */
+    public packFloatArrayToTexture(data: Float32Array, widthHint?: number) {
+        if (data.length % 4 !== 0) {
+            console.warn(`[packFloatArrayToTexture] Padding input from ${data.length} to multiple of 4`);
+            const padded = new Float32Array(Math.ceil(data.length / 4) * 4);
+            padded.set(data);
+            data = padded;
+        }
+
+        const totalTexels = data.length / 4;
+
+        const width = widthHint || Math.ceil(Math.sqrt(totalTexels));
+        const height = Math.ceil(totalTexels / width);
+
+        const texture = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+
+        this.gl.texImage2D(
+            this.gl.TEXTURE_2D,
+            0,
+            this.gl.RGBA32F,     // Internal format
+            width,
+            height,
+            0,
+            this.gl.RGBA,        // Format of incoming data
+            this.gl.FLOAT,
+            new Float32Array(width * height * 4).fill(0).map((_, i) => data[i] ?? 0) // Fill/pad if needed
+        );
+
+        // NEAREST = no filtering/interpolation
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+
+        return texture;
+    }
+
     /**
      * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
      * @param tri BVH triangles
