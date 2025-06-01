@@ -2,10 +2,9 @@
 
 import { vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
-import { Chunk } from "../map/marching_cubes";
-import { BVHTriangle, flatBVHNode, Mesh, Triangle } from "../map/Mesh";
+import { flatBVHNode, Mesh, Triangle } from "../map/Mesh";
 import { Camera } from "../render/Camera";
-import { MeshVertexShaderCode, MeshFragmentShaderCode, Shader } from "../render/glsl";
+import { Shader } from "../render/glsl";
 import { GlUtils, WireFrameCube } from "../render/GlUtils";
 import { GLRenderer } from "../render/GLRenderer";
 import { DebugMenu } from "../DebugMenu";
@@ -41,6 +40,7 @@ export class PathTracer{
         this.camera = camera;
         this.rayRender = rayRender;
         this.debug = debug;
+        this.gl.enable(this.gl.BLEND)
 
         //shader
         this.shader = new Shader(this.gl,pathTracingVertexShaderCode,pathTracingFragmentShaderCode);
