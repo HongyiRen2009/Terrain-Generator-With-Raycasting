@@ -45,7 +45,7 @@ float fetchFloatFrom1D(sampler2D tex, int index) {
     else return texel.a;
 }
 
-BVH getBVH(int i, out vec3 min){
+BVH getBVH(int i){
     BVH r;
     r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*6),fetchFloatFrom1D(u_boundingBox, i*6+1),fetchFloatFrom1D(u_boundingBox, i*6+2));
     r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*6+3),fetchFloatFrom1D(u_boundingBox, i*6+4),fetchFloatFrom1D(u_boundingBox, i*6+5));

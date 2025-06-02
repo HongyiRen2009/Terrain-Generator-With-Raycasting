@@ -102,6 +102,15 @@ export class PathTracer{
         this.drawMesh();
     }
 
+    /**
+     * Renders the wireframe representation of cubes if debug mode is enabled.
+     *
+     * @param resScaleFactor - The scaling factor applied to the wireframe cubes' transformations.
+     *
+     * This method updates the view-projection matrix for the ray renderer using the current camera and canvas dimensions.
+     * It then iterates over all cubes in `WireFrameCubes`, drawing each as a wireframe with the specified scale.
+     * Wireframe rendering only occurs when debug mode is active.
+     */
     public drawWireframe(resScaleFactor: number){
         if (this.debug.debugMode) {
             this.rayRender.matViewProj = this.camera.calculateProjectionMatrix(
@@ -128,7 +137,7 @@ export class PathTracer{
         let verticeTex = this.packFloatArrayToTexture(this.vertices);
         let terrainTex = this.packFloatArrayToTexture(this.terrains);
         let boundingBoxesTex = this.packFloatArrayToTexture(this.boundingBoxes);
-        let nodesTex = this.packFloatArrayToTexture(this.boundingBoxes);
+        let nodesTex = this.packFloatArrayToTexture(this.nodes);
         let leafsTex = this.packFloatArrayToTexture(this.leafs);
         let terrainTypeTex = this.packFloatArrayToTexture(this.terrainTypes);
 
@@ -162,6 +171,15 @@ export class PathTracer{
         this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
     }
 
+    /**
+     * Binds a given WebGL texture to texture unit 0 and sets the corresponding sampler uniform in the shader program.
+     *
+     * @param tex - The WebGLTexture to bind.
+     * @param key - The name of the sampler uniform in the shader program to associate with the texture.
+     *
+     * @remarks
+     * If the specified uniform cannot be found in the shader program, a warning is logged to the console.
+     */
     public bindTex(tex: WebGLTexture,key: string){
         // Bind to texture unit
         this.gl.activeTexture(this.gl.TEXTURE0);
@@ -271,6 +289,16 @@ export class PathTracer{
         }
     }
 
+    /**
+     * Packs terrain type properties into a Float32Array for efficient GPU transfer.
+     *
+     * Each terrain type's properties (color components, illuminosity, and reflectiveness)
+     * are stored sequentially in the output array. The array is padded to ensure its length
+     * is a multiple of `floatsPerTexel`.
+     *
+     * @returns {Float32Array} A packed array containing the terrain types' color (r, g, b),
+     * illuminosity, and reflectiveness values.
+     */
     public packTerrainTypes(){
         let floatsPerTexel = 4;
         let numberTerrains = 3;
