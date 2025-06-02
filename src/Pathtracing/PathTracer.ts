@@ -147,6 +147,10 @@ export class PathTracer{
         this.bindTex(nodesTex,"u_nodesTex");
         this.bindTex(leafsTex,"u_leafsTex");
         this.bindTex(terrainTypeTex,"u_terrainTypes");
+        //Put camera position in shader
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.shader.Program!,"u_cameraPos"), this.camera.position);
+        //Put camera direction in shader
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.shader.Program!,"u_cameraDir"), vec3.fromValues(this.camera.pitch, this.camera.yaw, 0));
 
         // === Drawing
         this.gl.clearColor(0, 0, 0, 1);

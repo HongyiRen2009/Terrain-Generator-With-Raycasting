@@ -18,6 +18,8 @@ uniform sampler2D u_boundingBox;
 uniform sampler2D u_nodesTex;
 uniform sampler2D u_leafsTex;
 uniform sampler2D u_terrainTypes;
+uniform vec3 u_cameraPos;
+uniform vec3 u_cameraDir;
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -71,6 +73,6 @@ void main() {
     vec4 dummy6 = texture(u_terrainTypes, v_uv * 0.0); // Always fetch (0,0)
 
     // Replace this with your raytracing logic
-    fragColor = vec4(v_uv, 0.0, 1.0)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6)*0.0; // visual gradient
+    fragColor = vec4(v_uv, 0.0, 1.0)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6)*0.0 + u_cameraPos[0]*0.0+u_cameraDir[0]*0.0; // visual gradient
 }
 `
