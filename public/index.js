@@ -8385,6 +8385,7 @@ var DebugMenu_1 = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
 var Map_1 = __webpack_require__(/*! ./map/Map */ "./src/map/Map.ts");
 var Camera_1 = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
 var GLRenderer_1 = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
+var PathTracer_1 = __webpack_require__(/*! ./Pathtracing/PathTracer */ "./src/Pathtracing/PathTracer.ts");
 /**
  * Our holding class for all game mechanics
  * Generally doing something like this is better programming practice & may avoid bugs and merge conflicts in the future
@@ -8402,6 +8403,7 @@ var GameEngine = /** @class */ (function () {
         this.maxFPS = 60;
         this.frameInterval = 1000 / this.maxFPS;
         this.lastRenderTime = 0;
+        this.mode = 0; // 0 for rayTracer, 1 for pathtracer
         //
         this.frameCounter = 0;
         this.lastFPSCheck = 0;
@@ -8421,6 +8423,8 @@ var GameEngine = /** @class */ (function () {
         this.mainCamera = new Camera_1.Camera(gl_matrix_1.vec3.fromValues(0, 0, 3), this.world);
         //Initialize Renderer
         this.renderer = new GLRenderer_1.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
+        //Initial pathTracer
+        this.pathTracer = new PathTracer_1.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.debug);
         //Events
         this.canvas.addEventListener("mousedown", function () { return _this.requestScreenLock(); });
         this.canvas.addEventListener("mousemove", function (e) {
@@ -8429,6 +8433,20 @@ var GameEngine = /** @class */ (function () {
         window.addEventListener("resize", function () { return _this.resizeCanvas(); });
         //Debugging
         this.debug.addElement("FPS", function () { return Math.round(_this.currentFPS); });
+        //Initialize switcher
+        var rayBtn = document.getElementById("raytracing");
+        var pathBtn = document.getElementById("pathtracing");
+        rayBtn.addEventListener("click", function () {
+            rayBtn.classList.add("active");
+            pathBtn.classList.remove("active");
+            _this.mode = 0; // Set to raytracing
+        });
+        pathBtn.addEventListener("click", function () {
+            pathBtn.classList.add("active");
+            rayBtn.classList.remove("active");
+            _this.mode = 1; // Set to pathtracing
+            _this.pathTracer.init();
+        });
         //Check to see if WebGL working
         if (!this.gl) {
             alert("Unable to initialize WebGL. Your browser or machine may not support it.");
@@ -8447,7 +8465,12 @@ var GameEngine = /** @class */ (function () {
         if (GameEngine.getLockedElement()) {
             this.updateCamera(timePassed);
         }
-        this.renderer.render();
+        if (this.mode == 0) {
+            this.renderer.render();
+        }
+        else {
+            this.pathTracer.render(timestamp);
+        }
         this.frameCounter += 1;
         if (Date.now() - this.lastFPSCheck >= 1000) {
             this.currentFPS =
@@ -8530,9 +8553,147 @@ var GameEngine = /** @class */ (function () {
     GameEngine.toRadians = function (degrees) {
         return degrees * (Math.PI / 180);
     };
+    GameEngine.average = function (l) {
+        return l.reduce(function (a, b) { return a + b; }) / l.length;
+    };
     return GameEngine;
 }());
 exports.GameEngine = GameEngine;
+
+
+/***/ }),
+
+/***/ "./src/Pathtracing/PathTracer.ts":
+/*!***************************************!*\
+  !*** ./src/Pathtracing/PathTracer.ts ***!
+  \***************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+// Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.PathTracer = void 0;
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+var Mesh_1 = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
+var glsl_1 = __webpack_require__(/*! ../render/glsl */ "./src/render/glsl.ts");
+var GlUtils_1 = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
+var glslPath_1 = __webpack_require__(/*! ./glslPath */ "./src/Pathtracing/glslPath.ts");
+var BVHUtils_1 = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
+var PathTracer = /** @class */ (function () {
+    function PathTracer(canvas, context, world, camera, debug) {
+        this.canvas = canvas;
+        this.gl = context;
+        this.world = world;
+        this.camera = camera;
+        this.debug = debug;
+        this.gl.enable(this.gl.BLEND);
+        //shader
+        this.shader = new glsl_1.Shader(this.gl, glslPath_1.pathTracingVertexShaderCode, glslPath_1.pathTracingFragmentShaderCode);
+        ////////////////////// build flat BVH structure
+        //Get main mesh
+        var mainMesh = new Mesh_1.Mesh();
+        this.WireFrameCubes = [];
+        for (var _i = 0, _a = this.world.chunks; _i < _a.length; _i++) {
+            var chunk = _a[_i];
+            var triangleMesh = chunk.CreateMarchingCubes();
+            triangleMesh.translate(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]));
+            mainMesh.merge(triangleMesh);
+            this.WireFrameCubes.push(GlUtils_1.GlUtils.createRectangularPrismWireframe(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), gl_matrix_1.vec3.fromValues(this.world.resolution, this.world.height, this.world.resolution)));
+        }
+        //Obtain bvh from mesh.
+        var BVHtriangles = mainMesh.exportBVHTriangles();
+        var BVHtree = Mesh_1.Mesh.exportBVH(BVHtriangles);
+        var flatBVHtree = Mesh_1.Mesh.flattenBVH(BVHtree);
+        console.log(BVHtree);
+        console.log(flatBVHtree);
+        ////////////// Pack everything float format to send to glsl
+        //Pack triangles
+        var _b = BVHUtils_1.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type), vertices = _b.vertices, terrains = _b.terrains;
+        console.log(vertices);
+        console.log(terrains);
+        //Pack BVH
+        var _c = BVHUtils_1.BVHUtils.packBVH(flatBVHtree), boundingBoxes = _c.boundingBoxes, nodes = _c.nodes, leafs = _c.leafs;
+        console.log(boundingBoxes);
+        console.log(nodes);
+        console.log(leafs);
+        //Pack terrain Types
+        var terrainTypes = BVHUtils_1.BVHUtils.packTerrainTypes();
+        console.log(terrainTypes);
+        //save
+        this.vertices = vertices;
+        this.terrains = terrains;
+        this.boundingBoxes = boundingBoxes;
+        this.nodes = nodes;
+        this.leafs = leafs;
+        this.terrainTypes = terrainTypes;
+        this.init();
+    }
+    PathTracer.prototype.render = function (time) {
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // Clear the color buffer with specified clear color
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        //const resScaleFactor = 1 / (this.world.resolution / 4);
+        this.drawMesh();
+    };
+    PathTracer.prototype.drawMesh = function () {
+        this.gl.useProgram(this.shader.Program);
+        //Put camera position in shader
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.shader.Program, "u_cameraPos"), this.camera.position);
+        //Put camera direction in shader
+        var viewProjMatrix = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
+        var invViewProjMatrix = gl_matrix_1.mat4.create();
+        gl_matrix_1.mat4.invert(invViewProjMatrix, viewProjMatrix);
+        var invVpLoc = this.gl.getUniformLocation(this.shader.Program, "u_invViewProjMatrix");
+        this.gl.uniformMatrix4fv(invVpLoc, false, invViewProjMatrix);
+        // Draw
+        this.gl.clearColor(0, 0, 0, 1);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+    };
+    PathTracer.prototype.makeVao = function () {
+        var fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
+        var vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        var vbo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenTriangle, this.gl.STATIC_DRAW);
+        this.gl.enableVertexAttribArray(0);
+        this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+    };
+    PathTracer.prototype.init = function () {
+        //Textures
+        var verticeTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
+        var terrainTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
+        var boundingBoxesTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+        var nodesTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.nodes);
+        var leafsTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.leafs);
+        var terrainTypeTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+        GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, verticeTex, "u_vertices", 0);
+        GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, terrainTex, "u_terrains", 1);
+        GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, boundingBoxesTex, "u_boundingBox", 2);
+        GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, nodesTex, "u_nodesTex", 3);
+        GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, leafsTex, "u_leafsTex", 4);
+        GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, terrainTypeTex, "u_terrainTypes", 5);
+        this.makeVao();
+    };
+    return PathTracer;
+}());
+exports.PathTracer = PathTracer;
+
+
+/***/ }),
+
+/***/ "./src/Pathtracing/glslPath.ts":
+/*!*************************************!*\
+  !*** ./src/Pathtracing/glslPath.ts ***!
+  \*************************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.pathTracingFragmentShaderCode = exports.pathTracingVertexShaderCode = void 0;
+exports.pathTracingVertexShaderCode = "#version 300 es\nprecision highp float;\n\nlayout(location = 0) in vec2 a_position;\nout vec2 v_uv;\n\nvoid main() {\n    v_uv = a_position * 0.5 + 0.5; // map [-1, 1] \u2192 [0, 1]\n    gl_Position = vec4(a_position, 0.0, 1.0);\n}\n";
+exports.pathTracingFragmentShaderCode = "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_vertices;\nuniform sampler2D u_terrains;\nuniform sampler2D u_boundingBox;\nuniform sampler2D u_nodesTex;\nuniform sampler2D u_leafsTex;\nuniform sampler2D u_terrainTypes;\nuniform vec3 u_cameraPos;\nuniform mat4 u_invViewProjMatrix;\n\nin vec2 v_uv;\nout vec4 fragColor;\n\nstruct BVH{\n    vec3 min;\n    vec3 max;\n    int right;\n    int left;\n    int[4] triangles;\n};\n\nstruct Triangle{\n    vec3[3] vertices; \n    int[3] types;\n    vec3 min;\n    vec3 max;\n    vec3 center;\n    vec3 normal;\n};\n\n\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\n    ivec2 size = textureSize(tex, 0);\n    int texWidth = size.x;\n    \n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\n\n    // Calculate 2D coordinates of the texel\n    int y_coord = texelIndex / texWidth;\n    int x_coord = texelIndex % texWidth;\n\n    // Convert to UV coordinates [0, 1] for sampling\n    // Add 0.5 to sample the center of the texel\n    float u = (float(x_coord) + 0.5) / float(texWidth);\n    float v = (float(y_coord) + 0.5) / float(size.y);\n\n    vec4 texel = texture(tex, vec2(u, v));\n\n    if (componentIndex == 0) return texel.r;\n    else if (componentIndex == 1) return texel.g;\n    else if (componentIndex == 2) return texel.b;\n    else return texel.a;\n}\n\nBVH getBVH(int i){\n    BVH r;\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*6),fetchFloatFrom1D(u_boundingBox, i*6+1),fetchFloatFrom1D(u_boundingBox, i*6+2));\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*6+3),fetchFloatFrom1D(u_boundingBox, i*6+4),fetchFloatFrom1D(u_boundingBox, i*6+5));\n\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*2));\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*2+1));\n\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*4));\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*4+1));\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*4+2));\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*4+3));\n    \n    return r;\n}\n\nTriangle getTriangle(int i){\n    Triangle tri;\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*9), fetchFloatFrom1D(u_vertices, i*9+1), fetchFloatFrom1D(u_vertices, i*9+2));\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*9+3), fetchFloatFrom1D(u_vertices, i*9+4), fetchFloatFrom1D(u_vertices, i*9+5));\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*9+6), fetchFloatFrom1D(u_vertices, i*9+7), fetchFloatFrom1D(u_vertices, i*9+8));\n    tri.types[0] = int(fetchFloatFrom1D(u_terrainTypes, i*3));\n    tri.types[1] = int(fetchFloatFrom1D(u_terrainTypes, i*3+1));\n    tri.types[2] = int(fetchFloatFrom1D(u_terrainTypes, i*3+2));\n\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.center = (tri.min + tri.max) * 0.5;\n    tri.normal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\n    return tri;\n}\n\n\nbool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\n    vec3 invDir = 1.0 / rayDir;\n    vec3 t0s = (boxMin - rayOrigin) * invDir;\n    vec3 t1s = (boxMax - rayOrigin) * invDir;\n\n    vec3 tSmalls = min(t0s, t1s);\n    vec3 tBigs = max(t0s, t1s);\n\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\n\n    return tMax >= max(tMin, 0.0);\n}\n\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\n    const float EPSILON = 0.000001;\n    vec3 v0 = tri.vertices[0];\n    vec3 v1 = tri.vertices[1];\n    vec3 v2 = tri.vertices[2];\n    vec3 edge1 = v1 - v0;\n    vec3 edge2 = v2 - v0;\n\n    vec3 h = cross(rayDir, edge2);\n    float a = dot(edge1, h);\n\n    if (a > -EPSILON && a < EPSILON) {\n        return -1.0; // Ray is parallel to the triangle\n    }\n\n    float f = 1.0 / a;\n    vec3 s = rayOrigin - v0;\n    float u = f * dot(s, h);\n\n    if (u < 0.0 || u > 1.0) {\n        return -1.0;\n    }\n\n    vec3 q = cross(s, edge1);\n    float v = f * dot(rayDir, q);\n\n    if (v < 0.0 || u + v > 1.0) {\n        return -1.0;\n    }\n\n    // At this stage we can compute t to find out where the intersection point is on the line.\n    float t = f * dot(edge2, q);\n    if (t > EPSILON) { // ray intersection\n        barycentric = vec3(1.0 - u - v, u, v);\n        return t;\n    }\n    \n    return -1.0; // This means that there is a line intersection but not a ray intersection.\n}\n\n\n/**\n * Returns TRIANGLE index\n */\nint traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {\n    int closestHitIndex = -1;\n    float minHitDistance = 1.0/0.0; // Infinity\n\n    int stack[64]; // Stack of 64 - May need to change for larger BVH later\n    int stackPtr = 0;\n    stack[stackPtr++] = 0; // Push root node index\n\n    while (stackPtr > 0) {\n        int nodeIndex = stack[--stackPtr];\n        BVH node = getBVH(nodeIndex);\n\n        float tMin, tMax;\n        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {\n            continue;\n        }\n\n        if (tMin >= minHitDistance) {\n            continue;\n        }\n\n        if (node.left == -1) { // Leaf Node\n            for (int j = 0; j < 4; j++) {\n                int triIdx = node.triangles[j];\n                if (triIdx == -1) continue;\n\n                Triangle tri = getTriangle(triIdx);\n                vec3 barycentric;\n                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, barycentric);\n\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\n                    minHitDistance = hitDist;\n                    closestHitIndex = triIdx;\n                }\n            }\n        } else { // Internal Node\n            // Check for space for two children to prevent stack overflow\n            if (stackPtr < 63) { \n                stack[stackPtr++] = node.left;\n                stack[stackPtr++] = node.right;\n            }\n        }\n    }\n\n    return closestHitIndex;\n}\n\n\nvec4 PathTrace(vec3 rayOrigin, vec3 rayDir, int depth){\n    bool hit = false;\n    vec4 color = vec4(0.0);\n    int triIndex = traverseBVH(rayOrigin, rayDir, 0); // Start traversing from the root BVH node\n    if(triIndex != -1){\n        Triangle tri = getTriangle(triIndex);\n        vec3 lightColor = vec3(1.0, 1.0, 1.0);\n        vec3 lightSource = vec3(0.0, 1.0, 0.0);\n        float diffuseStrength = max(dot(normalize(tri.normal), normalize(lightSource)), 0.2);\n        vec3 diffuseColor = diffuseStrength * lightColor;\n        vec3 lighting = diffuseColor;\n        color = vec4(pow(vec3(0.0,1.0,0.0)*lighting,vec3(1.0 / 2.2)), 1);\n    }else{\n        color = vec4(0.0, 0.0, 0.0, 1.0); // background color\n    }\n\n    return color; \n}\n\nvoid main() {\n    //All dummy. There mostly to ensure webgl doesn't auto-optimize all the things out.\n    vec4 dummy1 = texture(u_vertices, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy2 = texture(u_terrains, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy3 = texture(u_boundingBox, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy4 = texture(u_nodesTex, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy5 = texture(u_leafsTex, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy6 = texture(u_terrainTypes, v_uv * 0.0); // Always fetch (0,0)\n\n    vec2 screenPos = v_uv * 2.0 - 1.0; // NDC space: [-1, 1]\n\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \n    // Transform from clip space to world space\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\n    // Perform perspective divide\n    rayWorld /= rayWorld.w;\n    // The ray direction is the vector from the camera to this point in the world\n    vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);\n    vec3 rayOrigin = u_cameraPos;\n\n    fragColor = PathTrace(rayOrigin,rayDir,1)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; \n}\n";
 
 
 /***/ }),
@@ -8558,6 +8719,101 @@ requestAnimationFrame(gameTick);
 
 /***/ }),
 
+/***/ "./src/map/BVHUtils.ts":
+/*!*****************************!*\
+  !*** ./src/map/BVHUtils.ts ***!
+  \*****************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.BVHUtils = void 0;
+var terrains_1 = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+var BVHUtils = /** @class */ (function () {
+    function BVHUtils() {
+    }
+    /**
+     * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
+     * @param tri BVH triangles
+     */
+    BVHUtils.packTriangles = function (mesh, types) {
+        var floatsPerTexel = 4; //Using rgbaf32 format, each texel (or pixel of texture) can hold up to 4 floats
+        //Currently only need to pack the vertices and terrain types - Bounding boxes & other attributes don't matter as they will be part of the BVH
+        var vertices = new Float32Array(Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel); // Each triangle vertices has 9 attributes (3 vertices, 3 axis)
+        var terrains = new Float32Array(Math.ceil((types.length * 3) / floatsPerTexel) * floatsPerTexel); // 3 vertices each have different terrain values.
+        for (var i = 0; i < mesh.length; i++) {
+            //Iterate through triangles
+            for (var a = 0; a < mesh[i].length; a++) {
+                //Iterate through vertices in each triangle
+                vertices[i * 9 + 3 * a] = mesh[i][a][0];
+                vertices[i * 9 + 3 * a + 1] = mesh[i][a][1];
+                vertices[i * 9 + 3 * a + 2] = mesh[i][a][2];
+                terrains[i * 3 + a] = types[i][a];
+            }
+        }
+        return { vertices: vertices, terrains: terrains };
+    };
+    /**
+     * Packs flatten BVH to F32 format to be sent to glsl.
+     * For how this works @see packTriangles
+     * @param BVH
+     */
+    BVHUtils.packBVH = function (BVH) {
+        var floatsPerTexel = 4; //See thing in packTriangles Method
+        var boundingBoxes = new Float32Array(Math.ceil((BVH.length * 6) / floatsPerTexel) * floatsPerTexel);
+        var nodes = new Float32Array(Math.ceil((BVH.length * 2) / floatsPerTexel) * floatsPerTexel);
+        var leafs = new Float32Array(Math.ceil((BVH.length * 4) / floatsPerTexel) * floatsPerTexel);
+        for (var i = 0; i < BVH.length; i++) {
+            for (var j = 0; j < 3; j++) {
+                boundingBoxes[i * 6 + j] = BVH[i].boundingBoxMin[j];
+                boundingBoxes[i * 6 + 3 + j] = BVH[i].boundingBoxMax[j];
+            }
+            nodes[i * 2] = BVH[i].left;
+            nodes[i * 2 + 1] = BVH[i].right;
+            leafs[i * 4] = BVH[i].t1;
+            leafs[i * 4 + 1] = BVH[i].t2;
+            leafs[i * 4 + 2] = BVH[i].t3;
+            leafs[i * 4 + 3] = BVH[i].t4;
+        }
+        return {
+            boundingBoxes: boundingBoxes,
+            nodes: nodes,
+            leafs: leafs
+        };
+    };
+    /**
+     * Packs terrain type properties into a Float32Array for efficient GPU transfer.
+     *
+     * Each terrain type's properties (color components, illuminosity, and reflectiveness)
+     * are stored sequentially in the output array. The array is padded to ensure its length
+     * is a multiple of `floatsPerTexel`.
+     *
+     * @returns {Float32Array} A packed array containing the terrain types' color (r, g, b),
+     * illuminosity, and reflectiveness values.
+     */
+    BVHUtils.packTerrainTypes = function () {
+        var floatsPerTexel = 4;
+        var numberTerrains = 3;
+        var out = new Float32Array(Math.ceil((numberTerrains * 5) / floatsPerTexel) * floatsPerTexel); //r,g,b,illuminosity, reflectiveness
+        var i = 0;
+        for (var key in terrains_1.Terrains) {
+            var terrain = terrains_1.Terrains[key];
+            out[i * 5] = terrain.color.r;
+            out[i * 5 + 1] = terrain.color.g;
+            out[i * 5 + 2] = terrain.color.b;
+            out[i * 5 + 3] = terrain.illuminosity;
+            out[i * 5 + 4] = terrain.reflectiveness;
+            i++;
+        }
+        return out;
+    };
+    return BVHUtils;
+}());
+exports.BVHUtils = BVHUtils;
+
+
+/***/ }),
+
 /***/ "./src/map/Map.ts":
 /*!************************!*\
   !*** ./src/map/Map.ts ***!
@@ -8574,8 +8830,8 @@ var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix
 //Check README for implementation pattern
 //Center chunk starts at 0,0 (probably)
 /**
-* The object holding the map of the world
-*/
+ * The object holding the map of the world
+ */
 var WorldMap = /** @class */ (function () {
     /**
      * Constructs a world
@@ -8592,7 +8848,7 @@ var WorldMap = /** @class */ (function () {
         this.chunks = [];
         this.simplexNoise = (0, simplex_noise_1.createNoise3D)();
         this.generate();
-        this.fieldMap = new Map;
+        this.fieldMap = new Map();
         for (var _i = 0, _a = this.chunks; _i < _a.length; _i++) {
             var chunk = _a[_i];
             for (var _b = 0, _c = Array.from(chunk.FieldMap.entries()); _b < _c.length; _b++) {
@@ -8629,6 +8885,8 @@ exports.WorldMap = WorldMap;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.Mesh = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+var terrains_1 = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+var GameEngine_1 = __webpack_require__(/*! ../GameEngine */ "./src/GameEngine.ts");
 /**
  * The "Mesh Class" - Stores the world's mesh
  */
@@ -8677,6 +8935,107 @@ var Mesh = /** @class */ (function () {
             gl_matrix_1.vec3.add(this.mesh[i][1], this.mesh[i][1], a);
             gl_matrix_1.vec3.add(this.mesh[i][2], this.mesh[i][2], a);
         }
+    };
+    Mesh.prototype.exportBVHTriangles = function () {
+        var _this = this;
+        return this.mesh.map(function (val, i, arr) {
+            var center = gl_matrix_1.vec3.fromValues(GameEngine_1.GameEngine.average([val[0][0], val[1][0], val[2][0]]), GameEngine_1.GameEngine.average([val[0][1], val[1][1], val[2][1]]), GameEngine_1.GameEngine.average([val[0][2], val[1][2], val[2][2]]));
+            var terrain = _this.type[i].map(function (type) {
+                return terrains_1.Terrains[type];
+            });
+            var min = gl_matrix_1.vec3.fromValues(Math.min(val[0][0], val[1][0], val[2][0]), Math.min(val[0][1], val[1][1], val[2][1]), Math.min(val[0][2], val[1][2], val[2][2]));
+            var max = gl_matrix_1.vec3.fromValues(Math.max(val[0][0], val[1][0], val[2][0]), Math.max(val[0][1], val[1][1], val[2][1]), Math.max(val[0][2], val[1][2], val[2][2]));
+            return {
+                triangle: val,
+                center: center,
+                boundingBox: { min: min, max: max },
+                type: terrain,
+                index: i
+            };
+        });
+    };
+    /**
+     * Export BVH from BVH triangles
+     */
+    Mesh.exportBVH = function (triangles, depth) {
+        if (depth === void 0) { depth = 0; }
+        if (triangles.length <= 4) {
+            var bbox = Mesh.computeBoundingBox.apply(Mesh, triangles.map(function (val) { return val.boundingBox; }));
+            return {
+                boundingBox: bbox,
+                triangleIndices: triangles.map(function (val) { return val.index; })
+            };
+        }
+        var axis = depth % 3;
+        triangles.sort(function (a, b) { return a.center[axis] - b.center[axis]; });
+        var mid = Math.floor(triangles.length / 2);
+        var left = Mesh.exportBVH(triangles.slice(0, mid), depth + 1);
+        var right = Mesh.exportBVH(triangles.slice(mid), depth + 1);
+        return {
+            boundingBox: Mesh.computeBoundingBox(left.boundingBox, right.boundingBox),
+            left: left,
+            right: right
+        };
+    };
+    Mesh.computeBoundingBox = function () {
+        var boxes = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            boxes[_i] = arguments[_i];
+        }
+        var min = gl_matrix_1.vec3.fromValues(Math.min.apply(Math, boxes.map(function (val) { return val.min[0]; })), Math.min.apply(Math, boxes.map(function (val) { return val.min[1]; })), Math.min.apply(Math, boxes.map(function (val) { return val.min[2]; })));
+        var max = gl_matrix_1.vec3.fromValues(Math.max.apply(Math, boxes.map(function (val) { return val.max[0]; })), Math.max.apply(Math, boxes.map(function (val) { return val.max[1]; })), Math.max.apply(Math, boxes.map(function (val) { return val.max[2]; })));
+        return { max: max, min: min };
+    };
+    Mesh.flattenBVH = function (node) {
+        var out = [];
+        if (node.triangleIndices) {
+            out.push({
+                boundingBoxMin: node.boundingBox.min,
+                boundingBoxMax: node.boundingBox.max,
+                left: -1,
+                right: -1,
+                t1: node.triangleIndices[0] !== undefined ? node.triangleIndices[0] : -1,
+                t2: node.triangleIndices[1] !== undefined ? node.triangleIndices[1] : -1,
+                t3: node.triangleIndices[2] !== undefined ? node.triangleIndices[2] : -1,
+                t4: node.triangleIndices[3] !== undefined ? node.triangleIndices[3] : -1
+            });
+        }
+        else {
+            var left = Mesh.flattenBVH(node.left);
+            var right = Mesh.flattenBVH(node.right);
+            //dummy -- will edit
+            out.push({
+                boundingBoxMin: node.boundingBox.min,
+                boundingBoxMax: node.boundingBox.max,
+                left: -1,
+                right: -1,
+                t1: -1,
+                t2: -1,
+                t3: -1,
+                t4: -1
+            });
+            //Push sides
+            var i1_1 = out.length; //Note: i1 should always be 1 but better practice
+            out.push.apply(//Note: i1 should always be 1 but better practice
+            out, left.map(function (val) {
+                if (val.left != -1)
+                    val.left += i1_1;
+                if (val.right != -1)
+                    val.right += i1_1;
+                return val;
+            }));
+            var i2_1 = out.length;
+            out.push.apply(out, right.map(function (val) {
+                if (val.left != -1)
+                    val.left += i2_1;
+                if (val.right != -1)
+                    val.right += i2_1;
+                return val;
+            }));
+            out[0].left = i1_1;
+            out[0].right = i2_1;
+        }
+        return out;
     };
     return Mesh;
 }());
@@ -9257,7 +9616,7 @@ var Camera = /** @class */ (function () {
         this.up = gl_matrix_1.vec3.fromValues(0, 1, 0);
         this.position = position;
         this.UpdateCameraVectors();
-        this.speed = 0.02 * (1 / (world.resolution / 4));
+        this.speed = 0.02;
     }
     Object.defineProperty(Camera.prototype, "XPosition", {
         //enables Camera.XPosition instead of Camera.position[0]
@@ -9406,7 +9765,7 @@ var GLRenderer = /** @class */ (function () {
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
         // Calculate view and projection matrices once per frame
         this.matViewProj = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var resScaleFactor = 1 / (this.world.resolution / 4);
+        var resScaleFactor = 1; // Want things to be smaller decrease this number
         if (this.debug.debugMode) {
             for (var _i = 0, _a = this.WireFrameCubes; _i < _a.length; _i++) {
                 var cube = _a[_i];
@@ -9662,6 +10021,63 @@ var GlUtils = /** @class */ (function () {
         var vertexNormals = (0, cubes_utils_1.calculateVertexNormals)(mainMesh);
         return { triangleMeshes: triangleMeshes, vertexNormals: vertexNormals, WireFrameCubes: WireFrameCubes };
     };
+    ///////////////////////Texture Utilities/////////////////////
+    /**
+     * Binds a given WebGL texture to texture unit 0 and sets the corresponding sampler uniform in the shader program.
+     *
+     * @param gl - The WebGL2RenderingContext to use for binding.
+     * @param program - The WebGLProgram to bind the texture to.
+     * @param tex - The WebGLTexture to bind.
+     * @param key - The name of the sampler uniform in the shader program to associate with the texture.
+     * @param unit - The texture unit to bind the texture to (0-15 for WebGL2).
+     *
+     * @remarks
+     * If the specified uniform cannot be found in the shader program, a warning is logged to the console.
+     */
+    GlUtils.bindTex = function (gl, program, tex, key, unit) {
+        var loc = gl.getUniformLocation(program, key);
+        if (loc === null) {
+            console.warn("Cannot find ".concat(key, " in fragmentShader"));
+            return;
+        }
+        // Bind to the specified texture unit
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        // Tell the shader's sampler to use this texture unit
+        gl.uniform1i(loc, unit);
+    };
+    /**
+     * Uploads a Float32Array to GPU as a 2D RGBA32F texture.
+     * Each texel stores 4 floats (R, G, B, A).
+     * (totally not vibecoded)
+     * @param gl         - WebGL2RenderingContext
+     * @param data       - Float32Array containing your raw float data
+     * @param widthHint  - Optional: manual texture width (default auto-calculated)
+     * @returns texture: WebGLTexture
+     */
+    GlUtils.packFloatArrayToTexture = function (gl, data, widthHint) {
+        if (data.length % 4 !== 0) {
+            console.warn("[packFloatArrayToTexture] Padding input from ".concat(data.length, " to multiple of 4"));
+            var padded = new Float32Array(Math.ceil(data.length / 4) * 4);
+            padded.set(data);
+            data = padded;
+        }
+        var totalTexels = data.length / 4;
+        var width = widthHint || Math.ceil(Math.sqrt(totalTexels));
+        var height = Math.ceil(totalTexels / width);
+        var texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, // Internal format
+        width, height, 0, gl.RGBA, // Format of incoming data
+        gl.FLOAT, new Float32Array(width * height * 4).fill(0).map(function (_, i) { var _a; return (_a = data[i]) !== null && _a !== void 0 ? _a : 0; }) // Fill/pad if needed
+        );
+        // NEAREST = no filtering/interpolation
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        return texture;
+    };
     return GlUtils;
 }());
 exports.GlUtils = GlUtils;
@@ -9809,7 +10225,7 @@ exports.Shader = Shader;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("d0e8305a70c626d73aa0")
+/******/ 		__webpack_require__.h = () => ("37913df1c36a4dec8b24")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */
