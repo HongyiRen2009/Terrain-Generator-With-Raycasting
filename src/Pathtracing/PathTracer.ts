@@ -6,7 +6,6 @@ import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { Shader } from "../render/glsl";
 import { GlUtils, WireFrameCube } from "../render/GlUtils";
-import { GLRenderer } from "../render/GLRenderer";
 import { DebugMenu } from "../DebugMenu";
 import { pathTracingFragmentShaderCode, pathTracingVertexShaderCode } from "./glslPath";
 import { BVHUtils } from "../map/BVHUtils";
@@ -103,6 +102,8 @@ export class PathTracer{
         GlUtils.bindTex(this.gl,this.shader.Program!,nodesTex,"u_nodesTex",3);
         GlUtils.bindTex(this.gl,this.shader.Program!,leafsTex,"u_leafsTex",4);
         GlUtils.bindTex(this.gl,this.shader.Program!,terrainTypeTex,"u_terrainTypes",5);
+
+        this.makeVao();
     }
 
     public render(time: number){
@@ -116,7 +117,6 @@ export class PathTracer{
 
     public drawMesh(){
         this.gl.useProgram(this.shader.Program!);
-        this.makeVao();
 
         //Put camera position in shader
         this.gl.uniform3fv(this.gl.getUniformLocation(this.shader.Program!,"u_cameraPos"), this.camera.position);
