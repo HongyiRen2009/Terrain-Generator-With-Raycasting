@@ -10,7 +10,7 @@ export class Chunk {
   GridSize: vec3;
   Field: Float32Array;
   SimplexNoise: NoiseFunction3D;
-  FieldMap: Map<string,number>;
+  FieldMap: Map<string, number>;
 
   constructor(
     ChunkPosition: vec2,
@@ -20,7 +20,7 @@ export class Chunk {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
     this.SimplexNoise = SimplexNoise;
-    this.FieldMap = new Map<string,number>();
+    this.FieldMap = new Map<string, number>();
     this.Field = this.generateFieldValues();
   }
 
@@ -43,10 +43,14 @@ export class Chunk {
           let c = vec3.fromValues(x, y, z);
 
           const idx = this.chunkCoordinateToIndex(c);
-          const out = this.noiseFunction(c)
+          const out = this.noiseFunction(c);
           field[idx] = out;
-          vec3.add(c,c,vec3.fromValues(this.ChunkPosition[0],0,this.ChunkPosition[1]))
-          this.FieldMap.set(vertexKey(c),out);
+          vec3.add(
+            c,
+            c,
+            vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
+          );
+          this.FieldMap.set(vertexKey(c), out);
         }
       }
     }
@@ -94,8 +98,8 @@ export class Chunk {
    * @param a The value from the field
    * @returns A boolean if it is solid or not
    */
-  static solidChecker(a: number){
-    return a>0.5;
+  static solidChecker(a: number) {
+    return a > 0.5;
   }
 
   GenerateTerrainChunk() {}

@@ -173,7 +173,7 @@ export class GLRenderer {
       this.canvas.width,
       this.canvas.height
     );
-    const resScaleFactor = 1 / (this.world.resolution / 4);
+    const resScaleFactor = 1; // Want things to be smaller decrease this number
     if (this.debug.debugMode) {
       for (const cube of this.WireFrameCubes) {
         this.DrawWireFrameCube(

@@ -3,6 +3,7 @@ import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
+import { PathTracer } from "./Pathtracing/PathTracer";
 
 /**
  * Our holding class for all game mechanics
@@ -17,12 +18,14 @@ export class GameEngine {
   private world: WorldMap;
   private mainCamera: Camera;
   private renderer: GLRenderer;
+  private pathTracer: PathTracer;
 
   //
   private keys: { [key: string]: boolean } = {};
   private maxFPS: number = 60;
   private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
+  private mode: number = 0; // 0 for rayTracer, 1 for pathtracer
 
   //
   private frameCounter: number = 0;
@@ -32,7 +35,7 @@ export class GameEngine {
   /**
    * Constructs game engine
    * @param canvasId The ID of the canvas rendered to
-   * @returns 
+   * @returns
    */
   constructor(canvasId: string) {
     //Debugger
@@ -52,7 +55,7 @@ export class GameEngine {
     this.world = new WorldMap(1000, 64, 1000);
 
     //Initialize Camera
-    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3),this.world);
+    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3), this.world);
 
     //Initialize Renderer
     this.renderer = new GLRenderer(
@@ -61,6 +64,14 @@ export class GameEngine {
       this.mainCamera,
       this.debug,
       this.world
+    );
+    //Initial pathTracer
+    this.pathTracer = new PathTracer(
+      this.canvas,
+      this.gl,
+      this.world,
+      this.mainCamera,
+      this.debug
     );
 
     //Events
@@ -72,6 +83,23 @@ export class GameEngine {
 
     //Debugging
     this.debug.addElement("FPS", () => Math.round(this.currentFPS));
+
+    //Initialize switcher
+    const rayBtn = document.getElementById("raytracing")!;
+    const pathBtn = document.getElementById("pathtracing")!;
+
+    rayBtn.addEventListener("click", () => {
+      rayBtn.classList.add("active");
+      pathBtn.classList.remove("active");
+      this.mode = 0; // Set to raytracing
+    });
+
+    pathBtn.addEventListener("click", () => {
+      pathBtn.classList.add("active");
+      rayBtn.classList.remove("active");
+      this.mode = 1; // Set to pathtracing
+      this.pathTracer.init();
+    });
 
     //Check to see if WebGL working
     if (!this.gl) {
@@ -95,7 +123,11 @@ export class GameEngine {
       this.updateCamera(timePassed);
     }
 
-    this.renderer.render();
+    if (this.mode == 0) {
+      this.renderer.render();
+    } else {
+      this.pathTracer.render(timestamp);
+    }
 
     this.frameCounter += 1;
     if (Date.now() - this.lastFPSCheck >= 1000) {
@@ -182,5 +214,9 @@ export class GameEngine {
   }
   static toRadians(degrees: number) {
     return degrees * (Math.PI / 180);
+  }
+
+  static average(l: number[]) {
+    return l.reduce((a, b) => a + b) / l.length;
   }
 }
