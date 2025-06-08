@@ -23,3 +23,31 @@ html, body, canvas {
     justify-content: center;
     align-items: center;
 }
+
+.toggle-container {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 5px;
+}
+
+.toggle-button {
+  padding: 8px 16px;
+  border: 1px solid #888;
+  background-color: #f0f0f0;
+  color: #333;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-button:hover {
+  background-color: #ddd;
+}
+
+.toggle-button.active {
+  background-color: #333;
+  color: white;
+  border-color: #333;
+}

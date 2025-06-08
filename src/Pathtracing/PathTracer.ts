@@ -88,22 +88,7 @@ export class PathTracer{
         this.leafs = leafs;
         this.terrainTypes = terrainTypes;
 
-        //Textures
-        let verticeTex = GlUtils.packFloatArrayToTexture(this.gl,this.vertices);
-        let terrainTex = GlUtils.packFloatArrayToTexture(this.gl,this.terrains);
-        let boundingBoxesTex = GlUtils.packFloatArrayToTexture(this.gl,this.boundingBoxes);
-        let nodesTex = GlUtils.packFloatArrayToTexture(this.gl,this.nodes);
-        let leafsTex = GlUtils.packFloatArrayToTexture(this.gl,this.leafs);
-        let terrainTypeTex = GlUtils.packFloatArrayToTexture(this.gl,this.terrainTypes);
-
-        GlUtils.bindTex(this.gl,this.shader.Program!,verticeTex,"u_vertices",0);
-        GlUtils.bindTex(this.gl,this.shader.Program!,terrainTex,"u_terrains",1);
-        GlUtils.bindTex(this.gl,this.shader.Program!,boundingBoxesTex,"u_boundingBox",2);
-        GlUtils.bindTex(this.gl,this.shader.Program!,nodesTex,"u_nodesTex",3);
-        GlUtils.bindTex(this.gl,this.shader.Program!,leafsTex,"u_leafsTex",4);
-        GlUtils.bindTex(this.gl,this.shader.Program!,terrainTypeTex,"u_terrainTypes",5);
-
-        this.makeVao();
+        this.init();
     }
 
     public render(time: number){
@@ -151,5 +136,24 @@ export class PathTracer{
 
         this.gl.enableVertexAttribArray(0);
         this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+    }
+
+    public init(){
+        //Textures
+        let verticeTex = GlUtils.packFloatArrayToTexture(this.gl,this.vertices);
+        let terrainTex = GlUtils.packFloatArrayToTexture(this.gl,this.terrains);
+        let boundingBoxesTex = GlUtils.packFloatArrayToTexture(this.gl,this.boundingBoxes);
+        let nodesTex = GlUtils.packFloatArrayToTexture(this.gl,this.nodes);
+        let leafsTex = GlUtils.packFloatArrayToTexture(this.gl,this.leafs);
+        let terrainTypeTex = GlUtils.packFloatArrayToTexture(this.gl,this.terrainTypes);
+
+        GlUtils.bindTex(this.gl,this.shader.Program!,verticeTex,"u_vertices",0);
+        GlUtils.bindTex(this.gl,this.shader.Program!,terrainTex,"u_terrains",1);
+        GlUtils.bindTex(this.gl,this.shader.Program!,boundingBoxesTex,"u_boundingBox",2);
+        GlUtils.bindTex(this.gl,this.shader.Program!,nodesTex,"u_nodesTex",3);
+        GlUtils.bindTex(this.gl,this.shader.Program!,leafsTex,"u_leafsTex",4);
+        GlUtils.bindTex(this.gl,this.shader.Program!,terrainTypeTex,"u_terrainTypes",5);
+
+        this.makeVao();
     }
 }

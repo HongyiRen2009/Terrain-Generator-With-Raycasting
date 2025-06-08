@@ -25,7 +25,7 @@ export class GameEngine {
   private maxFPS: number = 60;
   private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
-  private mode: number = 1; // 0 for rayTracer, 1 for pathtracer
+  private mode: number = 0; // 0 for rayTracer, 1 for pathtracer
 
   //
   private frameCounter: number = 0;
@@ -77,6 +77,23 @@ export class GameEngine {
 
     //Debugging
     this.debug.addElement("FPS", () => Math.round(this.currentFPS));
+
+    //Initialize switcher
+    const rayBtn = document.getElementById('raytracing')!;
+    const pathBtn = document.getElementById('pathtracing')!;
+
+    rayBtn.addEventListener('click', () => {
+      rayBtn.classList.add('active');
+      pathBtn.classList.remove('active');
+      this.mode = 0; // Set to raytracing
+    });
+
+    pathBtn.addEventListener('click', () => {
+      pathBtn.classList.add('active');
+      rayBtn.classList.remove('active');
+      this.mode = 1; // Set to pathtracing
+      this.pathTracer.init();
+    });
 
     //Check to see if WebGL working
     if (!this.gl) {
