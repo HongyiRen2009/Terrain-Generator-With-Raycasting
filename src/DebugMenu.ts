@@ -9,7 +9,7 @@ type Supplier<T> = () => T;
  */
 export class DebugMenu {
   private object: HTMLElement;
-  private objects: Dictionary<Supplier<string | number>>; 
+  private objects: Dictionary<Supplier<string | number>>;
   private _debugMode = true;
   private lastUpdate: number;
   private updateSpeed: number; //In fps

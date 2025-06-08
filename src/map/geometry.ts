@@ -1,4 +1,3 @@
-
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 export const VERTICES: [number, number, number][] = [
   [0, 0, 0],

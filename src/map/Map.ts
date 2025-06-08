@@ -8,21 +8,20 @@ import { vec2, vec3 } from "gl-matrix";
 //Center chunk starts at 0,0 (probably)
 
 /**
-* The object holding the map of the world
-*/
+ * The object holding the map of the world
+ */
 export class WorldMap {
-  
   //In Chunks
   //Unused for now: placeholders and use them when actually implemented
   private width: number;
   private length: number;
   private lighting: vec3[] = [vec3.fromValues(0, 100, 0)];
-  
+
   public height: number;
   public resolution = 64; //#of vertices square size of chunk
   public chunks: Chunk[];
   public simplexNoise!: NoiseFunction3D;
-  public fieldMap: Map<string,number>;
+  public fieldMap: Map<string, number>;
 
   /**
    * Constructs a world
@@ -38,13 +37,12 @@ export class WorldMap {
     this.simplexNoise = createNoise3D();
     this.generate();
 
-    this.fieldMap = new Map<string,number>;
-    for(const chunk of this.chunks){
-      for(const [key, val] of Array.from(chunk.FieldMap.entries())){
-        this.fieldMap.set(key,val);
+    this.fieldMap = new Map<string, number>();
+    for (const chunk of this.chunks) {
+      for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
+        this.fieldMap.set(key, val);
       }
     }
-    
   }
 
   //Generates map

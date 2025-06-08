@@ -35,7 +35,7 @@ export class GameEngine {
   /**
    * Constructs game engine
    * @param canvasId The ID of the canvas rendered to
-   * @returns 
+   * @returns
    */
   constructor(canvasId: string) {
     //Debugger
@@ -55,7 +55,7 @@ export class GameEngine {
     this.world = new WorldMap(1000, 64, 1000);
 
     //Initialize Camera
-    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3),this.world);
+    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3), this.world);
 
     //Initialize Renderer
     this.renderer = new GLRenderer(
@@ -66,7 +66,13 @@ export class GameEngine {
       this.world
     );
     //Initial pathTracer
-    this.pathTracer = new PathTracer(this.canvas,this.gl,this.world,this.mainCamera, this.debug);
+    this.pathTracer = new PathTracer(
+      this.canvas,
+      this.gl,
+      this.world,
+      this.mainCamera,
+      this.debug
+    );
 
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
@@ -79,18 +85,18 @@ export class GameEngine {
     this.debug.addElement("FPS", () => Math.round(this.currentFPS));
 
     //Initialize switcher
-    const rayBtn = document.getElementById('raytracing')!;
-    const pathBtn = document.getElementById('pathtracing')!;
+    const rayBtn = document.getElementById("raytracing")!;
+    const pathBtn = document.getElementById("pathtracing")!;
 
-    rayBtn.addEventListener('click', () => {
-      rayBtn.classList.add('active');
-      pathBtn.classList.remove('active');
+    rayBtn.addEventListener("click", () => {
+      rayBtn.classList.add("active");
+      pathBtn.classList.remove("active");
       this.mode = 0; // Set to raytracing
     });
 
-    pathBtn.addEventListener('click', () => {
-      pathBtn.classList.add('active');
-      rayBtn.classList.remove('active');
+    pathBtn.addEventListener("click", () => {
+      pathBtn.classList.add("active");
+      rayBtn.classList.remove("active");
       this.mode = 1; // Set to pathtracing
       this.pathTracer.init();
     });
@@ -117,9 +123,9 @@ export class GameEngine {
       this.updateCamera(timePassed);
     }
 
-    if(this.mode == 0){
+    if (this.mode == 0) {
       this.renderer.render();
-    }else{
+    } else {
       this.pathTracer.render(timestamp);
     }
 
@@ -209,8 +215,8 @@ export class GameEngine {
   static toRadians(degrees: number) {
     return degrees * (Math.PI / 180);
   }
-  
-  static average(l: number[]){
-    return l.reduce((a,b) => a+b)/l.length;
+
+  static average(l: number[]) {
+    return l.reduce((a, b) => a + b) / l.length;
   }
 }

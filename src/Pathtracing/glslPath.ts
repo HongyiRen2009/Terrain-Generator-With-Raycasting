@@ -1,4 +1,4 @@
-export const pathTracingVertexShaderCode = /* glsl */  `#version 300 es
+export const pathTracingVertexShaderCode = /* glsl */ `#version 300 es
 precision highp float;
 
 layout(location = 0) in vec2 a_position;
@@ -251,4 +251,4 @@ void main() {
 
     fragColor = PathTrace(rayOrigin,rayDir,1)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
 }
-`
+`;
