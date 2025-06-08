@@ -41,6 +41,12 @@ struct Triangle{
     vec3 normal;
 };
 
+struct TerrainType{
+    vec3 color;
+    float illuminosity; // Decimal 0-1
+    float reflectiveness; // Decimal 0-1   
+};
+
 
 float fetchFloatFrom1D(sampler2D tex, int index) {
     ivec2 size = textureSize(tex, 0);
@@ -87,9 +93,9 @@ Triangle getTriangle(int i){
     tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*9), fetchFloatFrom1D(u_vertices, i*9+1), fetchFloatFrom1D(u_vertices, i*9+2));
     tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*9+3), fetchFloatFrom1D(u_vertices, i*9+4), fetchFloatFrom1D(u_vertices, i*9+5));
     tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*9+6), fetchFloatFrom1D(u_vertices, i*9+7), fetchFloatFrom1D(u_vertices, i*9+8));
-    tri.types[0] = int(fetchFloatFrom1D(u_terrainTypes, i*3));
-    tri.types[1] = int(fetchFloatFrom1D(u_terrainTypes, i*3+1));
-    tri.types[2] = int(fetchFloatFrom1D(u_terrainTypes, i*3+2));
+    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*3));
+    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*3+1));
+    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*3+2));
 
     tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),
                    min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),
@@ -102,6 +108,13 @@ Triangle getTriangle(int i){
     return tri;
 }
 
+TerrainType getTerrainType(int i){
+    TerrainType t;
+    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*5), fetchFloatFrom1D(u_terrainTypes, i*5+1), fetchFloatFrom1D(u_terrainTypes, i*5+2));
+    t.illuminosity = fetchFloatFrom1D(u_terrainTypes, i*5+3); 
+    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*5+4); 
+    return t;
+}
 
 bool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {
     vec3 invDir = 1.0 / rayDir;
@@ -216,11 +229,12 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir, int depth){
     if(triIndex != -1){
         Triangle tri = getTriangle(triIndex);
         vec3 lightColor = vec3(1.0, 1.0, 1.0);
-        vec3 lightSource = vec3(0.0, 1.0, 0.0);
+        vec3 lightSource = vec3(0.0, 1.0, 0.0); //TODO: Light sources
         float diffuseStrength = max(dot(normalize(tri.normal), normalize(lightSource)), 0.2);
         vec3 diffuseColor = diffuseStrength * lightColor;
         vec3 lighting = diffuseColor;
-        color = vec4(pow(vec3(0.0,1.0,0.0)*lighting,vec3(1.0 / 2.2)), 1);
+        vec3 matColor = normalize((getTerrainType(tri.types[0]).color + getTerrainType(tri.types[1]).color + getTerrainType(tri.types[2]).color) / 3.0); // Average terrain type for color (for now)
+        color = vec4(pow(matColor*lighting,vec3(1.0 / 2.2)), 1);
     }else{
         color = vec4(0.0, 0.0, 0.0, 1.0); // background color
     }

@@ -165,6 +165,7 @@ export class PathTracer {
   }
 
   public init() {
+    this.gl.useProgram(this.shader.Program!);
     //Textures
     let verticeTex = GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
     let terrainTex = GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
