@@ -165,7 +165,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {
     int closestHitIndex = -1;
     float minHitDistance = 1.0/0.0; // Infinity
 
-    int stack[64];
+    int stack[64]; // Stack of 64 - May need to change for larger BVH later
     int stackPtr = 0;
     stack[stackPtr++] = 0; // Push root node index
 
@@ -225,7 +225,7 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir, int depth){
         color = vec4(0.0, 0.0, 0.0, 1.0); // background color
     }
 
-    return color; // Placeholder for ray tracing logic
+    return color; 
 }
 
 void main() {
@@ -241,18 +241,14 @@ void main() {
 
     // Define the ray in clip space. 'w' is 1.0 because it's a point.
     vec4 rayClip = vec4(screenPos, -1.0, 1.0); 
-
     // Transform from clip space to world space
     vec4 rayWorld = u_invViewProjMatrix * rayClip;
-    
     // Perform perspective divide
     rayWorld /= rayWorld.w;
-
     // The ray direction is the vector from the camera to this point in the world
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
-
     vec3 rayOrigin = u_cameraPos;
-    
-    fragColor = PathTrace(rayOrigin,rayDir,1)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6)*0.0 + u_cameraPos[0]*0.0; 
+
+    fragColor = PathTrace(rayOrigin,rayDir,1)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
 }
 `
