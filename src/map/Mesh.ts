@@ -140,9 +140,9 @@ export class Mesh {
       Math.min(...boxes.map((val)=>val.min[2]))
     )
     let max = vec3.fromValues(
-      Math.min(...boxes.map((val)=>val.max[0])),
-      Math.min(...boxes.map((val)=>val.max[1])),
-      Math.min(...boxes.map((val)=>val.max[2]))
+      Math.max(...boxes.map((val)=>val.max[0])),
+      Math.max(...boxes.map((val)=>val.max[1])),
+      Math.max(...boxes.map((val)=>val.max[2]))
     )
     return {max:max, min:min}
   }
@@ -156,10 +156,10 @@ export class Mesh {
         boundingBoxMax: node.boundingBox.max,
         left: -1,
         right: -1,
-        t1: node.triangleIndices[0] ? node.triangleIndices[0]: -1,
-        t2: node.triangleIndices[1] ? node.triangleIndices[1]: -1,
-        t3: node.triangleIndices[2] ? node.triangleIndices[2]: -1,
-        t4: node.triangleIndices[3] ? node.triangleIndices[3]: -1,
+        t1: node.triangleIndices[0] !== undefined ? node.triangleIndices[0]: -1,
+        t2: node.triangleIndices[1] !== undefined? node.triangleIndices[1]: -1,
+        t3: node.triangleIndices[2] !== undefined? node.triangleIndices[2]: -1,
+        t4: node.triangleIndices[3] !== undefined? node.triangleIndices[3]: -1,
       })
     }else{
       let left = Mesh.flattenBVH(node.left!);

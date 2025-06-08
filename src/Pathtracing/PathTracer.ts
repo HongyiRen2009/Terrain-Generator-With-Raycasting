@@ -1,6 +1,6 @@
 // Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
 
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
 import { flatBVHNode, Mesh, Triangle } from "../map/Mesh";
 import { Camera } from "../render/Camera";
@@ -141,16 +141,31 @@ export class PathTracer{
         let leafsTex = this.packFloatArrayToTexture(this.leafs);
         let terrainTypeTex = this.packFloatArrayToTexture(this.terrainTypes);
 
-        this.bindTex(verticeTex,"u_vertices");
-        this.bindTex(terrainTex,"u_terrains");
-        this.bindTex(boundingBoxesTex,"u_boundingBox");
-        this.bindTex(nodesTex,"u_nodesTex");
-        this.bindTex(leafsTex,"u_leafsTex");
-        this.bindTex(terrainTypeTex,"u_terrainTypes");
+        this.bindTex(verticeTex,"u_vertices",0);
+        this.bindTex(terrainTex,"u_terrains",1);
+        this.bindTex(boundingBoxesTex,"u_boundingBox",2);
+        this.bindTex(nodesTex,"u_nodesTex",3);
+        this.bindTex(leafsTex,"u_leafsTex",4);
+        this.bindTex(terrainTypeTex,"u_terrainTypes",5);
         //Put camera position in shader
         this.gl.uniform3fv(this.gl.getUniformLocation(this.shader.Program!,"u_cameraPos"), this.camera.position);
         //Put camera direction in shader
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.shader.Program!,"u_cameraDir"), vec3.fromValues(this.camera.pitch, this.camera.yaw, 0));
+        // 1. Get the final View-Projection matrix directly from your camera.
+        //    This is the exact same matrix used to draw the wireframe, which guarantees alignment.
+        const viewProjMatrix = this.camera.calculateProjectionMatrix(
+            this.canvas.width,
+            this.canvas.height
+        );
+
+        // 2. Invert it. This single matrix will transform rays from clip space all the way back to world space.
+        const invViewProjMatrix = mat4.create();
+        mat4.invert(invViewProjMatrix, viewProjMatrix);
+
+        // 3. Send the new, correct matrix to the shader.
+        const invVpLoc = this.gl.getUniformLocation(this.shader.Program!, "u_invViewProjMatrix");
+        this.gl.uniformMatrix4fv(invVpLoc, false, invViewProjMatrix);
+
+
 
         // === Drawing
         this.gl.clearColor(0, 0, 0, 1);
@@ -184,16 +199,19 @@ export class PathTracer{
      * @remarks
      * If the specified uniform cannot be found in the shader program, a warning is logged to the console.
      */
-    public bindTex(tex: WebGLTexture,key: string){
-        // Bind to texture unit
-        this.gl.activeTexture(this.gl.TEXTURE0);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
-        let loc = this.gl.getUniformLocation(this.shader.Program!, key);
-        if(loc === null){
-            console.warn(`Cannot find ${key} in fragmentShader`)
+    public bindTex(tex: WebGLTexture, key: string, unit: number) {
+        const loc = this.gl.getUniformLocation(this.shader.Program!, key);
+        if (loc === null) {
+            console.warn(`Cannot find ${key} in fragmentShader`);
+            return;
         }
-        this.gl.uniform1i(loc, 0);
+        // Bind to the specified texture unit
+        this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
+        // Tell the shader's sampler to use this texture unit
+        this.gl.uniform1i(loc, unit);
     }
+
 
     /////////////////////////////// Packing 
     /**
