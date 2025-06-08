@@ -66,7 +66,7 @@ export class GameEngine {
       this.world
     );
     //Initial pathTracer
-    this.pathTracer = new PathTracer(this.canvas,this.gl,this.world,this.mainCamera,this.renderer,this.debug);
+    this.pathTracer = new PathTracer(this.canvas,this.gl,this.world,this.mainCamera, this.debug);
 
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
