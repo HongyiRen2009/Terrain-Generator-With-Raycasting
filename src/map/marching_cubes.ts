@@ -46,13 +46,14 @@ export class Chunk {
           let c = vec3.fromValues(x, y, z);
 
           const idx = this.chunkCoordinateToIndex(c);
-          const out = this.noiseFunction(c);
-          field[idx] = out;
           vec3.add(
             c,
             c,
             vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
           );
+          const out = this.noiseFunction(c);
+          field[idx] = out;
+
           this.FieldMap.set(vertexKey(c), out);
         }
       }
@@ -61,22 +62,12 @@ export class Chunk {
     return field;
   }
   getFieldValueWithNeighbors(vertex: vec3): number {
-    // Check if the vertex is within current chunk bounds
-    const isInBounds =
-      vertex[0] >= 0 &&
-      vertex[0] <= this.GridSize[0] &&
-      vertex[1] >= 0 &&
-      vertex[1] <= this.GridSize[1] &&
-      vertex[2] >= 0 &&
-      vertex[2] <= this.GridSize[2];
-
-    if (isInBounds) {
-      return this.getTerrainValue(vertex);
-    }
-
-    //Currently the worldfieldmap always returns undefined and the values jump from 64 to 128 for some reason without numbers in between, this creates the seams in the chunks. idk why someone pls fix worldfieldmap.
+    vec3.add(
+      vertex,
+      vertex,
+      vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
+    );
     const key = vertexKey(vertex);
-
     return this.WorldFieldMap.get(key) ?? 0;
   }
 
@@ -112,11 +103,6 @@ export class Chunk {
   noiseFunction(c: vec3): number {
     const frequency = 0.07;
     // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
-    vec3.add(
-      c,
-      c,
-      vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
-    ); // Offset the coordinates by the chunk position
     const SimplexNoise = this.SimplexNoise(
       c[0] * frequency,
       c[1] * frequency,
