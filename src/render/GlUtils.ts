@@ -3,7 +3,6 @@ import { Color, Terrain, Terrains } from "../map/terrains";
 import { Shader } from "./glsl";
 import { flatBVHNode, Mesh, Triangle } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
-import { calculateVertexNormals } from "../map/cubes_utils";
 
 export type WireFrameCube = {
   positions: Float32Array<ArrayBuffer>;
@@ -37,7 +36,6 @@ export class GlUtils {
       console.error(`Failed to link GPU program: ${errorMessage}`);
       return;
     }
-    gl.useProgram(Program);
     return Program;
   }
 
@@ -345,8 +343,8 @@ export class GlUtils {
         )
       );
     }
-    const vertexNormals = calculateVertexNormals(mainMesh);
-    return { triangleMeshes, vertexNormals, WireFrameCubes };
+
+    return { triangleMeshes, WireFrameCubes };
   }
 
   ///////////////////////Texture Utilities/////////////////////

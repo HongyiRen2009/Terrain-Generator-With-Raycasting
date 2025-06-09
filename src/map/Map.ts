@@ -43,6 +43,9 @@ export class WorldMap {
         this.fieldMap.set(key, val);
       }
     }
+    for (const chunk of this.chunks) {
+      chunk.setWorldFieldMap(this.fieldMap);
+    }
   }
 
   //Generates map

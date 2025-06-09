@@ -56,12 +56,11 @@ export class GLRenderer {
 
     const out = GlUtils.genTerrainVertices(this.world);
     let triangleMeshes = out.triangleMeshes;
-    let vertexNormals = out.vertexNormals;
     this.WireFrameCubes.push(...out.WireFrameCubes);
 
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
-      const vertexData = meshToVerticesAndIndices(Mesh, vertexNormals);
+      const vertexData = meshToVerticesAndIndices(Mesh);
 
       // Add vertices
       triangleVertices = triangleVertices.concat(
@@ -78,7 +77,6 @@ export class GLRenderer {
       indexOffset += vertexData.vertices.length / 9; // 9 components per vertex
     }
     this.MeshSize = triangleIndices.length;
-    // since we don't reuse any vertices right now, each index is unique
 
     this.TriangleBuffer = GlUtils.CreateStaticBuffer(
       gl,
@@ -90,7 +88,7 @@ export class GLRenderer {
       gl,
       CubeVertexShaderCode,
       CubeFragmentShaderCode
-    ); //CubeShader is currently broken
+    );
     this.MeshShader = new Shader(
       gl,
       MeshVertexShaderCode,
