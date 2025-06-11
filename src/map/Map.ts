@@ -10,12 +10,31 @@ import { vec2, vec3 } from "gl-matrix";
 /**
  * The object holding the map of the world
  */
+export class light {
+  position: vec3;
+  color: vec3;
+  intensity: number;
+
+  constructor(position: vec3, color: vec3, intensity: number) {
+    this.position = position;
+    this.color = color;
+    this.intensity = intensity;
+  }
+  public setPosition(position: vec3) {
+    this.position = position;
+  }
+  public addPosition(position: vec3) {
+    vec3.add(this.position, this.position, position);
+  }
+}
 export class WorldMap {
   //In Chunks
   //Unused for now: placeholders and use them when actually implemented
   private width: number;
   private length: number;
-  private lighting: vec3[] = [vec3.fromValues(0, 100, 0)];
+  public lights: light[] = [
+    new light(vec3.fromValues(0, 100, 0), vec3.fromValues(1, 1, 1), 1)
+  ];
 
   public height: number;
   public resolution = 64; //#of vertices square size of chunk

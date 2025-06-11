@@ -27,17 +27,26 @@ void main() {
 export const MeshVertexShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 //If you see lessons that use attribute, that's an old version of Webgl
+struct Light {
+    vec3 position;
+    vec3 color;
+    float intensity;
+};
+#define MAX_LIGHTS 100
+uniform Light lights[MAX_LIGHTS];
 in vec4 VertexPosition;
 in vec3 VertexNormal;
 in vec3 VertexColor;
 out vec3 fragmentColor;
 out vec3 fragmentNormal;
+out vec3 fragmentPosition;
 uniform mat4 MatrixTransform;
 uniform mat4 matViewProj;
 
 void main() {  
   fragmentColor = VertexColor;
   fragmentNormal = VertexNormal;
+  fragmentPosition = VertexPosition.xyz;
   gl_Position = matViewProj*MatrixTransform*VertexPosition;
 }
 `;
@@ -45,19 +54,39 @@ void main() {
 export const MeshFragmentShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 
+// Define the light structure
+struct Light {
+    vec3 position;
+    vec3 color;
+    float intensity;
+};
+
+// Declare uniform array of lights and light count
+#define MAX_LIGHTS 100
+uniform Light lights[MAX_LIGHTS];
+uniform int numActiveLights;
+
 in vec3 fragmentColor;
 in vec3 fragmentNormal;
+in vec3 fragmentPosition;
 out vec4 outputColor;
 
 void main() {
-  vec3 lightColor = vec3(1.0, 1.0, 1.0);
-  vec3 lightSource = vec3(0.0, 1.0, 0.0);
-  //idk if the normals are normalized when inputted.
-  float diffuseStrength = max(dot(normalize(fragmentNormal), normalize(lightSource)), 0.2);
-  vec3 diffuseColor = diffuseStrength * lightColor;
-  vec3 lighting = diffuseColor;
-  outputColor = vec4(pow(fragmentColor*lighting,vec3(1.0 / 2.2)), 1);
-
+    vec3 totalDiffuse = vec3(0.0);
+    vec3 normal = normalize(fragmentNormal);
+    
+    // Calculate lighting contribution from each light
+    for(int i = 0; i < MAX_LIGHTS; i++) {
+        if(i >= numActiveLights) break;
+        
+        vec3 lightDir = normalize(lights[i].position - fragmentPosition);
+        float diffuseStrength = max(dot(normal, lightDir), 0.2);
+        totalDiffuse += diffuseStrength * lights[i].color * lights[i].intensity;
+    }
+    
+    // Apply lighting and gamma correction
+    vec3 lighting = totalDiffuse;
+    outputColor = vec4(pow(fragmentColor * lighting, vec3(1.0 / 2.2)), 1.0);
 }`;
 export class Shader {
   VertexShaderCode: string;

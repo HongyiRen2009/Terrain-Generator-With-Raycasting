@@ -9,7 +9,7 @@ import {
 } from "./glsl";
 import { Camera } from "./Camera";
 import { meshToVerticesAndIndices } from "../map/cubes_utils";
-import { WorldMap } from "../map/Map";
+import { light, WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
 
 export class GLRenderer {
@@ -97,9 +97,39 @@ export class GLRenderer {
 
     this.matViewProj = mat4.create();
   }
+  updateLights(lights: Array<light>) {
+    // Set number of active lights
+    const numLightsLocation = this.gl.getUniformLocation(
+      this.MeshShader.Program!,
+      "numActiveLights"
+    );
+    this.gl.uniform1i(numLightsLocation, lights.length);
 
+    // Update each light's data
+    lights.forEach((light, index) => {
+      const baseUniform = `lights[${index}]`;
+
+      const posLocation = this.gl.getUniformLocation(
+        this.MeshShader.Program!,
+        `${baseUniform}.position`
+      );
+      const colorLocation = this.gl.getUniformLocation(
+        this.MeshShader.Program!,
+        `${baseUniform}.color`
+      );
+      const intensityLocation = this.gl.getUniformLocation(
+        this.MeshShader.Program!,
+        `${baseUniform}.intensity`
+      );
+
+      this.gl.uniform3fv(posLocation, light.position);
+      this.gl.uniform3fv(colorLocation, light.color);
+      this.gl.uniform1f(intensityLocation, light.intensity);
+    });
+  }
   drawMesh(TransformationMatrix: mat4) {
     this.gl.useProgram(this.MeshShader.Program!);
+    this.updateLights(this.world.lights);
     this.gl.uniformMatrix4fv(
       this.MeshShader.VertexUniforms["MatrixTransform"].location,
       false,
