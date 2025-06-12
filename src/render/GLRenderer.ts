@@ -121,7 +121,11 @@ export class GLRenderer {
         this.MeshShader.Program!,
         `${baseUniform}.intensity`
       );
-
+      const viewPositionLocation = this.gl.getUniformLocation(
+        this.MeshShader.Program!,
+        "viewPosition"
+      );
+      this.gl.uniform3fv(viewPositionLocation, this.camera.getPosition());
       this.gl.uniform3fv(posLocation, light.position);
       this.gl.uniform3fv(colorLocation, light.color);
       this.gl.uniform1f(intensityLocation, light.intensity);

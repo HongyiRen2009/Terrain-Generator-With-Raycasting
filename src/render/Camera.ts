@@ -38,6 +38,9 @@ export class Camera {
   set ZPosition(value) {
     this.position[2] = value;
   }
+  getPosition() {
+    return this.position;
+  }
   getViewMatrix() {
     let viewMatrix = mat4.create();
     let target = vec3.create();
