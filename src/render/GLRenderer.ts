@@ -101,7 +101,12 @@ export class GLRenderer {
 
   drawMesh(TransformationMatrix: mat4) {
     this.gl.useProgram(this.MeshShader.Program!);
-    GlUtils.updateLights(this.gl,this.MeshShader.Program!,this.world.lights,this.camera);
+    GlUtils.updateLights(
+      this.gl,
+      this.MeshShader.Program!,
+      this.world.lights,
+      this.camera
+    );
     this.gl.uniformMatrix4fv(
       this.MeshShader.VertexUniforms["MatrixTransform"].location,
       false,

@@ -9,7 +9,11 @@ export class BVHUtils {
    * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
    * @param tri BVH triangles
    */
-  static packTriangles(mesh: Triangle[], types: [number, number, number][], vertexNormals: Triangle[]) {
+  static packTriangles(
+    mesh: Triangle[],
+    types: [number, number, number][],
+    vertexNormals: Triangle[]
+  ) {
     let floatsPerTexel = 4; //Using rgbaf32 format, each texel (or pixel of texture) can hold up to 4 floats
     //Currently only need to pack the vertices and terrain types - Bounding boxes & other attributes don't matter as they will be part of the BVH
     let vertices = new Float32Array(
@@ -20,7 +24,7 @@ export class BVHUtils {
     ); // 3 vertices each have different terrain values.
     let normals = new Float32Array(
       Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel
-    ); // Each triangle normal for all the vertices has 9 attributes 
+    ); // Each triangle normal for all the vertices has 9 attributes
     for (let i = 0; i < mesh.length; i++) {
       //Iterate through triangles
       for (let a = 0; a < mesh[i].length; a++) {
@@ -82,7 +86,7 @@ export class BVHUtils {
    * is a multiple of `floatsPerTexel`.
    *
    * @returns {Float32Array} A packed array containing the terrain types' properties.
-   * 
+   *
    */
   static packTerrainTypes() {
     let floatsPerTexel = 4;

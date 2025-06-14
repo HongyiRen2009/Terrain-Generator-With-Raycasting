@@ -90,7 +90,7 @@ export class PathTracer {
     const { vertices, terrains, normals } = BVHUtils.packTriangles(
       mainMesh.mesh,
       mainMesh.type,
-      mainMesh.normals,
+      mainMesh.normals
     );
     console.log(vertices);
     console.log(terrains);
@@ -190,20 +190,8 @@ export class PathTracer {
       this.vertexNormals
     );
 
-    GlUtils.bindTex(
-      this.gl, 
-      this.shader.Program!, 
-      verticeTex, 
-      "u_vertices", 
-      0
-    );
-    GlUtils.bindTex(
-      this.gl, 
-      this.shader.Program!, 
-      terrainTex, 
-      "u_terrains", 
-      1
-    );
+    GlUtils.bindTex(this.gl, this.shader.Program!, verticeTex, "u_vertices", 0);
+    GlUtils.bindTex(this.gl, this.shader.Program!, terrainTex, "u_terrains", 1);
     GlUtils.bindTex(
       this.gl,
       this.shader.Program!,
@@ -211,20 +199,8 @@ export class PathTracer {
       "u_boundingBox",
       2
     );
-    GlUtils.bindTex(
-      this.gl, 
-      this.shader.Program!, 
-      nodesTex, 
-      "u_nodesTex", 
-      3
-    );
-    GlUtils.bindTex(
-      this.gl, 
-      this.shader.Program!, 
-      leafsTex, 
-      "u_leafsTex", 
-      4
-    );
+    GlUtils.bindTex(this.gl, this.shader.Program!, nodesTex, "u_nodesTex", 3);
+    GlUtils.bindTex(this.gl, this.shader.Program!, leafsTex, "u_leafsTex", 4);
     GlUtils.bindTex(
       this.gl,
       this.shader.Program!,

@@ -1,7 +1,6 @@
 import { mat4, vec3 } from "gl-matrix";
-import { Color, Terrain, Terrains } from "../map/terrains";
 import { Shader } from "./Shader";
-import { flatBVHNode, Mesh, Triangle } from "../map/Mesh";
+import { Mesh } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
 import { Light } from "../map/Light";
 import { Camera } from "./Camera";
@@ -157,7 +156,7 @@ export class GlUtils {
 
     return indexBuffer;
   }
-  
+
   /**
    * Calculates the wireframe of a rectangular prism
    * @param position A vec3 of the position of the prism
@@ -371,12 +370,14 @@ export class GlUtils {
     return { triangleMeshes, WireFrameCubes };
   }
 
-  static updateLights(gl: WebGL2RenderingContext, program: WebGLProgram, lights: Array<Light>, camera?: Camera) {
+  static updateLights(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+    lights: Array<Light>,
+    camera?: Camera
+  ) {
     // Set number of active lights
-    const numLightsLocation = gl.getUniformLocation(
-      program,
-      "numActiveLights"
-    );
+    const numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
     gl.uniform1i(numLightsLocation, lights.length);
 
     // Update each light's data
@@ -405,8 +406,8 @@ export class GlUtils {
       gl.uniform1f(intensityLocation, light.intensity);
       gl.uniform1f(radiusLocation, light.radius);
     });
-    
-    if(camera){
+
+    if (camera) {
       const viewPositionLocation = gl.getUniformLocation(
         program,
         "viewPosition"

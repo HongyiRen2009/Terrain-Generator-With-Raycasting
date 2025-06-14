@@ -113,7 +113,7 @@ export class Mesh {
         boundingBox: { min: min, max: max },
         type: terrain,
         index: i,
-        vertexNormals: this.normals[i],
+        vertexNormals: this.normals[i]
       };
     });
   }

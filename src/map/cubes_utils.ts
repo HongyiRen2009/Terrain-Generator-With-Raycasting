@@ -1,7 +1,6 @@
 import { vec3 } from "gl-matrix";
 import { Mesh } from "./Mesh";
 import { Terrains } from "./terrains";
-import { GlUtils } from "../render/GlUtils";
 
 const roundToPrecision = (value: number, precision: number): number =>
   Math.round(value * precision) / precision;
