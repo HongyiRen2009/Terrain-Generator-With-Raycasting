@@ -17,7 +17,6 @@ export class Color {
  */
 export interface Terrain {
   color: Color;
-  illuminosity: number; // Decimal 0-1
   reflectiveness: number; // Decimal 0-1
   roughness: number; // Decimal 0-1
   //TODO: More stuff as more implementations
@@ -28,20 +27,17 @@ export interface Terrain {
 export const Terrains: { [id: number]: Terrain } = {
   0: {
     color: new Color(0, 255, 0),
-    illuminosity: 1,
-    reflectiveness: 0.1,
-    roughness: 0.5
+    reflectiveness: 0.2,
+    roughness: 0.8
   },
   1: {
     color: new Color(0, 0, 255),
-    illuminosity: 1,
-    reflectiveness: 0,
-    roughness: 0.5
+    reflectiveness: 0.2,
+    roughness: 0.8
   },
   2: {
     color: new Color(255, 0, 0),
-    illuminosity: 1,
-    reflectiveness: 0,
-    roughness: 0.5
+    reflectiveness: 0.2,
+    roughness: 0.8
   }
 };

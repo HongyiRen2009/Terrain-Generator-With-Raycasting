@@ -28,6 +28,7 @@ export class PathTracer {
   private nodes: Float32Array;
   private leafs: Float32Array;
   private terrainTypes: Float32Array;
+  private vertexNormals: Float32Array;
 
   //Classes
   private world: WorldMap;
@@ -86,9 +87,10 @@ export class PathTracer {
 
     ////////////// Pack everything float format to send to glsl
     //Pack triangles
-    const { vertices, terrains } = BVHUtils.packTriangles(
+    const { vertices, terrains, normals } = BVHUtils.packTriangles(
       mainMesh.mesh,
-      mainMesh.type
+      mainMesh.type,
+      mainMesh.normals
     );
     console.log(vertices);
     console.log(terrains);
@@ -107,6 +109,7 @@ export class PathTracer {
     this.nodes = nodes;
     this.leafs = leafs;
     this.terrainTypes = terrainTypes;
+    this.vertexNormals = normals;
 
     this.init();
   }
@@ -140,6 +143,9 @@ export class PathTracer {
       "u_invViewProjMatrix"
     );
     this.gl.uniformMatrix4fv(invVpLoc, false, invViewProjMatrix);
+
+    //put lights in the shader
+    GlUtils.updateLights(this.gl, this.shader.Program!, this.world.lights);
 
     // Draw
     this.gl.clearColor(0, 0, 0, 1);
@@ -179,6 +185,10 @@ export class PathTracer {
       this.gl,
       this.terrainTypes
     );
+    let vertexNormalsTex = GlUtils.packFloatArrayToTexture(
+      this.gl,
+      this.vertexNormals
+    );
 
     GlUtils.bindTex(this.gl, this.shader.Program!, verticeTex, "u_vertices", 0);
     GlUtils.bindTex(this.gl, this.shader.Program!, terrainTex, "u_terrains", 1);
@@ -197,6 +207,13 @@ export class PathTracer {
       terrainTypeTex,
       "u_terrainTypes",
       5
+    );
+    GlUtils.bindTex(
+      this.gl,
+      this.shader.Program!,
+      vertexNormalsTex,
+      "u_normals",
+      6
     );
 
     this.makeVao();

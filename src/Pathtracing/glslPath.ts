@@ -14,12 +14,23 @@ precision highp float;
 
 uniform sampler2D u_vertices;
 uniform sampler2D u_terrains;
+uniform sampler2D u_normals;
 uniform sampler2D u_boundingBox;
 uniform sampler2D u_nodesTex;
 uniform sampler2D u_leafsTex;
 uniform sampler2D u_terrainTypes;
 uniform vec3 u_cameraPos;
 uniform mat4 u_invViewProjMatrix;
+
+#define MAX_LIGHTS 100
+struct Light {
+    vec3 position;
+    vec3 color;
+    float intensity;
+    float radius;
+};
+uniform Light lights[MAX_LIGHTS];
+uniform int numActiveLights;
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -38,13 +49,14 @@ struct Triangle{
     vec3 min;
     vec3 max;
     vec3 center;
-    vec3 normal;
+    vec3 triNormal;
+    vec3[3] normals;
 };
 
 struct TerrainType{
     vec3 color;
-    float illuminosity; // Decimal 0-1
     float reflectiveness; // Decimal 0-1   
+    float roughness; // Decimal 0-1
 };
 
 
@@ -74,28 +86,34 @@ float fetchFloatFrom1D(sampler2D tex, int index) {
 
 BVH getBVH(int i){
     BVH r;
-    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*6),fetchFloatFrom1D(u_boundingBox, i*6+1),fetchFloatFrom1D(u_boundingBox, i*6+2));
-    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*6+3),fetchFloatFrom1D(u_boundingBox, i*6+4),fetchFloatFrom1D(u_boundingBox, i*6+5));
+    int bbBoxSize = 6;
+    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));
+    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));
 
-    r.left = int(fetchFloatFrom1D(u_nodesTex,i*2));
-    r.right = int(fetchFloatFrom1D(u_nodesTex,i*2+1));
+    int nodeSize = 2;
+    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));
+    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));
 
-    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*4));
-    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*4+1));
-    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*4+2));
-    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*4+3));
+    int leafSize = 4;
+    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));
+    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));
+    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));
+    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));
     
     return r;
 }
 
 Triangle getTriangle(int i){
     Triangle tri;
-    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*9), fetchFloatFrom1D(u_vertices, i*9+1), fetchFloatFrom1D(u_vertices, i*9+2));
-    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*9+3), fetchFloatFrom1D(u_vertices, i*9+4), fetchFloatFrom1D(u_vertices, i*9+5));
-    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*9+6), fetchFloatFrom1D(u_vertices, i*9+7), fetchFloatFrom1D(u_vertices, i*9+8));
-    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*3));
-    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*3+1));
-    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*3+2));
+    int triVertexSize = 9;
+    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));
+    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));
+    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));
+
+    int typeSize = 3;
+    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));
+    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));
+    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));
 
     tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),
                    min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),
@@ -104,15 +122,22 @@ Triangle getTriangle(int i){
                    max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),
                    max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));
     tri.center = (tri.min + tri.max) * 0.5;
-    tri.normal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));
+    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));
+
+    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));
+    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));
+    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));
+
     return tri;
 }
 
 TerrainType getTerrainType(int i){
     TerrainType t;
-    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*5), fetchFloatFrom1D(u_terrainTypes, i*5+1), fetchFloatFrom1D(u_terrainTypes, i*5+2));
-    t.illuminosity = fetchFloatFrom1D(u_terrainTypes, i*5+3); 
-    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*5+4); 
+    int terrainTypeSize = 5;
+    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));
+    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); 
+    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); 
+
     return t;
 }
 
@@ -170,13 +195,53 @@ float intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 bary
     return -1.0; // This means that there is a line intersection but not a ray intersection.
 }
 
+//AI written; Returns distance to intersection with light sphere
+float intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {
+    vec3 oc = rayOrigin - light.position; 
+
+    // The coefficients of the quadratic equation (at^2 + bt + c = 0)
+    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir
+    float b = 2.0 * dot(oc, rayDir);
+    float c = dot(oc, oc) - light.radius * light.radius;
+
+    float discriminant = b*b - 4.0*a*c;
+
+    // If the discriminant is negative, the ray misses the sphere.
+    if (discriminant < 0.0) {
+        return -1.0;
+    }
+
+    float sqrt_d = sqrt(discriminant);
+
+    // Calculate the two potential intersection distances (solutions for t)
+    float t0 = (-b - sqrt_d) / (2.0 * a);
+    float t1 = (-b + sqrt_d) / (2.0 * a);
+
+    // We need the smallest, positive t value.
+    // Check the closer intersection point (t0) first.
+    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts
+        vec3 hitPoint = rayOrigin + t0 * rayDir;
+        hitNormal = normalize(hitPoint - light.position);
+        return t0;
+    }
+    // If t0 was behind the ray, check the farther intersection point (t1).
+    // This case occurs if the ray starts inside the sphere.
+    else if (t1 > 0.001) {
+        vec3 hitPoint = rayOrigin + t1 * rayDir;
+        hitNormal = normalize(hitPoint - light.position);
+        return t1;
+    }
+
+    // Both intersection points are behind the ray's origin.
+    return -1.0;
+}
 
 /**
  * Returns TRIANGLE index
  */
-int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {
+int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {
     int closestHitIndex = -1;
-    float minHitDistance = 1.0/0.0; // Infinity
+    minHitDistance = 1.0/0.0; // Infinity
 
     int stack[64]; // Stack of 64 - May need to change for larger BVH later
     int stackPtr = 0;
@@ -201,12 +266,13 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {
                 if (triIdx == -1) continue;
 
                 Triangle tri = getTriangle(triIdx);
-                vec3 barycentric;
-                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, barycentric);
+                vec3 currentBarycentric;
+                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);
 
                 if (hitDist > 0.0 && hitDist < minHitDistance) {
                     minHitDistance = hitDist;
                     closestHitIndex = triIdx;
+                    closestBarycentric = currentBarycentric;
                 }
             }
         } else { // Internal Node
@@ -221,22 +287,92 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {
     return closestHitIndex;
 }
 
+vec3 smoothItem(vec3[3] a, vec3 baryCentric){
+    return normalize(
+        baryCentric.x * a[0] + 
+        baryCentric.y * a[1] +
+        baryCentric.z * a[2]
+    );
+}
+float smoothItem(float[3] a, vec3 baryCentric){
+    return(
+        baryCentric.x * a[0] + 
+        baryCentric.y * a[1] +
+        baryCentric.z * a[2]
+    )/3.0;
+}
 
-vec4 PathTrace(vec3 rayOrigin, vec3 rayDir, int depth){
+vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
     bool hit = false;
     vec4 color = vec4(0.0);
-    int triIndex = traverseBVH(rayOrigin, rayDir, 0); // Start traversing from the root BVH node
+    vec3 baryCentric;
+    float minHitDistance;
+    int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance); // Start traversing from the root BVH node
     if(triIndex != -1){
         Triangle tri = getTriangle(triIndex);
-        vec3 lightColor = vec3(1.0, 1.0, 1.0);
-        vec3 lightSource = vec3(0.0, 1.0, 0.0); //TODO: Light sources
-        float diffuseStrength = max(dot(normalize(tri.normal), normalize(lightSource)), 0.2);
-        vec3 diffuseColor = diffuseStrength * lightColor;
-        vec3 lighting = diffuseColor;
-        vec3 matColor = normalize((getTerrainType(tri.types[0]).color + getTerrainType(tri.types[1]).color + getTerrainType(tri.types[2]).color) / 3.0); // Average terrain type for color (for now)
-        color = vec4(pow(matColor*lighting,vec3(1.0 / 2.2)), 1);
+        vec3[3] colors = vec3[3](
+            getTerrainType(tri.types[0]).color,
+            getTerrainType(tri.types[1]).color,
+            getTerrainType(tri.types[2]).color
+        );
+        float[3] reflectivities = float[3](
+            getTerrainType(tri.types[0]).reflectiveness,
+            getTerrainType(tri.types[1]).reflectiveness,
+            getTerrainType(tri.types[2]).reflectiveness
+        );
+        float[3] roughness = float[3](
+            getTerrainType(tri.types[0]).roughness,
+            getTerrainType(tri.types[1]).roughness,
+            getTerrainType(tri.types[2]).roughness
+        );
+
+        vec3 smoothNormal = smoothItem(tri.normals,baryCentric);
+        vec3 matColor = smoothItem(colors,baryCentric); // Average terrain type for color (for now)
+        
+        float matRoughness = smoothItem(roughness,baryCentric);
+        vec3 pos = smoothItem(tri.vertices,baryCentric);
+        float matReflectivity = smoothItem(reflectivities,baryCentric);
+        matReflectivity = mix(32.0, 128.0, clamp(matReflectivity, 0.0, 1.0));// Shininess factor for specular highlights
+
+        vec3 totalDiffuse = vec3(0.0);
+        vec3 specular = vec3(0.0);
+        // View for Blinn-Phong
+        vec3 viewDir = normalize(u_cameraPos - pos);
+    
+        for(int i = 0; i < numActiveLights; i++) {
+            vec3 lightDir = normalize(lights[i].position - pos);
+            float diffuseStrength = max(dot(smoothNormal, lightDir), 0.2);
+            totalDiffuse = diffuseStrength * lights[i].color * lights[i].intensity;
+            
+            vec3 halfwayDir = normalize(lightDir + viewDir);
+            float spec = pow(max(dot(smoothNormal, halfwayDir), 0.0), matReflectivity);
+            specular+= spec * lights[i].color * lights[i].intensity* (1.0 - matRoughness); // Specular highlight
+            
+        }
+
+        // Apply lighting and gamma correction
+        vec3 lighting = totalDiffuse + specular;
+        vec3 finalColor = matColor * lighting;
+
+        // Apply gamma correction component-wise
+        finalColor = vec3(pow(finalColor.r, 1.0 / 2.2), pow(finalColor.g, 1.0 / 2.2), pow(finalColor.b, 1.0 / 2.2));
+        
+        color = vec4(finalColor, 1.0);
+     
     }else{
         color = vec4(0.0, 0.0, 0.0, 1.0); // background color
+    }
+    int hitLight = -1;
+    for(int i = 0; i < numActiveLights; i++) {
+        vec3 lightHitNormal;
+        float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);
+        if(lightHitDistance > 0.0 && lightHitDistance < minHitDistance){
+            hitLight = i;
+            minHitDistance = lightHitDistance;
+        }
+    }
+    if(hitLight != -1){
+        color = vec4(lights[hitLight].color, 1.0) * lights[hitLight].intensity;
     }
 
     return color; 
@@ -250,6 +386,7 @@ void main() {
     vec4 dummy4 = texture(u_nodesTex, v_uv * 0.0); // Always fetch (0,0)
     vec4 dummy5 = texture(u_leafsTex, v_uv * 0.0); // Always fetch (0,0)
     vec4 dummy6 = texture(u_terrainTypes, v_uv * 0.0); // Always fetch (0,0)
+    vec4 dummy7 = texture(u_normals, v_uv * 0.0); // Always fetch (0,0)
 
     vec2 screenPos = v_uv * 2.0 - 1.0; // NDC space: [-1, 1]
 
@@ -263,6 +400,6 @@ void main() {
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
     vec3 rayOrigin = u_cameraPos;
 
-    fragColor = PathTrace(rayOrigin,rayDir,1)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
+    fragColor = PathTrace(rayOrigin,rayDir)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
 }
 `;

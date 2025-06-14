@@ -6,6 +6,7 @@ export class Shader {
   VertexInputs: {
     [key: string]: {
       type: string;
+      size: number;
       location: number;
     };
   };
@@ -15,18 +16,7 @@ export class Shader {
       location: WebGLUniformLocation;
     };
   };
-  /* FragmentInputs: {
-    [key: string]: {
-      type: string;
-      location: number;
-    };
-  };
-  FragmentUniforms: {
-    [key: string]: {
-      type: string;
-      location: WebGLUniformLocation;
-    };
-  }; */
+
   Program: WebGLProgram | undefined;
   constructor(
     gl: WebGL2RenderingContext,
@@ -50,28 +40,21 @@ export class Shader {
     );
     this.VertexInputs = VertexVariables[0];
     this.VertexUniforms = VertexVariables[1];
-
-    /* const FragmentVariables = this.extractShaderVariables(
-      gl,
-      FragmentShaderCode,
-      this.Program
-    );
-    this.FragmentInputs = FragmentVariables[0];
-    this.FragmentUniforms = FragmentVariables[1]; */
-    // Don't actually know if fragment shader inputs are needed
   }
   extractShaderVariables(
     gl: WebGL2RenderingContext,
     shaderCode: string,
     program: WebGLProgram
   ): [
-    { [key: string]: { type: string; location: number } },
+    { [key: string]: { type: string; size: number; location: number } },
     { [key: string]: { type: string; location: WebGLUniformLocation } }
   ] {
     const inputPattern = /in\s+(\w+)\s+(\w+);/g;
     const uniformPattern = /uniform\s+(\w+)\s+(\w+);/g;
 
-    const inputs: { [key: string]: { type: string; location: number } } = {};
+    const inputs: {
+      [key: string]: { type: string; size: number; location: number };
+    } = {};
     const uniforms: {
       [key: string]: { type: string; location: WebGLUniformLocation };
     } = {};
@@ -85,7 +68,11 @@ export class Shader {
         console.error(`Attribute ${match[2]} not found in shader program.`);
         continue;
       }
-      inputs[match[2]] = { type: match[1], location: location };
+      inputs[match[2]] = {
+        type: match[1],
+        size: this.glslTypeToSize(match[1]),
+        location: location
+      };
     }
 
     // Extract uniforms
@@ -98,5 +85,20 @@ export class Shader {
       uniforms[match[2]] = { type: match[1], location: location };
     }
     return [inputs, uniforms];
+  }
+  // Method to get the size of a GLSL type
+  private glslTypeToSize(type: string): number {
+    switch (type) {
+      case "float":
+        return 1;
+      case "vec2":
+        return 2;
+      case "vec3":
+        return 3;
+      case "vec4":
+        return 4;
+      default:
+        throw new Error(`Unsupported GLSL type: ${type}`);
+    }
   }
 }

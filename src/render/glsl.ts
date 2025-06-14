@@ -22,6 +22,8 @@ out vec4 outputColor;
 void main() {
   outputColor = vec4(fragmentColor, 1);
 }`;
+//
+
 export const MeshVertexShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 //If you see lessons that use attribute, that's an old version of Webgl
@@ -29,6 +31,7 @@ struct Light {
     vec3 position;
     vec3 color;
     float intensity;
+    float radius;
 };
 #define MAX_LIGHTS 100
 uniform Light lights[MAX_LIGHTS];
@@ -49,6 +52,7 @@ void main() {
 }
 `;
 
+//
 export const MeshFragmentShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 
@@ -57,6 +61,7 @@ struct Light {
     vec3 position;
     vec3 color;
     float intensity;
+    float radius;
 };
 
 // Declare uniform array of lights and light count

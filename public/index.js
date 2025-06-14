@@ -8608,7 +8608,7 @@ var PathTracer = /** @class */ (function () {
         console.log(flatBVHtree);
         ////////////// Pack everything float format to send to glsl
         //Pack triangles
-        var _b = BVHUtils_1.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type), vertices = _b.vertices, terrains = _b.terrains;
+        var _b = BVHUtils_1.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals), vertices = _b.vertices, terrains = _b.terrains, normals = _b.normals;
         console.log(vertices);
         console.log(terrains);
         //Pack BVH
@@ -8626,6 +8626,7 @@ var PathTracer = /** @class */ (function () {
         this.nodes = nodes;
         this.leafs = leafs;
         this.terrainTypes = terrainTypes;
+        this.vertexNormals = normals;
         this.init();
     }
     PathTracer.prototype.render = function (time) {
@@ -8645,6 +8646,8 @@ var PathTracer = /** @class */ (function () {
         gl_matrix_1.mat4.invert(invViewProjMatrix, viewProjMatrix);
         var invVpLoc = this.gl.getUniformLocation(this.shader.Program, "u_invViewProjMatrix");
         this.gl.uniformMatrix4fv(invVpLoc, false, invViewProjMatrix);
+        //put lights in the shader
+        GlUtils_1.GlUtils.updateLights(this.gl, this.shader.Program, this.world.lights);
         // Draw
         this.gl.clearColor(0, 0, 0, 1);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
@@ -8669,12 +8672,14 @@ var PathTracer = /** @class */ (function () {
         var nodesTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.nodes);
         var leafsTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.leafs);
         var terrainTypeTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+        var vertexNormalsTex = GlUtils_1.GlUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
         GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, verticeTex, "u_vertices", 0);
         GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, terrainTex, "u_terrains", 1);
         GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, boundingBoxesTex, "u_boundingBox", 2);
         GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, nodesTex, "u_nodesTex", 3);
         GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, leafsTex, "u_leafsTex", 4);
         GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, terrainTypeTex, "u_terrainTypes", 5);
+        GlUtils_1.GlUtils.bindTex(this.gl, this.shader.Program, vertexNormalsTex, "u_normals", 6);
         this.makeVao();
     };
     return PathTracer;
@@ -8694,7 +8699,7 @@ exports.PathTracer = PathTracer;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.pathTracingFragmentShaderCode = exports.pathTracingVertexShaderCode = void 0;
 exports.pathTracingVertexShaderCode = "#version 300 es\nprecision highp float;\n\nlayout(location = 0) in vec2 a_position;\nout vec2 v_uv;\n\nvoid main() {\n    v_uv = a_position * 0.5 + 0.5; // map [-1, 1] \u2192 [0, 1]\n    gl_Position = vec4(a_position, 0.0, 1.0);\n}\n";
-exports.pathTracingFragmentShaderCode = "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_vertices;\nuniform sampler2D u_terrains;\nuniform sampler2D u_boundingBox;\nuniform sampler2D u_nodesTex;\nuniform sampler2D u_leafsTex;\nuniform sampler2D u_terrainTypes;\nuniform vec3 u_cameraPos;\nuniform mat4 u_invViewProjMatrix;\n\nin vec2 v_uv;\nout vec4 fragColor;\n\nstruct BVH{\n    vec3 min;\n    vec3 max;\n    int right;\n    int left;\n    int[4] triangles;\n};\n\nstruct Triangle{\n    vec3[3] vertices; \n    int[3] types;\n    vec3 min;\n    vec3 max;\n    vec3 center;\n    vec3 normal;\n};\n\nstruct TerrainType{\n    vec3 color;\n    float illuminosity; // Decimal 0-1\n    float reflectiveness; // Decimal 0-1   \n};\n\n\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\n    ivec2 size = textureSize(tex, 0);\n    int texWidth = size.x;\n    \n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\n\n    // Calculate 2D coordinates of the texel\n    int y_coord = texelIndex / texWidth;\n    int x_coord = texelIndex % texWidth;\n\n    // Convert to UV coordinates [0, 1] for sampling\n    // Add 0.5 to sample the center of the texel\n    float u = (float(x_coord) + 0.5) / float(texWidth);\n    float v = (float(y_coord) + 0.5) / float(size.y);\n\n    vec4 texel = texture(tex, vec2(u, v));\n\n    if (componentIndex == 0) return texel.r;\n    else if (componentIndex == 1) return texel.g;\n    else if (componentIndex == 2) return texel.b;\n    else return texel.a;\n}\n\nBVH getBVH(int i){\n    BVH r;\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*6),fetchFloatFrom1D(u_boundingBox, i*6+1),fetchFloatFrom1D(u_boundingBox, i*6+2));\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*6+3),fetchFloatFrom1D(u_boundingBox, i*6+4),fetchFloatFrom1D(u_boundingBox, i*6+5));\n\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*2));\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*2+1));\n\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*4));\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*4+1));\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*4+2));\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*4+3));\n    \n    return r;\n}\n\nTriangle getTriangle(int i){\n    Triangle tri;\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*9), fetchFloatFrom1D(u_vertices, i*9+1), fetchFloatFrom1D(u_vertices, i*9+2));\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*9+3), fetchFloatFrom1D(u_vertices, i*9+4), fetchFloatFrom1D(u_vertices, i*9+5));\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*9+6), fetchFloatFrom1D(u_vertices, i*9+7), fetchFloatFrom1D(u_vertices, i*9+8));\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*3));\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*3+1));\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*3+2));\n\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.center = (tri.min + tri.max) * 0.5;\n    tri.normal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\n    return tri;\n}\n\nTerrainType getTerrainType(int i){\n    TerrainType t;\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*5), fetchFloatFrom1D(u_terrainTypes, i*5+1), fetchFloatFrom1D(u_terrainTypes, i*5+2));\n    t.illuminosity = fetchFloatFrom1D(u_terrainTypes, i*5+3); \n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*5+4); \n    return t;\n}\n\nbool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\n    vec3 invDir = 1.0 / rayDir;\n    vec3 t0s = (boxMin - rayOrigin) * invDir;\n    vec3 t1s = (boxMax - rayOrigin) * invDir;\n\n    vec3 tSmalls = min(t0s, t1s);\n    vec3 tBigs = max(t0s, t1s);\n\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\n\n    return tMax >= max(tMin, 0.0);\n}\n\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\n    const float EPSILON = 0.000001;\n    vec3 v0 = tri.vertices[0];\n    vec3 v1 = tri.vertices[1];\n    vec3 v2 = tri.vertices[2];\n    vec3 edge1 = v1 - v0;\n    vec3 edge2 = v2 - v0;\n\n    vec3 h = cross(rayDir, edge2);\n    float a = dot(edge1, h);\n\n    if (a > -EPSILON && a < EPSILON) {\n        return -1.0; // Ray is parallel to the triangle\n    }\n\n    float f = 1.0 / a;\n    vec3 s = rayOrigin - v0;\n    float u = f * dot(s, h);\n\n    if (u < 0.0 || u > 1.0) {\n        return -1.0;\n    }\n\n    vec3 q = cross(s, edge1);\n    float v = f * dot(rayDir, q);\n\n    if (v < 0.0 || u + v > 1.0) {\n        return -1.0;\n    }\n\n    // At this stage we can compute t to find out where the intersection point is on the line.\n    float t = f * dot(edge2, q);\n    if (t > EPSILON) { // ray intersection\n        barycentric = vec3(1.0 - u - v, u, v);\n        return t;\n    }\n    \n    return -1.0; // This means that there is a line intersection but not a ray intersection.\n}\n\n\n/**\n * Returns TRIANGLE index\n */\nint traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {\n    int closestHitIndex = -1;\n    float minHitDistance = 1.0/0.0; // Infinity\n\n    int stack[64]; // Stack of 64 - May need to change for larger BVH later\n    int stackPtr = 0;\n    stack[stackPtr++] = 0; // Push root node index\n\n    while (stackPtr > 0) {\n        int nodeIndex = stack[--stackPtr];\n        BVH node = getBVH(nodeIndex);\n\n        float tMin, tMax;\n        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {\n            continue;\n        }\n\n        if (tMin >= minHitDistance) {\n            continue;\n        }\n\n        if (node.left == -1) { // Leaf Node\n            for (int j = 0; j < 4; j++) {\n                int triIdx = node.triangles[j];\n                if (triIdx == -1) continue;\n\n                Triangle tri = getTriangle(triIdx);\n                vec3 barycentric;\n                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, barycentric);\n\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\n                    minHitDistance = hitDist;\n                    closestHitIndex = triIdx;\n                }\n            }\n        } else { // Internal Node\n            // Check for space for two children to prevent stack overflow\n            if (stackPtr < 63) { \n                stack[stackPtr++] = node.left;\n                stack[stackPtr++] = node.right;\n            }\n        }\n    }\n\n    return closestHitIndex;\n}\n\n\nvec4 PathTrace(vec3 rayOrigin, vec3 rayDir, int depth){\n    bool hit = false;\n    vec4 color = vec4(0.0);\n    int triIndex = traverseBVH(rayOrigin, rayDir, 0); // Start traversing from the root BVH node\n    if(triIndex != -1){\n        Triangle tri = getTriangle(triIndex);\n        vec3 lightColor = vec3(1.0, 1.0, 1.0);\n        vec3 lightSource = vec3(0.0, 1.0, 0.0); //TODO: Light sources\n        float diffuseStrength = max(dot(normalize(tri.normal), normalize(lightSource)), 0.2);\n        vec3 diffuseColor = diffuseStrength * lightColor;\n        vec3 lighting = diffuseColor;\n        vec3 matColor = normalize((getTerrainType(tri.types[0]).color + getTerrainType(tri.types[1]).color + getTerrainType(tri.types[2]).color) / 3.0); // Average terrain type for color (for now)\n        color = vec4(pow(matColor*lighting,vec3(1.0 / 2.2)), 1);\n    }else{\n        color = vec4(0.0, 0.0, 0.0, 1.0); // background color\n    }\n\n    return color; \n}\n\nvoid main() {\n    //All dummy. There mostly to ensure webgl doesn't auto-optimize all the things out.\n    vec4 dummy1 = texture(u_vertices, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy2 = texture(u_terrains, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy3 = texture(u_boundingBox, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy4 = texture(u_nodesTex, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy5 = texture(u_leafsTex, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy6 = texture(u_terrainTypes, v_uv * 0.0); // Always fetch (0,0)\n\n    vec2 screenPos = v_uv * 2.0 - 1.0; // NDC space: [-1, 1]\n\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \n    // Transform from clip space to world space\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\n    // Perform perspective divide\n    rayWorld /= rayWorld.w;\n    // The ray direction is the vector from the camera to this point in the world\n    vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);\n    vec3 rayOrigin = u_cameraPos;\n\n    fragColor = PathTrace(rayOrigin,rayDir,1)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; \n}\n";
+exports.pathTracingFragmentShaderCode = "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_vertices;\nuniform sampler2D u_terrains;\nuniform sampler2D u_normals;\nuniform sampler2D u_boundingBox;\nuniform sampler2D u_nodesTex;\nuniform sampler2D u_leafsTex;\nuniform sampler2D u_terrainTypes;\nuniform vec3 u_cameraPos;\nuniform mat4 u_invViewProjMatrix;\n\n#define MAX_LIGHTS 100\nstruct Light {\n    vec3 position;\n    vec3 color;\n    float intensity;\n    float radius;\n};\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\n\nin vec2 v_uv;\nout vec4 fragColor;\n\nstruct BVH{\n    vec3 min;\n    vec3 max;\n    int right;\n    int left;\n    int[4] triangles;\n};\n\nstruct Triangle{\n    vec3[3] vertices; \n    int[3] types;\n    vec3 min;\n    vec3 max;\n    vec3 center;\n    vec3 triNormal;\n    vec3[3] normals;\n};\n\nstruct TerrainType{\n    vec3 color;\n    float reflectiveness; // Decimal 0-1   \n    float roughness; // Decimal 0-1\n};\n\n\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\n    ivec2 size = textureSize(tex, 0);\n    int texWidth = size.x;\n    \n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\n\n    // Calculate 2D coordinates of the texel\n    int y_coord = texelIndex / texWidth;\n    int x_coord = texelIndex % texWidth;\n\n    // Convert to UV coordinates [0, 1] for sampling\n    // Add 0.5 to sample the center of the texel\n    float u = (float(x_coord) + 0.5) / float(texWidth);\n    float v = (float(y_coord) + 0.5) / float(size.y);\n\n    vec4 texel = texture(tex, vec2(u, v));\n\n    if (componentIndex == 0) return texel.r;\n    else if (componentIndex == 1) return texel.g;\n    else if (componentIndex == 2) return texel.b;\n    else return texel.a;\n}\n\nBVH getBVH(int i){\n    BVH r;\n    int bbBoxSize = 6;\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\n\n    int nodeSize = 2;\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\n\n    int leafSize = 4;\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\n    \n    return r;\n}\n\nTriangle getTriangle(int i){\n    Triangle tri;\n    int triVertexSize = 9;\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\n\n    int typeSize = 3;\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\n\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.center = (tri.min + tri.max) * 0.5;\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\n\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\n\n    return tri;\n}\n\nTerrainType getTerrainType(int i){\n    TerrainType t;\n    int terrainTypeSize = 5;\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \n\n    return t;\n}\n\nbool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\n    vec3 invDir = 1.0 / rayDir;\n    vec3 t0s = (boxMin - rayOrigin) * invDir;\n    vec3 t1s = (boxMax - rayOrigin) * invDir;\n\n    vec3 tSmalls = min(t0s, t1s);\n    vec3 tBigs = max(t0s, t1s);\n\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\n\n    return tMax >= max(tMin, 0.0);\n}\n\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\n    const float EPSILON = 0.000001;\n    vec3 v0 = tri.vertices[0];\n    vec3 v1 = tri.vertices[1];\n    vec3 v2 = tri.vertices[2];\n    vec3 edge1 = v1 - v0;\n    vec3 edge2 = v2 - v0;\n\n    vec3 h = cross(rayDir, edge2);\n    float a = dot(edge1, h);\n\n    if (a > -EPSILON && a < EPSILON) {\n        return -1.0; // Ray is parallel to the triangle\n    }\n\n    float f = 1.0 / a;\n    vec3 s = rayOrigin - v0;\n    float u = f * dot(s, h);\n\n    if (u < 0.0 || u > 1.0) {\n        return -1.0;\n    }\n\n    vec3 q = cross(s, edge1);\n    float v = f * dot(rayDir, q);\n\n    if (v < 0.0 || u + v > 1.0) {\n        return -1.0;\n    }\n\n    // At this stage we can compute t to find out where the intersection point is on the line.\n    float t = f * dot(edge2, q);\n    if (t > EPSILON) { // ray intersection\n        barycentric = vec3(1.0 - u - v, u, v);\n        return t;\n    }\n    \n    return -1.0; // This means that there is a line intersection but not a ray intersection.\n}\n\n//AI written; Returns distance to intersection with light sphere\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\n    vec3 oc = rayOrigin - light.position; \n\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\n    float b = 2.0 * dot(oc, rayDir);\n    float c = dot(oc, oc) - light.radius * light.radius;\n\n    float discriminant = b*b - 4.0*a*c;\n\n    // If the discriminant is negative, the ray misses the sphere.\n    if (discriminant < 0.0) {\n        return -1.0;\n    }\n\n    float sqrt_d = sqrt(discriminant);\n\n    // Calculate the two potential intersection distances (solutions for t)\n    float t0 = (-b - sqrt_d) / (2.0 * a);\n    float t1 = (-b + sqrt_d) / (2.0 * a);\n\n    // We need the smallest, positive t value.\n    // Check the closer intersection point (t0) first.\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\n        hitNormal = normalize(hitPoint - light.position);\n        return t0;\n    }\n    // If t0 was behind the ray, check the farther intersection point (t1).\n    // This case occurs if the ray starts inside the sphere.\n    else if (t1 > 0.001) {\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\n        hitNormal = normalize(hitPoint - light.position);\n        return t1;\n    }\n\n    // Both intersection points are behind the ray's origin.\n    return -1.0;\n}\n\n/**\n * Returns TRIANGLE index\n */\nint traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {\n    int closestHitIndex = -1;\n    minHitDistance = 1.0/0.0; // Infinity\n\n    int stack[64]; // Stack of 64 - May need to change for larger BVH later\n    int stackPtr = 0;\n    stack[stackPtr++] = 0; // Push root node index\n\n    while (stackPtr > 0) {\n        int nodeIndex = stack[--stackPtr];\n        BVH node = getBVH(nodeIndex);\n\n        float tMin, tMax;\n        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {\n            continue;\n        }\n\n        if (tMin >= minHitDistance) {\n            continue;\n        }\n\n        if (node.left == -1) { // Leaf Node\n            for (int j = 0; j < 4; j++) {\n                int triIdx = node.triangles[j];\n                if (triIdx == -1) continue;\n\n                Triangle tri = getTriangle(triIdx);\n                vec3 currentBarycentric;\n                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);\n\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\n                    minHitDistance = hitDist;\n                    closestHitIndex = triIdx;\n                    closestBarycentric = currentBarycentric;\n                }\n            }\n        } else { // Internal Node\n            // Check for space for two children to prevent stack overflow\n            if (stackPtr < 63) { \n                stack[stackPtr++] = node.left;\n                stack[stackPtr++] = node.right;\n            }\n        }\n    }\n\n    return closestHitIndex;\n}\n\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\n    return normalize(\n        baryCentric.x * a[0] + \n        baryCentric.y * a[1] +\n        baryCentric.z * a[2]\n    );\n}\nfloat smoothItem(float[3] a, vec3 baryCentric){\n    return(\n        baryCentric.x * a[0] + \n        baryCentric.y * a[1] +\n        baryCentric.z * a[2]\n    )/3.0;\n}\n\nvec4 PathTrace(vec3 rayOrigin, vec3 rayDir){\n    bool hit = false;\n    vec4 color = vec4(0.0);\n    vec3 baryCentric;\n    float minHitDistance;\n    int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance); // Start traversing from the root BVH node\n    if(triIndex != -1){\n        Triangle tri = getTriangle(triIndex);\n        vec3[3] colors = vec3[3](\n            getTerrainType(tri.types[0]).color,\n            getTerrainType(tri.types[1]).color,\n            getTerrainType(tri.types[2]).color\n        );\n        float[3] reflectivities = float[3](\n            getTerrainType(tri.types[0]).reflectiveness,\n            getTerrainType(tri.types[1]).reflectiveness,\n            getTerrainType(tri.types[2]).reflectiveness\n        );\n        float[3] roughness = float[3](\n            getTerrainType(tri.types[0]).roughness,\n            getTerrainType(tri.types[1]).roughness,\n            getTerrainType(tri.types[2]).roughness\n        );\n\n        vec3 smoothNormal = smoothItem(tri.normals,baryCentric);\n        vec3 matColor = smoothItem(colors,baryCentric); // Average terrain type for color (for now)\n        \n        float matRoughness = smoothItem(roughness,baryCentric);\n        vec3 pos = smoothItem(tri.vertices,baryCentric);\n        float matReflectivity = smoothItem(reflectivities,baryCentric);\n        matReflectivity = mix(32.0, 128.0, clamp(matReflectivity, 0.0, 1.0));// Shininess factor for specular highlights\n\n        vec3 totalDiffuse = vec3(0.0);\n        vec3 specular = vec3(0.0);\n        // View for Blinn-Phong\n        vec3 viewDir = normalize(u_cameraPos - pos);\n    \n        for(int i = 0; i < numActiveLights; i++) {\n            vec3 lightDir = normalize(lights[i].position - pos);\n            float diffuseStrength = max(dot(smoothNormal, lightDir), 0.2);\n            totalDiffuse = diffuseStrength * lights[i].color * lights[i].intensity;\n            \n            vec3 halfwayDir = normalize(lightDir + viewDir);\n            float spec = pow(max(dot(smoothNormal, halfwayDir), 0.0), matReflectivity);\n            specular+= spec * lights[i].color * lights[i].intensity* (1.0 - matRoughness); // Specular highlight\n            \n        }\n\n        // Apply lighting and gamma correction\n        vec3 lighting = totalDiffuse + specular;\n        vec3 finalColor = matColor * lighting;\n\n        // Apply gamma correction component-wise\n        finalColor = vec3(pow(finalColor.r, 1.0 / 2.2), pow(finalColor.g, 1.0 / 2.2), pow(finalColor.b, 1.0 / 2.2));\n        \n        color = vec4(finalColor, 1.0);\n     \n    }else{\n        color = vec4(0.0, 0.0, 0.0, 1.0); // background color\n    }\n    int hitLight = -1;\n    for(int i = 0; i < numActiveLights; i++) {\n        vec3 lightHitNormal;\n        float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);\n        if(lightHitDistance > 0.0 && lightHitDistance < minHitDistance){\n            hitLight = i;\n            minHitDistance = lightHitDistance;\n        }\n    }\n    if(hitLight != -1){\n        color = vec4(lights[hitLight].color, 1.0) * lights[hitLight].intensity;\n    }\n\n    return color; \n}\n\nvoid main() {\n    //All dummy. There mostly to ensure webgl doesn't auto-optimize all the things out.\n    vec4 dummy1 = texture(u_vertices, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy2 = texture(u_terrains, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy3 = texture(u_boundingBox, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy4 = texture(u_nodesTex, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy5 = texture(u_leafsTex, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy6 = texture(u_terrainTypes, v_uv * 0.0); // Always fetch (0,0)\n    vec4 dummy7 = texture(u_normals, v_uv * 0.0); // Always fetch (0,0)\n\n    vec2 screenPos = v_uv * 2.0 - 1.0; // NDC space: [-1, 1]\n\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \n    // Transform from clip space to world space\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\n    // Perform perspective divide\n    rayWorld /= rayWorld.w;\n    // The ray direction is the vector from the camera to this point in the world\n    vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);\n    vec3 rayOrigin = u_cameraPos;\n\n    fragColor = PathTrace(rayOrigin,rayDir)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; \n}\n";
 
 
 /***/ }),
@@ -8740,11 +8745,12 @@ var BVHUtils = /** @class */ (function () {
      * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
      * @param tri BVH triangles
      */
-    BVHUtils.packTriangles = function (mesh, types) {
+    BVHUtils.packTriangles = function (mesh, types, vertexNormals) {
         var floatsPerTexel = 4; //Using rgbaf32 format, each texel (or pixel of texture) can hold up to 4 floats
         //Currently only need to pack the vertices and terrain types - Bounding boxes & other attributes don't matter as they will be part of the BVH
         var vertices = new Float32Array(Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel); // Each triangle vertices has 9 attributes (3 vertices, 3 axis)
         var terrains = new Float32Array(Math.ceil((types.length * 3) / floatsPerTexel) * floatsPerTexel); // 3 vertices each have different terrain values.
+        var normals = new Float32Array(Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel); // Each triangle normal for all the vertices has 9 attributes
         for (var i = 0; i < mesh.length; i++) {
             //Iterate through triangles
             for (var a = 0; a < mesh[i].length; a++) {
@@ -8753,9 +8759,12 @@ var BVHUtils = /** @class */ (function () {
                 vertices[i * 9 + 3 * a + 1] = mesh[i][a][1];
                 vertices[i * 9 + 3 * a + 2] = mesh[i][a][2];
                 terrains[i * 3 + a] = types[i][a];
+                normals[i * 9 + 3 * a] = vertexNormals[i][a][0];
+                normals[i * 9 + 3 * a + 1] = vertexNormals[i][a][1];
+                normals[i * 9 + 3 * a + 2] = vertexNormals[i][a][2];
             }
         }
-        return { vertices: vertices, terrains: terrains };
+        return { vertices: vertices, terrains: terrains, normals: normals };
     };
     /**
      * Packs flatten BVH to F32 format to be sent to glsl.
@@ -8792,8 +8801,8 @@ var BVHUtils = /** @class */ (function () {
      * are stored sequentially in the output array. The array is padded to ensure its length
      * is a multiple of `floatsPerTexel`.
      *
-     * @returns {Float32Array} A packed array containing the terrain types' color (r, g, b),
-     * illuminosity, and reflectiveness values.
+     * @returns {Float32Array} A packed array containing the terrain types' properties.
+     *
      */
     BVHUtils.packTerrainTypes = function () {
         var floatsPerTexel = 4;
@@ -8805,8 +8814,8 @@ var BVHUtils = /** @class */ (function () {
             out[i * 5] = terrain.color.r;
             out[i * 5 + 1] = terrain.color.g;
             out[i * 5 + 2] = terrain.color.b;
-            out[i * 5 + 3] = terrain.illuminosity;
-            out[i * 5 + 4] = terrain.reflectiveness;
+            out[i * 5 + 3] = terrain.reflectiveness;
+            out[i * 5 + 4] = terrain.roughness;
             i++;
         }
         return out;
@@ -8832,10 +8841,11 @@ var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix
  *  Represents a light source in the world.
  */
 var Light = /** @class */ (function () {
-    function Light(position, color, intensity) {
+    function Light(position, color, intensity, radius) {
         this.position = position;
         this.color = color;
         this.intensity = intensity;
+        this.radius = radius;
     }
     Light.prototype.setPosition = function (position) {
         this.position = position;
@@ -8877,7 +8887,7 @@ var WorldMap = /** @class */ (function () {
      */
     function WorldMap(width, height, length) {
         this.lights = [
-            new Light_1.Light(gl_matrix_1.vec3.fromValues(0, 100, 0), gl_matrix_1.vec3.fromValues(1, 1, 1), 1)
+            new Light_1.Light(gl_matrix_1.vec3.fromValues(0, 100, 0), gl_matrix_1.vec3.fromValues(1, 1, 1), 1, 5)
         ];
         this.resolution = 64; //#of vertices square size of chunk
         this.width = width;
@@ -8995,7 +9005,8 @@ var Mesh = /** @class */ (function () {
                 center: center,
                 boundingBox: { min: min, max: max },
                 type: terrain,
-                index: i
+                index: i,
+                vertexNormals: _this.normals[i]
             };
         });
     };
@@ -9099,7 +9110,6 @@ exports.Mesh = Mesh;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.meshToVerticesAndIndices = exports.vertexKey = void 0;
 var terrains_1 = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
-var GlUtils_1 = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
 var roundToPrecision = function (value, precision) {
     return Math.round(value * precision) / precision;
 };
@@ -9122,7 +9132,7 @@ var meshToVerticesAndIndices = function (mesh) {
             var key = (0, exports.vertexKey)(vertex);
             if (!vertexMap.has(key)) {
                 var type = terrains_1.Terrains[types[j]];
-                var color = GlUtils_1.GlUtils.getMeshColor(type);
+                var color = type.color;
                 vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255);
                 vertexMap.set(key, vertexIndex);
                 vertexIndex++;
@@ -9638,21 +9648,18 @@ exports.Color = Color;
 exports.Terrains = {
     0: {
         color: new Color(0, 255, 0),
-        illuminosity: 1,
-        reflectiveness: 0.1,
-        roughness: 0.5
+        reflectiveness: 0.2,
+        roughness: 0.8
     },
     1: {
         color: new Color(0, 0, 255),
-        illuminosity: 1,
-        reflectiveness: 0,
-        roughness: 0.5
+        reflectiveness: 0.2,
+        roughness: 0.8
     },
     2: {
         color: new Color(255, 0, 0),
-        illuminosity: 1,
-        reflectiveness: 0,
-        roughness: 0.5
+        reflectiveness: 0.2,
+        roughness: 0.8
     }
 };
 
@@ -9806,27 +9813,9 @@ var GLRenderer = /** @class */ (function () {
         this.MeshShader = new Shader_1.Shader(gl, glsl_1.MeshVertexShaderCode, glsl_1.MeshFragmentShaderCode);
         this.matViewProj = gl_matrix_1.mat4.create();
     }
-    GLRenderer.prototype.updateLights = function (lights) {
-        var _this = this;
-        // Set number of active lights
-        var numLightsLocation = this.gl.getUniformLocation(this.MeshShader.Program, "numActiveLights");
-        this.gl.uniform1i(numLightsLocation, lights.length);
-        // Update each light's data
-        lights.forEach(function (light, index) {
-            var baseUniform = "lights[".concat(index, "]");
-            var posLocation = _this.gl.getUniformLocation(_this.MeshShader.Program, "".concat(baseUniform, ".position"));
-            var colorLocation = _this.gl.getUniformLocation(_this.MeshShader.Program, "".concat(baseUniform, ".color"));
-            var intensityLocation = _this.gl.getUniformLocation(_this.MeshShader.Program, "".concat(baseUniform, ".intensity"));
-            var viewPositionLocation = _this.gl.getUniformLocation(_this.MeshShader.Program, "viewPosition");
-            _this.gl.uniform3fv(viewPositionLocation, _this.camera.getPosition());
-            _this.gl.uniform3fv(posLocation, light.position);
-            _this.gl.uniform3fv(colorLocation, light.color);
-            _this.gl.uniform1f(intensityLocation, light.intensity);
-        });
-    };
     GLRenderer.prototype.drawMesh = function (TransformationMatrix) {
         this.gl.useProgram(this.MeshShader.Program);
-        this.updateLights(this.world.lights);
+        GlUtils_1.GlUtils.updateLights(this.gl, this.MeshShader.Program, this.world.lights, this.camera);
         this.gl.uniformMatrix4fv(this.MeshShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
         this.gl.uniformMatrix4fv(this.MeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
         //Create vertice array object
@@ -9877,11 +9866,18 @@ exports.GLRenderer = GLRenderer;
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GlUtils = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
-var terrains_1 = __webpack_require__(/*! ../map/terrains */ "./src/map/terrains.ts");
 var Mesh_1 = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
 var GlUtils = /** @class */ (function () {
     function GlUtils() {
     }
+    /**
+     * Creates a WebGL program with the given vertex and fragment shader code.
+     * @param gl The WebGL2RenderingContext to use for creating the program.
+     * @param VertexShaderCode The GLSL code for the vertex shader.
+     * @param FragmentShaderCode The GLSL code for the fragment shader.
+     * @returns The created WebGLProgram or undefined if linking failed.
+     * @throws Error if shader compilation fails.
+     */
     GlUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
         var VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
         var FragmentShader = this.CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
@@ -9896,6 +9892,14 @@ var GlUtils = /** @class */ (function () {
         }
         return Program;
     };
+    /**
+     * Creates a WebGL shader of the specified type with the given GLSL code.
+     * @param gl The WebGL2RenderingContext to use for creating the shader.
+     * @param ShaderType The type of shader to create (e.g., gl.VERTEX_SHADER, gl.FRAGMENT_SHADER).
+     * @param ShaderCode The GLSL code for the shader.
+     * @returns The created WebGLShader.
+     * @throws Error if shader compilation fails.
+     */
     GlUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
         var Shader = gl.createShader(ShaderType);
         if (!Shader) {
@@ -9910,6 +9914,14 @@ var GlUtils = /** @class */ (function () {
         }
         return Shader;
     };
+    /**
+     * Creates a static buffer for positions and indices.
+     * @param gl The WebGL2RenderingContext to use for creating the buffer.
+     * @param CPUPositionBuffer The Float32Array containing position data.
+     * @param CPUIndexBuffer The array of indices for the buffer.
+     * @returns An object containing the position buffer and index buffer.
+     * @throws Error if buffer creation fails.
+     */
     GlUtils.CreateStaticBuffer = function (gl, CPUPositionBuffer, CPUIndexBuffer) {
         var buffer = gl.createBuffer();
         if (!buffer) {
@@ -9924,6 +9936,13 @@ var GlUtils = /** @class */ (function () {
             indices: IndexBuffer
         };
     };
+    /**
+     * Creates a transformation matrix based on translation, rotation, and scale.
+     * @param translation A vec3 representing the translation (x, y, z).
+     * @param rotation A vec3 representing the rotation in radians (x, y, z).
+     * @param scale A vec3 representing the scale (x, y, z).
+     * @returns A mat4 transformation matrix.
+     */
     GlUtils.CreateTransformations = function (translation, rotation, scale) {
         var transformMatrix = gl_matrix_1.mat4.create();
         if (scale) {
@@ -9940,7 +9959,12 @@ var GlUtils = /** @class */ (function () {
         }
         return transformMatrix;
     };
-    //Will change it later to feature length manipulations
+    /**
+     * Creates an index buffer for the given indices.
+     * @param gl The WebGL2RenderingContext to use for creating the buffer.
+     * @param indices The array of indices to be stored in the buffer.
+     * @returns The created WebGLBuffer containing the indices.
+     */
     GlUtils.CreateIndexBuffer = function (gl, indices) {
         var indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -9952,46 +9976,10 @@ var GlUtils = /** @class */ (function () {
         return indexBuffer;
     };
     /**
-     * Calculates the vao for the cube
-     * @param gl The WEBGL context
-     * @param CubeShader The shader for the wireframe cubes
-     * @param cube The cube to draw
-     * @returns The VertexArray (Vao)
-     */
-    GlUtils.createCubeVao = function (gl, CubeShader, cube) {
-        var cubeVao = gl.createVertexArray();
-        gl.bindVertexArray(cubeVao); // ✅ Bind VAO first!
-        // --- Position buffer
-        var positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, cube.positions, gl.STATIC_DRAW);
-        var positionLoc = CubeShader.VertexInputs["VertexPosition"].location;
-        gl.enableVertexAttribArray(positionLoc);
-        gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
-        // --- Color buffer
-        var colorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, cube.colors, gl.STATIC_DRAW);
-        var colorLoc = CubeShader.VertexInputs["VertexColor"].location;
-        gl.enableVertexAttribArray(colorLoc);
-        gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, 0, 0);
-        // --- Index buffer
-        var indexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.indices, gl.STATIC_DRAW);
-        gl.bindVertexArray(null);
-        return cubeVao;
-    };
-    GlUtils.getMeshColor = function (terrain) {
-        //TODO: Implement everything, tune models
-        var color = terrain.color;
-        return new terrains_1.Color(color.r * terrain.illuminosity, color.g * terrain.illuminosity, color.b * terrain.illuminosity);
-    };
-    /**
      * Calculates the wireframe of a rectangular prism
-     * @param position A vec3 of the position of the rectangular
+     * @param position A vec3 of the position of the prism
      * @param size A vec3 of the size of the prism
-     * @returns WireFrameCube Object
+     * @returns WireFrameCube Object containing positions, colors, and indices
      */
     GlUtils.createRectangularPrismWireframe = function (position, size) {
         var x = position[0];
@@ -10086,6 +10074,37 @@ var GlUtils = /** @class */ (function () {
         return vao;
     };
     /**
+     * Calculates the vao for the cube
+     * @param gl The WEBGL context
+     * @param CubeShader The shader for the wireframe cubes
+     * @param cube The cube to draw
+     * @returns The VertexArray (Vao)
+     */
+    GlUtils.createCubeVao = function (gl, CubeShader, cube) {
+        var cubeVao = gl.createVertexArray();
+        gl.bindVertexArray(cubeVao); // ✅ Bind VAO first!
+        // --- Position buffer
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, cube.positions, gl.STATIC_DRAW);
+        var positionLoc = CubeShader.VertexInputs["VertexPosition"].location;
+        gl.enableVertexAttribArray(positionLoc);
+        gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+        // --- Color buffer
+        var colorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, cube.colors, gl.STATIC_DRAW);
+        var colorLoc = CubeShader.VertexInputs["VertexColor"].location;
+        gl.enableVertexAttribArray(colorLoc);
+        gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, 0, 0);
+        // --- Index buffer
+        var indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.indices, gl.STATIC_DRAW);
+        gl.bindVertexArray(null);
+        return cubeVao;
+    };
+    /**
      * Calculates the necessary vertices, normals, and wireframes for cubes for our world
      * @param world The world we are rendering
      * @returns { List of triangle meshes, Map of Vertex Normals, List of WireFrameCube Type}
@@ -10103,6 +10122,27 @@ var GlUtils = /** @class */ (function () {
             WireFrameCubes.push(GlUtils.createRectangularPrismWireframe(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), gl_matrix_1.vec3.fromValues(world.resolution, world.height, world.resolution)));
         }
         return { triangleMeshes: triangleMeshes, WireFrameCubes: WireFrameCubes };
+    };
+    GlUtils.updateLights = function (gl, program, lights, camera) {
+        // Set number of active lights
+        var numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
+        gl.uniform1i(numLightsLocation, lights.length);
+        // Update each light's data
+        lights.forEach(function (light, index) {
+            var baseUniform = "lights[".concat(index, "]");
+            var posLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".position"));
+            var colorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".color"));
+            var intensityLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".intensity"));
+            var radiusLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".radius"));
+            gl.uniform3fv(posLocation, light.position);
+            gl.uniform3fv(colorLocation, light.color);
+            gl.uniform1f(intensityLocation, light.intensity);
+            gl.uniform1f(radiusLocation, light.radius);
+        });
+        if (camera) {
+            var viewPositionLocation = gl.getUniformLocation(program, "viewPosition");
+            gl.uniform3fv(viewPositionLocation, camera.getPosition());
+        }
     };
     ///////////////////////Texture Utilities/////////////////////
     /**
@@ -10189,14 +10229,6 @@ var Shader = /** @class */ (function () {
         var VertexVariables = this.extractShaderVariables(gl, VertexShaderCode, this.Program);
         this.VertexInputs = VertexVariables[0];
         this.VertexUniforms = VertexVariables[1];
-        /* const FragmentVariables = this.extractShaderVariables(
-          gl,
-          FragmentShaderCode,
-          this.Program
-        );
-        this.FragmentInputs = FragmentVariables[0];
-        this.FragmentUniforms = FragmentVariables[1]; */
-        // Don't actually know if fragment shader inputs are needed
     }
     Shader.prototype.extractShaderVariables = function (gl, shaderCode, program) {
         var inputPattern = /in\s+(\w+)\s+(\w+);/g;
@@ -10211,7 +10243,11 @@ var Shader = /** @class */ (function () {
                 console.error("Attribute ".concat(match[2], " not found in shader program."));
                 continue;
             }
-            inputs[match[2]] = { type: match[1], location: location_1 };
+            inputs[match[2]] = {
+                type: match[1],
+                size: this.glslTypeToSize(match[1]),
+                location: location_1
+            };
         }
         // Extract uniforms
         while ((match = uniformPattern.exec(shaderCode)) !== null) {
@@ -10223,6 +10259,21 @@ var Shader = /** @class */ (function () {
             uniforms[match[2]] = { type: match[1], location: location_2 };
         }
         return [inputs, uniforms];
+    };
+    // Method to get the size of a GLSL type
+    Shader.prototype.glslTypeToSize = function (type) {
+        switch (type) {
+            case "float":
+                return 1;
+            case "vec2":
+                return 2;
+            case "vec3":
+                return 3;
+            case "vec4":
+                return 4;
+            default:
+                throw new Error("Unsupported GLSL type: ".concat(type));
+        }
     };
     return Shader;
 }());
@@ -10242,8 +10293,10 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.MeshFragmentShaderCode = exports.MeshVertexShaderCode = exports.CubeFragmentShaderCode = exports.CubeVertexShaderCode = void 0;
 exports.CubeVertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
 exports.CubeFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1);\n}";
-exports.MeshVertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nstruct Light {\n    vec3 position;\n    vec3 color;\n    float intensity;\n};\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nin vec4 VertexPosition;\nin vec3 VertexNormal;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nout vec3 fragmentNormal;\nout vec3 fragmentPosition;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  fragmentNormal = VertexNormal;\n  fragmentPosition = VertexPosition.xyz;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-exports.MeshFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\n// Define the light structure\nstruct Light {\n    vec3 position;\n    vec3 color;\n    float intensity;\n};\n\n// Declare uniform array of lights and light count\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 viewPosition; // Camera position for lighting calculations\nin vec3 fragmentColor;\nin vec3 fragmentNormal;\nin vec3 fragmentPosition;\nout vec4 outputColor;\n\nvoid main() {\n    vec3 specular = vec3(0.0);\n    vec3 totalDiffuse = vec3(0.0);\n    vec3 normal = normalize(fragmentNormal);\n    float metalic = 0.2; // Will be changed to input value later\n    int metallicValue = int(mix(32.0, 128.0, clamp(metalic, 0.0, 1.0)));// Shininess factor for specular highlights\n    float roughnessValue = 0.8; // Roughness factor for diffuse lighting, will be changed to input value later\n    // Calculate lighting contribution from each light\n    for(int i = 0; i < MAX_LIGHTS; i++) {\n        if(i >= numActiveLights) break;\n        \n        vec3 lightDir = normalize(lights[i].position - fragmentPosition);\n        float diffuseStrength = max(dot(normal, lightDir), 0.2);\n        totalDiffuse += diffuseStrength * lights[i].color * lights[i].intensity;\n          // View and halfway vector for Blinn-Phong\n          vec3 viewDir = normalize(viewPosition - fragmentPosition);\n          vec3 halfwayDir = normalize(lightDir + viewDir);\n\n          float spec = pow(max(dot(normal, halfwayDir), 0.0), float(metallicValue));\n          specular+= spec * lights[i].color * lights[i].intensity* (1.0 - roughnessValue); // Specular highlight\n    }\n    \n    // Apply lighting and gamma correction\n    vec3 lighting = totalDiffuse + specular;\n    vec3 finalColor = fragmentColor * lighting;\n    \n    // Apply gamma correction component-wise\n    finalColor = vec3(pow(finalColor.r, 1.0 / 2.2), pow(finalColor.g, 1.0 / 2.2), pow(finalColor.b, 1.0 / 2.2));\n    \n    outputColor = vec4(finalColor, 1.0);\n}";
+//
+exports.MeshVertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nstruct Light {\n    vec3 position;\n    vec3 color;\n    float intensity;\n    float radius;\n};\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nin vec4 VertexPosition;\nin vec3 VertexNormal;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nout vec3 fragmentNormal;\nout vec3 fragmentPosition;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  fragmentNormal = VertexNormal;\n  fragmentPosition = VertexPosition.xyz;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
+//
+exports.MeshFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\n// Define the light structure\nstruct Light {\n    vec3 position;\n    vec3 color;\n    float intensity;\n    float radius;\n};\n\n// Declare uniform array of lights and light count\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 viewPosition; // Camera position for lighting calculations\nin vec3 fragmentColor;\nin vec3 fragmentNormal;\nin vec3 fragmentPosition;\nout vec4 outputColor;\n\nvoid main() {\n    vec3 specular = vec3(0.0);\n    vec3 totalDiffuse = vec3(0.0);\n    vec3 normal = normalize(fragmentNormal);\n    float metalic = 0.2; // Will be changed to input value later\n    int metallicValue = int(mix(32.0, 128.0, clamp(metalic, 0.0, 1.0)));// Shininess factor for specular highlights\n    float roughnessValue = 0.8; // Roughness factor for diffuse lighting, will be changed to input value later\n    // Calculate lighting contribution from each light\n    for(int i = 0; i < MAX_LIGHTS; i++) {\n        if(i >= numActiveLights) break;\n        \n        vec3 lightDir = normalize(lights[i].position - fragmentPosition);\n        float diffuseStrength = max(dot(normal, lightDir), 0.2);\n        totalDiffuse += diffuseStrength * lights[i].color * lights[i].intensity;\n          // View and halfway vector for Blinn-Phong\n          vec3 viewDir = normalize(viewPosition - fragmentPosition);\n          vec3 halfwayDir = normalize(lightDir + viewDir);\n\n          float spec = pow(max(dot(normal, halfwayDir), 0.0), float(metallicValue));\n          specular+= spec * lights[i].color * lights[i].intensity* (1.0 - roughnessValue); // Specular highlight\n    }\n    \n    // Apply lighting and gamma correction\n    vec3 lighting = totalDiffuse + specular;\n    vec3 finalColor = fragmentColor * lighting;\n    \n    // Apply gamma correction component-wise\n    finalColor = vec3(pow(finalColor.r, 1.0 / 2.2), pow(finalColor.g, 1.0 / 2.2), pow(finalColor.b, 1.0 / 2.2));\n    \n    outputColor = vec4(finalColor, 1.0);\n}";
 
 
 /***/ })
@@ -10321,7 +10374,7 @@ exports.MeshFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\n/
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("3de1057275474591a6c0")
+/******/ 		__webpack_require__.h = () => ("f454c12b3735cab7364c")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

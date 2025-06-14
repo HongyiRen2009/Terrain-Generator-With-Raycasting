@@ -9,6 +9,7 @@ export interface BVHTriangle {
   boundingBox: { min: vec3; max: vec3 };
   type: Terrain[]; //Terrain information - length of 3
   index: number; //index in the large thing.
+  vertexNormals: Triangle;
 }
 
 export interface BVHNode {
@@ -111,7 +112,8 @@ export class Mesh {
         center: center,
         boundingBox: { min: min, max: max },
         type: terrain,
-        index: i
+        index: i,
+        vertexNormals: this.normals[i]
       };
     });
   }
