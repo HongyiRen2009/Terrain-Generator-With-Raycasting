@@ -27,17 +27,17 @@ export interface Terrain {
 export const Terrains: { [id: number]: Terrain } = {
   0: {
     color: new Color(0, 255, 0),
-    reflectiveness: 0.1,
-    roughness: 0.5
+    reflectiveness: 0.2,
+    roughness: 0.8
   },
   1: {
     color: new Color(0, 0, 255),
-    reflectiveness: 0,
-    roughness: 0.5
+    reflectiveness: 0.2,
+    roughness: 0.8
   },
   2: {
     color: new Color(255, 0, 0),
-    reflectiveness: 0,
-    roughness: 0.5
+    reflectiveness: 0.2,
+    roughness: 0.8
   }
 };

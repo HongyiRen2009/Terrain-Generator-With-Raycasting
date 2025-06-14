@@ -246,6 +246,20 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBaryc
     return closestHitIndex;
 }
 
+vec3 smoothItem(vec3[3] a, vec3 baryCentric){
+    return normalize(
+        baryCentric.x * a[0] + 
+        baryCentric.y * a[1] +
+        baryCentric.z * a[2]
+    );
+}
+float smoothItem(float[3] a, vec3 baryCentric){
+    return(
+        baryCentric.x * a[0] + 
+        baryCentric.y * a[1] +
+        baryCentric.z * a[2]
+    )/3.0;
+}
 
 vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
     bool hit = false;
@@ -254,26 +268,52 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
     int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric); // Start traversing from the root BVH node
     if(triIndex != -1){
         Triangle tri = getTriangle(triIndex);
-
-        vec3 smoothNormal = normalize(
-            baryCentric.x * tri.normals[0] +
-            baryCentric.y * tri.normals[1] +
-            baryCentric.z * tri.normals[2]
+        vec3[3] colors = vec3[3](
+            getTerrainType(tri.types[0]).color,
+            getTerrainType(tri.types[1]).color,
+            getTerrainType(tri.types[2]).color
         );
-        vec3 matColor = normalize(
-            (
-                baryCentric.x*getTerrainType(tri.types[0]).color +
-                baryCentric.y*getTerrainType(tri.types[1]).color +
-                baryCentric.z*getTerrainType(tri.types[2]).color
-            ) / 3.0
-        ); // Average terrain type for color (for now)
+        float[3] reflectivities = float[3](
+            getTerrainType(tri.types[0]).reflectiveness,
+            getTerrainType(tri.types[1]).reflectiveness,
+            getTerrainType(tri.types[2]).reflectiveness
+        );
+        float[3] roughness = float[3](
+            getTerrainType(tri.types[0]).roughness,
+            getTerrainType(tri.types[1]).roughness,
+            getTerrainType(tri.types[2]).roughness
+        );
 
-        vec3 lightColor = vec3(1.0, 1.0, 1.0);
-        vec3 lightSource = vec3(0.0, 1.0, 0.0); //TODO: Light sources
-        float diffuseStrength = max(dot(normalize(smoothNormal), normalize(lightSource)), 0.2);
-        vec3 diffuseColor = diffuseStrength * lightColor;
-        vec3 lighting = diffuseColor;
-        color = vec4(pow(matColor*lighting,vec3(1.0 / 2.2)), 1);
+        vec3 smoothNormal = smoothItem(tri.normals,baryCentric);
+        vec3 matColor = smoothItem(colors,baryCentric); // Average terrain type for color (for now)
+        
+        float matRoughness = smoothItem(roughness,baryCentric);
+        vec3 pos = smoothItem(tri.vertices,baryCentric);
+        float matReflectivity = smoothItem(reflectivities,baryCentric);
+        matReflectivity = mix(32.0, 128.0, clamp(matReflectivity, 0.0, 1.0));// Shininess factor for specular highlights
+
+        vec3 totalDiffuse = vec3(0.0);
+        vec3 specular = vec3(0.0);
+        // View for Blinn-Phong
+        vec3 viewDir = normalize(u_cameraPos - pos);
+        
+        for(int i = 0; i < numActiveLights; i++) {
+            vec3 lightDir = normalize(lights[i].position - pos);
+            float diffuseStrength = max(dot(smoothNormal, lightDir), 0.2);
+            totalDiffuse = diffuseStrength * lights[i].color * lights[i].intensity;
+            
+            vec3 halfwayDir = normalize(lightDir + viewDir);
+            float spec = pow(max(dot(smoothNormal, halfwayDir), 0.0), matReflectivity);
+            specular+= spec * lights[i].color * lights[i].intensity* (1.0 - matRoughness); // Specular highlight
+        }
+        // Apply lighting and gamma correction
+        vec3 lighting = totalDiffuse + specular;
+        vec3 finalColor = matColor * lighting;
+
+        // Apply gamma correction component-wise
+        finalColor = vec3(pow(finalColor.r, 1.0 / 2.2), pow(finalColor.g, 1.0 / 2.2), pow(finalColor.b, 1.0 / 2.2));
+        
+        color = vec4(finalColor, 1.0);
     }else{
         color = vec4(0.0, 0.0, 0.0, 1.0); // background color
     }
