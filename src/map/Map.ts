@@ -5,8 +5,6 @@ import { Chunk } from "./marching_cubes";
 import { vec2, vec3 } from "gl-matrix";
 import { Light } from "./Light";
 
-
-
 /**
  * The object holding the map of the world
  * Center chunk starts at 0,0 (probably)

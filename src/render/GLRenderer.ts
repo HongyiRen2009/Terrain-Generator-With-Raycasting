@@ -4,7 +4,7 @@ import {
   CubeFragmentShaderCode,
   CubeVertexShaderCode,
   MeshFragmentShaderCode,
-  MeshVertexShaderCode,
+  MeshVertexShaderCode
 } from "./glsl";
 import { Shader } from "./Shader";
 import { Camera } from "./Camera";

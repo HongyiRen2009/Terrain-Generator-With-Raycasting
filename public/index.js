@@ -8420,7 +8420,7 @@ var GameEngine = /** @class */ (function () {
         //Initialize world
         this.world = new Map_1.WorldMap(1000, 64, 1000);
         //Initialize Camera
-        this.mainCamera = new Camera_1.Camera(gl_matrix_1.vec3.fromValues(0, 0, 3), this.world);
+        this.mainCamera = new Camera_1.Camera(gl_matrix_1.vec3.fromValues(0, 0, 3));
         //Initialize Renderer
         this.renderer = new GLRenderer_1.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
         //Initial pathTracer
@@ -8575,7 +8575,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.PathTracer = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var Mesh_1 = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
-var glsl_1 = __webpack_require__(/*! ../render/glsl */ "./src/render/glsl.ts");
+var Shader_1 = __webpack_require__(/*! ../render/Shader */ "./src/render/Shader.ts");
 var GlUtils_1 = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
 var glslPath_1 = __webpack_require__(/*! ./glslPath */ "./src/Pathtracing/glslPath.ts");
 var BVHUtils_1 = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
@@ -8588,7 +8588,7 @@ var PathTracer = /** @class */ (function () {
         this.debug = debug;
         this.gl.enable(this.gl.BLEND);
         //shader
-        this.shader = new glsl_1.Shader(this.gl, glslPath_1.pathTracingVertexShaderCode, glslPath_1.pathTracingFragmentShaderCode);
+        this.shader = new Shader_1.Shader(this.gl, glslPath_1.pathTracingVertexShaderCode, glslPath_1.pathTracingFragmentShaderCode);
         ////////////////////// build flat BVH structure
         //Get main mesh
         var mainMesh = new Mesh_1.Mesh();
@@ -8730,6 +8730,9 @@ requestAnimationFrame(gameTick);
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.BVHUtils = void 0;
 var terrains_1 = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+/**
+ * Utility class for packing BVH and triangle data into Float32Arrays for GPU processing.
+ */
 var BVHUtils = /** @class */ (function () {
     function BVHUtils() {
     }
@@ -8815,6 +8818,38 @@ exports.BVHUtils = BVHUtils;
 
 /***/ }),
 
+/***/ "./src/map/Light.ts":
+/*!**************************!*\
+  !*** ./src/map/Light.ts ***!
+  \**************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.Light = void 0;
+var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+/**
+ *  Represents a light source in the world.
+ */
+var Light = /** @class */ (function () {
+    function Light(position, color, intensity) {
+        this.position = position;
+        this.color = color;
+        this.intensity = intensity;
+    }
+    Light.prototype.setPosition = function (position) {
+        this.position = position;
+    };
+    Light.prototype.addPosition = function (position) {
+        gl_matrix_1.vec3.add(this.position, this.position, position);
+    };
+    return Light;
+}());
+exports.Light = Light;
+
+
+/***/ }),
+
 /***/ "./src/map/Map.ts":
 /*!************************!*\
   !*** ./src/map/Map.ts ***!
@@ -8828,10 +8863,10 @@ exports.WorldMap = void 0;
 var simplex_noise_1 = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/cjs/simplex-noise.js");
 var marching_cubes_1 = __webpack_require__(/*! ./marching_cubes */ "./src/map/marching_cubes.ts");
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
-//Check README for implementation pattern
-//Center chunk starts at 0,0 (probably)
+var Light_1 = __webpack_require__(/*! ./Light */ "./src/map/Light.ts");
 /**
  * The object holding the map of the world
+ * Center chunk starts at 0,0 (probably)
  */
 var WorldMap = /** @class */ (function () {
     /**
@@ -8841,7 +8876,9 @@ var WorldMap = /** @class */ (function () {
      * @param height Height of world
      */
     function WorldMap(width, height, length) {
-        this.lighting = [gl_matrix_1.vec3.fromValues(0, 100, 0)];
+        this.lights = [
+            new Light_1.Light(gl_matrix_1.vec3.fromValues(0, 100, 0), gl_matrix_1.vec3.fromValues(1, 1, 1), 1)
+        ];
         this.resolution = 64; //#of vertices square size of chunk
         this.width = width;
         this.length = length;
@@ -8856,6 +8893,10 @@ var WorldMap = /** @class */ (function () {
                 var _d = _c[_b], key = _d[0], val = _d[1];
                 this.fieldMap.set(key, val);
             }
+        }
+        for (var _e = 0, _f = this.chunks; _e < _f.length; _e++) {
+            var chunk = _f[_e];
+            chunk.setWorldFieldMap(this.fieldMap);
         }
     }
     //Generates map
@@ -8894,6 +8935,7 @@ var GameEngine_1 = __webpack_require__(/*! ../GameEngine */ "./src/GameEngine.ts
 var Mesh = /** @class */ (function () {
     function Mesh() {
         this.mesh = [];
+        this.normals = [];
         this.type = []; // To be used when terrain types are implemented
     }
     /**
@@ -8901,18 +8943,20 @@ var Mesh = /** @class */ (function () {
      * @param mesh2 Mesh to merge with the original one
      */
     Mesh.prototype.merge = function (mesh2) {
-        var _a, _b;
+        var _a, _b, _c;
         (_a = this.mesh).push.apply(_a, mesh2.mesh);
-        (_b = this.type).push.apply(_b, mesh2.type);
+        (_b = this.normals).push.apply(_b, mesh2.normals);
+        (_c = this.type).push.apply(_c, mesh2.type);
     };
     /**
      * Adds triangle to mesh
      * @param triangle The triangle to add
      * @param type (optional) the terrain types of the triangles to add
      */
-    Mesh.prototype.addTriangle = function (triangle, type) {
+    Mesh.prototype.addTriangle = function (triangle, normal, type) {
         if (type === void 0) { type = [0, 0, 0]; }
         this.mesh.push(triangle);
+        this.normals.push(normal);
         this.type.push(type);
     };
     /**
@@ -8922,7 +8966,7 @@ var Mesh = /** @class */ (function () {
     Mesh.prototype.copy = function () {
         var a = new Mesh();
         for (var i = 0; i < this.mesh.length; i++) {
-            a.addTriangle(this.mesh[i], this.type[i]);
+            a.addTriangle(this.mesh[i], this.normals[i], this.type[i]);
         }
         return a;
     };
@@ -9053,8 +9097,7 @@ exports.Mesh = Mesh;
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.meshToVerticesAndIndices = exports.calculateVertexNormals = exports.vertexKey = void 0;
-var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
+exports.meshToVerticesAndIndices = exports.vertexKey = void 0;
 var terrains_1 = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
 var GlUtils_1 = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
 var roundToPrecision = function (value, precision) {
@@ -9064,39 +9107,7 @@ var vertexKey = function (vertex) {
     return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
 };
 exports.vertexKey = vertexKey;
-var calculateTriangleNormal = function (triangle) {
-    var v1 = gl_matrix_1.vec3.sub(gl_matrix_1.vec3.create(), triangle[1], triangle[0]);
-    var v2 = gl_matrix_1.vec3.sub(gl_matrix_1.vec3.create(), triangle[2], triangle[0]);
-    var normal = gl_matrix_1.vec3.create();
-    gl_matrix_1.vec3.cross(normal, v1, v2);
-    gl_matrix_1.vec3.normalize(normal, normal);
-    return normal;
-};
-var calculateVertexNormals = function (mesh) {
-    var vertexNormals = new Map();
-    for (var _i = 0, _a = mesh.mesh; _i < _a.length; _i++) {
-        var triangle = _a[_i];
-        // Calculate the normal for the triangle
-        var normal = calculateTriangleNormal(triangle);
-        // Add the triangle's normal to each of its vertices
-        for (var _b = 0, triangle_1 = triangle; _b < triangle_1.length; _b++) {
-            var vertex = triangle_1[_b];
-            var key = (0, exports.vertexKey)(vertex); // Use the vertex position as a key
-            if (!vertexNormals.has(key)) {
-                vertexNormals.set(key, gl_matrix_1.vec3.create());
-            }
-            gl_matrix_1.vec3.add(vertexNormals.get(key), vertexNormals.get(key), normal);
-        }
-    }
-    // Normalize all vertex normals
-    for (var _c = 0, _d = Array.from(vertexNormals.entries()); _c < _d.length; _c++) {
-        var _e = _d[_c], key = _e[0], normal = _e[1];
-        gl_matrix_1.vec3.normalize(normal, normal);
-    }
-    return vertexNormals;
-};
-exports.calculateVertexNormals = calculateVertexNormals;
-var meshToVerticesAndIndices = function (mesh, vertexNormals) {
+var meshToVerticesAndIndices = function (mesh) {
     // For each vertex: x, y, z, r, g, b
     var vertexMap = new Map();
     var vertices = [];
@@ -9107,9 +9118,9 @@ var meshToVerticesAndIndices = function (mesh, vertexNormals) {
         var types = mesh.type[i];
         for (var j = 0; j < 3; j++) {
             var vertex = triangle[j];
+            var normal = mesh.normals[i][j];
             var key = (0, exports.vertexKey)(vertex);
             if (!vertexMap.has(key)) {
-                var normal = vertexNormals.get(key);
                 var type = terrains_1.Terrains[types[j]];
                 var color = GlUtils_1.GlUtils.getMeshColor(type);
                 vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255);
@@ -9440,6 +9451,7 @@ var cubes_utils_1 = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_ut
 //!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 var Chunk = /** @class */ (function () {
     function Chunk(ChunkPosition, GridSize, SimplexNoise) {
+        this.WorldFieldMap = new Map();
         this.GridSize = GridSize;
         this.ChunkPosition = ChunkPosition;
         this.SimplexNoise = SimplexNoise;
@@ -9451,6 +9463,9 @@ var Chunk = /** @class */ (function () {
             c[1] * (this.GridSize[0] + 1) +
             c[2] * (this.GridSize[0] + 1) * (this.GridSize[1] + 1));
     };
+    Chunk.prototype.setWorldFieldMap = function (worldFieldMap) {
+        this.WorldFieldMap = worldFieldMap;
+    };
     Chunk.prototype.generateFieldValues = function () {
         var field = new Float32Array((this.GridSize[0] + 1) * (this.GridSize[1] + 1) * (this.GridSize[2] + 1));
         for (var x = 0; x < this.GridSize[0] + 1; x++) {
@@ -9458,19 +9473,48 @@ var Chunk = /** @class */ (function () {
                 for (var z = 0; z < this.GridSize[2] + 1; z++) {
                     var c = gl_matrix_1.vec3.fromValues(x, y, z);
                     var idx = this.chunkCoordinateToIndex(c);
+                    gl_matrix_1.vec3.add(c, c, gl_matrix_1.vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1]));
                     var out = this.noiseFunction(c);
                     field[idx] = out;
-                    gl_matrix_1.vec3.add(c, c, gl_matrix_1.vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1]));
                     this.FieldMap.set((0, cubes_utils_1.vertexKey)(c), out);
                 }
             }
         }
         return field;
     };
+    Chunk.prototype.getFieldValueWithNeighbors = function (vertex) {
+        var _a;
+        gl_matrix_1.vec3.add(vertex, vertex, gl_matrix_1.vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1]));
+        var key = (0, cubes_utils_1.vertexKey)(vertex);
+        return (_a = this.WorldFieldMap.get(key)) !== null && _a !== void 0 ? _a : 0;
+    };
+    Chunk.prototype.calculateNormal = function (vertex) {
+        var delta = 1.0;
+        var normal = gl_matrix_1.vec3.create();
+        // Calculate gradients using central differences
+        // X gradient
+        var x1 = gl_matrix_1.vec3.fromValues(vertex[0] + delta, vertex[1], vertex[2]);
+        var x2 = gl_matrix_1.vec3.fromValues(vertex[0] - delta, vertex[1], vertex[2]);
+        normal[0] =
+            this.getFieldValueWithNeighbors(x1) - this.getFieldValueWithNeighbors(x2);
+        // Y gradient
+        var y1 = gl_matrix_1.vec3.fromValues(vertex[0], vertex[1] + delta, vertex[2]);
+        var y2 = gl_matrix_1.vec3.fromValues(vertex[0], vertex[1] - delta, vertex[2]);
+        normal[1] =
+            this.getFieldValueWithNeighbors(y1) - this.getFieldValueWithNeighbors(y2);
+        // Z gradient
+        var z1 = gl_matrix_1.vec3.fromValues(vertex[0], vertex[1], vertex[2] + delta);
+        var z2 = gl_matrix_1.vec3.fromValues(vertex[0], vertex[1], vertex[2] - delta);
+        normal[2] =
+            this.getFieldValueWithNeighbors(z1) - this.getFieldValueWithNeighbors(z2);
+        // Negate and normalize the normal
+        gl_matrix_1.vec3.negate(normal, normal);
+        gl_matrix_1.vec3.normalize(normal, normal);
+        return normal;
+    };
     Chunk.prototype.noiseFunction = function (c) {
         var frequency = 0.07;
         // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
-        gl_matrix_1.vec3.add(c, c, gl_matrix_1.vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])); // Offset the coordinates by the chunk position
         var SimplexNoise = this.SimplexNoise(c[0] * frequency, c[1] * frequency, c[2] * frequency);
         var normalizedNoise = (SimplexNoise + 1) / 2;
         // Encourage the surface to be closer to the ground
@@ -9533,10 +9577,11 @@ var Chunk = /** @class */ (function () {
             var triangleLookup = caseLookup_1[_i];
             // each triangle is represented as list of the three edges which it is located on
             // for now, place the actual triangle's vertices as the midpoint of the edge
-            var triangle = triangleLookup.map(function (edgeIndex) {
+            var vertices = triangleLookup.map(function (edgeIndex) {
                 return _this.edgeIndexToCoordinate(c, edgeIndex);
             });
-            caseMesh.addTriangle(triangle);
+            // Add triangle with both position and normal information
+            caseMesh.addTriangle(vertices.map(function (v) { return v.position; }), vertices.map(function (v) { return v.normal; }));
         }
         return caseMesh;
     };
@@ -9550,10 +9595,14 @@ var Chunk = /** @class */ (function () {
         // Is there a better way to write this? :/
         var weight1 = this.getTerrainValue(v1) - 0.5;
         var weight2 = this.getTerrainValue(v2) - 0.5;
+        var normal1 = this.calculateNormal(v1);
+        var normal2 = this.calculateNormal(v2);
         var lerpAmount = weight1 / (weight1 - weight2);
-        var edgeCoordinate = gl_matrix_1.vec3.create();
-        gl_matrix_1.vec3.lerp(edgeCoordinate, v1, v2, lerpAmount);
-        return edgeCoordinate;
+        var position = gl_matrix_1.vec3.create();
+        var normal = gl_matrix_1.vec3.create();
+        gl_matrix_1.vec3.lerp(position, v1, v2, lerpAmount);
+        gl_matrix_1.vec3.lerp(normal, normal1, normal2, lerpAmount);
+        return { position: position, normal: normal };
     };
     return Chunk;
 }());
@@ -9587,9 +9636,24 @@ exports.Color = Color;
  * The class for calculating the information for all our terrain types
  */
 exports.Terrains = {
-    0: { color: new Color(0, 255, 0), illuminosity: 1, reflectiveness: 0 },
-    1: { color: new Color(0, 0, 255), illuminosity: 1, reflectiveness: 0 },
-    2: { color: new Color(255, 0, 0), illuminosity: 1, reflectiveness: 0 }
+    0: {
+        color: new Color(0, 255, 0),
+        illuminosity: 1,
+        reflectiveness: 0.1,
+        roughness: 0.5
+    },
+    1: {
+        color: new Color(0, 0, 255),
+        illuminosity: 1,
+        reflectiveness: 0,
+        roughness: 0.5
+    },
+    2: {
+        color: new Color(255, 0, 0),
+        illuminosity: 1,
+        reflectiveness: 0,
+        roughness: 0.5
+    }
 };
 
 
@@ -9607,7 +9671,7 @@ exports.Camera = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var GameEngine_1 = __webpack_require__(/*! ../GameEngine */ "./src/GameEngine.ts");
 var Camera = /** @class */ (function () {
-    function Camera(position, world) {
+    function Camera(position) {
         this.sensitivity = 0.1;
         this.yaw = -90; // Left right rotation in degrees
         this.pitch = 0; // Up down rotation in degrees
@@ -9650,6 +9714,9 @@ var Camera = /** @class */ (function () {
         enumerable: false,
         configurable: true
     });
+    Camera.prototype.getPosition = function () {
+        return this.position;
+    };
     Camera.prototype.getViewMatrix = function () {
         var viewMatrix = gl_matrix_1.mat4.create();
         var target = gl_matrix_1.vec3.create();
@@ -9700,6 +9767,7 @@ exports.GLRenderer = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var GlUtils_1 = __webpack_require__(/*! ./GlUtils */ "./src/render/GlUtils.ts");
 var glsl_1 = __webpack_require__(/*! ./glsl */ "./src/render/glsl.ts");
+var Shader_1 = __webpack_require__(/*! ./Shader */ "./src/render/Shader.ts");
 var cubes_utils_1 = __webpack_require__(/*! ../map/cubes_utils */ "./src/map/cubes_utils.ts");
 var GLRenderer = /** @class */ (function () {
     function GLRenderer(gl, canvas, camera, debug, world) {
@@ -9720,11 +9788,10 @@ var GLRenderer = /** @class */ (function () {
         this.WireFrameCubes = [];
         var out = GlUtils_1.GlUtils.genTerrainVertices(this.world);
         var triangleMeshes = out.triangleMeshes;
-        var vertexNormals = out.vertexNormals;
         (_a = this.WireFrameCubes).push.apply(_a, out.WireFrameCubes);
         for (var i = 0; i < triangleMeshes.length; i++) {
             var Mesh = triangleMeshes[i];
-            var vertexData = (0, cubes_utils_1.meshToVerticesAndIndices)(Mesh, vertexNormals);
+            var vertexData = (0, cubes_utils_1.meshToVerticesAndIndices)(Mesh);
             // Add vertices
             triangleVertices = triangleVertices.concat(Array.from(vertexData.vertices));
             // Add indices with offset
@@ -9734,14 +9801,32 @@ var GLRenderer = /** @class */ (function () {
             indexOffset += vertexData.vertices.length / 9; // 9 components per vertex
         }
         this.MeshSize = triangleIndices.length;
-        // since we don't reuse any vertices right now, each index is unique
         this.TriangleBuffer = GlUtils_1.GlUtils.CreateStaticBuffer(gl, new Float32Array(triangleVertices), triangleIndices);
-        this.CubeShader = new glsl_1.Shader(gl, glsl_1.CubeVertexShaderCode, glsl_1.CubeFragmentShaderCode); //CubeShader is currently broken
-        this.MeshShader = new glsl_1.Shader(gl, glsl_1.MeshVertexShaderCode, glsl_1.MeshFragmentShaderCode);
+        this.CubeShader = new Shader_1.Shader(gl, glsl_1.CubeVertexShaderCode, glsl_1.CubeFragmentShaderCode);
+        this.MeshShader = new Shader_1.Shader(gl, glsl_1.MeshVertexShaderCode, glsl_1.MeshFragmentShaderCode);
         this.matViewProj = gl_matrix_1.mat4.create();
     }
+    GLRenderer.prototype.updateLights = function (lights) {
+        var _this = this;
+        // Set number of active lights
+        var numLightsLocation = this.gl.getUniformLocation(this.MeshShader.Program, "numActiveLights");
+        this.gl.uniform1i(numLightsLocation, lights.length);
+        // Update each light's data
+        lights.forEach(function (light, index) {
+            var baseUniform = "lights[".concat(index, "]");
+            var posLocation = _this.gl.getUniformLocation(_this.MeshShader.Program, "".concat(baseUniform, ".position"));
+            var colorLocation = _this.gl.getUniformLocation(_this.MeshShader.Program, "".concat(baseUniform, ".color"));
+            var intensityLocation = _this.gl.getUniformLocation(_this.MeshShader.Program, "".concat(baseUniform, ".intensity"));
+            var viewPositionLocation = _this.gl.getUniformLocation(_this.MeshShader.Program, "viewPosition");
+            _this.gl.uniform3fv(viewPositionLocation, _this.camera.getPosition());
+            _this.gl.uniform3fv(posLocation, light.position);
+            _this.gl.uniform3fv(colorLocation, light.color);
+            _this.gl.uniform1f(intensityLocation, light.intensity);
+        });
+    };
     GLRenderer.prototype.drawMesh = function (TransformationMatrix) {
         this.gl.useProgram(this.MeshShader.Program);
+        this.updateLights(this.world.lights);
         this.gl.uniformMatrix4fv(this.MeshShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
         this.gl.uniformMatrix4fv(this.MeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
         //Create vertice array object
@@ -9794,7 +9879,6 @@ exports.GlUtils = void 0;
 var gl_matrix_1 = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/index.js");
 var terrains_1 = __webpack_require__(/*! ../map/terrains */ "./src/map/terrains.ts");
 var Mesh_1 = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
-var cubes_utils_1 = __webpack_require__(/*! ../map/cubes_utils */ "./src/map/cubes_utils.ts");
 var GlUtils = /** @class */ (function () {
     function GlUtils() {
     }
@@ -9810,7 +9894,6 @@ var GlUtils = /** @class */ (function () {
             console.error("Failed to link GPU program: ".concat(errorMessage));
             return;
         }
-        gl.useProgram(Program);
         return Program;
     };
     GlUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
@@ -10019,8 +10102,7 @@ var GlUtils = /** @class */ (function () {
             triangleMeshes.push(triangleMesh); // Store the chunk's mesh
             WireFrameCubes.push(GlUtils.createRectangularPrismWireframe(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), gl_matrix_1.vec3.fromValues(world.resolution, world.height, world.resolution)));
         }
-        var vertexNormals = (0, cubes_utils_1.calculateVertexNormals)(mainMesh);
-        return { triangleMeshes: triangleMeshes, vertexNormals: vertexNormals, WireFrameCubes: WireFrameCubes };
+        return { triangleMeshes: triangleMeshes, WireFrameCubes: WireFrameCubes };
     };
     ///////////////////////Texture Utilities/////////////////////
     /**
@@ -10086,20 +10168,16 @@ exports.GlUtils = GlUtils;
 
 /***/ }),
 
-/***/ "./src/render/glsl.ts":
-/*!****************************!*\
-  !*** ./src/render/glsl.ts ***!
-  \****************************/
+/***/ "./src/render/Shader.ts":
+/*!******************************!*\
+  !*** ./src/render/Shader.ts ***!
+  \******************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Shader = exports.MeshFragmentShaderCode = exports.MeshVertexShaderCode = exports.CubeFragmentShaderCode = exports.CubeVertexShaderCode = void 0;
+exports.Shader = void 0;
 var GlUtils_1 = __webpack_require__(/*! ./GlUtils */ "./src/render/GlUtils.ts");
-exports.CubeVertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-exports.CubeFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1);\n}";
-exports.MeshVertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexNormal;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nout vec3 fragmentNormal;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  fragmentNormal = VertexNormal;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-exports.MeshFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nin vec3 fragmentNormal;\nout vec4 outputColor;\n\nvoid main() {\n  vec3 lightColor = vec3(1.0, 1.0, 1.0);\n  vec3 lightSource = vec3(0.0, 1.0, 0.0);\n  //idk if the normals are normalized when inputted.\n  float diffuseStrength = max(dot(normalize(fragmentNormal), normalize(lightSource)), 0.2);\n  vec3 diffuseColor = diffuseStrength * lightColor;\n  vec3 lighting = diffuseColor;\n  outputColor = vec4(pow(fragmentColor*lighting,vec3(1.0 / 2.2)), 1);\n\n}";
 var Shader = /** @class */ (function () {
     function Shader(gl, VertexShaderCode, FragmentShaderCode) {
         this.VertexShaderCode = VertexShaderCode;
@@ -10149,6 +10227,23 @@ var Shader = /** @class */ (function () {
     return Shader;
 }());
 exports.Shader = Shader;
+
+
+/***/ }),
+
+/***/ "./src/render/glsl.ts":
+/*!****************************!*\
+  !*** ./src/render/glsl.ts ***!
+  \****************************/
+/***/ ((__unused_webpack_module, exports) => {
+
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.MeshFragmentShaderCode = exports.MeshVertexShaderCode = exports.CubeFragmentShaderCode = exports.CubeVertexShaderCode = void 0;
+exports.CubeVertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
+exports.CubeFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1);\n}";
+exports.MeshVertexShaderCode = "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nstruct Light {\n    vec3 position;\n    vec3 color;\n    float intensity;\n};\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nin vec4 VertexPosition;\nin vec3 VertexNormal;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nout vec3 fragmentNormal;\nout vec3 fragmentPosition;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  fragmentNormal = VertexNormal;\n  fragmentPosition = VertexPosition.xyz;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
+exports.MeshFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\n// Define the light structure\nstruct Light {\n    vec3 position;\n    vec3 color;\n    float intensity;\n};\n\n// Declare uniform array of lights and light count\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 viewPosition; // Camera position for lighting calculations\nin vec3 fragmentColor;\nin vec3 fragmentNormal;\nin vec3 fragmentPosition;\nout vec4 outputColor;\n\nvoid main() {\n    vec3 specular = vec3(0.0);\n    vec3 totalDiffuse = vec3(0.0);\n    vec3 normal = normalize(fragmentNormal);\n    float metalic = 0.2; // Will be changed to input value later\n    int metallicValue = int(mix(32.0, 128.0, clamp(metalic, 0.0, 1.0)));// Shininess factor for specular highlights\n    float roughnessValue = 0.8; // Roughness factor for diffuse lighting, will be changed to input value later\n    // Calculate lighting contribution from each light\n    for(int i = 0; i < MAX_LIGHTS; i++) {\n        if(i >= numActiveLights) break;\n        \n        vec3 lightDir = normalize(lights[i].position - fragmentPosition);\n        float diffuseStrength = max(dot(normal, lightDir), 0.2);\n        totalDiffuse += diffuseStrength * lights[i].color * lights[i].intensity;\n          // View and halfway vector for Blinn-Phong\n          vec3 viewDir = normalize(viewPosition - fragmentPosition);\n          vec3 halfwayDir = normalize(lightDir + viewDir);\n\n          float spec = pow(max(dot(normal, halfwayDir), 0.0), float(metallicValue));\n          specular+= spec * lights[i].color * lights[i].intensity* (1.0 - roughnessValue); // Specular highlight\n    }\n    \n    // Apply lighting and gamma correction\n    vec3 lighting = totalDiffuse + specular;\n    vec3 finalColor = fragmentColor * lighting;\n    \n    // Apply gamma correction component-wise\n    finalColor = vec3(pow(finalColor.r, 1.0 / 2.2), pow(finalColor.g, 1.0 / 2.2), pow(finalColor.b, 1.0 / 2.2));\n    \n    outputColor = vec4(finalColor, 1.0);\n}";
 
 
 /***/ })
@@ -10226,7 +10321,7 @@ exports.Shader = Shader;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("13224b948fbcb67767ee")
+/******/ 		__webpack_require__.h = () => ("3de1057275474591a6c0")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */
