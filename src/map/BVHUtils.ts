@@ -81,8 +81,8 @@ export class BVHUtils {
    * are stored sequentially in the output array. The array is padded to ensure its length
    * is a multiple of `floatsPerTexel`.
    *
-   * @returns {Float32Array} A packed array containing the terrain types' color (r, g, b),
-   * illuminosity, and reflectiveness values.
+   * @returns {Float32Array} A packed array containing the terrain types' properties.
+   * 
    */
   static packTerrainTypes() {
     let floatsPerTexel = 4;
@@ -96,8 +96,8 @@ export class BVHUtils {
       out[i * 5] = terrain.color.r;
       out[i * 5 + 1] = terrain.color.g;
       out[i * 5 + 2] = terrain.color.b;
-      out[i * 5 + 3] = terrain.illuminosity;
-      out[i * 5 + 4] = terrain.reflectiveness;
+      out[i * 5 + 3] = terrain.reflectiveness;
+      out[i * 5 + 4] = terrain.roughness;
       i++;
     }
     return out;

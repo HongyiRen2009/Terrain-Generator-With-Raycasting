@@ -167,16 +167,6 @@ export class GlUtils {
     return cubeVao;
   }
 
-  static getMeshColor(terrain: Terrain) {
-    //TODO: Implement everything, tune models
-    const color = terrain.color;
-    return new Color(
-      color.r * terrain.illuminosity,
-      color.g * terrain.illuminosity,
-      color.b * terrain.illuminosity
-    );
-  }
-
   /**
    * Calculates the wireframe of a rectangular prism
    * @param position A vec3 of the position of the rectangular

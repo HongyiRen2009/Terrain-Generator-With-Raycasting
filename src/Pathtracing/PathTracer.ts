@@ -144,6 +144,9 @@ export class PathTracer {
     );
     this.gl.uniformMatrix4fv(invVpLoc, false, invViewProjMatrix);
 
+    //put lights in the shader
+    GlUtils.updateLights(this.gl, this.shader.Program!, this.world.lights);
+
     // Draw
     this.gl.clearColor(0, 0, 0, 1);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);

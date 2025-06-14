@@ -54,8 +54,8 @@ struct Triangle{
 
 struct TerrainType{
     vec3 color;
-    float illuminosity; // Decimal 0-1
     float reflectiveness; // Decimal 0-1   
+    float roughness; // Decimal 0-1
 };
 
 
@@ -134,8 +134,9 @@ TerrainType getTerrainType(int i){
     TerrainType t;
     int terrainTypeSize = 5;
     t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));
-    t.illuminosity = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); 
-    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); 
+    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); 
+    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); 
+
     return t;
 }
 
@@ -259,12 +260,6 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
             baryCentric.y * tri.normals[1] +
             baryCentric.z * tri.normals[2]
         );
-
-        vec3 lightColor = vec3(1.0, 1.0, 1.0);
-        vec3 lightSource = vec3(0.0, 1.0, 0.0); //TODO: Light sources
-        float diffuseStrength = max(dot(normalize(smoothNormal), normalize(lightSource)), 0.2);
-        vec3 diffuseColor = diffuseStrength * lightColor;
-        vec3 lighting = diffuseColor;
         vec3 matColor = normalize(
             (
                 baryCentric.x*getTerrainType(tri.types[0]).color +
@@ -272,6 +267,12 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
                 baryCentric.z*getTerrainType(tri.types[2]).color
             ) / 3.0
         ); // Average terrain type for color (for now)
+
+        vec3 lightColor = vec3(1.0, 1.0, 1.0);
+        vec3 lightSource = vec3(0.0, 1.0, 0.0); //TODO: Light sources
+        float diffuseStrength = max(dot(normalize(smoothNormal), normalize(lightSource)), 0.2);
+        vec3 diffuseColor = diffuseStrength * lightColor;
+        vec3 lighting = diffuseColor;
         color = vec4(pow(matColor*lighting,vec3(1.0 / 2.2)), 1);
     }else{
         color = vec4(0.0, 0.0, 0.0, 1.0); // background color

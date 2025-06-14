@@ -26,7 +26,7 @@ export const meshToVerticesAndIndices = (
       const key = vertexKey(vertex);
       if (!vertexMap.has(key)) {
         const type = Terrains[types[j]];
-        const color = GlUtils.getMeshColor(type);
+        const color = type.color;
         vertices.push(
           vertex[0],
           vertex[1],
