@@ -3,19 +3,20 @@
 import { createNoise3D, NoiseFunction3D } from "simplex-noise";
 import { Chunk } from "./marching_cubes";
 import { vec2, vec3 } from "gl-matrix";
-
-//Check README for implementation pattern
-//Center chunk starts at 0,0 (probably)
+import { Light } from "./Light";
 
 /**
  * The object holding the map of the world
+ * Center chunk starts at 0,0 (probably)
  */
 export class WorldMap {
   //In Chunks
   //Unused for now: placeholders and use them when actually implemented
   private width: number;
   private length: number;
-  private lighting: vec3[] = [vec3.fromValues(0, 100, 0)];
+  public lights: Light[] = [
+    new Light(vec3.fromValues(0, 100, 0), vec3.fromValues(1, 1, 1), 1)
+  ];
 
   public height: number;
   public resolution = 64; //#of vertices square size of chunk
@@ -42,6 +43,9 @@ export class WorldMap {
       for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
         this.fieldMap.set(key, val);
       }
+    }
+    for (const chunk of this.chunks) {
+      chunk.setWorldFieldMap(this.fieldMap);
     }
   }
 

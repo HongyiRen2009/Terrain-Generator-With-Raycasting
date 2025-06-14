@@ -34,6 +34,7 @@ export interface flatBVHNode {
  */
 export class Mesh {
   public mesh: Triangle[] = [];
+  public normals: Triangle[] = [];
   public type: [number, number, number][] = []; // To be used when terrain types are implemented
   constructor() {}
 
@@ -43,6 +44,7 @@ export class Mesh {
    */
   merge(mesh2: Mesh) {
     this.mesh.push(...mesh2.mesh);
+    this.normals.push(...mesh2.normals);
     this.type.push(...mesh2.type);
   }
 
@@ -51,8 +53,13 @@ export class Mesh {
    * @param triangle The triangle to add
    * @param type (optional) the terrain types of the triangles to add
    */
-  addTriangle(triangle: Triangle, type: [number, number, number] = [0, 0, 0]) {
+  addTriangle(
+    triangle: Triangle,
+    normal: Triangle,
+    type: [number, number, number] = [0, 0, 0]
+  ) {
     this.mesh.push(triangle);
+    this.normals.push(normal);
     this.type.push(type);
   }
   /**
@@ -62,7 +69,7 @@ export class Mesh {
   copy() {
     const a = new Mesh();
     for (let i = 0; i < this.mesh.length; i++) {
-      a.addTriangle(this.mesh[i], this.type[i]);
+      a.addTriangle(this.mesh[i], this.normals[i], this.type[i]);
     }
     return a;
   }

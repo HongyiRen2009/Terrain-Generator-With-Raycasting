@@ -4,13 +4,14 @@ import {
   CubeFragmentShaderCode,
   CubeVertexShaderCode,
   MeshFragmentShaderCode,
-  MeshVertexShaderCode,
-  Shader
+  MeshVertexShaderCode
 } from "./glsl";
+import { Shader } from "./Shader";
 import { Camera } from "./Camera";
 import { meshToVerticesAndIndices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
+import { Light } from "../map/Light";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -56,12 +57,11 @@ export class GLRenderer {
 
     const out = GlUtils.genTerrainVertices(this.world);
     let triangleMeshes = out.triangleMeshes;
-    let vertexNormals = out.vertexNormals;
     this.WireFrameCubes.push(...out.WireFrameCubes);
 
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
-      const vertexData = meshToVerticesAndIndices(Mesh, vertexNormals);
+      const vertexData = meshToVerticesAndIndices(Mesh);
 
       // Add vertices
       triangleVertices = triangleVertices.concat(
@@ -78,7 +78,6 @@ export class GLRenderer {
       indexOffset += vertexData.vertices.length / 9; // 9 components per vertex
     }
     this.MeshSize = triangleIndices.length;
-    // since we don't reuse any vertices right now, each index is unique
 
     this.TriangleBuffer = GlUtils.CreateStaticBuffer(
       gl,
@@ -90,7 +89,7 @@ export class GLRenderer {
       gl,
       CubeVertexShaderCode,
       CubeFragmentShaderCode
-    ); //CubeShader is currently broken
+    );
     this.MeshShader = new Shader(
       gl,
       MeshVertexShaderCode,
@@ -99,9 +98,43 @@ export class GLRenderer {
 
     this.matViewProj = mat4.create();
   }
+  updateLights(lights: Array<Light>) {
+    // Set number of active lights
+    const numLightsLocation = this.gl.getUniformLocation(
+      this.MeshShader.Program!,
+      "numActiveLights"
+    );
+    this.gl.uniform1i(numLightsLocation, lights.length);
 
+    // Update each light's data
+    lights.forEach((light, index) => {
+      const baseUniform = `lights[${index}]`;
+
+      const posLocation = this.gl.getUniformLocation(
+        this.MeshShader.Program!,
+        `${baseUniform}.position`
+      );
+      const colorLocation = this.gl.getUniformLocation(
+        this.MeshShader.Program!,
+        `${baseUniform}.color`
+      );
+      const intensityLocation = this.gl.getUniformLocation(
+        this.MeshShader.Program!,
+        `${baseUniform}.intensity`
+      );
+      const viewPositionLocation = this.gl.getUniformLocation(
+        this.MeshShader.Program!,
+        "viewPosition"
+      );
+      this.gl.uniform3fv(viewPositionLocation, this.camera.getPosition());
+      this.gl.uniform3fv(posLocation, light.position);
+      this.gl.uniform3fv(colorLocation, light.color);
+      this.gl.uniform1f(intensityLocation, light.intensity);
+    });
+  }
   drawMesh(TransformationMatrix: mat4) {
     this.gl.useProgram(this.MeshShader.Program!);
+    this.updateLights(this.world.lights);
     this.gl.uniformMatrix4fv(
       this.MeshShader.VertexUniforms["MatrixTransform"].location,
       false,

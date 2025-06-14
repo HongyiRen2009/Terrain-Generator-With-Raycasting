@@ -1,5 +1,5 @@
 import { vec3 } from "gl-matrix";
-import { Mesh, Triangle } from "./Mesh";
+import { Mesh } from "./Mesh";
 import { Terrains } from "./terrains";
 import { GlUtils } from "../render/GlUtils";
 
@@ -9,42 +9,8 @@ const roundToPrecision = (value: number, precision: number): number =>
 export const vertexKey = (vertex: vec3): string =>
   `${roundToPrecision(vertex[0], 1e2)},${roundToPrecision(vertex[1], 1e2)},${roundToPrecision(vertex[2], 1e2)}`;
 
-const calculateTriangleNormal = (triangle: Triangle): vec3 => {
-  const v1 = vec3.sub(vec3.create(), triangle[1], triangle[0]);
-  const v2 = vec3.sub(vec3.create(), triangle[2], triangle[0]);
-  const normal = vec3.create();
-  vec3.cross(normal, v1, v2);
-  vec3.normalize(normal, normal);
-  return normal;
-};
-
-export const calculateVertexNormals = (mesh: Mesh): Map<string, vec3> => {
-  const vertexNormals = new Map<string, vec3>();
-
-  for (const triangle of mesh.mesh) {
-    // Calculate the normal for the triangle
-    const normal = calculateTriangleNormal(triangle);
-
-    // Add the triangle's normal to each of its vertices
-    for (const vertex of triangle) {
-      const key = vertexKey(vertex); // Use the vertex position as a key
-      if (!vertexNormals.has(key)) {
-        vertexNormals.set(key, vec3.create());
-      }
-      vec3.add(vertexNormals.get(key)!, vertexNormals.get(key)!, normal);
-    }
-  }
-  // Normalize all vertex normals
-  for (const [key, normal] of Array.from(vertexNormals.entries())) {
-    vec3.normalize(normal, normal);
-  }
-
-  return vertexNormals;
-};
-
 export const meshToVerticesAndIndices = (
-  mesh: Mesh,
-  vertexNormals: Map<string, vec3>
+  mesh: Mesh
 ): { vertices: Float32Array; indices: Uint32Array } => {
   // For each vertex: x, y, z, r, g, b
   const vertexMap = new Map<string, number>();
@@ -56,10 +22,9 @@ export const meshToVerticesAndIndices = (
     const types = mesh.type[i];
     for (let j = 0; j < 3; j++) {
       const vertex = triangle[j];
+      const normal = mesh.normals[i][j];
       const key = vertexKey(vertex);
       if (!vertexMap.has(key)) {
-        const normal = vertexNormals.get(key)!;
-
         const type = Terrains[types[j]];
         const color = GlUtils.getMeshColor(type);
         vertices.push(

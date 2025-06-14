@@ -11,6 +11,7 @@ export class Chunk {
   Field: Float32Array;
   SimplexNoise: NoiseFunction3D;
   FieldMap: Map<string, number>;
+  WorldFieldMap: Map<string, number> = new Map<string, number>();
 
   constructor(
     ChunkPosition: vec2,
@@ -31,7 +32,9 @@ export class Chunk {
       c[2] * (this.GridSize[0] + 1) * (this.GridSize[1] + 1)
     );
   }
-
+  setWorldFieldMap(worldFieldMap: Map<string, number>) {
+    this.WorldFieldMap = worldFieldMap;
+  }
   generateFieldValues(): Float32Array {
     const field = new Float32Array(
       (this.GridSize[0] + 1) * (this.GridSize[1] + 1) * (this.GridSize[2] + 1)
@@ -43,13 +46,14 @@ export class Chunk {
           let c = vec3.fromValues(x, y, z);
 
           const idx = this.chunkCoordinateToIndex(c);
-          const out = this.noiseFunction(c);
-          field[idx] = out;
           vec3.add(
             c,
             c,
             vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
           );
+          const out = this.noiseFunction(c);
+          field[idx] = out;
+
           this.FieldMap.set(vertexKey(c), out);
         }
       }
@@ -57,15 +61,48 @@ export class Chunk {
 
     return field;
   }
+  getFieldValueWithNeighbors(vertex: vec3): number {
+    vec3.add(
+      vertex,
+      vertex,
+      vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
+    );
+    const key = vertexKey(vertex);
+    return this.WorldFieldMap.get(key) ?? 0;
+  }
 
+  calculateNormal(vertex: vec3): vec3 {
+    const delta = 1.0;
+    const normal = vec3.create();
+
+    // Calculate gradients using central differences
+    // X gradient
+    const x1 = vec3.fromValues(vertex[0] + delta, vertex[1], vertex[2]);
+    const x2 = vec3.fromValues(vertex[0] - delta, vertex[1], vertex[2]);
+    normal[0] =
+      this.getFieldValueWithNeighbors(x1) - this.getFieldValueWithNeighbors(x2);
+
+    // Y gradient
+    const y1 = vec3.fromValues(vertex[0], vertex[1] + delta, vertex[2]);
+    const y2 = vec3.fromValues(vertex[0], vertex[1] - delta, vertex[2]);
+    normal[1] =
+      this.getFieldValueWithNeighbors(y1) - this.getFieldValueWithNeighbors(y2);
+
+    // Z gradient
+    const z1 = vec3.fromValues(vertex[0], vertex[1], vertex[2] + delta);
+    const z2 = vec3.fromValues(vertex[0], vertex[1], vertex[2] - delta);
+    normal[2] =
+      this.getFieldValueWithNeighbors(z1) - this.getFieldValueWithNeighbors(z2);
+
+    // Negate and normalize the normal
+    vec3.negate(normal, normal);
+    vec3.normalize(normal, normal);
+
+    return normal;
+  }
   noiseFunction(c: vec3): number {
     const frequency = 0.07;
     // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
-    vec3.add(
-      c,
-      c,
-      vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
-    ); // Offset the coordinates by the chunk position
     const SimplexNoise = this.SimplexNoise(
       c[0] * frequency,
       c[1] * frequency,
@@ -149,16 +186,22 @@ export class Chunk {
     for (const triangleLookup of caseLookup) {
       // each triangle is represented as list of the three edges which it is located on
       // for now, place the actual triangle's vertices as the midpoint of the edge
-      let triangle = triangleLookup.map((edgeIndex) =>
+      const vertices = triangleLookup.map((edgeIndex) =>
         this.edgeIndexToCoordinate(c, edgeIndex)
-      ) as Triangle;
-      caseMesh.addTriangle(triangle);
-    }
+      );
 
+      // Add triangle with both position and normal information
+      caseMesh.addTriangle(
+        vertices.map((v) => v.position) as Triangle,
+        vertices.map((v) => v.normal) as Triangle
+      );
+    }
     return caseMesh;
   }
-
-  edgeIndexToCoordinate(c: vec3, edgeIndex: number): vec3 {
+  edgeIndexToCoordinate(
+    c: vec3,
+    edgeIndex: number
+  ): { position: vec3; normal: vec3 } {
     const [a, b] = EDGES[edgeIndex];
 
     const v1 = vec3.fromValues(...VERTICES[a]);
@@ -171,13 +214,15 @@ export class Chunk {
     // Is there a better way to write this? :/
     const weight1 = this.getTerrainValue(v1) - 0.5;
     const weight2 = this.getTerrainValue(v2) - 0.5;
-
+    const normal1 = this.calculateNormal(v1);
+    const normal2 = this.calculateNormal(v2);
     const lerpAmount = weight1 / (weight1 - weight2);
 
-    let edgeCoordinate = vec3.create();
+    let position = vec3.create();
+    let normal = vec3.create();
 
-    vec3.lerp(edgeCoordinate, v1, v2, lerpAmount);
-
-    return edgeCoordinate;
+    vec3.lerp(position, v1, v2, lerpAmount);
+    vec3.lerp(normal, normal1, normal2, lerpAmount);
+    return { position, normal };
   }
 }

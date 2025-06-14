@@ -1,6 +1,5 @@
 import { glMatrix, mat4, vec3 } from "gl-matrix";
 import { GameEngine } from "../GameEngine";
-import { WorldMap } from "../map/Map";
 
 export class Camera {
   position: vec3;
@@ -12,7 +11,7 @@ export class Camera {
   right = vec3.fromValues(1, 0, 0);
   up = vec3.fromValues(0, 1, 0);
   speed: number;
-  constructor(position: vec3, world: WorldMap) {
+  constructor(position: vec3) {
     this.position = position;
 
     this.UpdateCameraVectors();
@@ -37,6 +36,9 @@ export class Camera {
   }
   set ZPosition(value) {
     this.position[2] = value;
+  }
+  getPosition() {
+    return this.position;
   }
   getViewMatrix() {
     let viewMatrix = mat4.create();
