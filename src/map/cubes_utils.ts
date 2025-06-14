@@ -1,8 +1,7 @@
 import { vec3 } from "gl-matrix";
-import { Mesh, Triangle } from "./Mesh";
+import { Mesh } from "./Mesh";
 import { Terrains } from "./terrains";
 import { GlUtils } from "../render/GlUtils";
-import { NoiseFunction3D } from "simplex-noise";
 
 const roundToPrecision = (value: number, precision: number): number =>
   Math.round(value * precision) / precision;

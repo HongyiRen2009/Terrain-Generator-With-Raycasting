@@ -4,7 +4,7 @@ import { mat4, vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
-import { Shader } from "../render/glsl";
+import { Shader } from "../render/Shader";
 import { GlUtils, WireFrameCube } from "../render/GlUtils";
 import { DebugMenu } from "../DebugMenu";
 import {

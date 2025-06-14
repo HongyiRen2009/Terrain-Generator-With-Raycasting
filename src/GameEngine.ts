@@ -55,7 +55,7 @@ export class GameEngine {
     this.world = new WorldMap(1000, 64, 1000);
 
     //Initialize Camera
-    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3), this.world);
+    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3));
 
     //Initialize Renderer
     this.renderer = new GLRenderer(

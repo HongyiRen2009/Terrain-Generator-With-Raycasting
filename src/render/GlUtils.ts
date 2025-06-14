@@ -1,7 +1,7 @@
 import { mat4, vec3 } from "gl-matrix";
 import { Color, Terrain, Terrains } from "../map/terrains";
-import { Shader } from "./glsl";
-import { flatBVHNode, Mesh, Triangle } from "../map/Mesh";
+import { Shader } from "./Shader";
+import { Mesh } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
 
 export type WireFrameCube = {

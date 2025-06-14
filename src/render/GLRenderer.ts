@@ -5,12 +5,13 @@ import {
   CubeVertexShaderCode,
   MeshFragmentShaderCode,
   MeshVertexShaderCode,
-  Shader
 } from "./glsl";
+import { Shader } from "./Shader";
 import { Camera } from "./Camera";
 import { meshToVerticesAndIndices } from "../map/cubes_utils";
-import { light, WorldMap } from "../map/Map";
+import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
+import { Light } from "../map/Light";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -97,7 +98,7 @@ export class GLRenderer {
 
     this.matViewProj = mat4.create();
   }
-  updateLights(lights: Array<light>) {
+  updateLights(lights: Array<Light>) {
     // Set number of active lights
     const numLightsLocation = this.gl.getUniformLocation(
       this.MeshShader.Program!,

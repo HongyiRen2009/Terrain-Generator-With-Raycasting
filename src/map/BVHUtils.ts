@@ -1,6 +1,10 @@
 import { flatBVHNode, Triangle } from "./Mesh";
 import { Terrains } from "./terrains";
 
+
+/**
+ * Utility class for packing BVH and triangle data into Float32Arrays for GPU processing.
+ */
 export class BVHUtils {
   /**
    * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
