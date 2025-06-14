@@ -22,6 +22,8 @@ out vec4 outputColor;
 void main() {
   outputColor = vec4(fragmentColor, 1);
 }`;
+//
+
 export const MeshVertexShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 //If you see lessons that use attribute, that's an old version of Webgl
@@ -49,6 +51,7 @@ void main() {
 }
 `;
 
+//
 export const MeshFragmentShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 
