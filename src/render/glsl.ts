@@ -31,6 +31,7 @@ struct Light {
     vec3 position;
     vec3 color;
     float intensity;
+    float radius;
 };
 #define MAX_LIGHTS 100
 uniform Light lights[MAX_LIGHTS];
@@ -60,6 +61,7 @@ struct Light {
     vec3 position;
     vec3 color;
     float intensity;
+    float radius;
 };
 
 // Declare uniform array of lights and light count

@@ -27,6 +27,7 @@ struct Light {
     vec3 position;
     vec3 color;
     float intensity;
+    float radius;
 };
 uniform Light lights[MAX_LIGHTS];
 uniform int numActiveLights;
@@ -194,13 +195,53 @@ float intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 bary
     return -1.0; // This means that there is a line intersection but not a ray intersection.
 }
 
+//AI written; Returns distance to intersection with light sphere
+float intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {
+    vec3 oc = rayOrigin - light.position; 
+
+    // The coefficients of the quadratic equation (at^2 + bt + c = 0)
+    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir
+    float b = 2.0 * dot(oc, rayDir);
+    float c = dot(oc, oc) - light.radius * light.radius;
+
+    float discriminant = b*b - 4.0*a*c;
+
+    // If the discriminant is negative, the ray misses the sphere.
+    if (discriminant < 0.0) {
+        return -1.0;
+    }
+
+    float sqrt_d = sqrt(discriminant);
+
+    // Calculate the two potential intersection distances (solutions for t)
+    float t0 = (-b - sqrt_d) / (2.0 * a);
+    float t1 = (-b + sqrt_d) / (2.0 * a);
+
+    // We need the smallest, positive t value.
+    // Check the closer intersection point (t0) first.
+    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts
+        vec3 hitPoint = rayOrigin + t0 * rayDir;
+        hitNormal = normalize(hitPoint - light.position);
+        return t0;
+    }
+    // If t0 was behind the ray, check the farther intersection point (t1).
+    // This case occurs if the ray starts inside the sphere.
+    else if (t1 > 0.001) {
+        vec3 hitPoint = rayOrigin + t1 * rayDir;
+        hitNormal = normalize(hitPoint - light.position);
+        return t1;
+    }
+
+    // Both intersection points are behind the ray's origin.
+    return -1.0;
+}
 
 /**
  * Returns TRIANGLE index
  */
-int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric) {
+int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {
     int closestHitIndex = -1;
-    float minHitDistance = 1.0/0.0; // Infinity
+    minHitDistance = 1.0/0.0; // Infinity
 
     int stack[64]; // Stack of 64 - May need to change for larger BVH later
     int stackPtr = 0;
@@ -265,7 +306,8 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
     bool hit = false;
     vec4 color = vec4(0.0);
     vec3 baryCentric;
-    int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric); // Start traversing from the root BVH node
+    float minHitDistance;
+    int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance); // Start traversing from the root BVH node
     if(triIndex != -1){
         Triangle tri = getTriangle(triIndex);
         vec3[3] colors = vec3[3](
@@ -296,7 +338,7 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
         vec3 specular = vec3(0.0);
         // View for Blinn-Phong
         vec3 viewDir = normalize(u_cameraPos - pos);
-        
+    
         for(int i = 0; i < numActiveLights; i++) {
             vec3 lightDir = normalize(lights[i].position - pos);
             float diffuseStrength = max(dot(smoothNormal, lightDir), 0.2);
@@ -305,7 +347,9 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
             vec3 halfwayDir = normalize(lightDir + viewDir);
             float spec = pow(max(dot(smoothNormal, halfwayDir), 0.0), matReflectivity);
             specular+= spec * lights[i].color * lights[i].intensity* (1.0 - matRoughness); // Specular highlight
+            
         }
+
         // Apply lighting and gamma correction
         vec3 lighting = totalDiffuse + specular;
         vec3 finalColor = matColor * lighting;
@@ -314,8 +358,21 @@ vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
         finalColor = vec3(pow(finalColor.r, 1.0 / 2.2), pow(finalColor.g, 1.0 / 2.2), pow(finalColor.b, 1.0 / 2.2));
         
         color = vec4(finalColor, 1.0);
+     
     }else{
         color = vec4(0.0, 0.0, 0.0, 1.0); // background color
+    }
+    int hitLight = -1;
+    for(int i = 0; i < numActiveLights; i++) {
+        vec3 lightHitNormal;
+        float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);
+        if(lightHitDistance > 0.0 && lightHitDistance < minHitDistance){
+            hitLight = i;
+            minHitDistance = lightHitDistance;
+        }
+    }
+    if(hitLight != -1){
+        color = vec4(lights[hitLight].color, 1.0) * lights[hitLight].intensity;
     }
 
     return color; 

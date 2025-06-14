@@ -3,6 +3,8 @@ import { Color, Terrain, Terrains } from "../map/terrains";
 import { Shader } from "./Shader";
 import { flatBVHNode, Mesh, Triangle } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
+import { Light } from "../map/Light";
+import { Camera } from "./Camera";
 
 export type WireFrameCube = {
   positions: Float32Array<ArrayBuffer>;
@@ -299,7 +301,101 @@ export class GlUtils {
 
     return vao;
   }
+  static create3dPosColorInterleavedVao(
+    gl: WebGL2RenderingContext,
+    vertexBuffer: WebGLBuffer,
+    indexBuffer: WebGLBuffer,
+    posAttrib: number,
+    colorAttrib: number,
+    normalAttrib = -1
+  ) {
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
 
+    gl.enableVertexAttribArray(posAttrib);
+    gl.enableVertexAttribArray(colorAttrib);
+
+    // Interleaved format: (x, y, z,nx, ny, nz, r, g, b) (all f32)
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+    gl.vertexAttribPointer(
+      posAttrib,
+      3,
+      gl.FLOAT,
+      false,
+      9 * Float32Array.BYTES_PER_ELEMENT,
+      0
+    );
+
+    if (normalAttrib !== -1) {
+      gl.enableVertexAttribArray(normalAttrib);
+      gl.vertexAttribPointer(
+        normalAttrib,
+        3,
+        gl.FLOAT,
+        false,
+        9 * Float32Array.BYTES_PER_ELEMENT,
+        3 * Float32Array.BYTES_PER_ELEMENT
+      );
+    }
+
+    gl.vertexAttribPointer(
+      colorAttrib,
+      3,
+      gl.FLOAT,
+      false,
+      9 * Float32Array.BYTES_PER_ELEMENT,
+      6 * Float32Array.BYTES_PER_ELEMENT
+    );
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bindVertexArray(null);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // Not sure if necessary, but not a bad idea.
+
+    return vao;
+  }
+  /**
+   * Calculates the vao for the cube
+   * @param gl The WEBGL context
+   * @param CubeShader The shader for the wireframe cubes
+   * @param cube The cube to draw
+   * @returns The VertexArray (Vao)
+   */
+  static createCubeVao(
+    gl: WebGL2RenderingContext,
+    CubeShader: Shader,
+    cube: WireFrameCube
+  ) {
+    const cubeVao = gl.createVertexArray()!;
+    gl.bindVertexArray(cubeVao); // ✅ Bind VAO first!
+
+    // --- Position buffer
+    const positionBuffer = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, cube.positions, gl.STATIC_DRAW);
+
+    const positionLoc = CubeShader.VertexInputs["VertexPosition"].location;
+    gl.enableVertexAttribArray(positionLoc);
+    gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+
+    // --- Color buffer
+    const colorBuffer = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, cube.colors, gl.STATIC_DRAW);
+
+    const colorLoc = CubeShader.VertexInputs["VertexColor"].location;
+    gl.enableVertexAttribArray(colorLoc);
+    gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, 0, 0);
+
+    // --- Index buffer
+    const indexBuffer = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.indices, gl.STATIC_DRAW);
+
+    gl.bindVertexArray(null);
+    return cubeVao;
+  }
   /**
    * Calculates the necessary vertices, normals, and wireframes for cubes for our world
    * @param world The world we are rendering
@@ -326,6 +422,50 @@ export class GlUtils {
     }
 
     return { triangleMeshes, WireFrameCubes };
+  }
+
+  static updateLights(gl: WebGL2RenderingContext, program: WebGLProgram, lights: Array<Light>, camera?: Camera) {
+    // Set number of active lights
+    const numLightsLocation = gl.getUniformLocation(
+      program,
+      "numActiveLights"
+    );
+    gl.uniform1i(numLightsLocation, lights.length);
+
+    // Update each light's data
+    lights.forEach((light, index) => {
+      const baseUniform = `lights[${index}]`;
+
+      const posLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.position`
+      );
+      const colorLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.color`
+      );
+      const intensityLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.intensity`
+      );
+      const radiusLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.radius`
+      );
+
+      gl.uniform3fv(posLocation, light.position);
+      gl.uniform3fv(colorLocation, light.color);
+      gl.uniform1f(intensityLocation, light.intensity);
+      gl.uniform1f(radiusLocation, light.radius);
+    });
+    
+    if(camera){
+      const viewPositionLocation = gl.getUniformLocation(
+        program,
+        "viewPosition"
+      );
+      gl.uniform3fv(viewPositionLocation, camera.getPosition());
+    }
   }
 
   ///////////////////////Texture Utilities/////////////////////
