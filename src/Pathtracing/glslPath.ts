@@ -188,7 +188,7 @@ float intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 bary
 /**
  * Returns TRIANGLE index
  */
-int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {
+int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric) {
     int closestHitIndex = -1;
     float minHitDistance = 1.0/0.0; // Infinity
 
@@ -215,12 +215,13 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {
                 if (triIdx == -1) continue;
 
                 Triangle tri = getTriangle(triIdx);
-                vec3 barycentric;
-                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, barycentric);
+                vec3 currentBarycentric;
+                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);
 
                 if (hitDist > 0.0 && hitDist < minHitDistance) {
                     minHitDistance = hitDist;
                     closestHitIndex = triIdx;
+                    closestBarycentric = currentBarycentric;
                 }
             }
         } else { // Internal Node
@@ -236,18 +237,32 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex) {
 }
 
 
-vec4 PathTrace(vec3 rayOrigin, vec3 rayDir, int depth){
+vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
     bool hit = false;
     vec4 color = vec4(0.0);
-    int triIndex = traverseBVH(rayOrigin, rayDir, 0); // Start traversing from the root BVH node
+    vec3 baryCentric;
+    int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric); // Start traversing from the root BVH node
     if(triIndex != -1){
         Triangle tri = getTriangle(triIndex);
+
+        vec3 smoothNormal = normalize(
+            baryCentric.x * tri.normals[0] +
+            baryCentric.y * tri.normals[1] +
+            baryCentric.z * tri.normals[2]
+        );
+
         vec3 lightColor = vec3(1.0, 1.0, 1.0);
         vec3 lightSource = vec3(0.0, 1.0, 0.0); //TODO: Light sources
-        float diffuseStrength = max(dot(normalize(tri.triNormal), normalize(lightSource)), 0.2);
+        float diffuseStrength = max(dot(normalize(smoothNormal), normalize(lightSource)), 0.2);
         vec3 diffuseColor = diffuseStrength * lightColor;
         vec3 lighting = diffuseColor;
-        vec3 matColor = normalize((getTerrainType(tri.types[0]).color + getTerrainType(tri.types[1]).color + getTerrainType(tri.types[2]).color) / 3.0); // Average terrain type for color (for now)
+        vec3 matColor = normalize(
+            (
+                baryCentric.x*getTerrainType(tri.types[0]).color +
+                baryCentric.y*getTerrainType(tri.types[1]).color +
+                baryCentric.z*getTerrainType(tri.types[2]).color
+            ) / 3.0
+        ); // Average terrain type for color (for now)
         color = vec4(pow(matColor*lighting,vec3(1.0 / 2.2)), 1);
     }else{
         color = vec4(0.0, 0.0, 0.0, 1.0); // background color
@@ -278,6 +293,6 @@ void main() {
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
     vec3 rayOrigin = u_cameraPos;
 
-    fragColor = PathTrace(rayOrigin,rayDir,1)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
+    fragColor = PathTrace(rayOrigin,rayDir)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
 }
 `;
