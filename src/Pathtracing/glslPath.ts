@@ -22,6 +22,15 @@ uniform sampler2D u_terrainTypes;
 uniform vec3 u_cameraPos;
 uniform mat4 u_invViewProjMatrix;
 
+#define MAX_LIGHTS 100
+struct Light {
+    vec3 position;
+    vec3 color;
+    float intensity;
+};
+uniform Light lights[MAX_LIGHTS];
+uniform int numActiveLights;
+
 in vec2 v_uv;
 out vec4 fragColor;
 

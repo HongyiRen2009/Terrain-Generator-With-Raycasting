@@ -3,6 +3,8 @@ import { Color, Terrain, Terrains } from "../map/terrains";
 import { Shader } from "./Shader";
 import { Mesh } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
+import { Light } from "../map/Light";
+import { Camera } from "./Camera";
 
 export type WireFrameCube = {
   positions: Float32Array<ArrayBuffer>;
@@ -345,6 +347,45 @@ export class GlUtils {
     }
 
     return { triangleMeshes, WireFrameCubes };
+  }
+
+  static updateLights(gl: WebGL2RenderingContext, program: WebGLProgram, lights: Array<Light>, camera?: Camera) {
+    // Set number of active lights
+    const numLightsLocation = gl.getUniformLocation(
+      program,
+      "numActiveLights"
+    );
+    gl.uniform1i(numLightsLocation, lights.length);
+
+    // Update each light's data
+    lights.forEach((light, index) => {
+      const baseUniform = `lights[${index}]`;
+
+      const posLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.position`
+      );
+      const colorLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.color`
+      );
+      const intensityLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.intensity`
+      );
+
+      gl.uniform3fv(posLocation, light.position);
+      gl.uniform3fv(colorLocation, light.color);
+      gl.uniform1f(intensityLocation, light.intensity);
+    });
+    
+    if(camera){
+      const viewPositionLocation = gl.getUniformLocation(
+        program,
+        "viewPosition"
+      );
+      gl.uniform3fv(viewPositionLocation, camera.getPosition());
+    }
   }
 
   ///////////////////////Texture Utilities/////////////////////
