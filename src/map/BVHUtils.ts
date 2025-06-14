@@ -9,7 +9,7 @@ export class BVHUtils {
    * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
    * @param tri BVH triangles
    */
-  static packTriangles(mesh: Triangle[], types: [number, number, number][]) {
+  static packTriangles(mesh: Triangle[], types: [number, number, number][], vertexNormals: Triangle[]) {
     let floatsPerTexel = 4; //Using rgbaf32 format, each texel (or pixel of texture) can hold up to 4 floats
     //Currently only need to pack the vertices and terrain types - Bounding boxes & other attributes don't matter as they will be part of the BVH
     let vertices = new Float32Array(
@@ -18,6 +18,9 @@ export class BVHUtils {
     let terrains = new Float32Array(
       Math.ceil((types.length * 3) / floatsPerTexel) * floatsPerTexel
     ); // 3 vertices each have different terrain values.
+    let normals = new Float32Array(
+      Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel
+    ); // Each triangle normal for all the vertices has 9 attributes 
     for (let i = 0; i < mesh.length; i++) {
       //Iterate through triangles
       for (let a = 0; a < mesh[i].length; a++) {
@@ -27,9 +30,13 @@ export class BVHUtils {
         vertices[i * 9 + 3 * a + 2] = mesh[i][a][2];
 
         terrains[i * 3 + a] = types[i][a];
+
+        normals[i * 9 + 3 * a] = vertexNormals[i][a][0];
+        normals[i * 9 + 3 * a + 1] = vertexNormals[i][a][1];
+        normals[i * 9 + 3 * a + 2] = vertexNormals[i][a][2];
       }
     }
-    return { vertices, terrains };
+    return { vertices, terrains, normals };
   }
 
   /**
