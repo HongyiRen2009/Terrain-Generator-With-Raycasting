@@ -1,10 +1,8 @@
 import { mat4, vec3 } from "gl-matrix";
 import { Color, Terrain, Terrains } from "../map/terrains";
 import { Shader } from "./Shader";
-import { Mesh } from "../map/Mesh";
+import { flatBVHNode, Mesh, Triangle } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
-import { Light } from "../map/Light";
-import { Camera } from "./Camera";
 
 export type WireFrameCube = {
   positions: Float32Array<ArrayBuffer>;
@@ -13,6 +11,14 @@ export type WireFrameCube = {
 };
 
 export class GlUtils {
+  /**
+   * Creates a WebGL program with the given vertex and fragment shader code.
+   * @param gl The WebGL2RenderingContext to use for creating the program.
+   * @param VertexShaderCode The GLSL code for the vertex shader.
+   * @param FragmentShaderCode The GLSL code for the fragment shader.
+   * @returns The created WebGLProgram or undefined if linking failed.
+   * @throws Error if shader compilation fails.
+   */
   static CreateProgram(
     gl: WebGL2RenderingContext,
     VertexShaderCode: string,
@@ -40,7 +46,14 @@ export class GlUtils {
     }
     return Program;
   }
-
+  /**
+   * Creates a WebGL shader of the specified type with the given GLSL code.
+   * @param gl The WebGL2RenderingContext to use for creating the shader.
+   * @param ShaderType The type of shader to create (e.g., gl.VERTEX_SHADER, gl.FRAGMENT_SHADER).
+   * @param ShaderCode The GLSL code for the shader.
+   * @returns The created WebGLShader.
+   * @throws Error if shader compilation fails.
+   */
   static CreateShader(
     gl: WebGL2RenderingContext,
     ShaderType: GLenum,
@@ -63,7 +76,14 @@ export class GlUtils {
 
     return Shader;
   }
-
+  /**
+   * Creates a static buffer for positions and indices.
+   * @param gl The WebGL2RenderingContext to use for creating the buffer.
+   * @param CPUPositionBuffer The Float32Array containing position data.
+   * @param CPUIndexBuffer The array of indices for the buffer.
+   * @returns An object containing the position buffer and index buffer.
+   * @throws Error if buffer creation fails.
+   */
   static CreateStaticBuffer(
     gl: WebGL2RenderingContext,
     CPUPositionBuffer: Float32Array,
@@ -83,7 +103,13 @@ export class GlUtils {
       indices: IndexBuffer
     };
   }
-
+  /**
+   * Creates a transformation matrix based on translation, rotation, and scale.
+   * @param translation A vec3 representing the translation (x, y, z).
+   * @param rotation A vec3 representing the rotation in radians (x, y, z).
+   * @param scale A vec3 representing the scale (x, y, z).
+   * @returns A mat4 transformation matrix.
+   */
   static CreateTransformations(
     translation?: vec3,
     rotation?: vec3,
@@ -105,7 +131,12 @@ export class GlUtils {
     return transformMatrix;
   }
 
-  //Will change it later to feature length manipulations
+  /**
+   * Creates an index buffer for the given indices.
+   * @param gl The WebGL2RenderingContext to use for creating the buffer.
+   * @param indices The array of indices to be stored in the buffer.
+   * @returns The created WebGLBuffer containing the indices.
+   */
   static CreateIndexBuffer(gl: WebGL2RenderingContext, indices: number[]) {
     const indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -124,54 +155,12 @@ export class GlUtils {
 
     return indexBuffer;
   }
-
-  /**
-   * Calculates the vao for the cube
-   * @param gl The WEBGL context
-   * @param CubeShader The shader for the wireframe cubes
-   * @param cube The cube to draw
-   * @returns The VertexArray (Vao)
-   */
-  static createCubeVao(
-    gl: WebGL2RenderingContext,
-    CubeShader: Shader,
-    cube: WireFrameCube
-  ) {
-    const cubeVao = gl.createVertexArray()!;
-    gl.bindVertexArray(cubeVao); // ✅ Bind VAO first!
-
-    // --- Position buffer
-    const positionBuffer = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, cube.positions, gl.STATIC_DRAW);
-
-    const positionLoc = CubeShader.VertexInputs["VertexPosition"].location;
-    gl.enableVertexAttribArray(positionLoc);
-    gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
-
-    // --- Color buffer
-    const colorBuffer = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, cube.colors, gl.STATIC_DRAW);
-
-    const colorLoc = CubeShader.VertexInputs["VertexColor"].location;
-    gl.enableVertexAttribArray(colorLoc);
-    gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, 0, 0);
-
-    // --- Index buffer
-    const indexBuffer = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.indices, gl.STATIC_DRAW);
-
-    gl.bindVertexArray(null);
-    return cubeVao;
-  }
-
+  
   /**
    * Calculates the wireframe of a rectangular prism
-   * @param position A vec3 of the position of the rectangular
+   * @param position A vec3 of the position of the prism
    * @param size A vec3 of the size of the prism
-   * @returns WireFrameCube Object
+   * @returns WireFrameCube Object containing positions, colors, and indices
    */
   static createRectangularPrismWireframe(position: vec3, size: vec3) {
     const x = position[0];
@@ -256,51 +245,51 @@ export class GlUtils {
 
     return { positions: vertices, colors, indices };
   }
-  static create3dPosColorInterleavedVao(
+  /**
+   * Creates a WebGLVertexArrayObject (VAO) for interleaved vertex attributes.
+   * @param gl WebGL2RenderingContext
+   * @param vertexBuffer Vertex buffer
+   * @param indexBuffer Index buffer
+   * @param shader Shader object containing vertex inputs
+   * @param layout Stride, offset, and sizeOverride (Optional) for each attribute
+   * @returns WebGLVertexArrayObject (VAO) 
+   */
+  static createInterleavedVao(
     gl: WebGL2RenderingContext,
     vertexBuffer: WebGLBuffer,
     indexBuffer: WebGLBuffer,
-    posAttrib: number,
-    colorAttrib: number,
-    normalAttrib = -1
+    shader: Shader,
+    layout: {
+      [attribName: string]: {
+        offset: number;
+        stride: number;
+        sizeOverride?: number; //For example, positions are vec4 but only use 3 components
+      };
+    }
   ) {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    gl.enableVertexAttribArray(posAttrib);
-    gl.enableVertexAttribArray(colorAttrib);
+    for (const [name, attrib] of Object.entries(shader.VertexInputs)) {
+      const layoutInfo = layout[name];
+      if (!layoutInfo) {
+        console.warn(`No layout info for attribute ${name}, skipping.`);
+        continue;
+      }
 
-    // Interleaved format: (x, y, z,nx, ny, nz, r, g, b) (all f32)
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-    gl.vertexAttribPointer(
-      posAttrib,
-      3,
-      gl.FLOAT,
-      false,
-      9 * Float32Array.BYTES_PER_ELEMENT,
-      0
-    );
+      const size = layoutInfo.sizeOverride ?? attrib.size;
 
-    if (normalAttrib !== -1) {
-      gl.enableVertexAttribArray(normalAttrib);
+      gl.enableVertexAttribArray(attrib.location);
       gl.vertexAttribPointer(
-        normalAttrib,
-        3,
+        attrib.location,
+        size,
         gl.FLOAT,
         false,
-        9 * Float32Array.BYTES_PER_ELEMENT,
-        3 * Float32Array.BYTES_PER_ELEMENT
+        layoutInfo.stride,
+        layoutInfo.offset
       );
     }
 
-    gl.vertexAttribPointer(
-      colorAttrib,
-      3,
-      gl.FLOAT,
-      false,
-      9 * Float32Array.BYTES_PER_ELEMENT,
-      6 * Float32Array.BYTES_PER_ELEMENT
-    );
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
@@ -337,45 +326,6 @@ export class GlUtils {
     }
 
     return { triangleMeshes, WireFrameCubes };
-  }
-
-  static updateLights(gl: WebGL2RenderingContext, program: WebGLProgram, lights: Array<Light>, camera?: Camera) {
-    // Set number of active lights
-    const numLightsLocation = gl.getUniformLocation(
-      program,
-      "numActiveLights"
-    );
-    gl.uniform1i(numLightsLocation, lights.length);
-
-    // Update each light's data
-    lights.forEach((light, index) => {
-      const baseUniform = `lights[${index}]`;
-
-      const posLocation = gl.getUniformLocation(
-        program,
-        `${baseUniform}.position`
-      );
-      const colorLocation = gl.getUniformLocation(
-        program,
-        `${baseUniform}.color`
-      );
-      const intensityLocation = gl.getUniformLocation(
-        program,
-        `${baseUniform}.intensity`
-      );
-
-      gl.uniform3fv(posLocation, light.position);
-      gl.uniform3fv(colorLocation, light.color);
-      gl.uniform1f(intensityLocation, light.intensity);
-    });
-    
-    if(camera){
-      const viewPositionLocation = gl.getUniformLocation(
-        program,
-        "viewPosition"
-      );
-      gl.uniform3fv(viewPositionLocation, camera.getPosition());
-    }
   }
 
   ///////////////////////Texture Utilities/////////////////////
