@@ -21,11 +21,11 @@ export class GameEngine {
   private pathTracer: PathTracer;
 
   //
-  private keys: { [key: string]: boolean } = {};
-  private maxFPS: number = 60;
-  private frameInterval = 1000 / this.maxFPS;
-  private lastRenderTime: number = 0;
-  private mode: number = 0; // 0 for rayTracer, 1 for pathtracer
+  private keys: { [key: string]: boolean } = {}; // Holds the state of keyboard keys pressed (if keydown then true, else false)
+  private maxFPS: number = 60; 
+  private frameInterval = 1000 / this.maxFPS; // Time duration per frame in milliseconds
+  private lastRenderTime: number = 0; 
+  private mode: number = 0; // 0 for rayTracer-hybrid, 1 for pathtracer
 
   //
   private frameCounter: number = 0;
@@ -46,6 +46,7 @@ export class GameEngine {
     this.canvas.height = window.innerHeight;
 
     //GL Context
+    //WEbGL's built in antialiasing is enabled for smoother edges
     this.gl = this.canvas.getContext("webgl2", { antialias: true })!;
 
     //Initialize controls
@@ -74,17 +75,17 @@ export class GameEngine {
       this.debug
     );
 
-    //Events
+    //Mouse Events (Screenlock, Mouse Movement)
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
     this.canvas.addEventListener("mousemove", (e: MouseEvent) =>
       this.mouseMove(e)
     );
     window.addEventListener("resize", () => this.resizeCanvas());
 
-    //Debugging
+    //Debugging (FPS tracker)
     this.debug.addElement("FPS", () => Math.round(this.currentFPS));
 
-    //Initialize switcher
+    //Initialize buttons to swtich between raytracing and pathtracing
     const rayBtn = document.getElementById("raytracing")!;
     const pathBtn = document.getElementById("pathtracing")!;
 
