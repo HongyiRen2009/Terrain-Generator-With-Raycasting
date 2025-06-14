@@ -247,60 +247,7 @@ export class GlUtils {
 
     return { positions: vertices, colors, indices };
   }
-  /**
-   * Creates a WebGLVertexArrayObject (VAO) for interleaved vertex attributes.
-   * @param gl WebGL2RenderingContext
-   * @param vertexBuffer Vertex buffer
-   * @param indexBuffer Index buffer
-   * @param shader Shader object containing vertex inputs
-   * @param layout Stride, offset, and sizeOverride (Optional) for each attribute
-   * @returns WebGLVertexArrayObject (VAO) 
-   */
-  static createInterleavedVao(
-    gl: WebGL2RenderingContext,
-    vertexBuffer: WebGLBuffer,
-    indexBuffer: WebGLBuffer,
-    shader: Shader,
-    layout: {
-      [attribName: string]: {
-        offset: number;
-        stride: number;
-        sizeOverride?: number; //For example, positions are vec4 but only use 3 components
-      };
-    }
-  ) {
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
 
-    for (const [name, attrib] of Object.entries(shader.VertexInputs)) {
-      const layoutInfo = layout[name];
-      if (!layoutInfo) {
-        console.warn(`No layout info for attribute ${name}, skipping.`);
-        continue;
-      }
-
-      const size = layoutInfo.sizeOverride ?? attrib.size;
-
-      gl.enableVertexAttribArray(attrib.location);
-      gl.vertexAttribPointer(
-        attrib.location,
-        size,
-        gl.FLOAT,
-        false,
-        layoutInfo.stride,
-        layoutInfo.offset
-      );
-    }
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-    gl.bindVertexArray(null);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // Not sure if necessary, but not a bad idea.
-
-    return vao;
-  }
   static create3dPosColorInterleavedVao(
     gl: WebGL2RenderingContext,
     vertexBuffer: WebGLBuffer,
