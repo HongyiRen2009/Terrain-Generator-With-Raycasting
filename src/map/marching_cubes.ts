@@ -120,13 +120,10 @@ export class Chunk {
 
     const floor = +(c[1] == 0);
 
-    // only become solid if the y coordinate is below the height
-    // so basically a heightmap
-    if (c[1] < Math.max(octaveValues, floor)) {
-      return 1;
-    } else {
-      return 0;
-    }
+    let yDifference = c[1] - Math.max(octaveValues, floor) + 0.5;
+    yDifference = Math.max(0, Math.min(1, yDifference));
+
+    return yDifference;
   }
 
   set(c: vec3, value: number) {
