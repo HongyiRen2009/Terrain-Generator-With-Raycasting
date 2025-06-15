@@ -5,7 +5,7 @@ import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { Shader } from "../render/Shader";
-import { GlUtils, WireFrameCube } from "../render/GlUtils";
+import { GlUtils} from "../render/GlUtils";
 import { DebugMenu } from "../DebugMenu";
 import {
   pathTracingFragmentShaderCode,
@@ -17,7 +17,6 @@ export class PathTracer {
   //Rendering
   private canvas: HTMLCanvasElement;
   private gl: WebGL2RenderingContext;
-  private WireFrameCubes: WireFrameCube[];
   //Shaders
   private shader: Shader;
 
@@ -59,7 +58,6 @@ export class PathTracer {
     ////////////////////// build flat BVH structure
     //Get main mesh
     let mainMesh = new Mesh();
-    this.WireFrameCubes = [];
 
     for (const chunk of this.world.chunks) {
       const triangleMesh = chunk.CreateMarchingCubes();
@@ -67,16 +65,6 @@ export class PathTracer {
         vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
       );
       mainMesh.merge(triangleMesh);
-      this.WireFrameCubes.push(
-        GlUtils.createRectangularPrismWireframe(
-          vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]),
-          vec3.fromValues(
-            this.world.resolution,
-            this.world.height,
-            this.world.resolution
-          )
-        )
-      );
     }
     //Obtain bvh from mesh.
     const BVHtriangles = mainMesh.exportBVHTriangles();
