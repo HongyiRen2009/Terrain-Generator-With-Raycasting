@@ -4,7 +4,6 @@ import { Mesh } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
 import { Light } from "../map/Light";
 import { Camera } from "./Camera";
-import { cubeVertices, cubeWireframeIndices } from "../map/geometry";
 
 export class GlUtils {
   /**
@@ -106,7 +105,11 @@ export class GlUtils {
    * @param scale A vec3 representing the scale (x, y, z).
    * @returns A mat4 transformation matrix.
    */
-  static CreateTransformations(translation?: vec3, rotation?: vec3, scale?: vec3) {
+  static CreateTransformations(
+    translation?: vec3,
+    rotation?: vec3,
+    scale?: vec3
+  ) {
     let transformMatrix = mat4.create();
 
     if (translation) {
@@ -122,7 +125,6 @@ export class GlUtils {
     }
     return transformMatrix;
   }
-
 
   /**
    * Creates an index buffer for the given indices.
@@ -203,7 +205,7 @@ export class GlUtils {
   /**
    * Calculates the necessary vertices, normals, and wireframes for cubes for our world
    * @param world The world we are rendering
-   * @returns { List of triangle meshes}
+   * @returns { List of triangle meshes }
    */
   static genTerrainVertices(world: WorldMap) {
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes

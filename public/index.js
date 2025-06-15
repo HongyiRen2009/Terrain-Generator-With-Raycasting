@@ -8592,13 +8592,11 @@ var PathTracer = /** @class */ (function () {
         ////////////////////// build flat BVH structure
         //Get main mesh
         var mainMesh = new Mesh_1.Mesh();
-        this.WireFrameCubes = [];
         for (var _i = 0, _a = this.world.chunks; _i < _a.length; _i++) {
             var chunk = _a[_i];
             var triangleMesh = chunk.CreateMarchingCubes();
             triangleMesh.translate(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]));
             mainMesh.merge(triangleMesh);
-            this.WireFrameCubes.push(GlUtils_1.GlUtils.createRectangularPrismWireframe(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), gl_matrix_1.vec3.fromValues(this.world.resolution, this.world.height, this.world.resolution)));
         }
         //Obtain bvh from mesh.
         var BVHtriangles = mainMesh.exportBVHTriangles();
@@ -9158,7 +9156,7 @@ exports.meshToVerticesAndIndices = meshToVerticesAndIndices;
 
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.CASES = exports.EDGES = exports.VERTICES = void 0;
+exports.cubeWireframeIndices = exports.cubeVertices = exports.CASES = exports.EDGES = exports.VERTICES = void 0;
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 exports.VERTICES = [
     [0, 0, 0],
@@ -9441,6 +9439,15 @@ exports.CASES = [[],
     [[9, 0, 1]],
     [[3, 0, 8]],
     []];
+exports.cubeVertices = new Float32Array([
+    // x, y, z, r, g, b
+    0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0,
+    1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0
+]);
+exports.cubeWireframeIndices = [
+    // 12 edges × 2 vertices = 24 indices
+    0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
+];
 
 
 /***/ }),
@@ -9776,9 +9783,9 @@ var GlUtils_1 = __webpack_require__(/*! ./GlUtils */ "./src/render/GlUtils.ts");
 var glsl_1 = __webpack_require__(/*! ./glsl */ "./src/render/glsl.ts");
 var Shader_1 = __webpack_require__(/*! ./Shader */ "./src/render/Shader.ts");
 var cubes_utils_1 = __webpack_require__(/*! ../map/cubes_utils */ "./src/map/cubes_utils.ts");
+var geometry_1 = __webpack_require__(/*! ../map/geometry */ "./src/map/geometry.ts");
 var GLRenderer = /** @class */ (function () {
     function GLRenderer(gl, canvas, camera, debug, world) {
-        var _a;
         this.MeshSize = 0;
         this.gl = gl;
         this.canvas = canvas;
@@ -9792,10 +9799,7 @@ var GLRenderer = /** @class */ (function () {
         var triangleVertices = [];
         var triangleIndices = [];
         var indexOffset = 0;
-        this.WireFrameCubes = [];
-        var out = GlUtils_1.GlUtils.genTerrainVertices(this.world);
-        var triangleMeshes = out.triangleMeshes;
-        (_a = this.WireFrameCubes).push.apply(_a, out.WireFrameCubes);
+        var triangleMeshes = GlUtils_1.GlUtils.genTerrainVertices(this.world);
         for (var i = 0; i < triangleMeshes.length; i++) {
             var Mesh = triangleMeshes[i];
             var vertexData = (0, cubes_utils_1.meshToVerticesAndIndices)(Mesh);
@@ -9809,6 +9813,7 @@ var GLRenderer = /** @class */ (function () {
         }
         this.MeshSize = triangleIndices.length;
         this.TriangleBuffer = GlUtils_1.GlUtils.CreateStaticBuffer(gl, new Float32Array(triangleVertices), triangleIndices);
+        this.CubeBuffer = GlUtils_1.GlUtils.CreateStaticBuffer(gl, new Float32Array(geometry_1.cubeVertices), geometry_1.cubeWireframeIndices);
         this.CubeShader = new Shader_1.Shader(gl, glsl_1.CubeVertexShaderCode, glsl_1.CubeFragmentShaderCode);
         this.MeshShader = new Shader_1.Shader(gl, glsl_1.MeshVertexShaderCode, glsl_1.MeshFragmentShaderCode);
         this.matViewProj = gl_matrix_1.mat4.create();
@@ -9819,18 +9824,25 @@ var GLRenderer = /** @class */ (function () {
         this.gl.uniformMatrix4fv(this.MeshShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
         this.gl.uniformMatrix4fv(this.MeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
         //Create vertice array object
-        var triangleVao = GlUtils_1.GlUtils.create3dPosColorInterleavedVao(this.gl, this.TriangleBuffer.position, this.TriangleBuffer.indices, this.MeshShader.VertexInputs["VertexPosition"].location, this.MeshShader.VertexInputs["VertexColor"].location, this.MeshShader.VertexInputs["VertexNormal"].location);
+        var triangleVao = GlUtils_1.GlUtils.createInterleavedVao(this.gl, this.TriangleBuffer.vertex, this.TriangleBuffer.indices, this.MeshShader, {
+            VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+            VertexNormal: { offset: 12, stride: 36 },
+            VertexColor: { offset: 24, stride: 36 }
+        });
         this.gl.bindVertexArray(triangleVao);
         this.gl.drawElements(this.gl.TRIANGLES, this.MeshSize, this.gl.UNSIGNED_INT, 0);
         this.gl.bindVertexArray(null);
     };
-    GLRenderer.prototype.DrawWireFrameCube = function (TransformationMatrix, cube) {
+    GLRenderer.prototype.DrawWireFrameCube = function (TransformationMatrix) {
         this.gl.useProgram(this.CubeShader.Program);
         this.gl.uniformMatrix4fv(this.CubeShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
         this.gl.uniformMatrix4fv(this.CubeShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        var cubeVao = GlUtils_1.GlUtils.createCubeVao(this.gl, this.CubeShader, cube);
+        var cubeVao = GlUtils_1.GlUtils.createInterleavedVao(this.gl, this.CubeBuffer.vertex, this.CubeBuffer.indices, this.CubeShader, {
+            VertexPosition: { offset: 0, stride: 24, sizeOverride: 3 },
+            VertexColor: { offset: 12, stride: 24 }
+        });
         this.gl.bindVertexArray(cubeVao);
-        this.gl.drawElements(this.gl.LINES, cube.indices.length, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.drawElements(this.gl.LINES, 24, this.gl.UNSIGNED_INT, 0);
         this.gl.bindVertexArray(null);
     };
     GLRenderer.prototype.render = function () {
@@ -9840,11 +9852,11 @@ var GLRenderer = /** @class */ (function () {
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
         // Calculate view and projection matrices once per frame
         this.matViewProj = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var resScaleFactor = 1; // Want things to be smaller decrease this number
+        var resScaleFactor = 1;
         if (this.debug.debugMode) {
-            for (var _i = 0, _a = this.WireFrameCubes; _i < _a.length; _i++) {
-                var cube = _a[_i];
-                this.DrawWireFrameCube(GlUtils_1.GlUtils.CreateTransformations(undefined, undefined, gl_matrix_1.vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)), cube);
+            for (var _i = 0, _a = this.world.chunks; _i < _a.length; _i++) {
+                var chunk = _a[_i];
+                this.DrawWireFrameCube(GlUtils_1.GlUtils.CreateTransformations(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), undefined, gl_matrix_1.vec3.fromValues(this.world.resolution, this.world.height, this.world.resolution)));
             }
         }
         this.drawMesh(GlUtils_1.GlUtils.CreateTransformations(gl_matrix_1.vec3.fromValues(0, 0, 0), gl_matrix_1.vec3.fromValues(0, 0, 0), gl_matrix_1.vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)));
@@ -9915,29 +9927,29 @@ var GlUtils = /** @class */ (function () {
         return Shader;
     };
     /**
-     * Creates a static buffer for positions and indices.
+     * Creates a static buffer for vertices and indices.
      * @param gl The WebGL2RenderingContext to use for creating the buffer.
-     * @param CPUPositionBuffer The Float32Array containing position data.
+     * @param CPUVertexBuffer The Float32Array containing vertex data.
      * @param CPUIndexBuffer The array of indices for the buffer.
-     * @returns An object containing the position buffer and index buffer.
+     * @returns An object containing the vertex buffer and index buffer.
      * @throws Error if buffer creation fails.
      */
-    GlUtils.CreateStaticBuffer = function (gl, CPUPositionBuffer, CPUIndexBuffer) {
+    GlUtils.CreateStaticBuffer = function (gl, CPUVertexBuffer, CPUIndexBuffer) {
         var buffer = gl.createBuffer();
         if (!buffer) {
             throw new Error("Failed to create buffer");
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, CPUPositionBuffer, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, CPUVertexBuffer, gl.STATIC_DRAW);
         var IndexBuffer = this.CreateIndexBuffer(gl, CPUIndexBuffer);
         return {
-            position: buffer,
+            vertex: buffer,
             // color: colorBuffer,
             indices: IndexBuffer
         };
     };
     /**
-     * Creates a transformation matrix based on translation, rotation, and scale.
+     * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
      * @param translation A vec3 representing the translation (x, y, z).
      * @param rotation A vec3 representing the rotation in radians (x, y, z).
      * @param scale A vec3 representing the scale (x, y, z).
@@ -9945,17 +9957,16 @@ var GlUtils = /** @class */ (function () {
      */
     GlUtils.CreateTransformations = function (translation, rotation, scale) {
         var transformMatrix = gl_matrix_1.mat4.create();
-        if (scale) {
-            gl_matrix_1.mat4.scale(transformMatrix, transformMatrix, scale);
+        if (translation) {
+            gl_matrix_1.mat4.translate(transformMatrix, transformMatrix, translation);
         }
         if (rotation) {
-            // Apply rotation around X, Y, and Z axes using Euler angles
             gl_matrix_1.mat4.rotateX(transformMatrix, transformMatrix, rotation[0]);
             gl_matrix_1.mat4.rotateY(transformMatrix, transformMatrix, rotation[1]);
             gl_matrix_1.mat4.rotateZ(transformMatrix, transformMatrix, rotation[2]);
         }
-        if (translation) {
-            gl_matrix_1.mat4.translate(transformMatrix, transformMatrix, translation);
+        if (scale) {
+            gl_matrix_1.mat4.scale(transformMatrix, transformMatrix, scale);
         }
         return transformMatrix;
     };
@@ -9976,152 +9987,50 @@ var GlUtils = /** @class */ (function () {
         return indexBuffer;
     };
     /**
-     * Calculates the wireframe of a rectangular prism
-     * @param position A vec3 of the position of the prism
-     * @param size A vec3 of the size of the prism
-     * @returns WireFrameCube Object containing positions, colors, and indices
+     * Creates a Vertex Array Object (VAO) for interleaved vertex attributes.
+     * @param gl The WebGL2RenderingContext to use for creating the VAO.
+     * @param vertexBuffer The WebGLBuffer containing vertex data.
+     * @param indexBuffer The WebGLBuffer containing index data.
+     * @param shader The Shader object containing vertex attribute locations.
+     * @param layout An object defining the layout of vertex attributes.
+     * @returns The created VAO.
      */
-    GlUtils.createRectangularPrismWireframe = function (position, size) {
-        var x = position[0];
-        var y = position[1];
-        var z = position[2];
-        var width = size[0];
-        var height = size[1];
-        var depth = size[2];
-        var x0 = x, x1 = x + width;
-        var y0 = y, y1 = y + height;
-        var z0 = z, z1 = z + depth;
-        // 8 vertices of the prism
-        var vertices = new Float32Array([
-            x0,
-            y0,
-            z0, // 0: front-bottom-left
-            x1,
-            y0,
-            z0, // 1: front-bottom-right
-            x1,
-            y1,
-            z0, // 2: front-top-right
-            x0,
-            y1,
-            z0, // 3: front-top-left
-            x0,
-            y0,
-            z1, // 4: back-bottom-left
-            x1,
-            y0,
-            z1, // 5: back-bottom-right
-            x1,
-            y1,
-            z1, // 6: back-top-right
-            x0,
-            y1,
-            z1 // 7: back-top-left
-        ]);
-        // Colors per vertex (random for now)
-        var colors = new Float32Array(vertices.length);
-        for (var i = 0; i < colors.length; i++) {
-            colors[i] = Math.random();
-        }
-        // Indices for edges (lines) of the rectangular prism
-        // Each pair defines a line segment (edge)
-        var indices = new Uint16Array([
-            0,
-            1, // front bottom edge
-            1,
-            2, // front right edge
-            2,
-            3, // front top edge
-            3,
-            0, // front left edge
-            4,
-            5, // back bottom edge
-            5,
-            6, // back right edge
-            6,
-            7, // back top edge
-            7,
-            4, // back left edge
-            0,
-            4, // left bottom edge
-            1,
-            5, // right bottom edge
-            2,
-            6, // right top edge
-            3,
-            7 // left top edge
-        ]);
-        return { positions: vertices, colors: colors, indices: indices };
-    };
-    GlUtils.create3dPosColorInterleavedVao = function (gl, vertexBuffer, indexBuffer, posAttrib, colorAttrib, normalAttrib) {
-        if (normalAttrib === void 0) { normalAttrib = -1; }
+    GlUtils.createInterleavedVao = function (gl, vertexBuffer, indexBuffer, shader, layout) {
+        var _a;
         var vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
-        gl.enableVertexAttribArray(posAttrib);
-        gl.enableVertexAttribArray(colorAttrib);
-        // Interleaved format: (x, y, z,nx, ny, nz, r, g, b) (all f32)
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.vertexAttribPointer(posAttrib, 3, gl.FLOAT, false, 9 * Float32Array.BYTES_PER_ELEMENT, 0);
-        if (normalAttrib !== -1) {
-            gl.enableVertexAttribArray(normalAttrib);
-            gl.vertexAttribPointer(normalAttrib, 3, gl.FLOAT, false, 9 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        for (var _i = 0, _b = Object.entries(shader.VertexInputs); _i < _b.length; _i++) {
+            var _c = _b[_i], name_1 = _c[0], attrib = _c[1];
+            var layoutInfo = layout[name_1];
+            if (!layoutInfo) {
+                console.warn("No layout info for attribute ".concat(name_1, ", skipping."));
+                continue;
+            }
+            var size = (_a = layoutInfo.sizeOverride) !== null && _a !== void 0 ? _a : attrib.size;
+            gl.enableVertexAttribArray(attrib.location);
+            gl.vertexAttribPointer(attrib.location, size, gl.FLOAT, false, layoutInfo.stride, layoutInfo.offset);
         }
-        gl.vertexAttribPointer(colorAttrib, 3, gl.FLOAT, false, 9 * Float32Array.BYTES_PER_ELEMENT, 6 * Float32Array.BYTES_PER_ELEMENT);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.bindVertexArray(null);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null); // Not sure if necessary, but not a bad idea.
         return vao;
-    };
-    /**
-     * Calculates the vao for the cube
-     * @param gl The WEBGL context
-     * @param CubeShader The shader for the wireframe cubes
-     * @param cube The cube to draw
-     * @returns The VertexArray (Vao)
-     */
-    GlUtils.createCubeVao = function (gl, CubeShader, cube) {
-        var cubeVao = gl.createVertexArray();
-        gl.bindVertexArray(cubeVao); // ✅ Bind VAO first!
-        // --- Position buffer
-        var positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, cube.positions, gl.STATIC_DRAW);
-        var positionLoc = CubeShader.VertexInputs["VertexPosition"].location;
-        gl.enableVertexAttribArray(positionLoc);
-        gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
-        // --- Color buffer
-        var colorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, cube.colors, gl.STATIC_DRAW);
-        var colorLoc = CubeShader.VertexInputs["VertexColor"].location;
-        gl.enableVertexAttribArray(colorLoc);
-        gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, 0, 0);
-        // --- Index buffer
-        var indexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cube.indices, gl.STATIC_DRAW);
-        gl.bindVertexArray(null);
-        return cubeVao;
     };
     /**
      * Calculates the necessary vertices, normals, and wireframes for cubes for our world
      * @param world The world we are rendering
-     * @returns { List of triangle meshes, Map of Vertex Normals, List of WireFrameCube Type}
+     * @returns { List of triangle meshes}
      */
     GlUtils.genTerrainVertices = function (world) {
         var triangleMeshes = []; // Store all chunks' meshes
         var mainMesh = new Mesh_1.Mesh();
-        var WireFrameCubes = [];
         for (var _i = 0, _a = world.chunks; _i < _a.length; _i++) {
             var chunk = _a[_i];
             var triangleMesh = chunk.CreateMarchingCubes();
             triangleMesh.translate(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]));
             mainMesh.merge(triangleMesh);
             triangleMeshes.push(triangleMesh); // Store the chunk's mesh
-            WireFrameCubes.push(GlUtils.createRectangularPrismWireframe(gl_matrix_1.vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), gl_matrix_1.vec3.fromValues(world.resolution, world.height, world.resolution)));
         }
-        return { triangleMeshes: triangleMeshes, WireFrameCubes: WireFrameCubes };
+        return triangleMeshes;
     };
     GlUtils.updateLights = function (gl, program, lights, camera) {
         // Set number of active lights
@@ -10374,7 +10283,7 @@ exports.MeshFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\n/
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("f454c12b3735cab7364c")
+/******/ 		__webpack_require__.h = () => ("9568e462a19926cb3165")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

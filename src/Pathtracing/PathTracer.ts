@@ -5,7 +5,7 @@ import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { Shader } from "../render/Shader";
-import { GlUtils} from "../render/GlUtils";
+import { GlUtils } from "../render/GlUtils";
 import { DebugMenu } from "../DebugMenu";
 import {
   pathTracingFragmentShaderCode,
