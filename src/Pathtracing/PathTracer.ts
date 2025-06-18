@@ -135,6 +135,10 @@ export class PathTracer {
     //put lights in the shader
     GlUtils.updateLights(this.gl, this.shader.Program!, this.world.lights);
 
+    //put samples and bounce in shader
+    this.gl.uniform1i(this.gl.getUniformLocation(this.shader.Program!,"numSamples"), 10);
+    this.gl.uniform1i(this.gl.getUniformLocation(this.shader.Program!,"numBounces"), 2);
+
     // Draw
     this.gl.clearColor(0, 0, 0, 1);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);

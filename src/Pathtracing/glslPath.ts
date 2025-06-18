@@ -12,6 +12,14 @@ void main() {
 export const pathTracingFragmentShaderCode = /* glsl */ `#version 300 es
 precision highp float;
 
+#define MAX_LIGHTS 30
+#define PI 3.1415926
+
+//Note: 
+#define MAX_SAMPLES 128
+uniform int numSamples;
+uniform int numBounces;
+
 uniform sampler2D u_vertices;
 uniform sampler2D u_terrains;
 uniform sampler2D u_normals;
@@ -22,7 +30,6 @@ uniform sampler2D u_terrainTypes;
 uniform vec3 u_cameraPos;
 uniform mat4 u_invViewProjMatrix;
 
-#define MAX_LIGHTS 100
 struct Light {
     vec3 position;
     vec3 color;
@@ -59,6 +66,9 @@ struct TerrainType{
     float roughness; // Decimal 0-1
 };
 
+float rand(vec2 co, float index, float seed) {
+    return fract(sin(dot(co, vec2(12.9898, 78.233)) + index * 43758.5453 + seed) * 43758.5453);
+}
 
 float fetchFloatFrom1D(sampler2D tex, int index) {
     ivec2 size = textureSize(tex, 0);
@@ -302,80 +312,115 @@ float smoothItem(float[3] a, vec3 baryCentric){
     )/3.0;
 }
 
-vec4 PathTrace(vec3 rayOrigin, vec3 rayDir){
-    bool hit = false;
-    vec4 color = vec4(0.0);
-    vec3 baryCentric;
-    float minHitDistance;
-    int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance); // Start traversing from the root BVH node
-    if(triIndex != -1){
-        Triangle tri = getTriangle(triIndex);
-        vec3[3] colors = vec3[3](
-            getTerrainType(tri.types[0]).color,
-            getTerrainType(tri.types[1]).color,
-            getTerrainType(tri.types[2]).color
-        );
-        float[3] reflectivities = float[3](
-            getTerrainType(tri.types[0]).reflectiveness,
-            getTerrainType(tri.types[1]).reflectiveness,
-            getTerrainType(tri.types[2]).reflectiveness
-        );
-        float[3] roughness = float[3](
-            getTerrainType(tri.types[0]).roughness,
-            getTerrainType(tri.types[1]).roughness,
-            getTerrainType(tri.types[2]).roughness
-        );
+void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness){
+    vec3[3] colors = vec3[3](
+        getTerrainType(tri.types[0]).color,
+        getTerrainType(tri.types[1]).color,
+        getTerrainType(tri.types[2]).color
+    );
+    float[3] reflectivities = float[3](
+        getTerrainType(tri.types[0]).reflectiveness,
+        getTerrainType(tri.types[1]).reflectiveness,
+        getTerrainType(tri.types[2]).reflectiveness
+    );
+    float[3] roughness = float[3](
+        getTerrainType(tri.types[0]).roughness,
+        getTerrainType(tri.types[1]).roughness,
+        getTerrainType(tri.types[2]).roughness
+    );
 
-        vec3 smoothNormal = smoothItem(tri.normals,baryCentric);
-        vec3 matColor = smoothItem(colors,baryCentric); // Average terrain type for color (for now)
-        
-        float matRoughness = smoothItem(roughness,baryCentric);
-        vec3 pos = smoothItem(tri.vertices,baryCentric);
-        float matReflectivity = smoothItem(reflectivities,baryCentric);
-        matReflectivity = mix(32.0, 128.0, clamp(matReflectivity, 0.0, 1.0));// Shininess factor for specular highlights
+    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));
+    matColor = smoothItem(colors,baryCentric);
+    matRoughness = smoothItem(roughness,baryCentric);
+}
 
-        vec3 totalDiffuse = vec3(0.0);
-        vec3 specular = vec3(0.0);
-        // View for Blinn-Phong
-        vec3 viewDir = normalize(u_cameraPos - pos);
-    
-        for(int i = 0; i < numActiveLights; i++) {
-            vec3 lightDir = normalize(lights[i].position - pos);
-            float diffuseStrength = max(dot(smoothNormal, lightDir), 0.2);
-            totalDiffuse = diffuseStrength * lights[i].color * lights[i].intensity;
+/**
+Return random direction based on normal via cosine
+ */
+vec3 weightedDIR(vec3 normal,float index){
+    //Local space (tangent space)
+    float r1 = rand(v_uv, index, 1.0);
+    float r2 = rand(v_uv, index, 2.0);
+
+    float phi = 2.0 * PI * r1;
+    float r = sqrt(r2);
+
+    float x = r*cos(phi);
+    float y = r*sin(phi);
+    float z = sqrt(1.0-r2);
+
+    //convert to world dir.
+    vec3 T = normalize(cross(normal, vec3(0.0, 1.0, 0.0)));
+    if (length(T) < 0.01) T = normalize(cross(normal, vec3(1.0, 0.0, 0.0)));
+    vec3 B = cross(normal, T);
+
+    // Final world-space ray direction
+    vec3 dirWorld = x * T + y * B + z * normal;
+    return normalize(dirWorld);
+}
+
+vec4 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir){
+    vec3 colorSamples[MAX_SAMPLES];
+    for(int sampleNum = 0; sampleNum < numSamples; sampleNum++){
+        vec3 rayOrigin = OGrayOrigin;
+        vec3 rayDir = OGrayDir;
+
+        vec3 color = vec3(0.0); //Final color for this sample       
+        vec3 throughput = vec3(1); // Running color
+        int bounce;
+
+        for(bounce = 0; bounce < numBounces; bounce++){
+            vec3 baryCentric;
+            float minHitDistance;
+            bool hit = false;
             
-            vec3 halfwayDir = normalize(lightDir + viewDir);
-            float spec = pow(max(dot(smoothNormal, halfwayDir), 0.0), matReflectivity);
-            specular+= spec * lights[i].color * lights[i].intensity* (1.0 - matRoughness); // Specular highlight
-            
+            int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance); // 
+            int hitLight = -1;
+            for(int i = 0; i < numActiveLights; i++) {
+                vec3 lightHitNormal;
+                float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);
+                if(lightHitDistance > 0.0 && lightHitDistance < minHitDistance){
+                    hitLight = i;
+                    minHitDistance = lightHitDistance;
+                }
+            }
+            if(hitLight != -1){
+                color += throughput * lights[hitLight].color * lights[hitLight].intensity;
+                break; // Done with this sample
+            }
+            if(triIndex != -1){ //hit a mesh
+                Triangle tri = getTriangle(triIndex);
+                vec3 smoothNormal;
+                vec3 matColor;
+                float matRoughness;
+                getInfo(tri,baryCentric,smoothNormal,matColor,matRoughness);
+
+                //BRDF refers to how much light is reflected in what direction
+                vec3 BRDF = matColor / PI; // Lambertian Diffuse BRDF 
+
+                //Create new ray
+                rayOrigin = rayOrigin + rayDir * minHitDistance + smoothNormal * 0.001; // Offset a bit to prevent self-intersection
+                rayDir = weightedDIR(smoothNormal, float(sampleNum * numBounces + bounce));
+
+                //Probability density function of normal/sin
+                float PDF = dot(rayDir,smoothNormal) / PI;
+
+                throughput *= BRDF * dot(rayDir,smoothNormal)/PDF; //Note: the dot product is just the cosine of the angle since it is normalized
+            }else{ //did not hit something
+                break; // Done with this sample
+            }
         }
 
-        // Apply lighting and gamma correction
-        vec3 lighting = totalDiffuse + specular;
-        vec3 finalColor = matColor * lighting;
-
-        // Apply gamma correction component-wise
-        finalColor = vec3(pow(finalColor.r, 1.0 / 2.2), pow(finalColor.g, 1.0 / 2.2), pow(finalColor.b, 1.0 / 2.2));
-        
-        color = vec4(finalColor, 1.0);
-     
-    }else{
-        color = vec4(0.0, 0.0, 0.0, 1.0); // background color
-    }
-    int hitLight = -1;
-    for(int i = 0; i < numActiveLights; i++) {
-        vec3 lightHitNormal;
-        float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);
-        if(lightHitDistance > 0.0 && lightHitDistance < minHitDistance){
-            hitLight = i;
-            minHitDistance = lightHitDistance;
-        }
-    }
-    if(hitLight != -1){
-        color = vec4(lights[hitLight].color, 1.0) * lights[hitLight].intensity;
+        //Merge colors of this one sample
+        colorSamples[sampleNum] = color;
     }
 
-    return color; 
+    vec3 finalColor = vec3(0.0);
+    for(int i = 0; i < numSamples; i++){
+        finalColor += colorSamples[i];
+    }
+    finalColor /= float(numSamples);
+    return vec4(finalColor,1.0);
 }
 
 void main() {
