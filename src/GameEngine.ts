@@ -145,6 +145,8 @@ export class GameEngine {
   updateCamera(time: number) {
     let velocity = this.mainCamera.speed * time;
     let movement = vec3.create();
+    let oldCamPos: vec3 = vec3.create();
+    vec3.copy(oldCamPos,this.mainCamera.position);
 
     //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
     if (this.keys["KeyW"])
@@ -160,6 +162,11 @@ export class GameEngine {
     if (this.keys["ShiftLeft"])
       vec3.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
     vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
+
+    if(!vec3.equals(this.mainCamera.position,oldCamPos)){
+      this.pathTracer.resetAccumulation();
+      console.log("ya");
+    }
   }
 
   addKeys() {
@@ -194,6 +201,7 @@ export class GameEngine {
       if (this.mainCamera.pitch > 89) this.mainCamera.pitch = 89;
       if (this.mainCamera.pitch < -89) this.mainCamera.pitch = -89;
       this.mainCamera.UpdateCameraVectors();
+      this.pathTracer.resetAccumulation();
     }
   }
   /**
@@ -203,6 +211,7 @@ export class GameEngine {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.pathTracer.resetAccumulation();
   }
 
   /**

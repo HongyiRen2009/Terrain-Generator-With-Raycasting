@@ -15,7 +15,7 @@ export class WorldMap {
   private width: number;
   private length: number;
   public lights: Light[] = [
-    new Light(vec3.fromValues(0, 100, 0), vec3.fromValues(1, 1, 1), 1, 5)
+    new Light(vec3.fromValues(0, 500, 0), vec3.fromValues(1, 1, 1), 1, 200)
   ];
 
   public height: number;

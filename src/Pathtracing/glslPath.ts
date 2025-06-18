@@ -16,9 +16,10 @@ precision highp float;
 #define PI 3.1415926
 
 //Note: 
-#define MAX_SAMPLES 128
-uniform int numSamples;
+uniform sampler2D u_lastFrame;
+uniform float u_frameNumber;
 uniform int numBounces;
+
 
 uniform sampler2D u_vertices;
 uniform sampler2D u_terrains;
@@ -309,7 +310,7 @@ float smoothItem(float[3] a, vec3 baryCentric){
         baryCentric.x * a[0] + 
         baryCentric.y * a[1] +
         baryCentric.z * a[2]
-    )/3.0;
+    );
 }
 
 void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness){
@@ -338,89 +339,96 @@ void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 mat
 Return random direction based on normal via cosine
  */
 vec3 weightedDIR(vec3 normal,float index){
-    //Local space (tangent space)
     float r1 = rand(v_uv, index, 1.0);
     float r2 = rand(v_uv, index, 2.0);
 
+    // Generate a random direction in a cosine-weighted hemisphere
     float phi = 2.0 * PI * r1;
-    float r = sqrt(r2);
+    float cos_theta = sqrt(1.0 - r2);
+    float sin_theta = sqrt(r2); // which is sqrt(1.0 - cos_theta*cos_theta)
+    
+    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
 
-    float x = r*cos(phi);
-    float y = r*sin(phi);
-    float z = sqrt(1.0-r2);
+    // --- ROBUST ORTHONORMAL BASIS ---
+    // Create a stable coordinate system around the normal.
+    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, normal));
+    vec3 bitangent = cross(normal, tangent);
 
-    //convert to world dir.
-    vec3 T = normalize(cross(normal, vec3(0.0, 1.0, 0.0)));
-    if (length(T) < 0.01) T = normalize(cross(normal, vec3(1.0, 0.0, 0.0)));
-    vec3 B = cross(normal, T);
-
-    // Final world-space ray direction
-    vec3 dirWorld = x * T + y * B + z * normal;
+    // Transform the random direction from local hemisphere space to world space
+    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;
+    
     return normalize(dirWorld);
 }
 
-vec4 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir){
-    vec3 colorSamples[MAX_SAMPLES];
-    for(int sampleNum = 0; sampleNum < numSamples; sampleNum++){
-        vec3 rayOrigin = OGrayOrigin;
-        vec3 rayDir = OGrayDir;
+vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir){ // for one sample
+    vec3 rayOrigin = OGrayOrigin;
+    vec3 rayDir = OGrayDir;
 
-        vec3 color = vec3(0.0); //Final color for this sample       
-        vec3 throughput = vec3(1); // Running color
-        int bounce;
+    vec3 color = vec3(0.0); //Final color for this sample       
+    vec3 throughput = vec3(1); // Running color
+    int bounce;
 
-        for(bounce = 0; bounce < numBounces; bounce++){
-            vec3 baryCentric;
-            float minHitDistance;
-            bool hit = false;
-            
-            int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance); // 
-            int hitLight = -1;
-            for(int i = 0; i < numActiveLights; i++) {
-                vec3 lightHitNormal;
-                float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);
-                if(lightHitDistance > 0.0 && lightHitDistance < minHitDistance){
-                    hitLight = i;
-                    minHitDistance = lightHitDistance;
-                }
-            }
-            if(hitLight != -1){
-                color += throughput * lights[hitLight].color * lights[hitLight].intensity;
-                break; // Done with this sample
-            }
-            if(triIndex != -1){ //hit a mesh
-                Triangle tri = getTriangle(triIndex);
-                vec3 smoothNormal;
-                vec3 matColor;
-                float matRoughness;
-                getInfo(tri,baryCentric,smoothNormal,matColor,matRoughness);
-
-                //BRDF refers to how much light is reflected in what direction
-                vec3 BRDF = matColor / PI; // Lambertian Diffuse BRDF 
-
-                //Create new ray
-                rayOrigin = rayOrigin + rayDir * minHitDistance + smoothNormal * 0.001; // Offset a bit to prevent self-intersection
-                rayDir = weightedDIR(smoothNormal, float(sampleNum * numBounces + bounce));
-
-                //Probability density function of normal/sin
-                float PDF = dot(rayDir,smoothNormal) / PI;
-
-                throughput *= BRDF * dot(rayDir,smoothNormal)/PDF; //Note: the dot product is just the cosine of the angle since it is normalized
-            }else{ //did not hit something
-                break; // Done with this sample
+    for(bounce = 0; bounce < numBounces; bounce++){
+        vec3 baryCentric;
+        float minHitDistance;
+        bool hit = false;
+        
+        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance); // 
+        int hitLight = -1;
+        for(int i = 0; i < numActiveLights; i++) {
+            vec3 lightHitNormal;
+            float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);
+            if(lightHitDistance > 0.0 && lightHitDistance < minHitDistance){
+                hitLight = i;
+                minHitDistance = lightHitDistance;
             }
         }
+        if(hitLight != -1){
+            color += throughput * lights[hitLight].color * lights[hitLight].intensity;
+            break; // Done with this sample
+        }
+        if(triIndex != -1){ //hit a mesh
+            Triangle tri = getTriangle(triIndex);
+            vec3 smoothNormal;
+            vec3 matColor;
+            float matRoughness;
+            getInfo(tri,baryCentric,smoothNormal,matColor,matRoughness);
 
-        //Merge colors of this one sample
-        colorSamples[sampleNum] = color;
+            // 1. Get the true geometric normal of the triangle face.
+            vec3 geometricNormal = tri.triNormal;
+
+            // 2. Check if the incoming ray is hitting the back of the triangle.
+            //    If so, flip the geometric normal to face the ray.
+            if (dot(geometricNormal, rayDir) > 0.0) {
+                geometricNormal = -geometricNormal;
+            }
+
+            // 3. IMPORTANT: Ensure the smooth shading normal is on the same hemisphere
+            //    as the (potentially flipped) geometric normal. This prevents bounces
+            //    that go *into* the mesh.
+            if (dot(smoothNormal, geometricNormal) < 0.0) {
+                smoothNormal = -smoothNormal;
+            }
+            
+            //BRDF refers to how much light is reflected in what direction
+            vec3 BRDF = matColor / PI; // Lambertian Diffuse BRDF 
+
+            //Create new 
+            vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
+            rayOrigin = hitPoint + geometricNormal * 0.001;
+            rayDir = weightedDIR(smoothNormal, u_frameNumber + float(bounce));
+            //Probability density function of normal/sin
+            float PDF = dot(rayDir,smoothNormal) / PI;
+
+            throughput *= BRDF * dot(rayDir,smoothNormal) / max(PDF, 0.000001);
+            //throughput *= BRDF * dot(rayDir,smoothNormal)/PDF; //Note: the dot product is just the cosine of the angle since it is normalized
+        }else{ //did not hit something
+            break; // Done with this sample
+        }
     }
 
-    vec3 finalColor = vec3(0.0);
-    for(int i = 0; i < numSamples; i++){
-        finalColor += colorSamples[i];
-    }
-    finalColor /= float(numSamples);
-    return vec4(finalColor,1.0);
+    return min(color, vec3(10.0));
 }
 
 void main() {
@@ -445,6 +453,16 @@ void main() {
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
     vec3 rayOrigin = u_cameraPos;
 
-    fragColor = PathTrace(rayOrigin,rayDir)+ (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
+    //get sample color
+    vec3 color = PathTrace(rayOrigin,rayDir);
+    //get prev color
+    vec3 lastColor = texture(u_lastFrame, v_uv).rgb;
+    
+    vec3 finalColor = mix(lastColor, color, float(1.0 / u_frameNumber));
+    if (u_frameNumber <= 1.0) {
+        finalColor = color;
+    }
+
+    fragColor = vec4(finalColor, 1.0) + (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
 }
 `;

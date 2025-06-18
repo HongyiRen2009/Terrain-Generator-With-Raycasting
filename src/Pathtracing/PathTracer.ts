@@ -12,13 +12,20 @@ import {
   pathTracingVertexShaderCode
 } from "./glslPath";
 import { BVHUtils } from "../map/BVHUtils";
+import { copyFragmentShader, copyVertexShader } from "./copyShader";
 
 export class PathTracer {
   //Rendering
   private canvas: HTMLCanvasElement;
   private gl: WebGL2RenderingContext;
+  // Accumulation stuff
+  private framebuffers: WebGLFramebuffer[] = [];
+  private accumulationTextures: WebGLTexture[] = [];
+  private currentFrame = 0; // The source texture/framebuffer index
+  private frameNumber = 0; // The accumulation counter
   //Shaders
-  private shader: Shader;
+  private meshShader: Shader;
+  private copyShader: Shader;
 
   //Information
   private vertices: Float32Array;
@@ -46,14 +53,29 @@ export class PathTracer {
     this.world = world;
     this.camera = camera;
     this.debug = debug;
-    this.gl.enable(this.gl.BLEND);
+    //this.gl.enable(this.gl.BLEND);
+    this.debug.addElement("Frame",()=>this.frameNumber)
+
+    //Enable float texture writing extention
+    const float_render_ext = this.gl.getExtension('EXT_color_buffer_float');
+    if (!float_render_ext) {
+        // This is a fatal error. The browser/GPU doesn't support the required extension.
+        // You should inform the user gracefully.
+        alert("Error: Floating point render targets are not supported on this browser/GPU.");
+        throw new Error("EXT_color_buffer_float not supported");
+    }
 
     //shader
-    this.shader = new Shader(
+    this.meshShader = new Shader(
       this.gl,
       pathTracingVertexShaderCode,
       pathTracingFragmentShaderCode
     );
+    this.copyShader = new Shader(
+      this.gl,
+      copyVertexShader,
+      copyFragmentShader
+    )
 
     ////////////////////// build flat BVH structure
     //Get main mesh
@@ -112,11 +134,11 @@ export class PathTracer {
   }
 
   public drawMesh() {
-    this.gl.useProgram(this.shader.Program!);
+    this.initPathtracing();
 
     //Put camera position in shader
     this.gl.uniform3fv(
-      this.gl.getUniformLocation(this.shader.Program!, "u_cameraPos"),
+      this.gl.getUniformLocation(this.meshShader.Program!, "u_cameraPos"),
       this.camera.position
     );
     //Put camera direction in shader
@@ -127,22 +149,50 @@ export class PathTracer {
     const invViewProjMatrix = mat4.create();
     mat4.invert(invViewProjMatrix, viewProjMatrix);
     const invVpLoc = this.gl.getUniformLocation(
-      this.shader.Program!,
+      this.meshShader.Program!,
       "u_invViewProjMatrix"
     );
     this.gl.uniformMatrix4fv(invVpLoc, false, invViewProjMatrix);
 
     //put lights in the shader
-    GlUtils.updateLights(this.gl, this.shader.Program!, this.world.lights);
+    GlUtils.updateLights(this.gl, this.meshShader.Program!, this.world.lights);
+
+
+    //Bind Previous Frame
+    const lastFrameIndex = this.currentFrame;
+    const nextFrameIndex = (this.currentFrame + 1) % 2;
+
+    this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.accumulationTextures[lastFrameIndex]);
+    const lastFrameLoc = this.gl.getUniformLocation(this.meshShader.Program!, "u_lastFrame");
+    this.gl.uniform1i(lastFrameLoc, 8);
+    
 
     //put samples and bounce in shader
-    this.gl.uniform1i(this.gl.getUniformLocation(this.shader.Program!,"numSamples"), 10);
-    this.gl.uniform1i(this.gl.getUniformLocation(this.shader.Program!,"numBounces"), 2);
+    this.frameNumber++;
+    this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program!,"numBounces"), 20);
+    this.gl.uniform1f(this.gl.getUniformLocation(this.meshShader.Program!,"u_frameNumber"), this.frameNumber); // Send as a float for seeding
+
 
     // Draw
-    this.gl.clearColor(0, 0, 0, 1);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffers[nextFrameIndex]);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+
+    //Ping Pong
+    this.currentFrame = nextFrameIndex;
+
+    //Draw to canvas
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    this.gl.useProgram(this.copyShader.Program!);
+    
+    GlUtils.bindTex(this.gl,this.copyShader.Program!, this.accumulationTextures[nextFrameIndex],"u_sourceTexture",0);
+    
+    // We can reuse the same fullscreen triangle VAO
+    this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+
   }
 
   public makeVao() {
@@ -163,7 +213,13 @@ export class PathTracer {
   }
 
   public init() {
-    this.gl.useProgram(this.shader.Program!);
+    this.initPathtracing();
+    this.makeVao();
+    this.resetAccumulation();
+  }
+
+  private initPathtracing(){
+    this.gl.useProgram(this.meshShader.Program!);
     //Textures
     let verticeTex = GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
     let terrainTex = GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
@@ -182,32 +238,64 @@ export class PathTracer {
       this.vertexNormals
     );
 
-    GlUtils.bindTex(this.gl, this.shader.Program!, verticeTex, "u_vertices", 0);
-    GlUtils.bindTex(this.gl, this.shader.Program!, terrainTex, "u_terrains", 1);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, verticeTex, "u_vertices", 0);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, terrainTex, "u_terrains", 1);
     GlUtils.bindTex(
       this.gl,
-      this.shader.Program!,
+      this.meshShader.Program!,
       boundingBoxesTex,
       "u_boundingBox",
       2
     );
-    GlUtils.bindTex(this.gl, this.shader.Program!, nodesTex, "u_nodesTex", 3);
-    GlUtils.bindTex(this.gl, this.shader.Program!, leafsTex, "u_leafsTex", 4);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, nodesTex, "u_nodesTex", 3);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, leafsTex, "u_leafsTex", 4);
     GlUtils.bindTex(
       this.gl,
-      this.shader.Program!,
+      this.meshShader.Program!,
       terrainTypeTex,
       "u_terrainTypes",
       5
     );
     GlUtils.bindTex(
       this.gl,
-      this.shader.Program!,
+      this.meshShader.Program!,
       vertexNormalsTex,
       "u_normals",
       6
     );
+  }
 
-    this.makeVao();
+  private initBuffers(){
+    this.accumulationTextures = [];
+    this.framebuffers = [];
+    for (let i = 0; i < 2; ++i) {
+        // Create a texture to store the accumulated image
+        const texture = this.gl.createTexture();
+        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+        this.gl.texImage2D(
+            this.gl.TEXTURE_2D, 0, this.gl.RGBA32F,
+            this.canvas.width, this.canvas.height, 0,
+            this.gl.RGBA, this.gl.FLOAT, null
+        );
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+        this.accumulationTextures.push(texture);
+
+        // Create a framebuffer and attach the texture to it
+        const fbo = this.gl.createFramebuffer();
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        this.gl.framebufferTexture2D(
+            this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, texture, 0
+        );
+        this.framebuffers.push(fbo);
+    }
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null); // Unbind
+  }
+
+  public resetAccumulation() {
+    this.frameNumber = 0;
+    this.initBuffers();
   }
 }
