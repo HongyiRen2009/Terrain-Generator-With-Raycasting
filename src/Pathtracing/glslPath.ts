@@ -30,6 +30,7 @@ uniform sampler2D u_leafsTex;
 uniform sampler2D u_terrainTypes;
 uniform vec3 u_cameraPos;
 uniform mat4 u_invViewProjMatrix;
+uniform vec2 u_resolution;
 
 struct Light {
     vec3 position;
@@ -461,15 +462,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 }
 
 void main() {
-    //All dummy. There mostly to ensure webgl doesn't auto-optimize all the things out.
-    vec4 dummy1 = texture(u_vertices, v_uv * 0.0); // Always fetch (0,0)
-    vec4 dummy2 = texture(u_terrains, v_uv * 0.0); // Always fetch (0,0)
-    vec4 dummy3 = texture(u_boundingBox, v_uv * 0.0); // Always fetch (0,0)
-    vec4 dummy4 = texture(u_nodesTex, v_uv * 0.0); // Always fetch (0,0)
-    vec4 dummy5 = texture(u_leafsTex, v_uv * 0.0); // Always fetch (0,0)
-    vec4 dummy6 = texture(u_terrainTypes, v_uv * 0.0); // Always fetch (0,0)
-    vec4 dummy7 = texture(u_normals, v_uv * 0.0); // Always fetch (0,0)
-    
     //Random Hash
     uint pixel_x = uint(v_uv.x * 1280.0); // Use your canvas width
     uint pixel_y = uint(v_uv.y * 720.0);  // Use your canvas height
@@ -477,15 +469,12 @@ void main() {
     uint rng_state = hash(seed + uint(u_frameNumber));
     rng_state = hash(rng_state + uint(u_frameNumber));
     // --- Jitter Calculation for Anti-Aliasing ---
-    // Get two random numbers for the x and y offset.
-    // We use a separate state to not interfere with the main path's PRNG sequence.
     uint jitter_rng_state = hash(rng_state); // Create a new state from the main one
     float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]
     float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]
-
     // Get the size of one pixel in UV space [0, 1].
     // Pass this in as a uniform: uniform vec2 u_resolution;
-    vec2 pixelSize = 1.0 / vec2(1280.0, 720.0); // Replace with u_resolution
+    vec2 pixelSize = 1.0 / u_resolution; // Replace with u_resolution
 
     // --- Ray Generation with Jitter ---
     // Start with the pixel's center and add the random offset.
@@ -515,6 +504,6 @@ void main() {
     // 3. Add the new sample to the sum. THIS IS THE FIX.
     vec3 newSum = lastSum + newSampleColor;
 
-    fragColor = vec4(newSum,1.0) + (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
+    fragColor = vec4(newSum,1.0); 
 }
 `;

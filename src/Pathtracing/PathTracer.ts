@@ -1,6 +1,6 @@
 // Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
 
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, vec2, vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
@@ -136,27 +136,32 @@ export class PathTracer {
   public drawMesh() {
     this.initPathtracing();
 
-    //Put camera position in shader
+    //Put camera position, direction in shader
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.meshShader.Program!, "u_cameraPos"),
       this.camera.position
     );
-    //Put camera direction in shader
     const viewProjMatrix = this.camera.calculateProjectionMatrix(
       this.canvas.width,
       this.canvas.height
     );
     const invViewProjMatrix = mat4.create();
     mat4.invert(invViewProjMatrix, viewProjMatrix);
-    const invVpLoc = this.gl.getUniformLocation(
-      this.meshShader.Program!,
-      "u_invViewProjMatrix"
+    this.gl.uniformMatrix4fv(
+      this.gl.getUniformLocation(
+        this.meshShader.Program!,
+        "u_invViewProjMatrix"
+      ), 
+      false, 
+      invViewProjMatrix
     );
-    this.gl.uniformMatrix4fv(invVpLoc, false, invViewProjMatrix);
+    const resolution = vec2.create();
+    resolution[0] = this.canvas.width;
+    resolution[1] = this.canvas.height;
+    this.gl.uniform2fv(this.gl.getUniformLocation(this.meshShader.Program!,"u_resolution"), resolution);
 
     //put lights in the shader
     GlUtils.updateLights(this.gl, this.meshShader.Program!, this.world.lights);
-
 
     //Bind Previous Frame
     const lastFrameIndex = this.currentFrame;
@@ -168,11 +173,10 @@ export class PathTracer {
     this.gl.uniform1i(lastFrameLoc, 8);
     
 
-    //put samples and bounce in shader
+    //put samples, bounce in shader
     this.frameNumber++;
-    this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program!,"numBounces"), 10);
+    this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program!,"numBounces"), 5);
     this.gl.uniform1f(this.gl.getUniformLocation(this.meshShader.Program!,"u_frameNumber"), this.frameNumber); // Send as a float for seeding
-
 
     // Draw
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffers[nextFrameIndex]);
