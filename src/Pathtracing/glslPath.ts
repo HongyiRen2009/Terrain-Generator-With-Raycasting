@@ -472,16 +472,15 @@ void main() {
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
     vec3 rayOrigin = u_cameraPos;
 
-    //get sample color
-    vec3 color = PathTrace(rayOrigin,rayDir);
-    //get prev color
-    vec3 lastColor = texture(u_lastFrame, v_uv).rgb;
+    // 1. Get the SUM of colors from all previous frames
+    vec3 lastSum = texture(u_lastFrame, v_uv).rgb;
     
-    vec3 finalColor = mix(lastColor, color, float(1.0 / u_frameNumber));
-    if (u_frameNumber <= 1.0) {
-        finalColor = color;
-    }
+    // 2. Calculate the color for just this single, new sample
+    vec3 newSampleColor = PathTrace(rayOrigin, rayDir);
 
-    fragColor = vec4(finalColor, 1.0) + (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
+    // 3. Add the new sample to the sum. THIS IS THE FIX.
+    vec3 newSum = lastSum + newSampleColor;
+
+    fragColor = vec4(newSum,1.0) + (dummy1+dummy2+dummy3+dummy4+dummy5+dummy6+dummy7)*0.0 + u_cameraPos[0]*0.0 + u_invViewProjMatrix[0]*0.0; 
 }
 `;

@@ -182,12 +182,14 @@ export class PathTracer {
     //Ping Pong
     this.currentFrame = nextFrameIndex;
 
-    //Draw to canvas
+    //Draw to canvas using copy shader
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.copyShader.Program!);
     
     GlUtils.bindTex(this.gl,this.copyShader.Program!, this.accumulationTextures[nextFrameIndex],"u_sourceTexture",0);
-    
+    const frameLoc = this.gl.getUniformLocation(this.copyShader.Program!, "u_frameNumber");
+    this.gl.uniform1f(frameLoc, this.frameNumber);
+
     // We can reuse the same fullscreen triangle VAO
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
