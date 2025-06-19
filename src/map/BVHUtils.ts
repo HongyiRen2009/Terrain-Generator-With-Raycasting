@@ -97,9 +97,9 @@ export class BVHUtils {
     let i = 0;
     for (const key in Terrains) {
       let terrain = Terrains[key];
-      out[i * 5] = terrain.color.r;
-      out[i * 5 + 1] = terrain.color.g;
-      out[i * 5 + 2] = terrain.color.b;
+      out[i * 5] = terrain.color.r / 255;
+      out[i * 5 + 1] = terrain.color.g / 255;
+      out[i * 5 + 2] = terrain.color.b / 255;
       out[i * 5 + 3] = terrain.reflectiveness;
       out[i * 5 + 4] = terrain.roughness;
       i++;

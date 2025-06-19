@@ -67,8 +67,22 @@ struct TerrainType{
     float roughness; // Decimal 0-1
 };
 
-float rand(vec2 co, float index, float seed) {
-    return fract(sin(dot(co, vec2(12.9898, 78.233)) + index * 43758.5453 + seed) * 43758.5453);
+// Provides a high quality 32-bit hash function to generate pseudo-random numbers
+// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins
+uint hash(uint state) {
+    state ^= 2747636419u;
+    state *= 2654435769u;
+    state ^= state >> 16;
+    state *= 2654435769u;
+    state ^= state >> 16;
+    state *= 2654435769u;
+    return state;
+}
+
+// Generates a random float in the [0, 1] range
+float rand(inout uint state) {
+    state = hash(state);
+    return float(state) / 4294967295.0; // 2^32 - 1
 }
 
 float fetchFloatFrom1D(sampler2D tex, int index) {
@@ -299,7 +313,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBaryc
 }
 
 vec3 smoothItem(vec3[3] a, vec3 baryCentric){
-    return normalize(
+    return (
         baryCentric.x * a[0] + 
         baryCentric.y * a[1] +
         baryCentric.z * a[2]
@@ -338,30 +352,25 @@ void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 mat
 /**
 Return random direction based on normal via cosine
  */
-vec3 weightedDIR(vec3 normal,float index){
-    float r1 = rand(v_uv, index, 1.0);
-    float r2 = rand(v_uv, index, 2.0);
-
-    // Generate a random direction in a cosine-weighted hemisphere
+vec3 weightedDIR(vec3 normal, inout uint rng_state){
+    // Get two random numbers by advancing the state
+    float r1 = rand(rng_state);
+    float r2 = rand(rng_state);
+    
+    // ... rest of the function is identical ...
     float phi = 2.0 * PI * r1;
     float cos_theta = sqrt(1.0 - r2);
-    float sin_theta = sqrt(r2); // which is sqrt(1.0 - cos_theta*cos_theta)
-    
+    float sin_theta = sqrt(r2);
     vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);
-
-    // --- ROBUST ORTHONORMAL BASIS ---
-    // Create a stable coordinate system around the normal.
     vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
     vec3 tangent = normalize(cross(up, normal));
     vec3 bitangent = cross(normal, tangent);
-
-    // Transform the random direction from local hemisphere space to world space
     vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;
-    
     return normalize(dirWorld);
 }
 
-vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir) {
+
+vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 rayOrigin = OGrayOrigin;
     vec3 rayDir = OGrayDir;
 
@@ -393,6 +402,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir) {
 
         if (triIndex == -1) {
             // Ray missed everything and flew into space.
+            color += throughput * 0.00001; // light sky!
             break;
         }
 
@@ -444,7 +454,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir) {
 
         // Create the next bounce ray
         rayOrigin = hitPoint + geometricNormal * 0.01;
-        rayDir = weightedDIR(smoothNormal, u_frameNumber + float(bounce));
+        rayDir = weightedDIR(smoothNormal, rng_state);
     }
 
     return min(color, vec3(10.0));
@@ -459,8 +469,29 @@ void main() {
     vec4 dummy5 = texture(u_leafsTex, v_uv * 0.0); // Always fetch (0,0)
     vec4 dummy6 = texture(u_terrainTypes, v_uv * 0.0); // Always fetch (0,0)
     vec4 dummy7 = texture(u_normals, v_uv * 0.0); // Always fetch (0,0)
+    
+    //Random Hash
+    uint pixel_x = uint(v_uv.x * 1280.0); // Use your canvas width
+    uint pixel_y = uint(v_uv.y * 720.0);  // Use your canvas height
+    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);
+    uint rng_state = hash(seed + uint(u_frameNumber));
+    rng_state = hash(rng_state + uint(u_frameNumber));
+    // --- Jitter Calculation for Anti-Aliasing ---
+    // Get two random numbers for the x and y offset.
+    // We use a separate state to not interfere with the main path's PRNG sequence.
+    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one
+    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]
+    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]
 
-    vec2 screenPos = v_uv * 2.0 - 1.0; // NDC space: [-1, 1]
+    // Get the size of one pixel in UV space [0, 1].
+    // Pass this in as a uniform: uniform vec2 u_resolution;
+    vec2 pixelSize = 1.0 / vec2(1280.0, 720.0); // Replace with u_resolution
+
+    // --- Ray Generation with Jitter ---
+    // Start with the pixel's center and add the random offset.
+    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;
+    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC
+
 
     // Define the ray in clip space. 'w' is 1.0 because it's a point.
     vec4 rayClip = vec4(screenPos, -1.0, 1.0); 
@@ -472,11 +503,14 @@ void main() {
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
     vec3 rayOrigin = u_cameraPos;
 
+    
+    
+
     // 1. Get the SUM of colors from all previous frames
     vec3 lastSum = texture(u_lastFrame, v_uv).rgb;
     
     // 2. Calculate the color for just this single, new sample
-    vec3 newSampleColor = PathTrace(rayOrigin, rayDir);
+    vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state);
 
     // 3. Add the new sample to the sum. THIS IS THE FIX.
     vec3 newSum = lastSum + newSampleColor;
