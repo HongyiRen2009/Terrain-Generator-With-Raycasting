@@ -181,6 +181,7 @@ bool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out fl
     return tMax >= max(tMin, 0.0);
 }
 
+//AI written; Returns distance to intersection with triangle
 float intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {
     const float EPSILON = 0.000001;
     vec3 v0 = tri.vertices[0];
@@ -352,13 +353,11 @@ void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 mat
 
 /**
 Return random direction based on normal via cosine
- */
+*/
 vec3 weightedDIR(vec3 normal, inout uint rng_state){
-    // Get two random numbers by advancing the state
     float r1 = rand(rng_state);
     float r2 = rand(rng_state);
-    
-    // ... rest of the function is identical ...
+
     float phi = 2.0 * PI * r1;
     float cos_theta = sqrt(1.0 - r2);
     float sin_theta = sqrt(r2);
@@ -369,7 +368,6 @@ vec3 weightedDIR(vec3 normal, inout uint rng_state){
     vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;
     return normalize(dirWorld);
 }
-
 
 vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 rayOrigin = OGrayOrigin;
@@ -395,8 +393,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         }
 
         if (hitLightIndex != -1) {
-            // --- The ray directly hit a light source ---
-            // We add the light's energy, filtered by the path's throughput.
+            // Ray hit light source
             color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
             break; // Path terminates.
         }
@@ -407,7 +404,8 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             break;
         }
 
-        // --- The ray hit a triangle on the mesh ---
+        // The ray hit a triangle 
+        //Get information
         vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
         Triangle tri = getTriangle(triIndex);
         intersectTriangle(rayOrigin, rayDir, tri, baryCentric);
@@ -419,10 +417,11 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         vec3 geometricNormal = tri.triNormal;
         if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;
         if (dot(smoothNormal, geometricNormal) < 0.0) smoothNormal = -smoothNormal;
+
+        vec3 BRDF = matColor / PI;
         
         
-        // --- NEXT EVENT ESTIMATION (Direct Lighting) ---
-        // We add the direct light contribution at this bounce.
+        // NEXT EVENT ESTIMATION (Direct Lighting)
         if (numActiveLights > 0) {
             Light directSampledLight = lights[0];
             vec3 toLight = directSampledLight.position - hitPoint;
@@ -437,25 +436,20 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             
             if (occludingTri == -1 || meshHitDist >= distToLight) {
                 // The light is visible.
-                vec3 BRDF = matColor / PI;
                 float cos_theta = max(0.0, dot(smoothNormal, shadowRayDir));
                 
-                // Full, correct lighting formula
                 vec3 directLighting = directSampledLight.color * directSampledLight.intensity * BRDF * cos_theta / max(distToLightSqr, 0.001);
-
-                // Add the direct lighting to the final color, filtered by the current throughput.
                 color += throughput * directLighting;
             }
         }
         
-        // --- INDIRECT LIGHTING (Prepare for the NEXT bounce) ---
-        // For a perfectly diffuse surface with cosine importance sampling, the throughput
-        // for the next bounce is simply attenuated by the material's color.
-        throughput *= matColor;
-
+        // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
         rayOrigin = hitPoint + geometricNormal * 0.01;
         rayDir = weightedDIR(smoothNormal, rng_state);
+        //Add to throughput
+        float PDF = dot(rayDir,smoothNormal) / PI;
+        throughput *= BRDF * dot(rayDir,smoothNormal)/PDF;
     }
 
     return min(color, vec3(10.0));
@@ -463,24 +457,20 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
 void main() {
     //Random Hash
-    uint pixel_x = uint(v_uv.x * 1280.0); // Use your canvas width
-    uint pixel_y = uint(v_uv.y * 720.0);  // Use your canvas height
+    uint pixel_x = uint(v_uv.x * u_resolution.x); 
+    uint pixel_y = uint(v_uv.y * u_resolution.y);
     uint seed = hash(pixel_x) + hash(pixel_y * 1999u);
     uint rng_state = hash(seed + uint(u_frameNumber));
     rng_state = hash(rng_state + uint(u_frameNumber));
-    // --- Jitter Calculation for Anti-Aliasing ---
+    
+    // Jitter calculation for Anti-Alising
     uint jitter_rng_state = hash(rng_state); // Create a new state from the main one
     float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]
     float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]
-    // Get the size of one pixel in UV space [0, 1].
-    // Pass this in as a uniform: uniform vec2 u_resolution;
-    vec2 pixelSize = 1.0 / u_resolution; // Replace with u_resolution
+    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].
 
-    // --- Ray Generation with Jitter ---
-    // Start with the pixel's center and add the random offset.
     vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;
     vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC
-
 
     // Define the ray in clip space. 'w' is 1.0 because it's a point.
     vec4 rayClip = vec4(screenPos, -1.0, 1.0); 
@@ -492,17 +482,9 @@ void main() {
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
     vec3 rayOrigin = u_cameraPos;
 
-    
-    
-
-    // 1. Get the SUM of colors from all previous frames
-    vec3 lastSum = texture(u_lastFrame, v_uv).rgb;
-    
-    // 2. Calculate the color for just this single, new sample
-    vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state);
-
-    // 3. Add the new sample to the sum. THIS IS THE FIX.
-    vec3 newSum = lastSum + newSampleColor;
+    vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color
+    vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color
+    vec3 newSum = lastSum + newSampleColor; // New sum
 
     fragColor = vec4(newSum,1.0); 
 }

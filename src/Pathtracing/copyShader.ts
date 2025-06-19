@@ -1,3 +1,4 @@
+//Imma be honest all this code was written by AI cause I'm too lazy to right the Tone mapping
 export const copyVertexShader = /* glsl */ `#version 300 es
 precision highp float;
 

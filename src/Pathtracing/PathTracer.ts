@@ -54,13 +54,10 @@ export class PathTracer {
     this.camera = camera;
     this.debug = debug;
     //this.gl.enable(this.gl.BLEND);
-    this.debug.addElement("Frame",()=>this.frameNumber)
 
     //Enable float texture writing extention
     const float_render_ext = this.gl.getExtension('EXT_color_buffer_float');
     if (!float_render_ext) {
-        // This is a fatal error. The browser/GPU doesn't support the required extension.
-        // You should inform the user gracefully.
         alert("Error: Floating point render targets are not supported on this browser/GPU.");
         throw new Error("EXT_color_buffer_float not supported");
     }
@@ -121,7 +118,7 @@ export class PathTracer {
     this.terrainTypes = terrainTypes;
     this.vertexNormals = normals;
 
-    this.init();
+    this.init(false);
   }
 
   public render(time: number) {
@@ -218,10 +215,15 @@ export class PathTracer {
     this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
   }
 
-  public init() {
+  public init(showAccumulation: boolean = true) {
+    if(showAccumulation)
+      this.debug.addElement("Accumulation Frame",()=>this.frameNumber)
     this.initPathtracing();
     this.makeVao();
     this.resetAccumulation();
+  }
+  public leave(){
+    this.debug.removeElement("Accumulation Frame");
   }
 
   private initPathtracing(){
