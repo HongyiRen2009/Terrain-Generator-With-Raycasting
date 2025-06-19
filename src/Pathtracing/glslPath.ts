@@ -361,71 +361,90 @@ vec3 weightedDIR(vec3 normal,float index){
     return normalize(dirWorld);
 }
 
-vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir){ // for one sample
+vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir) {
     vec3 rayOrigin = OGrayOrigin;
     vec3 rayDir = OGrayDir;
 
-    vec3 color = vec3(0.0); //Final color for this sample       
-    vec3 throughput = vec3(1); // Running color
-    int bounce;
+    vec3 color = vec3(0.0);
+    vec3 throughput = vec3(1.0);
 
-    for(bounce = 0; bounce < numBounces; bounce++){
+    for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
         float minHitDistance;
-        bool hit = false;
         
-        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance); // 
-        int hitLight = -1;
-        for(int i = 0; i < numActiveLights; i++) {
+        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);
+        
+        int hitLightIndex = -1;
+        for (int i = 0; i < numActiveLights; i++) {
             vec3 lightHitNormal;
             float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);
-            if(lightHitDistance > 0.0 && lightHitDistance < minHitDistance){
-                hitLight = i;
+            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {
+                hitLightIndex = i;
                 minHitDistance = lightHitDistance;
             }
         }
-        if(hitLight != -1){
-            color += throughput * lights[hitLight].color * lights[hitLight].intensity;
-            break; // Done with this sample
+
+        if (hitLightIndex != -1) {
+            // --- The ray directly hit a light source ---
+            // We add the light's energy, filtered by the path's throughput.
+            color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
+            break; // Path terminates.
         }
-        if(triIndex != -1){ //hit a mesh
-            Triangle tri = getTriangle(triIndex);
-            vec3 smoothNormal;
-            vec3 matColor;
-            float matRoughness;
-            getInfo(tri,baryCentric,smoothNormal,matColor,matRoughness);
 
-            // 1. Get the true geometric normal of the triangle face.
-            vec3 geometricNormal = tri.triNormal;
+        if (triIndex == -1) {
+            // Ray missed everything and flew into space.
+            break;
+        }
 
-            // 2. Check if the incoming ray is hitting the back of the triangle.
-            //    If so, flip the geometric normal to face the ray.
-            if (dot(geometricNormal, rayDir) > 0.0) {
-                geometricNormal = -geometricNormal;
-            }
+        // --- The ray hit a triangle on the mesh ---
+        vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
+        Triangle tri = getTriangle(triIndex);
+        intersectTriangle(rayOrigin, rayDir, tri, baryCentric);
 
-            // 3. IMPORTANT: Ensure the smooth shading normal is on the same hemisphere
-            //    as the (potentially flipped) geometric normal. This prevents bounces
-            //    that go *into* the mesh.
-            if (dot(smoothNormal, geometricNormal) < 0.0) {
-                smoothNormal = -smoothNormal;
-            }
+        vec3 smoothNormal, matColor;
+        float matRoughness;
+        getInfo(tri, baryCentric, smoothNormal, matColor, matRoughness);
+        
+        vec3 geometricNormal = tri.triNormal;
+        if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;
+        if (dot(smoothNormal, geometricNormal) < 0.0) smoothNormal = -smoothNormal;
+        
+        
+        // --- NEXT EVENT ESTIMATION (Direct Lighting) ---
+        // We add the direct light contribution at this bounce.
+        if (numActiveLights > 0) {
+            Light directSampledLight = lights[0];
+            vec3 toLight = directSampledLight.position - hitPoint;
+            float distToLightSqr = dot(toLight, toLight);
+            float distToLight = sqrt(distToLightSqr);
+            vec3 shadowRayDir = toLight / distToLight;
+            vec3 shadowRayOrigin = hitPoint + geometricNormal * 0.01;
             
-            //BRDF refers to how much light is reflected in what direction
-            vec3 BRDF = matColor / PI; // Lambertian Diffuse BRDF 
+            vec3 dummyBary;
+            float meshHitDist;
+            int occludingTri = traverseBVH(shadowRayOrigin, shadowRayDir, 0, dummyBary, meshHitDist);
+            
+            if (occludingTri == -1 || meshHitDist >= distToLight) {
+                // The light is visible.
+                vec3 BRDF = matColor / PI;
+                float cos_theta = max(0.0, dot(smoothNormal, shadowRayDir));
+                
+                // Full, correct lighting formula
+                vec3 directLighting = directSampledLight.color * directSampledLight.intensity * BRDF * cos_theta / max(distToLightSqr, 0.001);
 
-            //Create new 
-            vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
-            rayOrigin = hitPoint + geometricNormal * 0.001;
-            rayDir = weightedDIR(smoothNormal, u_frameNumber + float(bounce));
-            //Probability density function of normal/sin
-            float PDF = dot(rayDir,smoothNormal) / PI;
-
-            throughput *= BRDF * dot(rayDir,smoothNormal) / max(PDF, 0.000001);
-            //throughput *= BRDF * dot(rayDir,smoothNormal)/PDF; //Note: the dot product is just the cosine of the angle since it is normalized
-        }else{ //did not hit something
-            break; // Done with this sample
+                // Add the direct lighting to the final color, filtered by the current throughput.
+                color += throughput * directLighting;
+            }
         }
+        
+        // --- INDIRECT LIGHTING (Prepare for the NEXT bounce) ---
+        // For a perfectly diffuse surface with cosine importance sampling, the throughput
+        // for the next bounce is simply attenuated by the material's color.
+        throughput *= matColor;
+
+        // Create the next bounce ray
+        rayOrigin = hitPoint + geometricNormal * 0.01;
+        rayDir = weightedDIR(smoothNormal, u_frameNumber + float(bounce));
     }
 
     return min(color, vec3(10.0));

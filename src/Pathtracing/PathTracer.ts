@@ -170,7 +170,7 @@ export class PathTracer {
 
     //put samples and bounce in shader
     this.frameNumber++;
-    this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program!,"numBounces"), 20);
+    this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program!,"numBounces"), 10);
     this.gl.uniform1f(this.gl.getUniformLocation(this.meshShader.Program!,"u_frameNumber"), this.frameNumber); // Send as a float for seeding
 
 
