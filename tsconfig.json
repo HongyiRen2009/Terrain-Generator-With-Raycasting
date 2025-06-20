@@ -1,13 +1,15 @@
 {
   "compilerOptions": {
     "target": "ES5",
-    "module": "NodeNext",
+    "module": "esnext",
     "outDir": "dist",
     "sourceMap": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "moduleResolution": "nodenext",
-    "strict": true
+    "moduleResolution": "bundler",
+    "strict": true,
+    "lib": ["esnext", "dom", "webworker"]
+
   },
   "include": ["src"]
 }

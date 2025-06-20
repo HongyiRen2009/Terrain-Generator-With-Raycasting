@@ -18,8 +18,8 @@ export class GLRenderer {
   canvas: HTMLCanvasElement;
   camera: Camera;
 
-  WireFrameCubes: WireFrameCube[];
-  TriangleBuffer: { position: WebGLBuffer; indices: WebGLBuffer };
+  WireFrameCubes: WireFrameCube[] = [];
+  TriangleBuffer: { position: WebGLBuffer; indices: WebGLBuffer } | null = null;
 
   MeshSize: number = 0;
 
@@ -48,12 +48,24 @@ export class GLRenderer {
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
+    this.CubeShader = new Shader(
+      gl,
+      CubeVertexShaderCode,
+      CubeFragmentShaderCode
+    );
+    this.MeshShader = new Shader(
+      gl,
+      MeshVertexShaderCode,
+      MeshFragmentShaderCode
+    );
 
+    this.matViewProj = mat4.create();
+  }
+  GenerateTriangleBuffer() {
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
     let triangleVertices: number[] = [];
     let triangleIndices: number[] = [];
     let indexOffset = 0;
-    this.WireFrameCubes = [];
 
     const out = GlUtils.genTerrainVertices(this.world);
     let triangleMeshes = out.triangleMeshes;
@@ -80,25 +92,11 @@ export class GLRenderer {
     this.MeshSize = triangleIndices.length;
 
     this.TriangleBuffer = GlUtils.CreateStaticBuffer(
-      gl,
+      this.gl,
       new Float32Array(triangleVertices),
       triangleIndices
     );
-
-    this.CubeShader = new Shader(
-      gl,
-      CubeVertexShaderCode,
-      CubeFragmentShaderCode
-    );
-    this.MeshShader = new Shader(
-      gl,
-      MeshVertexShaderCode,
-      MeshFragmentShaderCode
-    );
-
-    this.matViewProj = mat4.create();
   }
-
   drawMesh(TransformationMatrix: mat4) {
     this.gl.useProgram(this.MeshShader.Program!);
     GlUtils.updateLights(
@@ -117,7 +115,13 @@ export class GLRenderer {
       false,
       this.matViewProj
     );
+
     //Create vertice array object
+    if (!this.TriangleBuffer) {
+      console.error("TriangleBuffer not initialized.");
+      return;
+    }
+
     const triangleVao = GlUtils.create3dPosColorInterleavedVao(
       this.gl,
       this.TriangleBuffer.position,
