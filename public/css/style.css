@@ -6,22 +6,23 @@ html, body, canvas {
     overflow: hidden;
 }
 #debugMenu{
-    background-color: rgb(39, 39, 39);
-    color: white;
-    border-radius: 10px;
+    background-color: rgba(100, 100, 100, 0.4);
+    border-radius: 6px;
     height: fit-content;
-    width: 200px;
+    width: fit-content;
     position: absolute;
-    left: 20px;
-    top: 20px;
+    left: 0px;
+    top: 0px;
     z-index: 9999;
-    outline-style: solid;
-    outline-color: red;
+    padding-left: 10px;
+    padding-right: 10px;
 }
+
 #debugMenu p{
     display: flex;
-    justify-content: center;
-    align-items: center;
+    justify-content: left;
+    align-items: left;
+    color: white;
 }
 
 /* Sidebar - slides in from the right */
@@ -100,12 +101,12 @@ input[type="range"] {
     background: #ddd;
     border-radius: 5px;
     outline: none;
-    -webkit-appearance: none; /* Remove default WebKit styles */
+    appearance: none;
     margin: 20px 0;
 }
 
 input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
+    appearance: none;
     width: 20px;
     height: 20px;
     border-radius: 50%;
