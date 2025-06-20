@@ -32,6 +32,7 @@ export class GameEngine {
   private lastFPSCheck: number = 0;
   private currentFPS: number = 0;
 
+  private worldInitialized = false;
   /**
    * Constructs game engine
    * @param canvasId The ID of the canvas rendered to
@@ -73,7 +74,7 @@ export class GameEngine {
       this.mainCamera,
       this.debug
     );
-
+    this.inititialize();
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
     this.canvas.addEventListener("mousemove", (e: MouseEvent) =>
@@ -122,7 +123,14 @@ export class GameEngine {
       return;
     }
   }
-
+  public async inititialize() {
+    await Promise.all(
+      this.world.chunks.map((chunk) => chunk.generateFieldValues())
+    );
+    this.world.populateFieldMap();
+    this.renderer.GenerateTriangleBuffer();
+    this.worldInitialized = true;
+  }
   /**
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
@@ -132,16 +140,17 @@ export class GameEngine {
     }
     const timePassed = timestamp - this.lastRenderTime;
     this.lastRenderTime = timestamp;
-    if (GameEngine.getLockedElement()) {
-      this.updateCamera(timePassed);
-    }
+    if (this.worldInitialized) {
+      if (GameEngine.getLockedElement()) {
+        this.updateCamera(timePassed);
+      }
 
-    if (this.mode == 0) {
-      this.renderer.render();
-    } else {
-      this.pathTracer.render(timestamp);
+      if (this.mode == 0) {
+        this.renderer.render();
+      } else {
+        this.pathTracer.render(timestamp);
+      }
     }
-
     this.frameCounter += 1;
     if (Date.now() - this.lastFPSCheck >= 1000) {
       this.currentFPS =

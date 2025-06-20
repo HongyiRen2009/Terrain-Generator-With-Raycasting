@@ -1,9 +1,9 @@
 //Wrapper classes (will write stuff later)
 
-import { createNoise3D, NoiseFunction3D } from "simplex-noise";
 import { Chunk } from "./marching_cubes";
 import { vec2, vec3 } from "gl-matrix";
 import { Light } from "./Light";
+
 import { Color } from "./terrains";
 
 /**
@@ -28,9 +28,9 @@ export class WorldMap {
   public height: number;
   public resolution = 64; //#of vertices square size of chunk
   public chunks: Chunk[];
-  public simplexNoise!: NoiseFunction3D;
   public fieldMap: Map<string, number>;
-
+  public Workers: Worker[] = [];
+  public seed: number = Math.random() * 1000; // Random seed for noise generation
   /**
    * Constructs a world
    * @param width Width in # of chunks
@@ -42,10 +42,14 @@ export class WorldMap {
     this.length = length;
     this.height = height;
     this.chunks = [];
-    this.simplexNoise = createNoise3D();
+    for (let i = 0; i < navigator.hardwareConcurrency; i++) {
+      this.Workers.push(new Worker(new URL("./Worker.ts", import.meta.url)));
+    }
     this.generate();
 
     this.fieldMap = new Map<string, number>();
+  }
+  public populateFieldMap() {
     for (const chunk of this.chunks) {
       for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
         this.fieldMap.set(key, val);
@@ -55,29 +59,33 @@ export class WorldMap {
       chunk.setWorldFieldMap(this.fieldMap);
     }
   }
-
   //Generates map
   public generate() {
     this.chunks = [
+      // Row 1
       new Chunk(
         vec2.fromValues(0, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.simplexNoise
+        this.seed,
+        this.Workers[0]
       ),
       new Chunk(
         vec2.fromValues(this.resolution, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.simplexNoise
+        this.seed,
+        this.Workers[1]
       ),
       new Chunk(
         vec2.fromValues(2 * this.resolution, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.simplexNoise
+        this.seed,
+        this.Workers[2]
       ),
       new Chunk(
-        vec2.fromValues(0, this.resolution),
+        vec2.fromValues(3 * this.resolution, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.simplexNoise
+        this.seed,
+        this.Workers[3]
       )
     ];
   }
