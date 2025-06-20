@@ -91,7 +91,7 @@ export class GameEngine {
     rayBtn.addEventListener("click", () => {
       rayBtn.classList.add("active");
       pathBtn.classList.remove("active");
-      if(this.mode == 1){
+      if (this.mode == 1) {
         this.pathTracer.leave();
       }
       this.mode = 0; // Set to raytracing
@@ -107,12 +107,12 @@ export class GameEngine {
     //Initialize menu
     const menuButton = document.getElementById("menu-toggle")!;
     const sidebar = document.getElementById("sidebar")!;
-    const topBar = document.getElementById('topBarWrapper')!;
+    const topBar = document.getElementById("topBarWrapper")!;
 
     menuButton.addEventListener("click", () => {
       sidebar.classList.toggle("open");
-      topBar.classList.toggle('shifted');
-    })
+      topBar.classList.toggle("shifted");
+    });
 
     //Check to see if WebGL working
     if (!this.gl) {
@@ -159,7 +159,7 @@ export class GameEngine {
     let velocity = this.mainCamera.speed * time;
     let movement = vec3.create();
     let oldCamPos: vec3 = vec3.create();
-    vec3.copy(oldCamPos,this.mainCamera.position);
+    vec3.copy(oldCamPos, this.mainCamera.position);
 
     //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
     if (this.keys["KeyW"])
@@ -176,7 +176,7 @@ export class GameEngine {
       vec3.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
     vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
 
-    if(!vec3.equals(this.mainCamera.position,oldCamPos)){
+    if (!vec3.equals(this.mainCamera.position, oldCamPos)) {
       this.pathTracer.resetAccumulation();
       console.log("ya");
     }

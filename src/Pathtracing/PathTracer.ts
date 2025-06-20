@@ -57,10 +57,12 @@ export class PathTracer {
     //this.gl.enable(this.gl.BLEND);
 
     //Enable float texture writing extention
-    const float_render_ext = this.gl.getExtension('EXT_color_buffer_float');
+    const float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
     if (!float_render_ext) {
-        alert("Error: Floating point render targets are not supported on this browser/GPU.");
-        throw new Error("EXT_color_buffer_float not supported");
+      alert(
+        "Error: Floating point render targets are not supported on this browser/GPU."
+      );
+      throw new Error("EXT_color_buffer_float not supported");
     }
 
     //shader
@@ -69,11 +71,7 @@ export class PathTracer {
       pathTracingVertexShaderCode,
       pathTracingFragmentShaderCode
     );
-    this.copyShader = new Shader(
-      this.gl,
-      copyVertexShader,
-      copyFragmentShader
-    )
+    this.copyShader = new Shader(this.gl, copyVertexShader, copyFragmentShader);
 
     ////////////////////// build flat BVH structure
     //Get main mesh
@@ -124,7 +122,7 @@ export class PathTracer {
     //Slider
     const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
 
-    slider.addEventListener("input",this.handleBounceInput.bind(this));
+    slider.addEventListener("input", this.handleBounceInput.bind(this));
     slider.value = this.numBounces.toString();
   }
 
@@ -132,7 +130,9 @@ export class PathTracer {
     const target = event.target as HTMLInputElement;
     const newValue = parseInt(target.value);
     this.numBounces = newValue;
-    const bounceValue = document.getElementById("bounceValue")! as HTMLSpanElement;
+    const bounceValue = document.getElementById(
+      "bounceValue"
+    )! as HTMLSpanElement;
     bounceValue.textContent = newValue.toString();
   }
 
@@ -163,14 +163,17 @@ export class PathTracer {
       this.gl.getUniformLocation(
         this.meshShader.Program!,
         "u_invViewProjMatrix"
-      ), 
-      false, 
+      ),
+      false,
       invViewProjMatrix
     );
     const resolution = vec2.create();
     resolution[0] = this.canvas.width;
     resolution[1] = this.canvas.height;
-    this.gl.uniform2fv(this.gl.getUniformLocation(this.meshShader.Program!,"u_resolution"), resolution);
+    this.gl.uniform2fv(
+      this.gl.getUniformLocation(this.meshShader.Program!, "u_resolution"),
+      resolution
+    );
 
     //put lights in the shader
     GlUtils.updateLights(this.gl, this.meshShader.Program!, this.world.lights);
@@ -180,18 +183,32 @@ export class PathTracer {
     const nextFrameIndex = (this.currentFrame + 1) % 2;
 
     this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.accumulationTextures[lastFrameIndex]);
-    const lastFrameLoc = this.gl.getUniformLocation(this.meshShader.Program!, "u_lastFrame");
+    this.gl.bindTexture(
+      this.gl.TEXTURE_2D,
+      this.accumulationTextures[lastFrameIndex]
+    );
+    const lastFrameLoc = this.gl.getUniformLocation(
+      this.meshShader.Program!,
+      "u_lastFrame"
+    );
     this.gl.uniform1i(lastFrameLoc, 8);
-    
 
     //put samples, bounce in shader
     this.frameNumber++;
-    this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program!,"numBounces"), this.numBounces);
-    this.gl.uniform1f(this.gl.getUniformLocation(this.meshShader.Program!,"u_frameNumber"), this.frameNumber); // Send as a float for seeding
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.meshShader.Program!, "numBounces"),
+      this.numBounces
+    );
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.meshShader.Program!, "u_frameNumber"),
+      this.frameNumber
+    ); // Send as a float for seeding
 
     // Draw
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffers[nextFrameIndex]);
+    this.gl.bindFramebuffer(
+      this.gl.FRAMEBUFFER,
+      this.framebuffers[nextFrameIndex]
+    );
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
 
@@ -201,16 +218,24 @@ export class PathTracer {
     //Draw to canvas using copy shader
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.copyShader.Program!);
-    
-    GlUtils.bindTex(this.gl,this.copyShader.Program!, this.accumulationTextures[nextFrameIndex],"u_sourceTexture",0);
-    const frameLoc = this.gl.getUniformLocation(this.copyShader.Program!, "u_frameNumber");
+
+    GlUtils.bindTex(
+      this.gl,
+      this.copyShader.Program!,
+      this.accumulationTextures[nextFrameIndex],
+      "u_sourceTexture",
+      0
+    );
+    const frameLoc = this.gl.getUniformLocation(
+      this.copyShader.Program!,
+      "u_frameNumber"
+    );
     this.gl.uniform1f(frameLoc, this.frameNumber);
 
     // We can reuse the same fullscreen triangle VAO
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-
   }
 
   public makeVao() {
@@ -231,17 +256,17 @@ export class PathTracer {
   }
 
   public init(showAccumulation: boolean = true) {
-    if(showAccumulation)
-      this.debug.addElement("Accumulation Frame",()=>this.frameNumber)
+    if (showAccumulation)
+      this.debug.addElement("Accumulation Frame", () => this.frameNumber);
     this.initPathtracing();
     this.makeVao();
     this.resetAccumulation();
   }
-  public leave(){
+  public leave() {
     this.debug.removeElement("Accumulation Frame");
   }
 
-  private initPathtracing(){
+  private initPathtracing() {
     this.gl.useProgram(this.meshShader.Program!);
     //Textures
     let verticeTex = GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
@@ -261,8 +286,20 @@ export class PathTracer {
       this.vertexNormals
     );
 
-    GlUtils.bindTex(this.gl, this.meshShader.Program!, verticeTex, "u_vertices", 0);
-    GlUtils.bindTex(this.gl, this.meshShader.Program!, terrainTex, "u_terrains", 1);
+    GlUtils.bindTex(
+      this.gl,
+      this.meshShader.Program!,
+      verticeTex,
+      "u_vertices",
+      0
+    );
+    GlUtils.bindTex(
+      this.gl,
+      this.meshShader.Program!,
+      terrainTex,
+      "u_terrains",
+      1
+    );
     GlUtils.bindTex(
       this.gl,
       this.meshShader.Program!,
@@ -270,8 +307,20 @@ export class PathTracer {
       "u_boundingBox",
       2
     );
-    GlUtils.bindTex(this.gl, this.meshShader.Program!, nodesTex, "u_nodesTex", 3);
-    GlUtils.bindTex(this.gl, this.meshShader.Program!, leafsTex, "u_leafsTex", 4);
+    GlUtils.bindTex(
+      this.gl,
+      this.meshShader.Program!,
+      nodesTex,
+      "u_nodesTex",
+      3
+    );
+    GlUtils.bindTex(
+      this.gl,
+      this.meshShader.Program!,
+      leafsTex,
+      "u_leafsTex",
+      4
+    );
     GlUtils.bindTex(
       this.gl,
       this.meshShader.Program!,
@@ -288,31 +337,57 @@ export class PathTracer {
     );
   }
 
-  private initBuffers(){
+  private initBuffers() {
     this.accumulationTextures = [];
     this.framebuffers = [];
     for (let i = 0; i < 2; ++i) {
-        // Create a texture to store the accumulated image
-        const texture = this.gl.createTexture();
-        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-        this.gl.texImage2D(
-            this.gl.TEXTURE_2D, 0, this.gl.RGBA32F,
-            this.canvas.width, this.canvas.height, 0,
-            this.gl.RGBA, this.gl.FLOAT, null
-        );
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-        this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-        this.accumulationTextures.push(texture);
+      // Create a texture to store the accumulated image
+      const texture = this.gl.createTexture();
+      this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        this.gl.RGBA32F,
+        this.canvas.width,
+        this.canvas.height,
+        0,
+        this.gl.RGBA,
+        this.gl.FLOAT,
+        null
+      );
+      this.gl.texParameteri(
+        this.gl.TEXTURE_2D,
+        this.gl.TEXTURE_MIN_FILTER,
+        this.gl.NEAREST
+      );
+      this.gl.texParameteri(
+        this.gl.TEXTURE_2D,
+        this.gl.TEXTURE_MAG_FILTER,
+        this.gl.NEAREST
+      );
+      this.gl.texParameteri(
+        this.gl.TEXTURE_2D,
+        this.gl.TEXTURE_WRAP_S,
+        this.gl.CLAMP_TO_EDGE
+      );
+      this.gl.texParameteri(
+        this.gl.TEXTURE_2D,
+        this.gl.TEXTURE_WRAP_T,
+        this.gl.CLAMP_TO_EDGE
+      );
+      this.accumulationTextures.push(texture);
 
-        // Create a framebuffer and attach the texture to it
-        const fbo = this.gl.createFramebuffer();
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
-        this.gl.framebufferTexture2D(
-            this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, texture, 0
-        );
-        this.framebuffers.push(fbo);
+      // Create a framebuffer and attach the texture to it
+      const fbo = this.gl.createFramebuffer();
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+      this.gl.framebufferTexture2D(
+        this.gl.FRAMEBUFFER,
+        this.gl.COLOR_ATTACHMENT0,
+        this.gl.TEXTURE_2D,
+        texture,
+        0
+      );
+      this.framebuffers.push(fbo);
     }
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null); // Unbind
   }

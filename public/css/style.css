@@ -1,28 +1,28 @@
 html, body, canvas {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    display: block;
-    overflow: hidden;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  display: block;
+  overflow: hidden;
 }
 #debugMenu{
-    background-color: rgba(100, 100, 100, 0.4);
-    border-radius: 6px;
-    height: fit-content;
-    width: fit-content;
-    position: absolute;
-    left: 0px;
-    top: 0px;
-    z-index: 9999;
-    padding-left: 10px;
-    padding-right: 10px;
+  background-color: rgba(100, 100, 100, 0.4);
+  border-radius: 6px;
+  height: fit-content;
+  width: fit-content;
+  position: absolute;
+  left: 0px;
+  top: 0px;
+  z-index: 9999;
+  padding-left: 10px;
+  padding-right: 10px;
+  display: flex;
+  justify-content: left;
+  align-items: left;
 }
 
 #debugMenu p{
-    display: flex;
-    justify-content: left;
-    align-items: left;
-    color: white;
+  color: white;
 }
 
 /* Sidebar - slides in from the right */
@@ -88,57 +88,57 @@ html, body, canvas {
 }
 
 .bounce-slider-wrapper {
-    background-color: #fff;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    text-align: center;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
 }
 
 input[type="range"] {
-    width: 250px;
-    height: 8px;
-    background: #ddd;
-    border-radius: 5px;
-    outline: none;
-    appearance: none;
-    margin: 20px 0;
+  width: 250px;
+  height: 8px;
+  background: #ddd;
+  border-radius: 5px;
+  outline: none;
+  appearance: none;
+  margin: 20px 0;
 }
 
 input[type="range"]::-webkit-slider-thumb {
-    appearance: none;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #007bff;
-    cursor: grab;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #007bff;
+  cursor: grab;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #007bff;
-    cursor: grab;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #007bff;
+  cursor: grab;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 input[type="range"]::-ms-thumb {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #007bff;
-    cursor: grab;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #007bff;
+  cursor: grab;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .sliderInput {
-    font-size: 1.1em;
-    color: #333;
+  font-size: 1.1em;
+  color: #333;
 }
 
 #currentValue {
-    font-weight: bold;
-    color: #007bff;
+  font-weight: bold;
+  color: #007bff;
 }
