@@ -104,6 +104,16 @@ export class GameEngine {
       this.pathTracer.init();
     });
 
+    //Initialize menu
+    const menuButton = document.getElementById("menu-toggle")!;
+    const sidebar = document.getElementById("sidebar")!;
+    const topBar = document.getElementById('topBarWrapper')!;
+
+    menuButton.addEventListener("click", () => {
+      sidebar.classList.toggle("open");
+      topBar.classList.toggle('shifted');
+    })
+
     //Check to see if WebGL working
     if (!this.gl) {
       alert(

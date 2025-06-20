@@ -24,30 +24,120 @@ html, body, canvas {
     align-items: center;
 }
 
-.toggle-container {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  gap: 5px;
+/* Sidebar - slides in from the right */
+.sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 100%;
+  background: #222;
+  color: white;
+  padding: 20px;
+  box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+  transform: translateX(100%); /* Fully offscreen */
+  transition: transform 0.3s ease;
+  z-index: 1000;
 }
 
-.toggle-button {
+.sidebar.open {
+  transform: translateX(0); /* Slide in */
+}
+
+/* Container that holds the top bar */
+.top-bar-wrapper {
+  position: fixed;
+  top: 10px;
+  right: 0;
+  z-index: 2000;
+  transition: right 0.3s ease;
+}
+
+.top-bar-wrapper.shifted {
+  right: 340px; /* shift left by sidebar width */
+}
+
+/* Actual bar of buttons */
+.top-bar {
+  display: flex;
+  gap: 5px;
+  padding-right: 10px;
+}
+
+.toggle-button,
+.menu-button {
   padding: 8px 16px;
   border: 1px solid #888;
   background-color: #f0f0f0;
   color: #333;
   border-radius: 5px;
   cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.toggle-button:hover {
-  background-color: #ddd;
+  transition: background-color 0.2s ease;
 }
 
 .toggle-button.active {
   background-color: #333;
   color: white;
   border-color: #333;
+}
+
+.toggle-button:hover,
+.menu-button:hover {
+  background-color: #ddd;
+}
+
+.bounce-slider-wrapper {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+input[type="range"] {
+    width: 250px;
+    height: 8px;
+    background: #ddd;
+    border-radius: 5px;
+    outline: none;
+    -webkit-appearance: none; /* Remove default WebKit styles */
+    margin: 20px 0;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: grab;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: grab;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input[type="range"]::-ms-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #007bff;
+    cursor: grab;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.sliderInput {
+    font-size: 1.1em;
+    color: #333;
+}
+
+#currentValue {
+    font-weight: bold;
+    color: #007bff;
 }

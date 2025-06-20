@@ -15,10 +15,24 @@
 
   <body id = "body">
     <div id = "debugMenu">Hallo</div>
-    <div class="toggle-container">
-      <button id="raytracing" class="toggle-button active">Raytracing</button>
-      <button id="pathtracing" class="toggle-button">Path Tracing</button>
+    <div id="topBarWrapper" class="top-bar-wrapper">
+      <div id="topBar" class="top-bar">
+        <button id="raytracing" class="toggle-button active">Raytracing</button>
+        <button id="pathtracing" class="toggle-button">Path Tracing</button>
+        <button id="menu-toggle" class="menu-button">☰</button>
+      </div>
     </div>
+
+    <div id="sidebar" class="sidebar">
+      <h2>Sidebar Menu</h2>
+      <p>Put settings or extra tools here.</p>
+      <div class="bounce-slider-wrapper">
+        <label for="bounceSlider">Adjust Value:</label>
+        <input type="range" id="bounceSlider" min="0" max="15" value="10">
+        <p class = "sliderInput">(Pathtracing) Number of Bounces: <span id="bounceValue">5</span></p>
+      </div>
+    </div>
+
     <canvas id="#MainCanvas" width="500" height="500"></canvas>
     <style src="css/style.css"></style>
   </body>

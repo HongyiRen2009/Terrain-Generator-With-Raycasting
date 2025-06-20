@@ -23,6 +23,7 @@ export class PathTracer {
   private accumulationTextures: WebGLTexture[] = [];
   private currentFrame = 0; // The source texture/framebuffer index
   private frameNumber = 0; // The accumulation counter
+  private numBounces = 5;
   //Shaders
   private meshShader: Shader;
   private copyShader: Shader;
@@ -119,6 +120,20 @@ export class PathTracer {
     this.vertexNormals = normals;
 
     this.init(false);
+
+    //Slider
+    const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
+
+    slider.addEventListener("input",this.handleBounceInput.bind(this));
+    slider.value = this.numBounces.toString();
+  }
+
+  private handleBounceInput(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const newValue = parseInt(target.value);
+    this.numBounces = newValue;
+    const bounceValue = document.getElementById("bounceValue")! as HTMLSpanElement;
+    bounceValue.textContent = newValue.toString();
   }
 
   public render(time: number) {
@@ -172,7 +187,7 @@ export class PathTracer {
 
     //put samples, bounce in shader
     this.frameNumber++;
-    this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program!,"numBounces"), 5);
+    this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program!,"numBounces"), this.numBounces);
     this.gl.uniform1f(this.gl.getUniformLocation(this.meshShader.Program!,"u_frameNumber"), this.frameNumber); // Send as a float for seeding
 
     // Draw
