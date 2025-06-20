@@ -400,7 +400,11 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         if (triIndex == -1) {
             // Ray missed everything and flew into space.
-            color += throughput * 0.00001; // light sky!
+            if(bounce == 0){
+                color = vec3(0.54,0.824,0.94);
+            }else{
+                color += throughput * 0.00001; // light sky!
+            }
             break;
         }
 
