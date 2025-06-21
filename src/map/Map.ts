@@ -56,7 +56,7 @@ export class WorldMap {
       new Chunk(
         vec2.fromValues(0, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.simplexNoise
+        this.simplexNoise, true
       ),
       new Chunk(
         vec2.fromValues(this.resolution, 0),

@@ -35,6 +35,21 @@ export interface Terrain {
   color: Color;
   reflectiveness: number; // Decimal 0-1
   roughness: number; // Decimal 0-1
+  type: number; //
+  /* Note about type
+  Here is a list of types of surfaces (from chatgpt)
+  1. Diffuse (Labertian)
+  2. Specular (Perfect Mirror)
+  3. Glossy (Microfacet Reflection)
+  4. Transmission (Dielectric/Glass)
+  5. Glossy Transmission (Rough Glass)
+  6. Subsurface Scattering (SSS)
+  7. Anisotropic Surfaces
+  8. Emission
+  8. Coated/Layered (Multiple)
+
+  So the above type basically corresponds to the thing on the list
+  */
   //TODO: More stuff as more implementations
 }
 /**
@@ -44,16 +59,19 @@ export const Terrains: { [id: number]: Terrain } = {
   0: {
     color: new Color(0, 255, 0),
     reflectiveness: 0.2,
-    roughness: 0.8
+    roughness: 0.8,
+    type: 1,
   },
   1: {
     color: new Color(0, 0, 255),
     reflectiveness: 0.2,
-    roughness: 0.8
+    roughness: 0.8,
+    type: 1,
   },
   2: {
     color: new Color(255, 0, 0),
     reflectiveness: 0.2,
-    roughness: 0.8
+    roughness: 0.8,
+    type: 1,
   }
 };

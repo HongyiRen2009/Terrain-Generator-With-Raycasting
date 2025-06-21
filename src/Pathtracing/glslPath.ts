@@ -67,7 +67,11 @@ struct TerrainType{
     vec3 color;
     float reflectiveness; // Decimal 0-1   
     float roughness; // Decimal 0-1
+    int type; //Type. See terrains.ts
 };
+
+#define NUM_TERRAINS 3
+TerrainType[NUM_TERRAINS] Terrains;
 
 // Provides a high quality 32-bit hash function to generate pseudo-random numbers
 // Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins
@@ -160,10 +164,11 @@ Triangle getTriangle(int i){
 
 TerrainType getTerrainType(int i){
     TerrainType t;
-    int terrainTypeSize = 5;
+    int terrainTypeSize = 6;
     t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));
     t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); 
     t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); 
+    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));
 
     return t;
 }
@@ -331,20 +336,23 @@ float smoothItem(float[3] a, vec3 baryCentric){
 }
 
 void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness){
+    TerrainType t1 = Terrains[tri.types[0]];
+    TerrainType t2 = Terrains[tri.types[1]];
+    TerrainType t3 = Terrains[tri.types[2]];
     vec3[3] colors = vec3[3](
-        getTerrainType(tri.types[0]).color,
-        getTerrainType(tri.types[1]).color,
-        getTerrainType(tri.types[2]).color
+        t1.color,
+        t2.color,
+        t3.color
     );
     float[3] reflectivities = float[3](
-        getTerrainType(tri.types[0]).reflectiveness,
-        getTerrainType(tri.types[1]).reflectiveness,
-        getTerrainType(tri.types[2]).reflectiveness
+        t1.reflectiveness,
+        t2.reflectiveness,
+        t3.reflectiveness
     );
     float[3] roughness = float[3](
-        getTerrainType(tri.types[0]).roughness,
-        getTerrainType(tri.types[1]).roughness,
-        getTerrainType(tri.types[2]).roughness
+        t1.roughness,
+        t2.roughness,
+        t3.roughness
     );
 
     smoothNormal = normalize(smoothItem(tri.normals,baryCentric));
@@ -424,6 +432,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         float matRoughness;
         getInfo(tri, baryCentric, smoothNormal, matColor, matRoughness);
         
+
         vec3 geometricNormal = tri.triNormal;
         if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;
         if (dot(smoothNormal, geometricNormal) < 0.0) smoothNormal = -smoothNormal;
@@ -472,6 +481,11 @@ void main() {
     uint seed = hash(pixel_x) + hash(pixel_y * 1999u);
     uint rng_state = hash(seed + uint(u_frameNumber));
     rng_state = hash(rng_state + uint(u_frameNumber));
+
+    //Load terrains
+    for(int i = 0; i < NUM_TERRAINS; i++){
+        Terrains[i] = getTerrainType(i);
+    }
     
     // Jitter calculation for Anti-Alising
     uint jitter_rng_state = hash(rng_state); // Create a new state from the main one
