@@ -9043,7 +9043,7 @@ var WorldMap = /** @class */ (function () {
     //Generates map
     WorldMap.prototype.generate = function () {
         this.chunks = [
-            new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(0, 0), gl_matrix_1.vec3.fromValues(this.resolution, this.height, this.resolution), this.simplexNoise, true),
+            new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(0, 0), gl_matrix_1.vec3.fromValues(this.resolution, this.height, this.resolution), this.simplexNoise),
             new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(this.resolution, 0), gl_matrix_1.vec3.fromValues(this.resolution, this.height, this.resolution), this.simplexNoise),
             new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(2 * this.resolution, 0), gl_matrix_1.vec3.fromValues(this.resolution, this.height, this.resolution), this.simplexNoise),
             new marching_cubes_1.Chunk(gl_matrix_1.vec2.fromValues(0, this.resolution), gl_matrix_1.vec3.fromValues(this.resolution, this.height, this.resolution), this.simplexNoise)
@@ -9600,15 +9600,13 @@ var Mesh_1 = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
 var cubes_utils_1 = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_utils.ts");
 //!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 var Chunk = /** @class */ (function () {
-    function Chunk(ChunkPosition, GridSize, SimplexNoise, e) {
-        if (e === void 0) { e = false; }
+    function Chunk(ChunkPosition, GridSize, SimplexNoise) {
         this.WorldFieldMap = new Map();
         this.GridSize = GridSize;
         this.ChunkPosition = ChunkPosition;
         this.SimplexNoise = SimplexNoise;
         this.FieldMap = new Map();
         this.Field = this.generateFieldValues();
-        this.funny = e;
     }
     Chunk.prototype.chunkCoordinateToIndex = function (c) {
         return (c[0] +
@@ -9733,7 +9731,7 @@ var Chunk = /** @class */ (function () {
                 return _this.edgeIndexToCoordinate(c, edgeIndex);
             });
             // Add triangle with both position and normal information
-            caseMesh.addTriangle(vertices.map(function (v) { return v.position; }), vertices.map(function (v) { return v.normal; }), this.funny && vertices[0].position[0] < 10 ? [1, 1, 1] : [0, 0, 0]);
+            caseMesh.addTriangle(vertices.map(function (v) { return v.position; }), vertices.map(function (v) { return v.normal; }), [0, 0, 0]);
         }
         return caseMesh;
     };
@@ -10438,7 +10436,7 @@ exports.MeshFragmentShaderCode = "#version 300 es\nprecision mediump float;\n\n/
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("794dec0b5a20398d7acc")
+/******/ 		__webpack_require__.h = () => ("b82d0dbf58d9933a7c32")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

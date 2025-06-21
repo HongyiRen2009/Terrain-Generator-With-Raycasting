@@ -12,20 +12,17 @@ export class Chunk {
   SimplexNoise: NoiseFunction3D;
   FieldMap: Map<string, number>;
   WorldFieldMap: Map<string, number> = new Map<string, number>();
-  funny: boolean;
 
   constructor(
     ChunkPosition: vec2,
     GridSize: vec3,
-    SimplexNoise: NoiseFunction3D,
-    e: boolean = false
+    SimplexNoise: NoiseFunction3D
   ) {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
     this.SimplexNoise = SimplexNoise;
     this.FieldMap = new Map<string, number>();
     this.Field = this.generateFieldValues();
-    this.funny = e;
   }
 
   chunkCoordinateToIndex(c: vec3): number {
@@ -197,7 +194,7 @@ export class Chunk {
       caseMesh.addTriangle(
         vertices.map((v) => v.position) as Triangle,
         vertices.map((v) => v.normal) as Triangle,
-        this.funny && vertices[0].position[0] < 10 ? [1, 1, 1] : [0, 0, 0]
+        [0, 0, 0]
       );
     }
     return caseMesh;
