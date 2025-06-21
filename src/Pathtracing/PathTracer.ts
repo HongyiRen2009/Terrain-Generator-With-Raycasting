@@ -23,7 +23,7 @@ export class PathTracer {
   private accumulationTextures: WebGLTexture[] = [];
   private currentFrame = 0; // The source texture/framebuffer index
   private frameNumber = 0; // The accumulation counter
-  private numBounces = 5;
+  private numBounces = 15;
   //Shaders
   private meshShader: Shader;
   private copyShader: Shader;
@@ -124,6 +124,10 @@ export class PathTracer {
 
     slider.addEventListener("input", this.handleBounceInput.bind(this));
     slider.value = this.numBounces.toString();
+    const bounceValue = document.getElementById(
+      "bounceValue"
+    )! as HTMLSpanElement;
+    bounceValue.textContent = `${this.numBounces}`;
   }
 
   private handleBounceInput(event: Event): void {
