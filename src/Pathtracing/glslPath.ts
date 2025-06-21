@@ -35,6 +35,7 @@ uniform vec2 u_resolution;
 struct Light {
     vec3 position;
     vec3 color;
+    vec3 showColor;
     float intensity;
     float radius;
 };
@@ -394,7 +395,12 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         if (hitLightIndex != -1) {
             // Ray hit light source
-            color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
+            if(bounce != 0){
+                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
+            }else{
+                color = lights[hitLightIndex].showColor;
+            }
+            
             break; // Path terminates.
         }
 
