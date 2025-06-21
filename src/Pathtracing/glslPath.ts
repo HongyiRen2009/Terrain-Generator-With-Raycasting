@@ -378,12 +378,20 @@ vec3 weightedDIR(vec3 normal, inout uint rng_state){
     return normalize(dirWorld);
 }
 
+bool isValidVec3(vec3 v) {
+    return all(greaterThanEqual(v, vec3(-1e20))) &&
+           all(lessThanEqual(v, vec3(1e20))) &&
+           !any(isnan(v));
+}
+
 vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 rayOrigin = OGrayOrigin;
     vec3 rayDir = OGrayDir;
 
     vec3 color = vec3(0.0);
     vec3 throughput = vec3(1.0);
+
+    int hasMirror = -2;
 
     for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
@@ -414,8 +422,9 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         if (triIndex == -1) {
             // Ray missed everything and flew into space.
-            if(bounce == 0){
-                color = vec3(0.54,0.824,0.94);
+            //color = throughput * vec3(0.54,0.824,0.94);
+            if(bounce == 0 || bounce == hasMirror + 1){
+                color = throughput * vec3(0.54,0.824,0.94);
             }else{
                 color += throughput * 0.00001; // light sky!
             }
@@ -426,10 +435,12 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         //Get information
         vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
         Triangle tri = getTriangle(triIndex);
-        intersectTriangle(rayOrigin, rayDir, tri, baryCentric);
 
         vec3 smoothNormal, matColor;
         float matRoughness;
+        int type = 2;
+        type = Terrains[tri.types[0]].type;
+        //type = getTerrainType(tri.types[0]).type; //Going with first triangle indice ///NOTE: SMTH WRONG WITH THIS LINE
         getInfo(tri, baryCentric, smoothNormal, matColor, matRoughness);
         
 
@@ -439,38 +450,29 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         vec3 BRDF = matColor / PI;
         
-        
-        // NEXT EVENT ESTIMATION (Direct Lighting)
-        if (numActiveLights > 0) {
-            Light directSampledLight = lights[0];
-            vec3 toLight = directSampledLight.position - hitPoint;
-            float distToLightSqr = dot(toLight, toLight);
-            float distToLight = sqrt(distToLightSqr);
-            vec3 shadowRayDir = toLight / distToLight;
-            vec3 shadowRayOrigin = hitPoint + geometricNormal * 0.01;
-            
-            vec3 dummyBary;
-            float meshHitDist;
-            int occludingTri = traverseBVH(shadowRayOrigin, shadowRayDir, 0, dummyBary, meshHitDist);
-            
-            if (occludingTri == -1 || meshHitDist >= distToLight) {
-                // The light is visible.
-                float cos_theta = max(0.0, dot(smoothNormal, shadowRayDir));
-                
-                vec3 directLighting = directSampledLight.color * directSampledLight.intensity * BRDF * cos_theta / max(distToLightSqr, 0.001);
-                color += throughput * directLighting;
-            }
-        }
-        
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
         rayOrigin = hitPoint + geometricNormal * 0.01;
-        rayDir = weightedDIR(smoothNormal, rng_state);
-        //Add to throughput
-        float PDF = dot(rayDir,smoothNormal) / PI;
-        throughput *= BRDF * dot(rayDir,smoothNormal)/PDF;
+        if(type == 1){ //Diffuse
+            rayDir = weightedDIR(smoothNormal, rng_state);
+            //float PDF = dot(rayDir,smoothNormal) / PI;
+            //throughput *= BRDF * dot(rayDir,smoothNormal)/PDF;
+            throughput *= matColor;
+        }else if (type == 2) { // Specular (mirror)
+            rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in
+            throughput *= vec3(0.8); // decrease brightness a bit
+            hasMirror = bounce;
+        }
+        if(minHitDistance < 0.0001){
+            return vec3(0.0,0.0,1.0);
+        }
+        if (any(greaterThan(throughput, vec3(10000.0)))) {
+            return vec3(1.0,0.0,0.0);
+        }
+        if(!isValidVec3(throughput)){
+            return vec3(1.0,0.0,0.0);
+        }
     }
-
     return min(color, vec3(10.0));
 }
 
