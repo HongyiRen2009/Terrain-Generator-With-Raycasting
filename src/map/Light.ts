@@ -1,16 +1,17 @@
 import { vec3 } from "gl-matrix";
+import { Color } from "./terrains";
 
 /**
  *  Represents a light source in the world.
  */
 export class Light {
   position: vec3;
-  color: vec3; //Emission color
-  showColor: vec3; //color of what the light looks like
+  color: Color; //Emission color
+  showColor: Color; //color of what the light looks like
   intensity: number;
   radius: number; // Default radius, can be adjusted
 
-  constructor(position: vec3, color: vec3, intensity: number, radius: number, showColor?: vec3) {
+  constructor(position: vec3, color: Color, intensity: number, radius: number, showColor?: Color) {
     this.position = position;
     this.color = color;
     this.intensity = intensity;

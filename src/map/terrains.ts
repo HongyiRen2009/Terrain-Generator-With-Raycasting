@@ -1,3 +1,5 @@
+import { vec3 } from "gl-matrix";
+
 /**
  * Color class
  */
@@ -5,10 +7,24 @@ export class Color {
   public r: number;
   public g: number;
   public b: number;
+  /**
+   * Creates color
+   * @param r - Red value (out of 255)
+   * @param g - Green value (out of 255)
+   * @param b - Blue value (out of 255)
+   */
   constructor(r: number, g: number, b: number) {
     this.r = r;
     this.g = g;
     this.b = b;
+  }
+  /**
+   * Creates a vec3 from the color values
+   * @returns vec3 with color values. 
+   * @remarks Note that these values are automatically switched to out of 1.
+   */
+  createVec3(){
+    return vec3.fromValues(this.r/255,this.g/255,this.b/255);
   }
 }
 
