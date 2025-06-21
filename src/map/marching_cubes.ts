@@ -197,7 +197,7 @@ export class Chunk {
       caseMesh.addTriangle(
         vertices.map((v) => v.position) as Triangle,
         vertices.map((v) => v.normal) as Triangle,
-        (this.funny && vertices[0].position[0] < 10) ? [1, 1, 1] : [0, 0, 0] 
+        this.funny && vertices[0].position[0] < 10 ? [1, 1, 1] : [0, 0, 0]
       );
     }
     return caseMesh;

@@ -16,7 +16,13 @@ export class WorldMap {
   private width: number;
   private length: number;
   public lights: Light[] = [
-    new Light(vec3.fromValues(0, 500, 0), new Color(255,255,255), 1, 200, new Color(255,228,132))
+    new Light(
+      vec3.fromValues(0, 500, 0),
+      new Color(255, 255, 255),
+      1,
+      200,
+      new Color(255, 228, 132)
+    )
   ];
 
   public height: number;
@@ -56,7 +62,8 @@ export class WorldMap {
       new Chunk(
         vec2.fromValues(0, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.simplexNoise, true
+        this.simplexNoise,
+        true
       ),
       new Chunk(
         vec2.fromValues(this.resolution, 0),

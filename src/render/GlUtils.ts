@@ -256,7 +256,7 @@ export class GlUtils {
       const showColorLocation = gl.getUniformLocation(
         program,
         `${baseUniform}.showColor`
-      )
+      );
 
       gl.uniform3fv(posLocation, light.position);
       gl.uniform3fv(colorLocation, light.color.createVec3());

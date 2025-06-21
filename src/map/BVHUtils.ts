@@ -93,7 +93,8 @@ export class BVHUtils {
     let numberTerrains = 3;
     let numberFloats = 6;
     let out = new Float32Array(
-      Math.ceil((numberTerrains * numberFloats) / floatsPerTexel) * floatsPerTexel
+      Math.ceil((numberTerrains * numberFloats) / floatsPerTexel) *
+        floatsPerTexel
     ); //r,g,b,illuminosity, reflectiveness
     let i = 0;
     for (const key in Terrains) {

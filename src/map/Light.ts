@@ -11,17 +11,22 @@ export class Light {
   intensity: number;
   radius: number; // Default radius, can be adjusted
 
-  constructor(position: vec3, color: Color, intensity: number, radius: number, showColor?: Color) {
+  constructor(
+    position: vec3,
+    color: Color,
+    intensity: number,
+    radius: number,
+    showColor?: Color
+  ) {
     this.position = position;
     this.color = color;
     this.intensity = intensity;
     this.radius = radius;
-    if(showColor){
+    if (showColor) {
       this.showColor = showColor;
-    }else{
+    } else {
       this.showColor = this.color;
     }
-    
   }
   public setPosition(position: vec3) {
     this.position = position;

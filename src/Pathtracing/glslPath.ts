@@ -422,7 +422,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         if (triIndex == -1) {
             // Ray missed everything and flew into space.
-            //color = throughput * vec3(0.54,0.824,0.94);
             if(bounce == 0 || bounce == hasMirror + 1){
                 color = throughput * vec3(0.54,0.824,0.94);
             }else{
@@ -440,7 +439,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         float matRoughness;
         int type = 2;
         type = Terrains[tri.types[0]].type;
-        //type = getTerrainType(tri.types[0]).type; //Going with first triangle indice ///NOTE: SMTH WRONG WITH THIS LINE
         getInfo(tri, baryCentric, smoothNormal, matColor, matRoughness);
         
 
@@ -455,22 +453,11 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         rayOrigin = hitPoint + geometricNormal * 0.01;
         if(type == 1){ //Diffuse
             rayDir = weightedDIR(smoothNormal, rng_state);
-            //float PDF = dot(rayDir,smoothNormal) / PI;
-            //throughput *= BRDF * dot(rayDir,smoothNormal)/PDF;
             throughput *= matColor;
         }else if (type == 2) { // Specular (mirror)
             rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in
             throughput *= vec3(0.8); // decrease brightness a bit
             hasMirror = bounce;
-        }
-        if(minHitDistance < 0.0001){
-            return vec3(0.0,0.0,1.0);
-        }
-        if (any(greaterThan(throughput, vec3(10000.0)))) {
-            return vec3(1.0,0.0,0.0);
-        }
-        if(!isValidVec3(throughput)){
-            return vec3(1.0,0.0,0.0);
         }
     }
     return min(color, vec3(10.0));

@@ -20,11 +20,11 @@ export class Color {
   }
   /**
    * Creates a vec3 from the color values
-   * @returns vec3 with color values. 
+   * @returns vec3 with color values.
    * @remarks Note that these values are automatically switched to out of 1.
    */
-  createVec3(){
-    return vec3.fromValues(this.r/255,this.g/255,this.b/255);
+  createVec3() {
+    return vec3.fromValues(this.r / 255, this.g / 255, this.b / 255);
   }
 }
 
@@ -60,18 +60,18 @@ export const Terrains: { [id: number]: Terrain } = {
     color: new Color(0, 255, 0),
     reflectiveness: 0.2,
     roughness: 0.8,
-    type: 1,
+    type: 1
   },
   1: {
     color: new Color(0, 0, 255),
     reflectiveness: 0.2,
     roughness: 0.8,
-    type: 2,
+    type: 2
   },
   2: {
     color: new Color(255, 0, 0),
     reflectiveness: 0.2,
     roughness: 0.8,
-    type: 1,
+    type: 1
   }
 };
