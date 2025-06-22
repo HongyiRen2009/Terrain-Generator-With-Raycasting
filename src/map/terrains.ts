@@ -14,6 +14,9 @@ export class Color {
    * @param b - Blue value (out of 255)
    */
   constructor(r: number, g: number, b: number) {
+    if(r < 0 || r > 255) throw new Error(`Incorrect color value: red is ${r}; expect a float from 0 to 255`);
+    if(g < 0 || g > 255) throw new Error(`Incorrect color value: green is ${g}; expect a float from 0 to 255`);
+    if(b < 0 || b > 255) throw new Error(`Incorrect color value: blue is ${b}; expect a float from 0 to 255`);
     this.r = r;
     this.g = g;
     this.b = b;
@@ -35,8 +38,8 @@ export interface Terrain {
   color: Color;
   reflectiveness: number; // Decimal 0-1
   roughness: number; // Decimal 0-1
-  type: number; //
-  /* Note about type
+  type: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9; //look below
+  /* Note about type (if no like search it up)
   Here is a list of types of surfaces (from chatgpt)
   1. Diffuse (Labertian)
   2. Specular (Perfect Mirror)
@@ -46,7 +49,7 @@ export interface Terrain {
   6. Subsurface Scattering (SSS)
   7. Anisotropic Surfaces
   8. Emission
-  8. Coated/Layered (Multiple)
+  9. Coated/Layered (Multiple)
 
   So the above type basically corresponds to the thing on the list
   */

@@ -7,7 +7,10 @@ import { Color } from "./terrains";
 export class Light {
   position: vec3;
   color: Color; //Emission color
-  showColor: Color; //color of what the light looks like
+  showColor: Color; //color of what the light looks 
+  /*Note:
+  The idea is that color is the color emmitted, while showColor is the color it looks like. This is useful in sun-like lights where it emits white light but looks yellow. 
+  */
   intensity: number;
   radius: number; // Default radius, can be adjusted
 
@@ -22,11 +25,7 @@ export class Light {
     this.color = color;
     this.intensity = intensity;
     this.radius = radius;
-    if (showColor) {
-      this.showColor = showColor;
-    } else {
-      this.showColor = this.color;
-    }
+    this.showColor = showColor ? showColor : this.color;
   }
   public setPosition(position: vec3) {
     this.position = position;
