@@ -193,7 +193,8 @@ export class Chunk {
       // Add triangle with both position and normal information
       caseMesh.addTriangle(
         vertices.map((v) => v.position) as Triangle,
-        vertices.map((v) => v.normal) as Triangle
+        vertices.map((v) => v.normal) as Triangle,
+        [0, 0, 0]
       );
     }
     return caseMesh;

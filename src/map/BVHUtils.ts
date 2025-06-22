@@ -91,17 +91,20 @@ export class BVHUtils {
   static packTerrainTypes() {
     let floatsPerTexel = 4;
     let numberTerrains = 3;
+    let numberFloats = 6;
     let out = new Float32Array(
-      Math.ceil((numberTerrains * 5) / floatsPerTexel) * floatsPerTexel
+      Math.ceil((numberTerrains * numberFloats) / floatsPerTexel) *
+        floatsPerTexel
     ); //r,g,b,illuminosity, reflectiveness
     let i = 0;
     for (const key in Terrains) {
       let terrain = Terrains[key];
-      out[i * 5] = terrain.color.r / 255;
-      out[i * 5 + 1] = terrain.color.g / 255;
-      out[i * 5 + 2] = terrain.color.b / 255;
-      out[i * 5 + 3] = terrain.reflectiveness;
-      out[i * 5 + 4] = terrain.roughness;
+      out[i * numberFloats] = terrain.color.r / 255;
+      out[i * numberFloats + 1] = terrain.color.g / 255;
+      out[i * numberFloats + 2] = terrain.color.b / 255;
+      out[i * numberFloats + 3] = terrain.reflectiveness;
+      out[i * numberFloats + 4] = terrain.roughness;
+      out[i * numberFloats + 5] = terrain.type;
       i++;
     }
     return out;

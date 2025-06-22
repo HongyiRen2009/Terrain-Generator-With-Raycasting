@@ -35,6 +35,7 @@ uniform vec2 u_resolution;
 struct Light {
     vec3 position;
     vec3 color;
+    vec3 showColor;
     float intensity;
     float radius;
 };
@@ -66,7 +67,11 @@ struct TerrainType{
     vec3 color;
     float reflectiveness; // Decimal 0-1   
     float roughness; // Decimal 0-1
+    int type; //Type. See terrains.ts
 };
+
+#define NUM_TERRAINS 3
+TerrainType[NUM_TERRAINS] Terrains;
 
 // Provides a high quality 32-bit hash function to generate pseudo-random numbers
 // Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins
@@ -159,10 +164,11 @@ Triangle getTriangle(int i){
 
 TerrainType getTerrainType(int i){
     TerrainType t;
-    int terrainTypeSize = 5;
+    int terrainTypeSize = 6;
     t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));
     t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); 
     t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); 
+    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));
 
     return t;
 }
@@ -330,20 +336,23 @@ float smoothItem(float[3] a, vec3 baryCentric){
 }
 
 void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness){
+    TerrainType t1 = Terrains[tri.types[0]];
+    TerrainType t2 = Terrains[tri.types[1]];
+    TerrainType t3 = Terrains[tri.types[2]];
     vec3[3] colors = vec3[3](
-        getTerrainType(tri.types[0]).color,
-        getTerrainType(tri.types[1]).color,
-        getTerrainType(tri.types[2]).color
+        t1.color,
+        t2.color,
+        t3.color
     );
     float[3] reflectivities = float[3](
-        getTerrainType(tri.types[0]).reflectiveness,
-        getTerrainType(tri.types[1]).reflectiveness,
-        getTerrainType(tri.types[2]).reflectiveness
+        t1.reflectiveness,
+        t2.reflectiveness,
+        t3.reflectiveness
     );
     float[3] roughness = float[3](
-        getTerrainType(tri.types[0]).roughness,
-        getTerrainType(tri.types[1]).roughness,
-        getTerrainType(tri.types[2]).roughness
+        t1.roughness,
+        t2.roughness,
+        t3.roughness
     );
 
     smoothNormal = normalize(smoothItem(tri.normals,baryCentric));
@@ -369,12 +378,20 @@ vec3 weightedDIR(vec3 normal, inout uint rng_state){
     return normalize(dirWorld);
 }
 
+bool isValidVec3(vec3 v) {
+    return all(greaterThanEqual(v, vec3(-1e20))) &&
+           all(lessThanEqual(v, vec3(1e20))) &&
+           !any(isnan(v));
+}
+
 vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 rayOrigin = OGrayOrigin;
     vec3 rayDir = OGrayDir;
 
     vec3 color = vec3(0.0);
     vec3 throughput = vec3(1.0);
+
+    int hasMirror = -2;
 
     for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
@@ -394,13 +411,22 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         if (hitLightIndex != -1) {
             // Ray hit light source
-            color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
+            if(bounce != 0){
+                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
+            }else{
+                color = lights[hitLightIndex].showColor;
+            }
+            
             break; // Path terminates.
         }
 
         if (triIndex == -1) {
             // Ray missed everything and flew into space.
-            color += throughput * 0.00001; // light sky!
+            if(bounce == 0 || bounce == hasMirror + 1){
+                color = throughput * vec3(0.54,0.824,0.94);
+            }else{
+                color += throughput * 0.00001; // light sky!
+            }
             break;
         }
 
@@ -408,50 +434,32 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         //Get information
         vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
         Triangle tri = getTriangle(triIndex);
-        intersectTriangle(rayOrigin, rayDir, tri, baryCentric);
 
         vec3 smoothNormal, matColor;
         float matRoughness;
+        int type = 2;
+        type = Terrains[tri.types[0]].type;
         getInfo(tri, baryCentric, smoothNormal, matColor, matRoughness);
         
+
         vec3 geometricNormal = tri.triNormal;
         if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;
         if (dot(smoothNormal, geometricNormal) < 0.0) smoothNormal = -smoothNormal;
 
         vec3 BRDF = matColor / PI;
         
-        
-        // NEXT EVENT ESTIMATION (Direct Lighting)
-        if (numActiveLights > 0) {
-            Light directSampledLight = lights[0];
-            vec3 toLight = directSampledLight.position - hitPoint;
-            float distToLightSqr = dot(toLight, toLight);
-            float distToLight = sqrt(distToLightSqr);
-            vec3 shadowRayDir = toLight / distToLight;
-            vec3 shadowRayOrigin = hitPoint + geometricNormal * 0.01;
-            
-            vec3 dummyBary;
-            float meshHitDist;
-            int occludingTri = traverseBVH(shadowRayOrigin, shadowRayDir, 0, dummyBary, meshHitDist);
-            
-            if (occludingTri == -1 || meshHitDist >= distToLight) {
-                // The light is visible.
-                float cos_theta = max(0.0, dot(smoothNormal, shadowRayDir));
-                
-                vec3 directLighting = directSampledLight.color * directSampledLight.intensity * BRDF * cos_theta / max(distToLightSqr, 0.001);
-                color += throughput * directLighting;
-            }
-        }
-        
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
         rayOrigin = hitPoint + geometricNormal * 0.01;
-        rayDir = weightedDIR(smoothNormal, rng_state);
-        //Add to throughput
-        float PDF = dot(rayDir,smoothNormal) / PI;
-        throughput *= BRDF * dot(rayDir,smoothNormal)/PDF;
+        if(type == 1){ //Diffuse
+            rayDir = weightedDIR(smoothNormal, rng_state);
+            throughput *= matColor;
+        }else if (type == 2) { // Specular (mirror)
+            rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in
+            throughput *= vec3(0.8); // decrease brightness a bit
+            hasMirror = bounce;
+        }
     }
-
     return min(color, vec3(10.0));
 }
 
@@ -462,6 +470,11 @@ void main() {
     uint seed = hash(pixel_x) + hash(pixel_y * 1999u);
     uint rng_state = hash(seed + uint(u_frameNumber));
     rng_state = hash(rng_state + uint(u_frameNumber));
+
+    //Load terrains
+    for(int i = 0; i < NUM_TERRAINS; i++){
+        Terrains[i] = getTerrainType(i);
+    }
     
     // Jitter calculation for Anti-Alising
     uint jitter_rng_state = hash(rng_state); // Create a new state from the main one
