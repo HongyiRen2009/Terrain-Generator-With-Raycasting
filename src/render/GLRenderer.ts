@@ -12,6 +12,7 @@ import { meshToVerticesAndIndices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
 import { cubeVertices, cubeWireframeIndices } from "../map/geometry";
+import { Mesh } from "../map/Mesh";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -60,13 +61,11 @@ export class GLRenderer {
 
     this.matViewProj = mat4.create();
   }
-  GenerateTriangleBuffer() {
+  GenerateTriangleBuffer(triangleMeshes: Mesh[]) {
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
     let triangleVertices: number[] = [];
     let triangleIndices: number[] = [];
     let indexOffset = 0;
-
-    let triangleMeshes = GlUtils.genTerrainVertices(this.world);
 
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];

@@ -2,6 +2,8 @@ import { vec3 } from "gl-matrix";
 import { createNoise3D, NoiseFunction3D } from "simplex-noise";
 import alea from "alea";
 import { vertexKey } from "./cubes_utils";
+import { Mesh, Triangle } from "./Mesh";
+import { CASES, EDGES, VERTICES } from "./geometry";
 
 export type WorkerConstructor = new (
   stringUrl: string | URL,
@@ -9,65 +11,212 @@ export type WorkerConstructor = new (
 ) => Worker;
 
 console.log("Worker started");
-self.onmessage = (event: MessageEvent<any>) => {
-  console.log("Worker received message", event.data);
-  const prng = alea(event.data.Seed);
-  const SimplexNoise = createNoise3D(prng);
+
+type WorkerMessage = {
+  Seed: string;
+  GridSize: [number, number, number];
+  ChunkPosition: [number, number];
+};
+
+function chunkCoordinateToIndex(
+  c: vec3,
+  gridSize: [number, number, number]
+): number {
+  return (
+    c[0] +
+    c[1] * (gridSize[0] + 1) +
+    c[2] * (gridSize[0] + 1) * (gridSize[1] + 1)
+  );
+}
+
+function noiseFunction(c: vec3, simplex: NoiseFunction3D): number {
+  const frequency = 0.07;
+  const noiseValue = simplex(
+    c[0] * frequency,
+    c[1] * frequency,
+    c[2] * frequency
+  );
+  const normalizedNoise = (noiseValue + 1) / 2;
+  const heightParameter = 1 / 1.07 ** c[1];
+  const floor = +(c[1] === 0);
+  return Math.max(normalizedNoise * heightParameter, floor);
+}
+
+function GenerateCase(cubeCoordinates: vec3, field: Float32Array): number {
+  /*
+      Given the coordinate of a cube in the world,
+      return the corresponding index into the marching cubes lookup.
+      Involves looking at each of the eight vertices.
+    */
+
+  let caseIndex = 0;
+
+  for (let i = 0; i < VERTICES.length; i++) {
+    let vertexOffset = vec3.fromValues(...VERTICES[i]);
+
+    vec3.add(vertexOffset, vertexOffset, cubeCoordinates);
+
+    const isTerrain = Number(
+      solidChecker(field[chunkCoordinateToIndex(vertexOffset, [64, 64, 64])])
+    );
+    caseIndex += isTerrain << i;
+  }
+
+  return caseIndex;
+}
+function solidChecker(a: number) {
+  return a > 0.5;
+}
+function caseToMesh(
+  c: vec3,
+  caseNumber: number,
+  field: Float32Array,
+  gridSize: [number, number, number],
+  simplex: NoiseFunction3D
+): Mesh {
+  const caseMesh: Mesh = new Mesh();
+  const caseLookup = CASES[caseNumber];
+  for (const triangleLookup of caseLookup) {
+    // each triangle is represented as list of the three edges which it is located on
+    // for now, place the actual triangle's vertices as the midpoint of the edge
+    const vertices = triangleLookup.map((edgeIndex) =>
+      edgeIndexToCoordinate(c, edgeIndex, field, gridSize, simplex)
+    );
+
+    // Add triangle with both position and normal information
+    caseMesh.addTriangle(
+      vertices.map((v) => v.position) as Triangle,
+      vertices.map((v) => v.normal) as Triangle,
+      [0, 0, 0]
+    );
+  }
+  return caseMesh;
+}
+function edgeIndexToCoordinate(
+  c: vec3,
+  edgeIndex: number,
+  field: Float32Array,
+  gridSize: [number, number, number],
+  simplex: NoiseFunction3D
+): { position: vec3; normal: vec3 } {
+  const [a, b] = EDGES[edgeIndex];
+
+  const v1 = vec3.fromValues(...VERTICES[a]);
+  const v2 = vec3.fromValues(...VERTICES[b]);
+
+  vec3.add(v1, v1, c);
+  vec3.add(v2, v2, c);
+
+  // Get terrain values using the field array
+  const idx1 = chunkCoordinateToIndex(v1, gridSize);
+  const idx2 = chunkCoordinateToIndex(v2, gridSize);
+  const value1 = field[idx1];
+  const value2 = field[idx2];
+
+  // Calculate normals using central differences and the noise function
+  const normal1 = calculateNormal(v1, gridSize, field);
+  const normal2 = calculateNormal(v2, gridSize, field);
+
+  const lerpAmount = (value1 - 0.5) / (value1 - 0.5 - (value2 - 0.5));
+
+  let position = vec3.create();
+  let normal = vec3.create();
+
+  vec3.lerp(position, v1, v2, lerpAmount);
+  vec3.lerp(normal, normal1, normal2, lerpAmount);
+  vec3.normalize(normal, normal);
+
+  return { position, normal };
+}
+function getFieldValue(
+  pos: vec3,
+  GridSize: [number, number, number],
+  field: Float32Array
+) {
+  return field[chunkCoordinateToIndex(pos, GridSize)];
+}
+// Helper for normal calculation
+// Helper for normal calculation
+function calculateNormal(
+  vertex: vec3,
+  gridSize: [number, number, number],
+  field: Float32Array
+): vec3 {
+  const delta = 1.0;
+  const normal = vec3.create();
+
+  // Calculate gradients using central differences
+  // X gradient
+  const x1 = vec3.fromValues(vertex[0] + delta, vertex[1], vertex[2]);
+  const x2 = vec3.fromValues(vertex[0] - delta, vertex[1], vertex[2]);
+  normal[0] =
+    getFieldValue(x1, gridSize, field) - getFieldValue(x2, gridSize, field);
+
+  // Y gradient
+  const y1 = vec3.fromValues(vertex[0], vertex[1] + delta, vertex[2]);
+  const y2 = vec3.fromValues(vertex[0], vertex[1] - delta, vertex[2]);
+  normal[1] =
+    getFieldValue(y1, gridSize, field) - getFieldValue(y2, gridSize, field);
+
+  // Z gradient
+  const z1 = vec3.fromValues(vertex[0], vertex[1], vertex[2] + delta);
+  const z2 = vec3.fromValues(vertex[0], vertex[1], vertex[2] - delta);
+  normal[2] =
+    getFieldValue(z1, gridSize, field) - getFieldValue(z2, gridSize, field);
+
+  // Negate and normalize the normal
+  vec3.negate(normal, normal);
+  vec3.normalize(normal, normal);
+
+  return normal;
+}
+self.onmessage = (event: MessageEvent<WorkerMessage>) => {
+  const { Seed, GridSize, ChunkPosition } = event.data;
+  const prng = alea(Seed);
+  const simplex = createNoise3D(prng);
+
   const field = new Float32Array(
-    (event.data.GridSize[0] + 1) *
-      (event.data.GridSize[1] + 1) *
-      (event.data.GridSize[2] + 1)
+    (GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1)
   );
   const fieldMap = new Map<string, number>();
-  function chunkCoordinateToIndex(c: vec3): number {
-    return (
-      c[0] +
-      c[1] * (event.data.GridSize[0] + 1) +
-      c[2] * (event.data.GridSize[0] + 1) * (event.data.GridSize[1] + 1)
-    );
-  }
-  function noiseFunction(c: vec3): number {
-    const frequency = 0.07;
-    // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
-    const NoiseValue = SimplexNoise(
-      c[0] * frequency,
-      c[1] * frequency,
-      c[2] * frequency
-    );
-
-    const normalizedNoise = (NoiseValue + 1) / 2;
-
-    // Encourage the surface to be closer to the ground
-    const heightParameter = 1 / 1.07 ** c[1];
-
-    const floor = +(c[1] == 0);
-
-    return Math.max(normalizedNoise * heightParameter, floor);
-  }
-  for (let x = 0; x < event.data.GridSize[0] + 1; x++) {
-    for (let y = 0; y < event.data.GridSize[1] + 1; y++) {
-      for (let z = 0; z < event.data.GridSize[2] + 1; z++) {
+  // Generate noise field
+  for (let x = 0; x <= GridSize[0]; x++) {
+    for (let y = 0; y <= GridSize[1]; y++) {
+      for (let z = 0; z <= GridSize[2]; z++) {
         let c = vec3.fromValues(x, y, z);
-
-        const idx = chunkCoordinateToIndex(c);
-        vec3.add(
-          c,
-          c,
-          vec3.fromValues(
-            event.data.ChunkPosition[0],
-            0,
-            event.data.ChunkPosition[1]
-          )
-        );
-        const out = noiseFunction(c);
-        field[idx] = out;
-        fieldMap.set(vertexKey(c), out); // Store the value in the fieldMap with a unique key
+        // Offset by chunk position
+        vec3.add(c, c, vec3.fromValues(ChunkPosition[0], 0, ChunkPosition[1]));
+        const idx = chunkCoordinateToIndex(vec3.fromValues(x, y, z), GridSize);
+        const value = noiseFunction(c, simplex);
+        field[idx] = value;
+        fieldMap.set(vertexKey(c), value);
       }
     }
   }
+  //Generate mesh with marching cubes
+  const mesh: Mesh = new Mesh();
+
+  for (let x = 0; x < GridSize[0]; x++) {
+    for (let y = 0; y < GridSize[1]; y++) {
+      for (let z = 0; z < GridSize[2]; z++) {
+        let c = vec3.fromValues(x, y, z);
+
+        const cubeCase = GenerateCase(c, field);
+        const newMesh = caseToMesh(c, cubeCase, field, GridSize, simplex);
+        mesh.merge(newMesh);
+      }
+    }
+  }
+
   const fieldMapArray = Array.from(fieldMap.entries());
   (self as DedicatedWorkerGlobalScope).postMessage(
-    { field, fieldMap: fieldMapArray },
+    {
+      field,
+      fieldMap: fieldMapArray,
+      meshVertices: mesh.getVertices(),
+      meshNormals: mesh.getNormals(),
+      meshTypes: mesh.getTypes()
+    },
     [field.buffer]
   );
 };

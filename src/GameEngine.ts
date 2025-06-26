@@ -4,6 +4,7 @@ import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
+import { GlUtils } from "./render/GlUtils";
 
 /**
  * Our holding class for all game mechanics
@@ -92,9 +93,6 @@ export class GameEngine {
     rayBtn.addEventListener("click", () => {
       rayBtn.classList.add("active");
       pathBtn.classList.remove("active");
-      if (this.mode == 1) {
-        this.pathTracer.leave();
-      }
       this.mode = 0; // Set to raytracing
     });
 
@@ -105,16 +103,6 @@ export class GameEngine {
       this.pathTracer.init();
     });
 
-    //Initialize menu
-    const menuButton = document.getElementById("menu-toggle")!;
-    const sidebar = document.getElementById("sidebar")!;
-    const topBar = document.getElementById("topBarWrapper")!;
-
-    menuButton.addEventListener("click", () => {
-      sidebar.classList.toggle("open");
-      topBar.classList.toggle("shifted");
-    });
-
     //Check to see if WebGL working
     if (!this.gl) {
       alert(
@@ -123,12 +111,22 @@ export class GameEngine {
       return;
     }
   }
-  public async inititialize() {
+  public async inititialize(usingWorkerMarchingCubes = true) {
     await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateFieldValues())
+      this.world.chunks.map((chunk) => chunk.generateTerrain())
     );
+
     this.world.populateFieldMap();
-    this.renderer.GenerateTriangleBuffer();
+    if (!usingWorkerMarchingCubes) {
+      for (const chunk of this.world.chunks) {
+        chunk.CreateMarchingCubes();
+      }
+    }
+    this.renderer.GenerateTriangleBuffer(
+      GlUtils.genTerrainVertices(this.world)
+    );
+    this.pathTracer.initBVH(this.world.combinedMesh());
+    this.pathTracer.init(false);
     this.worldInitialized = true;
   }
   /**
@@ -167,8 +165,6 @@ export class GameEngine {
   updateCamera(time: number) {
     let velocity = this.mainCamera.speed * time;
     let movement = vec3.create();
-    let oldCamPos: vec3 = vec3.create();
-    vec3.copy(oldCamPos, this.mainCamera.position);
 
     //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
     if (this.keys["KeyW"])
@@ -184,11 +180,6 @@ export class GameEngine {
     if (this.keys["ShiftLeft"])
       vec3.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
     vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
-
-    if (!vec3.equals(this.mainCamera.position, oldCamPos)) {
-      this.pathTracer.resetAccumulation();
-      console.log("ya");
-    }
   }
 
   addKeys() {
@@ -223,7 +214,6 @@ export class GameEngine {
       if (this.mainCamera.pitch > 89) this.mainCamera.pitch = 89;
       if (this.mainCamera.pitch < -89) this.mainCamera.pitch = -89;
       this.mainCamera.UpdateCameraVectors();
-      this.pathTracer.resetAccumulation();
     }
   }
   /**
@@ -233,7 +223,6 @@ export class GameEngine {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.pathTracer.resetAccumulation();
   }
 
   /**
@@ -245,9 +234,5 @@ export class GameEngine {
   }
   static toRadians(degrees: number) {
     return degrees * (Math.PI / 180);
-  }
-
-  static average(l: number[]) {
-    return l.reduce((a, b) => a + b) / l.length;
   }
 }

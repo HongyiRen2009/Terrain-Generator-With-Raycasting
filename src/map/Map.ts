@@ -5,6 +5,7 @@ import { vec2, vec3 } from "gl-matrix";
 import { Light } from "./Light";
 
 import { Color } from "./terrains";
+import { Mesh } from "./Mesh";
 
 /**
  * The object holding the map of the world
@@ -30,7 +31,7 @@ export class WorldMap {
   public chunks: Chunk[];
   public fieldMap: Map<string, number>;
   public Workers: Worker[] = [];
-  public seed: number = Math.random() * 1000; // Random seed for noise generation
+  public seed: number = 10; // Random seed for noise generation
   /**
    * Constructs a world
    * @param width Width in # of chunks
@@ -88,6 +89,13 @@ export class WorldMap {
         this.Workers[3]
       )
     ];
+  }
+  public combinedMesh(): Mesh {
+    const CombinedMesh = new Mesh();
+    for (const chunk of this.chunks) {
+      CombinedMesh.merge(chunk.getMesh());
+    }
+    return CombinedMesh;
   }
 
   //Renders map (later implementation we don't care abt it rn.)

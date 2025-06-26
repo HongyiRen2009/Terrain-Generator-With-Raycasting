@@ -12,6 +12,7 @@ export class Chunk {
   WorldFieldMap: Map<string, number> = new Map<string, number>();
   seed: number;
   Worker: Worker;
+  Mesh: Mesh = null!;
   constructor(
     ChunkPosition: vec2,
     GridSize: vec3,
@@ -35,7 +36,7 @@ export class Chunk {
   setWorldFieldMap(worldFieldMap: Map<string, number>) {
     this.WorldFieldMap = worldFieldMap;
   }
-  async generateFieldValues(): Promise<Float32Array> {
+  async generateTerrain(): Promise<Float32Array> {
     return new Promise((resolve) => {
       this.Worker.postMessage({
         GridSize: this.GridSize,
@@ -100,6 +101,9 @@ export class Chunk {
   isSolid(c: vec3) {
     return Chunk.solidChecker(this.getTerrainValue(c));
   }
+  getMesh() {
+    return this.Mesh;
+  }
   /**
    * Meant to future-proof our code - when we may end up needing to use raw field values, instead of rewriting a everchanging solution to check if it is solid use this
    * @param a The value from the field
@@ -108,8 +112,6 @@ export class Chunk {
   static solidChecker(a: number) {
     return a > 0.5;
   }
-
-  GenerateTerrainChunk() {}
 
   CreateMarchingCubes(): Mesh {
     const mesh: Mesh = new Mesh();
@@ -126,7 +128,8 @@ export class Chunk {
       }
     }
 
-    return mesh;
+    this.Mesh = mesh;
+    return this.Mesh;
   }
 
   GenerateCase(cubeCoordinates: vec3): number {
