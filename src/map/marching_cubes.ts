@@ -41,12 +41,32 @@ export class Chunk {
       this.Worker.postMessage({
         GridSize: this.GridSize,
         ChunkPosition: this.ChunkPosition,
-        Seed: this.seed
+        Seed: this.seed,
+        generatingTerrain: true,
+        worldFieldMap: this.FieldMap
       });
       this.Worker.onmessage = (event: MessageEvent<any>) => {
         this.Field = event.data.field;
         this.FieldMap = new Map<string, number>(event.data.fieldMap);
         resolve(this.Field);
+      };
+    });
+  }
+  async generateMarchingCubes(): Promise<Mesh> {
+    return new Promise((resolve) => {
+      this.Worker.postMessage({
+        GridSize: this.GridSize,
+        ChunkPosition: this.ChunkPosition,
+        Seed: this.seed,
+        generatingTerrain: false,
+        worldFieldMap: this.WorldFieldMap
+      });
+      this.Worker.onmessage = (event: MessageEvent<any>) => {
+        this.Mesh = new Mesh();
+        this.Mesh.setVertices(event.data.meshVertices);
+        this.Mesh.setNormals(event.data.meshNormals);
+        this.Mesh.setTypes(event.data.meshTypes);
+        resolve(this.Mesh);
       };
     });
   }

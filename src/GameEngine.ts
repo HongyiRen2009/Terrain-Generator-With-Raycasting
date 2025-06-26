@@ -5,6 +5,7 @@ import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
+import { Utilities } from "./map/Utilities";
 
 /**
  * Our holding class for all game mechanics
@@ -115,12 +116,16 @@ export class GameEngine {
     await Promise.all(
       this.world.chunks.map((chunk) => chunk.generateTerrain())
     );
-
     this.world.populateFieldMap();
+    Utilities.setWorldFieldMap(this.world.fieldMap);
     if (!usingWorkerMarchingCubes) {
       for (const chunk of this.world.chunks) {
         chunk.CreateMarchingCubes();
       }
+    } else {
+      await Promise.all(
+        this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
+      );
     }
     this.renderer.GenerateTriangleBuffer(
       GlUtils.genTerrainVertices(this.world)
