@@ -30,7 +30,7 @@ export class GameEngine {
   private mode: number = 0; // 0 for hybrid, 1 for pathtracer
 
   //
-  private frameCounter: number = 0;
+  private frameCounter: number = 0; // In the current FPS
   private lastFPSCheck: number = 0;
   private currentFPS: number = 0;
 
@@ -67,7 +67,7 @@ export class GameEngine {
       this.canvas,
       this.mainCamera,
       this.debug,
-      this.world
+      this.world,
     );
     //Initial pathTracer
     this.pathTracer = new PathTracer(

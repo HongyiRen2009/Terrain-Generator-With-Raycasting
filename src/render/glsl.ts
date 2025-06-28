@@ -24,6 +24,185 @@ void main() {
 }`;
 //
 
+export const MeshGeometryVertexShaderCode = /* glsl */ `#version 300 es
+precision mediump float;
+
+in vec4 aPosition;
+in vec3 aNormal;
+in vec2 aTexCoords;
+
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProj;
+
+out vec4 vPosition;
+out vec3 vNormal;
+out vec2 vTexCoords;
+
+void main(){
+  mat3 normalMatrix = transpose(inverse(mat3(uView * uModel)));
+
+  vPosition = uView * uModel * aPosition;
+  vNormal = normalMatrix * aNormal;
+  vTexCoords = aTexCoords;
+  gl_Position = uProj * uView * uModel * aPosition;
+}`
+//
+
+export const MeshGeometryFragmentShaderCode = /* glsl */ `#version 300es 
+precision highp float;
+
+out vec4 gPosition;
+out vec4 gNormal;
+
+in vPosition;
+in vNormal;
+in vTexCoords;
+
+void main(){
+  gPosition=vPosition;
+  gNormal=vec4(normalize(vNormal*0.5+0.5),1.0);
+}
+`
+export const MeshSSAOVertexShaderCode = /* glsl */`#version 300 es
+precision mediump float;
+
+in vec2 aPosition;
+in vec2 aTexCoords;
+
+out vec2 vTexCoords;
+
+void main(){
+    vTexCoords = aTexCoords;
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+}
+`
+export const MeshSSAOFragmentShaderCode = /* glsl */`#version 300 es
+precision mediump float;
+
+#define NUM_SAMPLES 16
+
+in vTexCoords;
+out float ssao;
+
+
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+uniform sampler2D texNoise;
+
+uniform mat4 uProj;
+uniform vec3 samples[NUM_SAMPLES];
+uniform vec3 noiseScale;
+
+const float radius = 0.5;
+const float bias = 0.025;
+
+void main(){
+  vec3 fragPos = texture(gPosition, vTexCoords).xyz;
+  vec3 normal = normalize(texture(gNormal, vTexCoords).xyz * 2.0 - 1.0);
+  vec3 randomVec = texture(texNoise, vTexCoords * noiseScale).xyz;
+  
+  //Create TBN Roration Matrix
+  vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+  vec3 bitangent = cross(normal, tangent);
+  mat3 TBN = mat3(tangent, bitangent, normal);
+  
+  float occlusion = 0.0;
+  for (int i = 0; i < 16; ++i) {
+    // Sample vector in view space
+    vec3 samplePos = TBN * samples[i];
+    samplePos = fragPos + samplePos * radius;
+
+    // project sample position (to get screen-space coords)
+    vec4 offset = projection * vec4(samplePos, 1.0);
+    offset.xyz /= offset.w;
+    offset.xyz = offset.xyz * 0.5 + 0.5;
+
+    float sampleDepth = texture(gPosition, offset.xy).z;
+
+    float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPos.z - sampleDepth));
+    if ((sampleDepth + bias) < samplePos.z) {
+      occlusion += rangeCheck;
+    }
+  }
+
+  occlusion = 1.0 - (occlusion / 16.0);
+  ssao = occlusion;
+}
+`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 export const MeshVertexShaderCode = /*glsl*/ `#version 300 es
 precision mediump float;
 //If you see lessons that use attribute, that's an old version of Webgl
