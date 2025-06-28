@@ -27,27 +27,31 @@ export class GLRenderer {
   CubeBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
   MeshSize: number = 0;
 
+  matView: mat4;
+  matProj: mat4;
   matViewProj: mat4;
   debug: DebugMenu;
   world: WorldMap;
-  
 
   CubeShader!: Shader;
   MeshGeometryShader!: Shader;
   MeshSSAOShader!: Shader;
-  
+
   // Deferred Rendering Related Properties
   kernels: vec3[] = []; // SSAO kernels
   ssaoNoiseTexture: WebGLTexture | null = null;
-  FrameNumber: number = 0; // Frame number for SSAO randomness
-  gBuffer!: {frameBuffer: WebGLFramebuffer, gPosition: WebGLTexture, gNormal: WebGLTexture};
-  
+  gBuffer!: {
+    frameBuffer: WebGLFramebuffer;
+    gPosition: WebGLTexture;
+    gNormal: WebGLTexture;
+  };
+
   constructor(
     gl: WebGL2RenderingContext,
     canvas: HTMLCanvasElement,
     camera: Camera,
     debug: DebugMenu,
-    world: WorldMap,
+    world: WorldMap
   ) {
     this.gl = gl;
     this.canvas = canvas;
@@ -59,11 +63,11 @@ export class GLRenderer {
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
-
+    this.matView = mat4.create();
+    this.matProj = mat4.create();
     this.matViewProj = mat4.create();
-    
-    const size = 4;
 
+    const size = 4;
   }
   GenerateTriangleBuffer(triangleMeshes: Mesh[]) {
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
@@ -107,13 +111,20 @@ export class GLRenderer {
       CubeVertexShaderCode,
       CubeFragmentShaderCode
     );
-    this.MeshGeometryShader=new Shader(this.gl,MeshGeometryVertexShaderCode,MeshGeometryFragmentShaderCode);
-    this.MeshSSAOShader=new Shader(this.gl,MeshSSAOVertexShaderCode,MeshSSAOFragmentShaderCode);
-    this.matViewProj = mat4.create();
+    this.MeshGeometryShader = new Shader(
+      this.gl,
+      MeshGeometryVertexShaderCode,
+      MeshGeometryFragmentShaderCode
+    );
+    this.MeshSSAOShader = new Shader(
+      this.gl,
+      MeshSSAOVertexShaderCode,
+      MeshSSAOFragmentShaderCode
+    );
   }
-  
+
   //Geometry Pass for Deferred Rendering
-  MeshGeometryPass(){
+  MeshGeometryPass(uModelMatrix: mat4) {
     //Create and bind the G-Buffer
     const gBuffer = this.gl.createFramebuffer();
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, gBuffer);
@@ -121,19 +132,94 @@ export class GLRenderer {
     //Position Texture
     const gPosition = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, gPosition);
-    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA16F, this.canvas.width, this.canvas.height, 0, this.gl.RGBA, this.gl.FLOAT, null);
-    this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, gPosition, 0);
+    this.gl.texImage2D(
+      this.gl.TEXTURE_2D,
+      0,
+      this.gl.RGBA16F,
+      this.canvas.width,
+      this.canvas.height,
+      0,
+      this.gl.RGBA,
+      this.gl.FLOAT,
+      null
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.TEXTURE_2D,
+      gPosition,
+      0
+    );
 
     //Normal Texture
     const gNormal = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, gNormal);
-    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA16F, this.canvas.width, this.canvas.height, 0, this.gl.RGBA, this.gl.FLOAT, null);
-    this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, gNormal, 0);
+    this.gl.texImage2D(
+      this.gl.TEXTURE_2D,
+      0,
+      this.gl.RGBA16F,
+      this.canvas.width,
+      this.canvas.height,
+      0,
+      this.gl.RGBA,
+      this.gl.FLOAT,
+      null
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT1,
+      this.gl.TEXTURE_2D,
+      gNormal,
+      0
+    );
 
+    if (!this.TriangleBuffer) {
+      console.error("TriangleBuffer not initialized.");
+      return;
+    }
+    const meshVao = GlUtils.createInterleavedVao(
+      this.gl,
+      this.TriangleBuffer.vertex,
+      this.TriangleBuffer.indices,
+      this.MeshGeometryShader,
+      {
+        VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+        VertexNormal: { offset: 12, stride: 36, sizeOverride: 3 },
+        VertexColor: { offset: 24, stride: 36 }
+      }
+    );
+    this.gl.useProgram(this.MeshGeometryShader.Program!);
+    this.gl.bindVertexArray(meshVao);
+
+    // Set uniforms as needed (e.g., transformation matrices)
+    this.gl.uniformMatrix4fv(
+      this.MeshGeometryShader.VertexUniforms["uModel"],
+      false,
+      uModelMatrix
+    );
+    this.gl.uniformMatrix4fv(
+      this.MeshGeometryShader.VertexUniforms["uView"],
+      false,
+      this.matView
+    );
+    this.gl.uniformMatrix4fv(
+      this.MeshGeometryShader.VertexUniforms["uProj"],
+      false,
+      this.matProj
+    );
+
+    //Draw the mesh
     this.gl.drawBuffers([
       this.gl.COLOR_ATTACHMENT0, // Position
-      this.gl.COLOR_ATTACHMENT1, // Normal
+      this.gl.COLOR_ATTACHMENT1 // Normal
     ]);
+
+    this.gl.drawElements(
+      this.gl.TRIANGLES,
+      this.MeshSize,
+      this.gl.UNSIGNED_INT,
+      0
+    );
 
     this.gBuffer = {
       frameBuffer: gBuffer,
@@ -141,27 +227,22 @@ export class GLRenderer {
       gNormal: gNormal
     };
 
-    // Unbind the framebuffer
+    // Unbind the framebuffer and VAO
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    this.gl.bindVertexArray(null);
   }
   //
-  generateKernels(){
+  generateKernels() {
     const lerp = (a: number, b: number, f: number) => a + f * (b - a);
 
     for (let i = 0; i < 16; ++i) {
-      const RNGSeed = this.FrameNumber*100 + i; // Ensure different seeds for each sample
-      // Simple hash-based RNG
-      const rand = (s: number) => {
-        let x = Math.sin(s) * 10000;
-        return x - Math.floor(x);
-      };
       let sample = vec3.fromValues(
-        rand(RNGSeed)*2.0-1.0,
-        rand(RNGSeed+1)*2.0-1.0,
-        rand(RNGSeed+2)*2.0-1.0
+        Math.random() * 2.0 - 1.0,
+        Math.random() * 2.0 - 1.0,
+        Math.random() * 2.0 - 1.0
       );
       vec3.normalize(sample, sample);
-      vec3.scale(sample, sample, rand(RNGSeed + 3));
+      vec3.scale(sample, sample, Math.random());
 
       //Accelerating interpolation function
       let scale: GLfloat = i / 16.0;
@@ -172,7 +253,7 @@ export class GLRenderer {
   }
 
   // Screen Space Ambient Occlusion Pass
-  SSAOPass(){
+  SSAOPass() {
     //Create Noise Texture
     const noiseSize = 4;
     const noiseData = new Float32Array(noiseSize * noiseSize * 3);
@@ -195,13 +276,28 @@ export class GLRenderer {
       this.gl.FLOAT,
       noiseData
     );
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MIN_FILTER,
+      this.gl.NEAREST
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MAG_FILTER,
+      this.gl.NEAREST
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_S,
+      this.gl.REPEAT
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_T,
+      this.gl.REPEAT
+    );
     this.ssaoNoiseTexture = noiseTexture;
 
-    this.gl.uniform1i(this.MeshSSAOShader.Program!,this.FrameNumber)
     // Create and bind the SSAO framebuffer
     const ssaoBuffer = this.gl.createFramebuffer();
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, ssaoBuffer);
@@ -241,24 +337,49 @@ export class GLRenderer {
 
     //Send Uniforms to the SSAO shader
     for (let i = 0; i < this.kernels.length; i++) {
-      const loc = this.gl.getUniformLocation(this.MeshSSAOShader.Program!, `samples[${i}]`);
+      const loc = this.gl.getUniformLocation(
+        this.MeshSSAOShader.Program!,
+        `samples[${i}]`
+      );
       this.gl.uniform3fv(loc, this.kernels[i]);
     }
-    const noiseScale = [this.canvas.width / noiseSize, this.canvas.height / noiseSize];
-    const loc = this.gl.getUniformLocation(this.MeshSSAOShader.Program!, "noiseScale");
+    const noiseScale = [
+      this.canvas.width / noiseSize,
+      this.canvas.height / noiseSize
+    ];
+    const loc = this.gl.getUniformLocation(
+      this.MeshSSAOShader.Program!,
+      "noiseScale"
+    );
     this.gl.uniform2fv(loc, noiseScale);
 
     //Bind Textures
-    GlUtils.bindTex(this.gl, this.MeshSSAOShader.Program!, this.gBuffer.gPosition, "gPosition", 0);
-    GlUtils.bindTex(this.gl, this.MeshSSAOShader.Program!, this.gBuffer.gNormal, "gNormal", 1);
-    GlUtils.bindTex(this.gl, this.MeshSSAOShader.Program!, this.ssaoNoiseTexture, "texNoise", 2);
-
+    GlUtils.bindTex(
+      this.gl,
+      this.MeshSSAOShader.Program!,
+      this.gBuffer.gPosition,
+      "gPosition",
+      0
+    );
+    GlUtils.bindTex(
+      this.gl,
+      this.MeshSSAOShader.Program!,
+      this.gBuffer.gNormal,
+      "gNormal",
+      1
+    );
+    GlUtils.bindTex(
+      this.gl,
+      this.MeshSSAOShader.Program!,
+      this.ssaoNoiseTexture,
+      "texNoise",
+      2
+    );
 
     // Unbind the framebuffer
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    this.FrameNumber+=1
   }
-
+  LightingPass() {}
 
   DrawWireFrameCube(TransformationMatrix: mat4) {
     this.gl.useProgram(this.CubeShader.Program!);
@@ -296,10 +417,13 @@ export class GLRenderer {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
     // Calculate view and projection matrices once per frame
-    this.matViewProj = this.camera.calculateProjectionMatrix(
+    const matViewAndProj = this.camera.calculateProjectionMatrix(
       this.canvas.width,
       this.canvas.height
     );
+    this.matView = matViewAndProj.matView;
+    this.matProj = matViewAndProj.matProj;
+    mat4.multiply(this.matViewProj, this.matView, this.matProj);
     const resScaleFactor = 1;
 
     if (this.debug.debugMode) {
