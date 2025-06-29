@@ -3,19 +3,17 @@ import { GlUtils } from "./GlUtils";
 import {
   CubeFragmentShaderCode,
   CubeVertexShaderCode,
-  MeshFragmentShaderCode,
   MeshGeometryFragmentShaderCode,
   MeshGeometryVertexShaderCode,
   MeshSSAOFragmentShaderCode,
   MeshSSAOVertexShaderCode,
-  MeshVertexShaderCode
 } from "./glsl";
 import { Shader } from "./Shader";
 import { Camera } from "./Camera";
-import { meshToVerticesAndIndices } from "../map/cubes_utils";
+import { meshToInterleavedVerticesAndIndices, meshToNonInterleavedVerticesAndIndices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
-import { cubeVertices, cubeWireframeIndices } from "../map/geometry";
+import { cubeVertices, cubeWireframeIndices, quadPositions, quadIndices } from "../map/geometry";
 import { Mesh } from "../map/Mesh";
 
 export class GLRenderer {
@@ -23,8 +21,9 @@ export class GLRenderer {
   canvas: HTMLCanvasElement;
   camera: Camera;
 
-  TriangleBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
+  TriangleBuffer: { vertex: {position: WebGLBuffer, normal: WebGLBuffer, color: WebGLBuffer}; indices: WebGLBuffer } | null = null;
   CubeBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
+  QuadBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
   MeshSize: number = 0;
 
   matView: mat4;
@@ -71,56 +70,53 @@ export class GLRenderer {
   }
   GenerateTriangleBuffer(triangleMeshes: Mesh[]) {
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
-    let triangleVertices: number[] = [];
+    let trianglePositions: number[] = [];
+    let triangleNormals: number[] = [];
+    let triangleColors: number[] = [];
     let triangleIndices: number[] = [];
     let indexOffset = 0;
 
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
-      const vertexData = meshToVerticesAndIndices(Mesh);
+      const vertexData = meshToNonInterleavedVerticesAndIndices(Mesh);
 
-      // Add vertices
-      triangleVertices = triangleVertices.concat(
-        Array.from(vertexData.vertices)
-      );
+      // Add non-interleaved vertex attributes
+      trianglePositions = trianglePositions.concat(Array.from(vertexData.positions));
+      triangleNormals = triangleNormals.concat(Array.from(vertexData.normals));
+      triangleColors = triangleColors.concat(Array.from(vertexData.colors));
 
-      // Add indices with offset
+      // Adjust and add indices
       const adjustedIndices = Array.from(vertexData.indices).map(
         (index) => index + indexOffset
       );
       triangleIndices = triangleIndices.concat(adjustedIndices);
 
-      // Update offset for next chunk
-      indexOffset += vertexData.vertices.length / 9; // 9 components per vertex
+      // Update offset based on number of vertices (not floats)
+      indexOffset += vertexData.positions.length / 3; // 3 components per position
     }
+
     this.MeshSize = triangleIndices.length;
 
-    this.TriangleBuffer = GlUtils.CreateStaticBuffer(
-      this.gl,
-      new Float32Array(triangleVertices),
-      triangleIndices
-    );
-    this.CubeBuffer = GlUtils.CreateStaticBuffer(
-      this.gl,
-      new Float32Array(cubeVertices),
-      cubeWireframeIndices
-    );
-
-    this.CubeShader = new Shader(
-      this.gl,
-      CubeVertexShaderCode,
-      CubeFragmentShaderCode
-    );
-    this.MeshGeometryShader = new Shader(
-      this.gl,
-      MeshGeometryVertexShaderCode,
-      MeshGeometryFragmentShaderCode
-    );
-    this.MeshSSAOShader = new Shader(
-      this.gl,
-      MeshSSAOVertexShaderCode,
-      MeshSSAOFragmentShaderCode
-    );
+    // Initialize Buffers
+    this.TriangleBuffer = {
+    vertex: {
+      position: GlUtils.CreateAttributeBuffer(this.gl, new Float32Array(trianglePositions)),
+      normal: GlUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleNormals)),
+      color: GlUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleColors)),
+    },
+      indices: GlUtils.CreateIndexBuffer(this.gl, triangleIndices),
+    };
+    this.CubeBuffer = GlUtils.CreateStaticBuffer(this.gl, new Float32Array(cubeVertices),cubeWireframeIndices);
+    this.QuadBuffer!.vertex = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.QuadBuffer!);
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, quadPositions, this.gl.STATIC_DRAW);
+    this.QuadBuffer!.indices = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, this.QuadBuffer!);
+    this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, quadIndices, this.gl.STATIC_DRAW);
+    // Initialize shaders
+    this.CubeShader = new Shader(this.gl, CubeVertexShaderCode,CubeFragmentShaderCode);
+    this.MeshGeometryShader = new Shader(this.gl, MeshGeometryVertexShaderCode,MeshGeometryFragmentShaderCode);
+    this.MeshSSAOShader = new Shader(this.gl, MeshSSAOVertexShaderCode,MeshSSAOFragmentShaderCode);
   }
 
   //Geometry Pass for Deferred Rendering
@@ -132,64 +128,42 @@ export class GLRenderer {
     //Position Texture
     const gPosition = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, gPosition);
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D,
-      0,
-      this.gl.RGBA16F,
-      this.canvas.width,
-      this.canvas.height,
-      0,
-      this.gl.RGBA,
-      this.gl.FLOAT,
-      null
-    );
-    this.gl.framebufferTexture2D(
-      this.gl.FRAMEBUFFER,
-      this.gl.COLOR_ATTACHMENT0,
-      this.gl.TEXTURE_2D,
-      gPosition,
-      0
-    );
+    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA16F, this.canvas.width, this.canvas.height, 0, this.gl.RGBA, this.gl.FLOAT, null);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+    this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, gPosition, 0);
 
     //Normal Texture
     const gNormal = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, gNormal);
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D,
-      0,
-      this.gl.RGBA16F,
-      this.canvas.width,
-      this.canvas.height,
-      0,
-      this.gl.RGBA,
-      this.gl.FLOAT,
-      null
-    );
-    this.gl.framebufferTexture2D(
-      this.gl.FRAMEBUFFER,
-      this.gl.COLOR_ATTACHMENT1,
-      this.gl.TEXTURE_2D,
-      gNormal,
-      0
+    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA16F, this.canvas.width, this.canvas.height, 0, this.gl.RGBA, this.gl.FLOAT, null);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+    this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, gNormal, 0);
+    
+    //Create VAO
+    const meshGeometryVao = GlUtils.createNonInterleavedVao(
+    this.gl,
+    {
+      VertexPosition: {
+        buffer: this.TriangleBuffer!.vertex.position,
+        size: 3,
+      },
+      VertexNormal: {
+        buffer: this.TriangleBuffer!.vertex.normal,
+        size: 3,
+      },
+    },
+    this.TriangleBuffer!.indices,
+    this.MeshGeometryShader
     );
 
-    if (!this.TriangleBuffer) {
-      console.error("TriangleBuffer not initialized.");
-      return;
-    }
-    const meshVao = GlUtils.createInterleavedVao(
-      this.gl,
-      this.TriangleBuffer.vertex,
-      this.TriangleBuffer.indices,
-      this.MeshGeometryShader,
-      {
-        VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
-        VertexNormal: { offset: 12, stride: 36, sizeOverride: 3 },
-        VertexColor: { offset: 24, stride: 36 }
-      }
-    );
     this.gl.useProgram(this.MeshGeometryShader.Program!);
-    this.gl.bindVertexArray(meshVao);
+    this.gl.bindVertexArray(meshGeometryVao);
 
     // Set uniforms as needed (e.g., transformation matrices)
     this.gl.uniformMatrix4fv(
@@ -231,7 +205,7 @@ export class GLRenderer {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.bindVertexArray(null);
   }
-  //
+  //Kernels for SSAO
   generateKernels() {
     const lerp = (a: number, b: number, f: number) => a + f * (b - a);
 
@@ -251,7 +225,6 @@ export class GLRenderer {
       this.kernels.push(sample);
     }
   }
-
   // Screen Space Ambient Occlusion Pass
   SSAOPass() {
     //Create Noise Texture
@@ -265,37 +238,11 @@ export class GLRenderer {
 
     const noiseTexture = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, noiseTexture);
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D,
-      0,
-      this.gl.RGB,
-      noiseSize,
-      noiseSize,
-      0,
-      this.gl.RGB,
-      this.gl.FLOAT,
-      noiseData
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MIN_FILTER,
-      this.gl.NEAREST
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MAG_FILTER,
-      this.gl.NEAREST
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_S,
-      this.gl.REPEAT
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_T,
-      this.gl.REPEAT
-    );
+    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGB, noiseSize, noiseSize, 0, this.gl.RGB, this.gl.FLOAT, noiseData);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
     this.ssaoNoiseTexture = noiseTexture;
 
     // Create and bind the SSAO framebuffer
@@ -305,28 +252,12 @@ export class GLRenderer {
     // Create the SSAO texture
     const ssaoTexture = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, ssaoTexture);
+    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.canvas.width, this.canvas.height, 0, this.gl.RGBA, this.gl.UNSIGNED_BYTE, null);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER,this.gl.LINEAR);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
 
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D,
-      0,
-      this.gl.RGBA,
-      this.canvas.width,
-      this.canvas.height,
-      0,
-      this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE,
-      null
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MIN_FILTER,
-      this.gl.LINEAR
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MAG_FILTER,
-      this.gl.LINEAR
-    );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
@@ -375,11 +306,39 @@ export class GLRenderer {
       "texNoise",
       2
     );
+    // Use the SSAO shader program
+    this.gl.useProgram(this.MeshSSAOShader.Program!);
 
-    // Unbind the framebuffer
+    // Create fullscreen quad VAO 
+    
+
+    const quadVAO = GlUtils.createNonInterleavedVao(
+      this.gl,
+      {
+        aPosition: { buffer: this.QuadBuffer!.vertex, size: 2 },
+      },
+      this.QuadBuffer!.indices,
+      this.MeshSSAOShader
+    );
+
+    this.gl.bindVertexArray(quadVAO);
+
+    this.gl.drawElements(
+      this.gl.TRIANGLES,
+      quadIndices.length,
+      this.gl.UNSIGNED_SHORT,
+      0
+    );
+
+    // Unbind the framebuffer and VAO
+    this.gl.bindVertexArray(null);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
-  LightingPass() {}
+  LightingPass() {
+    //Ensure default framebuffer is bound
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+
+  }
 
   DrawWireFrameCube(TransformationMatrix: mat4) {
     this.gl.useProgram(this.CubeShader.Program!);
