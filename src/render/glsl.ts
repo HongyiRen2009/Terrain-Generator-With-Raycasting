@@ -29,7 +29,6 @@ precision mediump float;
 
 in vec4 aPosition;
 in vec3 aNormal;
-in vec2 aTexCoords;
 
 uniform mat4 uModel;
 uniform mat4 uView;
@@ -57,26 +56,26 @@ out vec4 gNormal;
 
 in vPosition;
 in vNormal;
-in vTexCoords;
 
 void main(){
   gPosition=vPosition;
   gNormal=vec4(normalize(vNormal*0.5+0.5),1.0);
 }
 `
-export const MeshSSAOVertexShaderCode = /* glsl */`#version 300 es
+export const MeshSSAOVertexShaderCode = /* glsl */ `#version 300 es
 precision mediump float;
 
 in vec2 aPosition;
-in vec2 aTexCoords;
 
 out vec2 vTexCoords;
 
-void main(){
-    vTexCoords = aTexCoords;
+void main() {
+    // Convert from clip space [-1, 1] to UV space [0, 1]
+    vTexCoords = aPosition * 0.5 + 0.5;
     gl_Position = vec4(aPosition, 0.0, 1.0);
 }
-`
+`;
+
 export const MeshSSAOFragmentShaderCode = /* glsl */`#version 300 es
 precision mediump float;
 
@@ -114,7 +113,7 @@ void main(){
     samplePos = fragPos + samplePos * radius;
 
     // project sample position (to get screen-space coords)
-    vec4 offset = projection * vec4(samplePos, 1.0);
+    vec4 offset = uProj * vec4(samplePos, 1.0);
     offset.xyz /= offset.w;
     offset.xyz = offset.xyz * 0.5 + 0.5;
 
