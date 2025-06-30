@@ -212,7 +212,7 @@ export class GlUtils {
     let mainMesh = new Mesh();
 
     for (const chunk of world.chunks) {
-      const triangleMesh = chunk.CreateMarchingCubes();
+      const triangleMesh = chunk.Mesh;
       triangleMesh.translate(
         vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
       );

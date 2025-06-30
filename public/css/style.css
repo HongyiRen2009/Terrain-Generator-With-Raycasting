@@ -5,6 +5,16 @@ html, body, canvas {
   display: block;
   overflow: hidden;
 }
+/************************ Loading Screen *************************/
+.loading-box {
+  padding: 30px 60px;
+  color: rgb(0, 0, 0);
+  font-size: 24px;
+  text-align: center;
+}
+
+/********************** DEBUG ***********************/
+
 #debugMenu{
   background-color: rgba(100, 100, 100, 0.4);
   border-radius: 6px;

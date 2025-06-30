@@ -1,6 +1,7 @@
 import { vec3 } from "gl-matrix";
 import { Terrain, Terrains } from "./terrains";
 import { GameEngine } from "../GameEngine";
+import { Utilities } from "./Utilities";
 export type Triangle = [vec3, vec3, vec3];
 
 export interface BVHTriangle {
@@ -90,9 +91,9 @@ export class Mesh {
   exportBVHTriangles(): BVHTriangle[] {
     return this.mesh.map((val, i, arr) => {
       let center = vec3.fromValues(
-        GameEngine.average([val[0][0], val[1][0], val[2][0]]),
-        GameEngine.average([val[0][1], val[1][1], val[2][1]]),
-        GameEngine.average([val[0][2], val[1][2], val[2][2]])
+        Utilities.average([val[0][0], val[1][0], val[2][0]]),
+        Utilities.average([val[0][1], val[1][1], val[2][1]]),
+        Utilities.average([val[0][2], val[1][2], val[2][2]])
       );
       let terrain = this.type[i].map((type) => {
         return Terrains[type];
@@ -210,5 +211,28 @@ export class Mesh {
       out[0].right = i2;
     }
     return out;
+  }
+  // Getter and Setter for vertices (mesh)
+  getVertices(): Triangle[] {
+    return this.mesh;
+  }
+  setVertices(value: Triangle[]) {
+    this.mesh = value;
+  }
+
+  // Getter and Setter for normals
+  getNormals(): Triangle[] {
+    return this.normals;
+  }
+  setNormals(value: Triangle[]): void {
+    this.normals = value;
+  }
+
+  // Getter and Setter for type
+  getTypes(): [number, number, number][] {
+    return this.type;
+  }
+  setTypes(value: [number, number, number][]): void {
+    this.type = value;
   }
 }
