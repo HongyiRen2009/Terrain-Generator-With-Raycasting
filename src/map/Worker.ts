@@ -70,7 +70,6 @@ function solidChecker(a: number) {
 }
 function getFieldValue(c: vec3) {
   const newVector = vec3.fromValues(0, 0, 0);
-  debugger;
   vec3.add(
     newVector,
     c,

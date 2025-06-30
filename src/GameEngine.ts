@@ -95,15 +95,15 @@ export class GameEngine {
     rayBtn.addEventListener("click", () => {
       rayBtn.classList.add("active");
       pathBtn.classList.remove("active");
+      if (this.mode == 1) {
+        this.pathTracer.leave();
+      }
       this.mode = 0; // Set to raytracing
     });
 
     pathBtn.addEventListener("click", () => {
       pathBtn.classList.add("active");
       rayBtn.classList.remove("active");
-      if (this.mode == 1) {
-        this.pathTracer.leave();
-      }
       this.mode = 1; // Set to pathtracing
       this.pathTracer.init();
     });
