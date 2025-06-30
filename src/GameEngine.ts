@@ -27,7 +27,7 @@ export class GameEngine {
   private maxFPS: number = 60;
   private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
-  private mode: number = 0; // 0 for rayTracer, 1 for pathtracer
+  private mode: number = 0; // 0 for hybrid, 1 for pathtracer
 
   //
   private frameCounter: number = 0;
@@ -47,6 +47,7 @@ export class GameEngine {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
+    this.canvas.style.display = "none";
 
     //GL Context
     this.gl = this.canvas.getContext("webgl2", { antialias: true })!;
@@ -76,7 +77,7 @@ export class GameEngine {
       this.mainCamera,
       this.debug
     );
-    this.inititialize();
+
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
     this.canvas.addEventListener("mousemove", (e: MouseEvent) =>
@@ -100,8 +101,21 @@ export class GameEngine {
     pathBtn.addEventListener("click", () => {
       pathBtn.classList.add("active");
       rayBtn.classList.remove("active");
+      if (this.mode == 1) {
+        this.pathTracer.leave();
+      }
       this.mode = 1; // Set to pathtracing
       this.pathTracer.init();
+    });
+
+    //Initialize menu
+    const menuButton = document.getElementById("menu-toggle")!;
+    const sidebar = document.getElementById("sidebar")!;
+    const topBar = document.getElementById("topBarWrapper")!;
+
+    menuButton.addEventListener("click", () => {
+      sidebar.classList.toggle("open");
+      topBar.classList.toggle("shifted");
     });
 
     //Check to see if WebGL working
@@ -111,6 +125,8 @@ export class GameEngine {
       );
       return;
     }
+
+    this.inititialize();
   }
   public async inititialize(usingWorkerMarchingCubes = true) {
     await Promise.all(
@@ -133,6 +149,8 @@ export class GameEngine {
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
     this.worldInitialized = true;
+    this.canvas.style.display = "block";
+    document.getElementById("loadingBox")!.style.display = "none";
   }
   /**
    * Our Game Loop - Run once every frame (capped at max framerate)
@@ -170,6 +188,8 @@ export class GameEngine {
   updateCamera(time: number) {
     let velocity = this.mainCamera.speed * time;
     let movement = vec3.create();
+    let oldCamPos: vec3 = vec3.create();
+    vec3.copy(oldCamPos, this.mainCamera.position);
 
     //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
     if (this.keys["KeyW"])
@@ -185,6 +205,10 @@ export class GameEngine {
     if (this.keys["ShiftLeft"])
       vec3.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
     vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
+
+    if (!vec3.equals(this.mainCamera.position, oldCamPos)) {
+      this.pathTracer.resetAccumulation();
+    }
   }
 
   addKeys() {
@@ -219,6 +243,7 @@ export class GameEngine {
       if (this.mainCamera.pitch > 89) this.mainCamera.pitch = 89;
       if (this.mainCamera.pitch < -89) this.mainCamera.pitch = -89;
       this.mainCamera.UpdateCameraVectors();
+      this.pathTracer.resetAccumulation();
     }
   }
   /**
@@ -228,6 +253,7 @@ export class GameEngine {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.pathTracer.resetAccumulation();
   }
 
   /**
