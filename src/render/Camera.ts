@@ -50,6 +50,21 @@ export class Camera {
   calculateProjectionMatrix(canvasWidth: number, canvasHeight: number) {
     const matView = this.getViewMatrix();
     const matProj = mat4.create();
+    const matViewProj = mat4.create();
+    mat4.perspective(
+      matProj,
+      /* fovy= */ glMatrix.toRadian(90),
+      /* aspectRatio= */ canvasWidth / canvasHeight,
+      /* near, far= */ 0.1,
+      100.0
+    );
+    mat4.multiply(matViewProj, matView, matProj);
+    return matViewProj;
+  }
+
+  calculateProjectionMatrices(canvasWidth: number, canvasHeight: number) {
+    const matView = this.getViewMatrix();
+    const matProj = mat4.create();
     mat4.perspective(
       matProj,
       /* fovy= */ glMatrix.toRadian(90),

@@ -105,7 +105,10 @@ export class GlUtils {
    * @param data The Float32Array containing attribute data.
    * @returns WebGLBuffer containing the attribute data.
    */
-  static CreateAttributeBuffer(gl: WebGL2RenderingContext, data: Float32Array): WebGLBuffer {
+  static CreateAttributeBuffer(
+    gl: WebGL2RenderingContext,
+    data: Float32Array
+  ): WebGLBuffer {
     const buffer = gl.createBuffer();
     if (!buffer) throw new Error("Failed to create attribute buffer");
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -187,7 +190,7 @@ export class GlUtils {
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     return vao;
   }
-  
+
   /**
    * Creates a Vertex Array Object (VAO) for non-interleaved vertex attributes.
    * @param gl WebGL2RenderingContext
@@ -197,52 +200,45 @@ export class GlUtils {
    * @returns WebGLVertexArrayObject
    */
   static createNonInterleavedVao(
-  gl: WebGL2RenderingContext,
-  attributeBuffers: {
-    [attribName: string]: {
-      buffer: WebGLBuffer;
-      size: number;      // components per attribute (e.g., 3 for vec3)
-      type?: GLenum;     // gl.FLOAT (default)
-    };
-  },
-  indexBuffer: WebGLBuffer,
-  shader: Shader
+    gl: WebGL2RenderingContext,
+    attributeBuffers: {
+      [attribName: string]: {
+        buffer: WebGLBuffer;
+        size: number; // components per attribute (e.g., 3 for vec3)
+        type?: GLenum; // gl.FLOAT (default)
+      };
+    },
+    indexBuffer: WebGLBuffer,
+    shader: Shader
   ): WebGLVertexArrayObject {
-  const vao = gl.createVertexArray();
-  if (!vao) throw new Error("Failed to create VAO");
-    
-  gl.bindVertexArray(vao);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+    const vao = gl.createVertexArray();
+    if (!vao) throw new Error("Failed to create VAO");
 
-  for (const [attribName, bufferInfo] of Object.entries(attributeBuffers)) {
-    const attrib = shader.VertexInputs[attribName];
-    if (!attrib) {
-      console.warn(`Attribute '${attribName}' not found in shader.`);
-      continue;
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+    for (const [attribName, bufferInfo] of Object.entries(attributeBuffers)) {
+      const attrib = shader.VertexInputs[attribName];
+      if (!attrib) {
+        console.warn(`Attribute '${attribName}' not found in shader.`);
+        continue;
+      }
+
+      const { buffer, size, type = gl.FLOAT } = bufferInfo;
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(attrib.location);
+      gl.vertexAttribPointer(attrib.location, size, type, false, 0, 0);
     }
 
-    const { buffer, size, type = gl.FLOAT } = bufferInfo;
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.enableVertexAttribArray(attrib.location);
-    gl.vertexAttribPointer(
-      attrib.location,
-      size,
-      type,
-      false,
-      0,
-      0
-    );
+    return vao;
   }
-
-  gl.bindVertexArray(null);
-  gl.bindBuffer(gl.ARRAY_BUFFER, null);
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
-
-  return vao;
-}
-///////////////////////Matrix Utilities/////////////////////
-/**
+  ///////////////////////Matrix Utilities/////////////////////
+  /**
    * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
    * @param translation A vec3 representing the translation (x, y, z).
    * @param rotation A vec3 representing the rotation in radians (x, y, z).

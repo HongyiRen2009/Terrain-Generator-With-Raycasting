@@ -101,8 +101,6 @@ export class PathTracer {
     const BVHtriangles = mainMesh.exportBVHTriangles();
     const BVHtree = Mesh.exportBVH(BVHtriangles);
     const flatBVHtree = Mesh.flattenBVH(BVHtree);
-    console.log(BVHtree);
-    console.log(flatBVHtree);
 
     ////////////// Pack everything float format to send to glsl
     //Pack triangles
@@ -111,16 +109,13 @@ export class PathTracer {
       mainMesh.type,
       mainMesh.normals
     );
-    console.log(vertices);
-    console.log(terrains);
+
     //Pack BVH
     const { boundingBoxes, nodes, leafs } = BVHUtils.packBVH(flatBVHtree);
-    console.log(boundingBoxes);
-    console.log(nodes);
-    console.log(leafs);
+
     //Pack terrain Types
     const terrainTypes = BVHUtils.packTerrainTypes();
-    console.log(terrainTypes);
+
     //save
     this.vertices = vertices;
     this.terrains = terrains;

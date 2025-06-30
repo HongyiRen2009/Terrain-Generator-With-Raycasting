@@ -67,7 +67,7 @@ export class GameEngine {
       this.canvas,
       this.mainCamera,
       this.debug,
-      this.world,
+      this.world
     );
     //Initial pathTracer
     this.pathTracer = new PathTracer(
