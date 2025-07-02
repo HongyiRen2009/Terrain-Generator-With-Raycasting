@@ -126,14 +126,13 @@ export class GameEngine {
       return;
     }
 
-    this.inititialize();
+    this.initialize();
   }
-  public async inititialize(usingWorkerMarchingCubes = true) {
+  public async initialize(usingWorkerMarchingCubes = true) {
     await Promise.all(
       this.world.chunks.map((chunk) => chunk.generateTerrain())
     );
     this.world.populateFieldMap();
-    Utilities.setWorldFieldMap(this.world.fieldMap);
     if (!usingWorkerMarchingCubes) {
       for (const chunk of this.world.chunks) {
         chunk.CreateMarchingCubes();

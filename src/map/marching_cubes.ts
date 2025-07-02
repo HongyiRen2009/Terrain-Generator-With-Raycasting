@@ -45,7 +45,12 @@ export class Chunk {
         generatingTerrain: true,
         worldFieldMap: this.FieldMap
       });
-      this.Worker.onmessage = (event: MessageEvent<any>) => {
+      this.Worker.onmessage = (
+        event: MessageEvent<{
+          field: Float32Array;
+          fieldMap: Map<string, number>;
+        }>
+      ) => {
         this.Field = event.data.field;
         this.FieldMap = new Map<string, number>(event.data.fieldMap);
         resolve(this.Field);
@@ -61,7 +66,13 @@ export class Chunk {
         generatingTerrain: false,
         worldFieldMap: this.WorldFieldMap
       });
-      this.Worker.onmessage = (event: MessageEvent<any>) => {
+      this.Worker.onmessage = (
+        event: MessageEvent<{
+          meshVertices: Triangle[];
+          meshNormals: Triangle[];
+          meshTypes: [number, number, number][];
+        }>
+      ) => {
         this.Mesh = new Mesh();
         this.Mesh.setVertices(event.data.meshVertices);
         this.Mesh.setNormals(event.data.meshNormals);

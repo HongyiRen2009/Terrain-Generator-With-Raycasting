@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { vec2, vec3 } from "gl-matrix";
 import { createNoise3D, NoiseFunction3D } from "simplex-noise";
 import alea from "alea";
 import { vertexKey } from "./cubes_utils";
@@ -12,19 +12,16 @@ export type WorkerConstructor = new (
 ) => Worker;
 console.log("Worker started");
 let WorldFieldMap: Map<string, number> = new Map<string, number>();
-let globalChunkPosition: [number, number];
+let globalChunkPosition: vec2;
 type WorkerMessage = {
   Seed: string;
-  GridSize: [number, number, number];
-  ChunkPosition: [number, number];
+  GridSize: vec3;
+  ChunkPosition: vec2;
   generatingTerrain: boolean;
   worldFieldMap: Map<string, number>;
 };
 
-function chunkCoordinateToIndex(
-  c: vec3,
-  gridSize: [number, number, number]
-): number {
+function chunkCoordinateToIndex(c: vec3, gridSize: vec3): number {
   return (
     c[0] +
     c[1] * (gridSize[0] + 1) +
@@ -77,18 +74,14 @@ function getFieldValue(c: vec3) {
   );
   return WorldFieldMap.get(vertexKey(newVector)) ?? 0;
 }
-function caseToMesh(
-  c: vec3,
-  caseNumber: number,
-  gridSize: [number, number, number]
-): Mesh {
+function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
   const caseMesh: Mesh = new Mesh();
   const caseLookup = CASES[caseNumber];
   for (const triangleLookup of caseLookup) {
     // each triangle is represented as list of the three edges which it is located on
     // for now, place the actual triangle's vertices as the midpoint of the edge
     const vertices = triangleLookup.map((edgeIndex) =>
-      edgeIndexToCoordinate(c, edgeIndex, gridSize)
+      edgeIndexToCoordinate(c, edgeIndex)
     );
 
     // Add triangle with both position and normal information
@@ -102,8 +95,7 @@ function caseToMesh(
 }
 function edgeIndexToCoordinate(
   c: vec3,
-  edgeIndex: number,
-  gridSize: [number, number, number]
+  edgeIndex: number
 ): { position: vec3; normal: vec3 } {
   const [a, b] = EDGES[edgeIndex];
 
@@ -194,7 +186,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       }
     }
     const fieldMapArray = Array.from(fieldMap.entries());
-    (self as DedicatedWorkerGlobalScope).postMessage(
+    self.postMessage(
       {
         field,
         fieldMap: fieldMapArray
@@ -203,7 +195,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
     );
     return;
   } else {
-    WorldFieldMap = event.data.worldFieldMap;
+    WorldFieldMap = worldFieldMap;
     //Generate mesh with marching cubes
     const mesh: Mesh = new Mesh();
     for (let x = 0; x < GridSize[0]; x++) {
@@ -216,7 +208,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
         }
       }
     }
-    (self as DedicatedWorkerGlobalScope).postMessage({
+    self.postMessage({
       meshVertices: mesh.getVertices(),
       meshNormals: mesh.getNormals(),
       meshTypes: mesh.getTypes()
