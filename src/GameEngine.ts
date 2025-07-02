@@ -4,6 +4,8 @@ import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
+import { GlUtils } from "./render/GlUtils";
+import { Utilities } from "./map/Utilities";
 
 /**
  * Our holding class for all game mechanics
@@ -25,13 +27,14 @@ export class GameEngine {
   private maxFPS: number = 60;
   private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
-  private mode: number = 0; // 0 for rayTracer, 1 for pathtracer
+  private mode: number = 0; // 0 for hybrid, 1 for pathtracer
 
   //
   private frameCounter: number = 0;
   private lastFPSCheck: number = 0;
   private currentFPS: number = 0;
 
+  private worldInitialized = false;
   /**
    * Constructs game engine
    * @param canvasId The ID of the canvas rendered to
@@ -44,6 +47,7 @@ export class GameEngine {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
+    this.canvas.style.display = "none";
 
     //GL Context
     this.gl = this.canvas.getContext("webgl2", { antialias: true })!;
@@ -121,8 +125,32 @@ export class GameEngine {
       );
       return;
     }
-  }
 
+    this.initialize();
+  }
+  public async initialize(usingWorkerMarchingCubes = true) {
+    await Promise.all(
+      this.world.chunks.map((chunk) => chunk.generateTerrain())
+    );
+    this.world.populateFieldMap();
+    if (!usingWorkerMarchingCubes) {
+      for (const chunk of this.world.chunks) {
+        chunk.CreateMarchingCubes();
+      }
+    } else {
+      await Promise.all(
+        this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
+      );
+    }
+    this.renderer.GenerateTriangleBuffer(
+      GlUtils.genTerrainVertices(this.world)
+    );
+    this.pathTracer.initBVH(this.world.combinedMesh());
+    this.pathTracer.init(false);
+    this.worldInitialized = true;
+    this.canvas.style.display = "block";
+    document.getElementById("loadingBox")!.style.display = "none";
+  }
   /**
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
@@ -132,16 +160,17 @@ export class GameEngine {
     }
     const timePassed = timestamp - this.lastRenderTime;
     this.lastRenderTime = timestamp;
-    if (GameEngine.getLockedElement()) {
-      this.updateCamera(timePassed);
-    }
+    if (this.worldInitialized) {
+      if (GameEngine.getLockedElement()) {
+        this.updateCamera(timePassed);
+      }
 
-    if (this.mode == 0) {
-      this.renderer.render();
-    } else {
-      this.pathTracer.render(timestamp);
+      if (this.mode == 0) {
+        this.renderer.render();
+      } else {
+        this.pathTracer.render(timestamp);
+      }
     }
-
     this.frameCounter += 1;
     if (Date.now() - this.lastFPSCheck >= 1000) {
       this.currentFPS =
@@ -178,7 +207,6 @@ export class GameEngine {
 
     if (!vec3.equals(this.mainCamera.position, oldCamPos)) {
       this.pathTracer.resetAccumulation();
-      console.log("ya");
     }
   }
 
@@ -236,9 +264,5 @@ export class GameEngine {
   }
   static toRadians(degrees: number) {
     return degrees * (Math.PI / 180);
-  }
-
-  static average(l: number[]) {
-    return l.reduce((a, b) => a + b) / l.length;
   }
 }

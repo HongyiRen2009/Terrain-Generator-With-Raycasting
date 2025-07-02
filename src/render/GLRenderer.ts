@@ -12,14 +12,15 @@ import { meshToVerticesAndIndices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
 import { cubeVertices, cubeWireframeIndices } from "../map/geometry";
+import { Mesh } from "../map/Mesh";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
   canvas: HTMLCanvasElement;
   camera: Camera;
 
-  TriangleBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer };
-  CubeBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer };
+  TriangleBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
+  CubeBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
   MeshSize: number = 0;
 
   matViewProj: mat4;
@@ -47,13 +48,24 @@ export class GLRenderer {
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
+    this.CubeShader = new Shader(
+      gl,
+      CubeVertexShaderCode,
+      CubeFragmentShaderCode
+    );
+    this.MeshShader = new Shader(
+      gl,
+      MeshVertexShaderCode,
+      MeshFragmentShaderCode
+    );
 
+    this.matViewProj = mat4.create();
+  }
+  GenerateTriangleBuffer(triangleMeshes: Mesh[]) {
     // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
     let triangleVertices: number[] = [];
     let triangleIndices: number[] = [];
     let indexOffset = 0;
-
-    let triangleMeshes = GlUtils.genTerrainVertices(this.world);
 
     for (let i = 0; i < triangleMeshes.length; i++) {
       const Mesh = triangleMeshes[i];
@@ -76,30 +88,29 @@ export class GLRenderer {
     this.MeshSize = triangleIndices.length;
 
     this.TriangleBuffer = GlUtils.CreateStaticBuffer(
-      gl,
+      this.gl,
       new Float32Array(triangleVertices),
       triangleIndices
     );
     this.CubeBuffer = GlUtils.CreateStaticBuffer(
-      gl,
+      this.gl,
       new Float32Array(cubeVertices),
       cubeWireframeIndices
     );
 
     this.CubeShader = new Shader(
-      gl,
+      this.gl,
       CubeVertexShaderCode,
       CubeFragmentShaderCode
     );
     this.MeshShader = new Shader(
-      gl,
+      this.gl,
       MeshVertexShaderCode,
       MeshFragmentShaderCode
     );
 
     this.matViewProj = mat4.create();
   }
-
   drawMesh(TransformationMatrix: mat4) {
     this.gl.useProgram(this.MeshShader.Program!);
     GlUtils.updateLights(
@@ -118,7 +129,13 @@ export class GLRenderer {
       false,
       this.matViewProj
     );
+
     //Create vertice array object
+    if (!this.TriangleBuffer) {
+      console.error("TriangleBuffer not initialized.");
+      return;
+    }
+
     const triangleVao = GlUtils.createInterleavedVao(
       this.gl,
       this.TriangleBuffer.vertex,
@@ -153,6 +170,9 @@ export class GLRenderer {
       false,
       this.matViewProj
     );
+
+    if (!this.CubeBuffer) throw new Error("CubeBuffer not initialized.");
+
     const cubeVao = GlUtils.createInterleavedVao(
       this.gl,
       this.CubeBuffer.vertex,

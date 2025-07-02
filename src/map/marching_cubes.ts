@@ -1,6 +1,5 @@
 import { vec2, vec3 } from "gl-matrix";
 import { VERTICES, EDGES, CASES } from "./geometry";
-import type { NoiseFunction3D } from "simplex-noise";
 import { Triangle, Mesh } from "./Mesh";
 import { vertexKey } from "./cubes_utils";
 
@@ -8,21 +7,23 @@ import { vertexKey } from "./cubes_utils";
 export class Chunk {
   ChunkPosition: vec2;
   GridSize: vec3;
-  Field: Float32Array;
-  SimplexNoise: NoiseFunction3D;
+  Field: Float32Array = new Float32Array();
   FieldMap: Map<string, number>;
   WorldFieldMap: Map<string, number> = new Map<string, number>();
-
+  seed: number;
+  Worker: Worker;
+  Mesh: Mesh = null!;
   constructor(
     ChunkPosition: vec2,
     GridSize: vec3,
-    SimplexNoise: NoiseFunction3D
+    seed: number,
+    Worker: Worker
   ) {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
-    this.SimplexNoise = SimplexNoise;
+    this.seed = seed;
+    this.Worker = Worker;
     this.FieldMap = new Map<string, number>();
-    this.Field = this.generateFieldValues();
   }
 
   chunkCoordinateToIndex(c: vec3): number {
@@ -35,31 +36,50 @@ export class Chunk {
   setWorldFieldMap(worldFieldMap: Map<string, number>) {
     this.WorldFieldMap = worldFieldMap;
   }
-  generateFieldValues(): Float32Array {
-    const field = new Float32Array(
-      (this.GridSize[0] + 1) * (this.GridSize[1] + 1) * (this.GridSize[2] + 1)
-    );
-
-    for (let x = 0; x < this.GridSize[0] + 1; x++) {
-      for (let y = 0; y < this.GridSize[1] + 1; y++) {
-        for (let z = 0; z < this.GridSize[2] + 1; z++) {
-          let c = vec3.fromValues(x, y, z);
-
-          const idx = this.chunkCoordinateToIndex(c);
-          vec3.add(
-            c,
-            c,
-            vec3.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1])
-          );
-          const out = this.noiseFunction(c);
-          field[idx] = out;
-
-          this.FieldMap.set(vertexKey(c), out);
-        }
-      }
-    }
-
-    return field;
+  async generateTerrain(): Promise<Float32Array> {
+    return new Promise((resolve) => {
+      this.Worker.postMessage({
+        GridSize: this.GridSize,
+        ChunkPosition: this.ChunkPosition,
+        Seed: this.seed,
+        generatingTerrain: true,
+        worldFieldMap: this.FieldMap
+      });
+      this.Worker.onmessage = (
+        event: MessageEvent<{
+          field: Float32Array;
+          fieldMap: Map<string, number>;
+        }>
+      ) => {
+        this.Field = event.data.field;
+        this.FieldMap = new Map<string, number>(event.data.fieldMap);
+        resolve(this.Field);
+      };
+    });
+  }
+  async generateMarchingCubes(): Promise<Mesh> {
+    return new Promise((resolve) => {
+      this.Worker.postMessage({
+        GridSize: this.GridSize,
+        ChunkPosition: this.ChunkPosition,
+        Seed: this.seed,
+        generatingTerrain: false,
+        worldFieldMap: this.WorldFieldMap
+      });
+      this.Worker.onmessage = (
+        event: MessageEvent<{
+          meshVertices: Triangle[];
+          meshNormals: Triangle[];
+          meshTypes: [number, number, number][];
+        }>
+      ) => {
+        this.Mesh = new Mesh();
+        this.Mesh.setVertices(event.data.meshVertices);
+        this.Mesh.setNormals(event.data.meshNormals);
+        this.Mesh.setTypes(event.data.meshTypes);
+        resolve(this.Mesh);
+      };
+    });
   }
   getFieldValueWithNeighbors(vertex: vec3): number {
     vec3.add(
@@ -100,24 +120,6 @@ export class Chunk {
 
     return normal;
   }
-  noiseFunction(c: vec3): number {
-    const frequency = 0.07;
-    // returns a value [-1, 1] so we need to remap it to our domain of [0, 1]
-    const SimplexNoise = this.SimplexNoise(
-      c[0] * frequency,
-      c[1] * frequency,
-      c[2] * frequency
-    );
-
-    const normalizedNoise = (SimplexNoise + 1) / 2;
-
-    // Encourage the surface to be closer to the ground
-    const heightParameter = 1 / 1.07 ** c[1];
-
-    const floor = +(c[1] == 0);
-
-    return Math.max(normalizedNoise * heightParameter, floor);
-  }
 
   set(c: vec3, value: number) {
     this.Field[this.chunkCoordinateToIndex(c)] = value;
@@ -130,6 +132,9 @@ export class Chunk {
   isSolid(c: vec3) {
     return Chunk.solidChecker(this.getTerrainValue(c));
   }
+  getMesh() {
+    return this.Mesh;
+  }
   /**
    * Meant to future-proof our code - when we may end up needing to use raw field values, instead of rewriting a everchanging solution to check if it is solid use this
    * @param a The value from the field
@@ -138,8 +143,6 @@ export class Chunk {
   static solidChecker(a: number) {
     return a > 0.5;
   }
-
-  GenerateTerrainChunk() {}
 
   CreateMarchingCubes(): Mesh {
     const mesh: Mesh = new Mesh();
@@ -156,7 +159,8 @@ export class Chunk {
       }
     }
 
-    return mesh;
+    this.Mesh = mesh;
+    return this.Mesh;
   }
 
   GenerateCase(cubeCoordinates: vec3): number {

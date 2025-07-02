@@ -29,13 +29,15 @@ export class PathTracer {
   private copyShader: Shader;
 
   //Information
-  private vertices: Float32Array;
-  private terrains: Float32Array;
-  private boundingBoxes: Float32Array;
-  private nodes: Float32Array;
-  private leafs: Float32Array;
-  private terrainTypes: Float32Array;
-  private vertexNormals: Float32Array;
+  private vertices: Float32Array = null!;
+  private terrains: Float32Array = null!;
+  private boundingBoxes: Float32Array = null!;
+  // BVH
+  private nodes: Float32Array = null!;
+  private leafs: Float32Array = null!;
+  // Terrain Info
+  private terrainTypes: Float32Array = null!;
+  private vertexNormals: Float32Array = null!;
 
   //Classes
   private world: WorldMap;
@@ -73,17 +75,28 @@ export class PathTracer {
     );
     this.copyShader = new Shader(this.gl, copyVertexShader, copyFragmentShader);
 
-    ////////////////////// build flat BVH structure
-    //Get main mesh
-    let mainMesh = new Mesh();
+    //Slider
+    const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
 
-    for (const chunk of this.world.chunks) {
-      const triangleMesh = chunk.CreateMarchingCubes();
-      triangleMesh.translate(
-        vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
-      );
-      mainMesh.merge(triangleMesh);
-    }
+    slider.addEventListener("input", this.handleBounceInput.bind(this));
+    slider.value = this.numBounces.toString();
+    const bounceValue = document.getElementById(
+      "bounceValue"
+    )! as HTMLSpanElement;
+    bounceValue.textContent = `${this.numBounces}`;
+  }
+
+  private handleBounceInput(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const newValue = parseInt(target.value);
+    this.numBounces = newValue;
+    const bounceValue = document.getElementById(
+      "bounceValue"
+    )! as HTMLSpanElement;
+    bounceValue.textContent = newValue.toString();
+  }
+  public initBVH(mainMesh: Mesh) {
+    ////////////////////// build flat BVH structure
     //Obtain bvh from mesh.
     const BVHtriangles = mainMesh.exportBVHTriangles();
     const BVHtree = Mesh.exportBVH(BVHtriangles);
@@ -116,30 +129,7 @@ export class PathTracer {
     this.leafs = leafs;
     this.terrainTypes = terrainTypes;
     this.vertexNormals = normals;
-
-    this.init(false);
-
-    //Slider
-    const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
-
-    slider.addEventListener("input", this.handleBounceInput.bind(this));
-    slider.value = this.numBounces.toString();
-    const bounceValue = document.getElementById(
-      "bounceValue"
-    )! as HTMLSpanElement;
-    bounceValue.textContent = `${this.numBounces}`;
   }
-
-  private handleBounceInput(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const newValue = parseInt(target.value);
-    this.numBounces = newValue;
-    const bounceValue = document.getElementById(
-      "bounceValue"
-    )! as HTMLSpanElement;
-    bounceValue.textContent = newValue.toString();
-  }
-
   public render(time: number) {
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
     // Clear the color buffer with specified clear color
