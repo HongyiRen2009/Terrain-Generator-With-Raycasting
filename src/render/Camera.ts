@@ -58,7 +58,7 @@ export class Camera {
       /* near, far= */ 0.1,
       100.0
     );
-    mat4.multiply(matViewProj, matView, matProj);
+    mat4.multiply(matViewProj, matProj, matView);
     return matViewProj;
   }
 

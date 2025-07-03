@@ -45,7 +45,7 @@ void main(){
   vPosition = uView * uModel * aPosition;
   vNormal = normalMatrix * aNormal;
   vColor=aColor;
-  gl_Position = uProj * uView * uModel * aPosition;
+  gl_Position = uProj * vPosition;
 }`;
 //
 
@@ -163,13 +163,20 @@ uniform sampler2D gPosition;   // World/view-space positions
 uniform sampler2D gNormal;     // World/view-space normals
 uniform sampler2D gAlbedo;     // Albedo/color buffer
 uniform sampler2D ssao;        // SSAO occlusion
-
+uniform mat4 uView;
 in vec2 vTexCoords;
 out vec4 fragColor;
 
 void main() {
-    vec3 fragPos = texture(gPosition, vTexCoords).xyz;
-    vec3 normal = normalize(texture(gNormal, vTexCoords).xyz * 2.0 - 1.0);
+mat4 inverseViewMatrix = inverse(uView);
+    
+    // Convert vec3 to vec4 for matrix multiplication, then back to vec3
+    vec3 viewSpacePos = texture(gPosition, vTexCoords).xyz;
+    vec3 fragPos = (inverseViewMatrix * vec4(viewSpacePos, 1.0)).xyz;
+    
+    // For normals, use w=0.0 since they're directions, not positions
+    vec3 viewSpaceNormal = normalize(texture(gNormal, vTexCoords).xyz * 2.0 - 1.0);
+    vec3 normal = (inverseViewMatrix * vec4(viewSpaceNormal, 0.0)).xyz;
     vec3 albedo = texture(gAlbedo, vTexCoords).rgb;
     float occlusion = texture(ssao, vTexCoords).r;
 

@@ -52,6 +52,10 @@ export class GLRenderer {
 
   // Deferred Rendering Related Properties
   kernels: vec3[] = []; // SSAO kernels
+  meshGeometryVao: WebGLVertexArrayObject | null = null;
+  ssaoFramebuffer: WebGLFramebuffer | null = null;
+  ssaoQuadVAO: WebGLVertexArrayObject | null = null;
+  lightingQuadVAO: WebGLVertexArrayObject | null = null;
   ssaoNoiseTexture: WebGLTexture | null = null;
   ssaoTexture: WebGLTexture | null = null;
   gBuffer!: {
@@ -76,7 +80,6 @@ export class GLRenderer {
 
     gl.viewport(0, 0, canvas.width, canvas.height);
 
-    gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
     this.matView = mat4.create();
     this.matProj = mat4.create();
@@ -177,17 +180,21 @@ export class GLRenderer {
       MeshLightingVertexShaderCode,
       MeshLightingFragmentShaderCode
     );
+    this.initializeBuffers();
   }
-
-  //Geometry Pass for Deferred Rendering
-  MeshGeometryPass(uModelMatrix: mat4) {
-    //Create and bind the G-Buffer
-    const gBuffer = this.gl.createFramebuffer();
+  initializeBuffers() {
+    this.initializeGeometryBuffers();
+    this.initSSAOBuffers();
+    this.initLightingBuffers();
+  }
+  initializeGeometryBuffers() {
+    // Create and set up G-Buffer and its textures
+    const gBuffer = this.gl.createFramebuffer()!;
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, gBuffer);
 
-    //Position Texture
-    const gPosition = this.gl.createTexture();
-    this.gl.bindTexture(this.gl.TEXTURE_2D, gPosition); // USE MY CODE
+    // Position Texture
+    const gPosition = this.gl.createTexture()!;
+    this.gl.bindTexture(this.gl.TEXTURE_2D, gPosition);
     this.gl.texImage2D(
       this.gl.TEXTURE_2D,
       0,
@@ -227,8 +234,8 @@ export class GLRenderer {
       0
     );
 
-    //Normal Texture
-    const gNormal = this.gl.createTexture();
+    // Normal Texture
+    const gNormal = this.gl.createTexture()!;
     this.gl.bindTexture(this.gl.TEXTURE_2D, gNormal);
     this.gl.texImage2D(
       this.gl.TEXTURE_2D,
@@ -268,8 +275,9 @@ export class GLRenderer {
       gNormal,
       0
     );
-    //Albedo Texture
-    const gAlbedo = this.gl.createTexture();
+
+    // Albedo Texture
+    const gAlbedo = this.gl.createTexture()!;
     this.gl.bindTexture(this.gl.TEXTURE_2D, gAlbedo);
     this.gl.texImage2D(
       this.gl.TEXTURE_2D,
@@ -309,49 +317,55 @@ export class GLRenderer {
       gAlbedo,
       0
     );
-    //Create VAO
-    const meshGeometryVao = GlUtils.createNonInterleavedVao(
+
+    this.gBuffer = {
+      frameBuffer: gBuffer,
+      gPosition: gPosition,
+      gNormal: gNormal,
+      gAlbedo: gAlbedo
+    };
+
+    // Create VAO for mesh geometry (assuming TriangleBuffer is already set)
+    this.meshGeometryVao = GlUtils.createNonInterleavedVao(
       this.gl,
       {
-        aPosition: {
-          buffer: this.TriangleBuffer!.vertex.position,
-          size: 3
-        },
-        aNormal: {
-          buffer: this.TriangleBuffer!.vertex.normal,
-          size: 3
-        },
+        aPosition: { buffer: this.TriangleBuffer!.vertex.position, size: 3 },
+        aNormal: { buffer: this.TriangleBuffer!.vertex.normal, size: 3 },
         aColor: { buffer: this.TriangleBuffer!.vertex.color, size: 3 }
       },
       this.TriangleBuffer!.indices,
       this.MeshGeometryShader
     );
 
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+  }
+  //Geometry Pass for Deferred Rendering
+  MeshGeometryPass(uModelMatrix: mat4) {
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.gBuffer.frameBuffer);
     this.gl.useProgram(this.MeshGeometryShader.Program!);
-    this.gl.bindVertexArray(meshGeometryVao);
+    this.gl.bindVertexArray(this.meshGeometryVao);
 
     // Set uniforms as needed (e.g., transformation matrices)
     this.gl.uniformMatrix4fv(
-      this.MeshGeometryShader.VertexUniforms["uModel"].location,
+      this.MeshGeometryShader.Uniforms["uModel"].location,
       false,
       uModelMatrix
     );
     this.gl.uniformMatrix4fv(
-      this.MeshGeometryShader.VertexUniforms["uView"].location,
+      this.MeshGeometryShader.Uniforms["uView"].location,
       false,
       this.matView
     );
     this.gl.uniformMatrix4fv(
-      this.MeshGeometryShader.VertexUniforms["uProj"].location,
+      this.MeshGeometryShader.Uniforms["uProj"].location,
       false,
       this.matProj
     );
 
-    //Draw the mesh
     this.gl.drawBuffers([
-      this.gl.COLOR_ATTACHMENT0, // Position
-      this.gl.COLOR_ATTACHMENT1, // Normal
-      this.gl.COLOR_ATTACHMENT2 // Albedo
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.COLOR_ATTACHMENT1,
+      this.gl.COLOR_ATTACHMENT2
     ]);
 
     this.gl.drawElements(
@@ -361,14 +375,6 @@ export class GLRenderer {
       0
     );
 
-    this.gBuffer = {
-      frameBuffer: gBuffer,
-      gPosition: gPosition,
-      gNormal: gNormal,
-      gAlbedo: gAlbedo
-    };
-
-    // Unbind the framebuffer and VAO
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.bindVertexArray(null);
   }
@@ -392,9 +398,9 @@ export class GLRenderer {
       this.kernels.push(sample);
     }
   }
-  // Screen Space Ambient Occlusion Pass
-  SSAOPass() {
-    //Create Noise Texture
+  // Initialize SSAO buffers and textures
+  initSSAOBuffers() {
+    // Create Noise Texture
     const noiseSize = 4;
     const noiseData = new Float32Array(noiseSize * noiseSize * 3);
     for (let i = 0; i < noiseSize * noiseSize; i++) {
@@ -402,7 +408,6 @@ export class GLRenderer {
       noiseData[i * 3 + 1] = Math.random() * 2 - 1;
       noiseData[i * 3 + 2] = 0.0;
     }
-    this.gl.useProgram(this.MeshSSAOShader.Program!);
 
     const noiseTexture = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, noiseTexture);
@@ -486,7 +491,45 @@ export class GLRenderer {
       0
     );
 
-    //Send Uniforms to the SSAO shader
+    // Store the framebuffer for later use
+    this.ssaoFramebuffer = ssaoBuffer;
+
+    // Create fullscreen quad VAO for SSAO
+    this.ssaoQuadVAO = GlUtils.createNonInterleavedVao(
+      this.gl,
+      {
+        aPosition: { buffer: this.QuadBuffer!.vertex, size: 2 }
+      },
+      this.QuadBuffer!.indices,
+      this.MeshSSAOShader
+    );
+
+    // Unbind framebuffer
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+  }
+
+  // Initialize lighting pass buffers
+  initLightingBuffers() {
+    // Create fullscreen quad VAO for lighting
+    this.lightingQuadVAO = GlUtils.createNonInterleavedVao(
+      this.gl,
+      {
+        aPosition: { buffer: this.QuadBuffer!.vertex, size: 2 }
+      },
+      this.QuadBuffer!.indices,
+      this.MeshLightingShader
+    );
+  }
+
+  // Screen Space Ambient Occlusion Pass
+  SSAOPass() {
+    // Bind the SSAO framebuffer
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.ssaoFramebuffer);
+
+    // Use SSAO shader program
+    this.gl.useProgram(this.MeshSSAOShader.Program!);
+
+    // Send uniforms to the SSAO shader
     for (let i = 0; i < this.kernels.length; i++) {
       const loc = this.gl.getUniformLocation(
         this.MeshSSAOShader.Program!,
@@ -494,9 +537,10 @@ export class GLRenderer {
       );
       this.gl.uniform3fv(loc, this.kernels[i]);
     }
+
     const noiseScale = [
-      this.canvas.width / noiseSize,
-      this.canvas.height / noiseSize
+      this.canvas.width / 4, // noiseSize is 4
+      this.canvas.height / 4
     ];
     const loc = this.gl.getUniformLocation(
       this.MeshSSAOShader.Program!,
@@ -504,7 +548,7 @@ export class GLRenderer {
     );
     this.gl.uniform2fv(loc, noiseScale);
 
-    //Bind Textures
+    // Bind textures
     GlUtils.bindTex(
       this.gl,
       this.MeshSSAOShader.Program!,
@@ -522,24 +566,13 @@ export class GLRenderer {
     GlUtils.bindTex(
       this.gl,
       this.MeshSSAOShader.Program!,
-      this.ssaoNoiseTexture,
+      this.ssaoNoiseTexture!,
       "texNoise",
       2
     );
 
-    // Create fullscreen quad VAO
-
-    const quadVAO = GlUtils.createNonInterleavedVao(
-      this.gl,
-      {
-        aPosition: { buffer: this.QuadBuffer!.vertex, size: 2 }
-      },
-      this.QuadBuffer!.indices,
-      this.MeshSSAOShader
-    );
-
-    this.gl.bindVertexArray(quadVAO);
-
+    // Bind VAO and render
+    this.gl.bindVertexArray(this.ssaoQuadVAO);
     this.gl.drawElements(
       this.gl.TRIANGLES,
       quadIndices.length,
@@ -547,18 +580,20 @@ export class GLRenderer {
       0
     );
 
-    // Unbind the framebuffer and VAO
+    // Unbind
     this.gl.bindVertexArray(null);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
+
+  // Lighting Pass
   LightingPass() {
-    // 1. Bind the default framebuffer (the screen)
+    // Bind the default framebuffer (the screen)
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
 
-    // 2. Use your lighting shader program (you need to create this shader)
+    // Use lighting shader program
     this.gl.useProgram(this.MeshLightingShader.Program!);
 
-    // 3. Bind G-Buffer textures and SSAO texture to the lighting shader
+    // Bind G-Buffer textures and SSAO texture to the lighting shader
     GlUtils.bindTex(
       this.gl,
       this.MeshLightingShader.Program!,
@@ -587,23 +622,21 @@ export class GLRenderer {
       "ssao",
       3
     );
+
+    // Update lights
     GlUtils.updateLights(
       this.gl,
       this.MeshLightingShader.Program!,
       this.world.lights,
       this.camera
     );
-    // 5. Render a fullscreen quad
-    const quadVAO = GlUtils.createNonInterleavedVao(
-      this.gl,
-      {
-        aPosition: { buffer: this.QuadBuffer!.vertex, size: 2 }
-      },
-      this.QuadBuffer!.indices,
-      this.MeshLightingShader
+    this.gl.uniformMatrix4fv(
+      this.MeshLightingShader.Uniforms["uView"].location,
+      false,
+      this.matView
     );
-    this.gl.bindVertexArray(quadVAO);
-
+    // Bind VAO and render fullscreen quad
+    this.gl.bindVertexArray(this.lightingQuadVAO);
     this.gl.drawElements(
       this.gl.TRIANGLES,
       quadIndices.length,
@@ -618,12 +651,12 @@ export class GLRenderer {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.CubeShader.Program!);
     this.gl.uniformMatrix4fv(
-      this.CubeShader.VertexUniforms["MatrixTransform"].location,
+      this.CubeShader.Uniforms["MatrixTransform"].location,
       false,
       TransformationMatrix
     );
     this.gl.uniformMatrix4fv(
-      this.CubeShader.VertexUniforms["matViewProj"].location,
+      this.CubeShader.Uniforms["matViewProj"].location,
       false,
       this.matViewProj
     );
@@ -645,9 +678,26 @@ export class GLRenderer {
     this.gl.bindVertexArray(null);
   }
   drawMesh(uModelMatrix: mat4) {
-    //this.MeshGeometryPass(uModelMatrix);
-    //this.SSAOPass();
-    //this.LightingPass();
+    // 1. Geometry Pass - Fill G-Buffer
+    this.gl.enable(this.gl.DEPTH_TEST);
+
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.gBuffer.frameBuffer);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.MeshGeometryPass(uModelMatrix);
+    // 2. SSAO Pass
+    this.gl.disable(this.gl.DEPTH_TEST);
+
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.ssaoFramebuffer);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.SSAOPass();
+
+    // 3. Lighting Pass - Final render
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.LightingPass();
   }
   render() {
     // Set clear color to black, fully opaque
@@ -662,7 +712,10 @@ export class GLRenderer {
     );
     this.matView = matViewAndProj.matView;
     this.matProj = matViewAndProj.matProj;
-    mat4.multiply(this.matViewProj, this.matView, this.matProj);
+    this.matViewProj = this.camera.calculateProjectionMatrix(
+      this.canvas.width,
+      this.canvas.height
+    );
     const resScaleFactor = 1;
 
     if (this.debug.debugMode) {
@@ -679,14 +732,14 @@ export class GLRenderer {
             )
           )
         );
-        /*
+
         this.drawMesh(
           GlUtils.CreateTransformations(
             undefined,
             undefined,
             vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)
           )
-        );*/
+        );
       }
     }
   }
