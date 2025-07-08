@@ -78,7 +78,7 @@ export const Terrains: { [id: number]: Terrain } = {
   2: {
     color: new Color(255, 0, 0),
     reflectiveness: 0.2,
-    roughness: 0.8,
-    type: 1
+    roughness: 0.0,
+    type: 3
   }
 };
