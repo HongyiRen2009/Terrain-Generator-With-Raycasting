@@ -70,7 +70,7 @@ struct TerrainType{
     int type; //Type. See terrains.ts
 };
 
-#define NUM_TERRAINS 4
+#define NUM_TERRAINS 5
 TerrainType[NUM_TERRAINS] Terrains;
 
 // Provides a high quality 32-bit hash function to generate pseudo-random numbers
@@ -522,6 +522,9 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
             vec3 absorption = (vec3(1.0) - matColor)*0.2;  // if matColor is tint
             throughput *= exp(-absorption * (minHitDistance*0.2)); //Beer Lambert law
+        }else if (type == 5){ // Emissive
+            color += throughput * matColor;
+            break;
         }
     }
     return min(color, vec3(10.0));
