@@ -84,7 +84,7 @@ export const Terrains: { [id: number]: Terrain } = { //NOTE: WHEN ADD TERRAINS C
     type: 3
   },
   3: {
-    color: new Color(0, 0, 2), //blue tint
+    color: new Color(100, 0, 0), //red tint
     reflectiveness: 0.2,
     roughness: 1.5, //Index of refraction (look up)
     type: 4
