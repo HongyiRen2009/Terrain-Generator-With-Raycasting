@@ -48,7 +48,9 @@ export interface Terrain {
   1. Diffuse (Labertian)
   2. Specular (Perfect Mirror)
   3. Glossy (Microfacet Reflection)
+    //Note: roughness 0 = perfect mirror, roughness 1 = diffuse
   4. Transmission (Dielectric/Glass)
+    //Note: roughness refers to index of refraction
   5. Glossy Transmission (Rough Glass)
   6. Subsurface Scattering (SSS)
   7. Anisotropic Surfaces
@@ -62,7 +64,7 @@ export interface Terrain {
 /**
  * The class for calculating the information for all our terrain types
  */
-export const Terrains: { [id: number]: Terrain } = {
+export const Terrains: { [id: number]: Terrain } = { //NOTE: WHEN ADD TERRAINS CHANGE numberTerrains in packTerrainTypes in BVHUtils.ts and NUM_TERRAINS in glslPath.ts
   0: {
     color: new Color(0, 255, 0),
     reflectiveness: 0.2,
@@ -80,5 +82,11 @@ export const Terrains: { [id: number]: Terrain } = {
     reflectiveness: 0.2,
     roughness: 0.0,
     type: 3
+  },
+  3: {
+    color: new Color(0, 0, 2), //blue tint
+    reflectiveness: 0.2,
+    roughness: 1.5, //Index of refraction (look up)
+    type: 4
   }
 };

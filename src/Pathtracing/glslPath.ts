@@ -70,7 +70,7 @@ struct TerrainType{
     int type; //Type. See terrains.ts
 };
 
-#define NUM_TERRAINS 3
+#define NUM_TERRAINS 4
 TerrainType[NUM_TERRAINS] Terrains;
 
 // Provides a high quality 32-bit hash function to generate pseudo-random numbers
@@ -421,7 +421,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 throughput = vec3(1.0);
 
     int hasMirror = -2;
-
     for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
         float minHitDistance;
@@ -472,8 +471,12 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         
 
         vec3 geometricNormal = tri.triNormal;
+        bool didSwitch = false;
         if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;
-        if (dot(smoothNormal, geometricNormal) < 0.0) smoothNormal = -smoothNormal;
+        if (dot(smoothNormal, geometricNormal) < 0.0) {
+            smoothNormal = -smoothNormal;
+            didSwitch = true;
+        }
 
         vec3 BRDF = matColor / PI;
         
@@ -482,7 +485,8 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
-        rayOrigin = hitPoint + geometricNormal * 0.01;
+        if(type != 4) //Transmission goes through
+            rayOrigin = hitPoint + geometricNormal * 0.01;
         if(type == 1){ //Diffuse
             rayDir = weightedDIR(smoothNormal, rng_state);
             throughput *= matColor;
@@ -496,6 +500,27 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             throughput *= matColor; //Switch to BDF later
             //Consider fresnel in the future
             hasMirror = bounce;
+        }else if (type == 4){ //Transmission (Glass)
+            float eta;
+            vec3 transmissionNormal;
+            if(didSwitch){ //exiting
+                eta = matRoughness / 1.0;
+                transmissionNormal = -smoothNormal; // Refract in the opposite direction
+            }else{ //entering
+                eta = 1.0 / matRoughness;
+                transmissionNormal = smoothNormal; // Refract in the same direction
+            }
+            vec3 refracted = refract(rayDir, transmissionNormal, eta);
+            if (length(refracted) < 0.001) {
+                // TIR: fall back to mirror reflection
+                rayDir = normalize(reflect(rayDir, transmissionNormal));
+                rayOrigin = hitPoint + geometricNormal * 0.01;
+            } else {
+                rayDir = normalize(refracted);
+                rayOrigin = hitPoint + rayDir * 0.01;
+            }
+            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
+            throughput *= exp(-matColor * minHitDistance); //Beer Lambert law
         }
     }
     return min(color, vec3(10.0));
