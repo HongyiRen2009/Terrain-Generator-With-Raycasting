@@ -9,7 +9,6 @@
     "moduleResolution": "bundler",
     "strict": true,
     "lib": ["esnext", "dom", "webworker"]
-
   },
   "include": ["src"]
 }
