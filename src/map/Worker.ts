@@ -88,7 +88,7 @@ function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
     caseMesh.addTriangle(
       vertices.map((v) => v.position) as Triangle,
       vertices.map((v) => v.normal) as Triangle,
-      [0, 0, 0]
+      (vertices[0].position[0] < 20 ? [0,0,0]: vertices[0].position[0] < 40 ? [1,1,1] : [2,2,2])
     );
   }
   return caseMesh;
