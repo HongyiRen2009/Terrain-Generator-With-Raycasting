@@ -14,9 +14,18 @@ export class Color {
    * @param b - Blue value (out of 255)
    */
   constructor(r: number, g: number, b: number) {
-    if(r < 0 || r > 255) throw new Error(`Incorrect color value: red is ${r}; expect a float from 0 to 255`);
-    if(g < 0 || g > 255) throw new Error(`Incorrect color value: green is ${g}; expect a float from 0 to 255`);
-    if(b < 0 || b > 255) throw new Error(`Incorrect color value: blue is ${b}; expect a float from 0 to 255`);
+    if (r < 0 || r > 255)
+      throw new Error(
+        `Incorrect color value: red is ${r}; expect a float from 0 to 255`
+      );
+    if (g < 0 || g > 255)
+      throw new Error(
+        `Incorrect color value: green is ${g}; expect a float from 0 to 255`
+      );
+    if (b < 0 || b > 255)
+      throw new Error(
+        `Incorrect color value: blue is ${b}; expect a float from 0 to 255`
+      );
     this.r = r;
     this.g = g;
     this.b = b;
@@ -60,35 +69,41 @@ export interface Terrain {
 /**
  * The class for calculating the information for all our terrain types
  */
-export const Terrains: { [id: number]: Terrain } = { //NOTE: WHEN ADD TERRAINS CHANGE numberTerrains in packTerrainTypes in BVHUtils.ts and NUM_TERRAINS in glslPath.ts
-  0: { //Regular ground
+export const Terrains: { [id: number]: Terrain } = {
+  //NOTE: WHEN ADD TERRAINS CHANGE numberTerrains in packTerrainTypes in BVHUtils.ts and NUM_TERRAINS in glslPath.ts
+  0: {
+    //Regular ground
     color: new Color(0, 255, 0),
     reflectiveness: 0.2,
     roughness: 0.8,
     type: 1
   },
-  1: { // Perfect mirror
+  1: {
+    // Perfect mirror
     color: new Color(0, 0, 255),
     reflectiveness: 0.2,
     roughness: 0.8,
     type: 2
   },
-  2: { // Glossy surface
+  2: {
+    // Glossy surface
     color: new Color(255, 0, 0),
     reflectiveness: 0.2,
     roughness: 0.0,
     type: 3
   },
-  3: { // Tinted glass
+  3: {
+    // Tinted glass
     color: new Color(100, 0, 0), //red tint
     reflectiveness: 0.2,
     roughness: 1.5, //Index of refraction (look up)
     type: 4
   },
-  4: { // Emissive surface
+  4: {
+    // Emissive surface
     color: new Color(255, 0, 0),
     reflectiveness: 0.2,
     roughness: 0.8,
     type: 5
-  } 
+  }
 };
