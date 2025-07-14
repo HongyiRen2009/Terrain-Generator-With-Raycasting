@@ -1,11 +1,16 @@
 //Wrapper classes (will write stuff later)
 
 import { Chunk } from "./marching_cubes";
-import { vec2, vec3 } from "gl-matrix";
+import { mat4, vec2, vec3 } from "gl-matrix";
 import { Light } from "./Light";
 
 import { Color } from "./terrains";
 import { Mesh } from "./Mesh";
+import { Shader } from "../render/Shader";
+import { GlUtils } from "../render/GlUtils";
+import { WorldObject } from "./WorldObject";
+import { meshToVerticesAndIndices } from "./cubes_utils";
+import { MeshFragmentShaderCode, MeshVertexShaderCode } from "../render/glsl";
 
 /**
  * The object holding the map of the world
@@ -32,13 +37,23 @@ export class WorldMap {
   public fieldMap: Map<string, number>;
   public Workers: Worker[] = [];
   public seed: number = 10; // Random seed for noise generation
+
+  public worldObjects: WorldObject[] = [];
+  gl: WebGL2RenderingContext;
+
   /**
    * Constructs a world
    * @param width Width in # of chunks
    * @param length Length in # of chunks
    * @param height Height of world
    */
-  public constructor(width: number, height: number, length: number) {
+  public constructor(
+    width: number,
+    height: number,
+    length: number,
+    gl: WebGL2RenderingContext
+  ) {
+    this.gl = gl;
     this.width = width;
     this.length = length;
     this.height = height;
@@ -96,6 +111,37 @@ export class WorldMap {
       CombinedMesh.merge(chunk.getMesh());
     }
     return CombinedMesh;
+  }
+  /**
+   * Add an object to the game world given the mesh of the object & the transformation matrix
+   * TODO: vec3 or mat4?
+   *
+   * This method is responsible for serializing the object into a nearly final form that can be rendered by the GPU
+   */
+  public addObject(objectData: Mesh, objectLocation: mat4) {
+    const { vertices, indices } = meshToVerticesAndIndices(objectData);
+    const meshSize = indices.length;
+
+    let objectShader: Shader = new Shader(
+      this.gl,
+      MeshVertexShaderCode,
+      MeshFragmentShaderCode
+    );
+
+    let objectBuffer = GlUtils.CreateStaticBuffer(
+      this.gl,
+      vertices,
+      Array.from(indices)
+    );
+
+    const worldObject: WorldObject = {
+      shader: objectShader,
+      buffer: objectBuffer,
+      position: objectLocation,
+      meshSize: meshSize
+    };
+
+    this.worldObjects.push(worldObject);
   }
 
   //Renders map (later implementation we don't care abt it rn.)

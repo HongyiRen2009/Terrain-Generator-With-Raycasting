@@ -13,6 +13,7 @@ import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
 import { cubeVertices, cubeWireframeIndices } from "../map/geometry";
 import { Mesh } from "../map/Mesh";
+import { WorldObject } from "../map/WorldObject";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
@@ -187,6 +188,52 @@ export class GLRenderer {
     this.gl.drawElements(this.gl.LINES, 24, this.gl.UNSIGNED_INT, 0);
     this.gl.bindVertexArray(null);
   }
+
+  drawWorldObject(obj: WorldObject) {
+    this.gl.useProgram(this.MeshShader.Program!);
+    this.gl.uniformMatrix4fv(
+      obj.shader.VertexUniforms["MatrixTransform"].location,
+      false,
+      obj.position
+    );
+    this.gl.uniformMatrix4fv(
+      obj.shader.VertexUniforms["matViewProj"].location,
+      false,
+      this.matViewProj
+    );
+
+    const objectVao = GlUtils.createInterleavedVao(
+      this.gl,
+      obj.buffer.vertex,
+      obj.buffer.indices,
+      obj.shader,
+      {
+        VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+        VertexNormal: { offset: 12, stride: 36 },
+        VertexColor: { offset: 24, stride: 36 }
+      }
+    );
+
+    // this.gl.bindVertexArray(triangleVao);
+
+    // this.gl.drawElements(
+    //   this.gl.TRIANGLES,
+    //   this.MeshSize,
+    //   this.gl.UNSIGNED_INT,
+    //   0
+    // );
+    // this.gl.bindVertexArray(null);
+
+    this.gl.bindVertexArray(objectVao);
+    this.gl.drawElements(
+      this.gl.TRIANGLES,
+      obj.meshSize,
+      this.gl.UNSIGNED_INT,
+      0
+    );
+    this.gl.bindVertexArray(null);
+  }
+
   render() {
     // Set clear color to black, fully opaque
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -214,6 +261,10 @@ export class GLRenderer {
           )
         );
       }
+    }
+
+    for (const object of this.world.worldObjects) {
+      this.drawWorldObject(object);
     }
 
     this.drawMesh(

@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
@@ -6,6 +6,8 @@ import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
 import { Utilities } from "./map/Utilities";
+import { Mesh } from "./map/Mesh";
+import { calculateNormal } from "./map/Worker";
 
 /**
  * Our holding class for all game mechanics
@@ -56,7 +58,7 @@ export class GameEngine {
     this.addKeys();
 
     //Initialize world
-    this.world = new WorldMap(1000, 64, 1000);
+    this.world = new WorldMap(1000, 64, 1000, this.gl);
 
     //Initialize Camera
     this.mainCamera = new Camera(vec3.fromValues(0, 0, 3));
@@ -127,6 +129,25 @@ export class GameEngine {
     }
 
     this.initialize();
+
+    const testMesh = new Mesh();
+    const testTriangle: [vec3, vec3, vec3] = [
+      vec3.fromValues(0, 0, 0),
+      vec3.fromValues(1, 0, 0),
+      vec3.fromValues(0, 1, 0)
+    ];
+
+    const normals: [vec3, vec3, vec3] = [
+      vec3.create(),
+      vec3.create(),
+      vec3.create()
+    ];
+
+    testMesh.addTriangle(testTriangle, normals);
+    this.world.addObject(
+      testMesh,
+      mat4.fromValues(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+    );
   }
   public async initialize(usingWorkerMarchingCubes = true) {
     await Promise.all(
