@@ -1,12 +1,13 @@
-import { mat4, vec3 } from "gl-matrix";
+import { mat3, mat4, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
-import { Utilities } from "./map/Utilities";
-import { Mesh } from "./map/Mesh";
+
+import teapotObj from "../models/teapot.obj";
+import { objSourceToMesh } from "./objreader";
 
 /**
  * Our holding class for all game mechanics
@@ -129,24 +130,10 @@ export class GameEngine {
 
     this.initialize();
 
-    const testMesh = new Mesh();
-    const testTriangle: [vec3, vec3, vec3] = [
-      vec3.fromValues(0, 0, 0),
-      vec3.fromValues(1, 0, 0),
-      vec3.fromValues(0, 1, 0)
-    ];
-
-    const normals: [vec3, vec3, vec3] = [
-      vec3.create(),
-      vec3.create(),
-      vec3.create()
-    ];
-
-    testMesh.addTriangle(testTriangle, normals);
-    this.world.addObject(
-      testMesh,
-      mat4.fromValues(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
-    );
+    const triangleMesh = objSourceToMesh(teapotObj);
+    const identity = mat4.create();
+    mat4.identity(identity);
+    this.world.addObject(triangleMesh, identity);
   }
   public async initialize() {
     await Promise.all(
