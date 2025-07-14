@@ -7,7 +7,6 @@ import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
 import { Utilities } from "./map/Utilities";
 import { Mesh } from "./map/Mesh";
-import { calculateNormal } from "./map/Worker";
 
 /**
  * Our holding class for all game mechanics
@@ -149,20 +148,16 @@ export class GameEngine {
       mat4.fromValues(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
     );
   }
-  public async initialize(usingWorkerMarchingCubes = true) {
+  public async initialize() {
     await Promise.all(
       this.world.chunks.map((chunk) => chunk.generateTerrain())
     );
     this.world.populateFieldMap();
-    if (!usingWorkerMarchingCubes) {
-      for (const chunk of this.world.chunks) {
-        chunk.CreateMarchingCubes();
-      }
-    } else {
-      await Promise.all(
-        this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
-      );
-    }
+
+    await Promise.all(
+      this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
+    );
+
     this.renderer.GenerateTriangleBuffer(
       GlUtils.genTerrainVertices(this.world)
     );
