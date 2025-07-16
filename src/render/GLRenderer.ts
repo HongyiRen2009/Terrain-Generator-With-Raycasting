@@ -271,10 +271,6 @@ export class GLRenderer {
       }
     }
 
-    for (const object of this.world.worldObjects) {
-      this.drawWorldObject(object);
-    }
-
     this.drawTerrain(
       GlUtils.CreateTransformations(
         vec3.fromValues(0, 0, 0),
@@ -282,5 +278,9 @@ export class GLRenderer {
         vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)
       )
     );
+
+    for (const object of this.world.worldObjects) {
+      this.drawWorldObject(object);
+    }
   }
 }
