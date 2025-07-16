@@ -41,6 +41,8 @@ export class WorldMap {
   public worldObjects: WorldObject[] = [];
   gl: WebGL2RenderingContext;
 
+  private nextWorldObjectId: number = 0;
+
   /**
    * Constructs a world
    * @param width Width in # of chunks
@@ -113,10 +115,7 @@ export class WorldMap {
     return CombinedMesh;
   }
   /**
-   * Add an object to the game world given the mesh of the object & the transformation matrix
-   * TODO: vec3 or mat4?
-   *
-   * This method is responsible for serializing the object into a nearly final form that can be rendered by the GPU
+   * Add an object to the game world
    */
   public addObject(objectData: Mesh, objectLocation: mat4) {
     const { vertices, indices } = meshToVerticesAndIndices(objectData);
@@ -138,8 +137,11 @@ export class WorldMap {
       shader: objectShader,
       buffer: objectBuffer,
       position: objectLocation,
-      meshSize: meshSize
+      meshSize: meshSize,
+      id: this.nextWorldObjectId
     };
+
+    this.nextWorldObjectId++;
 
     this.worldObjects.push(worldObject);
   }

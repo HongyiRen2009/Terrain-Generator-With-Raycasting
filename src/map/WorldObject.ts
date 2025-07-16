@@ -7,4 +7,5 @@ export type WorldObject = {
   buffer: ReturnType<typeof GlUtils.CreateStaticBuffer>;
   position: mat4;
   meshSize: number;
+  id: number;
 };

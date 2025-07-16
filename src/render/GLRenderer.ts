@@ -32,7 +32,13 @@ export class GLRenderer {
   world: WorldMap;
 
   TerrainMeshShader: Shader;
+  terrainVAO: WebGLVertexArrayObject | null = null;
+
   WireframeCubeShader: Shader;
+  wireframeCubeVAO: WebGLVertexArrayObject | null = null;
+
+  worldObjectVAOs: Map<number, WebGLVertexArrayObject> = new Map();
+
   constructor(
     gl: WebGL2RenderingContext,
     canvas: HTMLCanvasElement,
@@ -138,19 +144,21 @@ export class GLRenderer {
       return;
     }
 
-    const triangleVao = GlUtils.createInterleavedVao(
-      this.gl,
-      this.TerrainTriangleBuffer.vertex,
-      this.TerrainTriangleBuffer.indices,
-      this.TerrainMeshShader,
-      {
-        VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
-        VertexNormal: { offset: 12, stride: 36 },
-        VertexColor: { offset: 24, stride: 36 }
-      }
-    );
+    if (!this.terrainVAO) {
+      this.terrainVAO = GlUtils.createInterleavedVao(
+        this.gl,
+        this.TerrainTriangleBuffer.vertex,
+        this.TerrainTriangleBuffer.indices,
+        this.TerrainMeshShader,
+        {
+          VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+          VertexNormal: { offset: 12, stride: 36 },
+          VertexColor: { offset: 24, stride: 36 }
+        }
+      );
+    }
 
-    this.gl.bindVertexArray(triangleVao);
+    this.gl.bindVertexArray(this.terrainVAO);
 
     this.gl.drawElements(
       this.gl.TRIANGLES,
@@ -175,17 +183,20 @@ export class GLRenderer {
 
     if (!this.CubeBuffer) throw new Error("CubeBuffer not initialized.");
 
-    const cubeVao = GlUtils.createInterleavedVao(
-      this.gl,
-      this.CubeBuffer.vertex,
-      this.CubeBuffer.indices,
-      this.WireframeCubeShader,
-      {
-        VertexPosition: { offset: 0, stride: 24, sizeOverride: 3 },
-        VertexColor: { offset: 12, stride: 24 }
-      }
-    );
-    this.gl.bindVertexArray(cubeVao);
+    if (!this.wireframeCubeVAO) {
+      this.wireframeCubeVAO = GlUtils.createInterleavedVao(
+        this.gl,
+        this.CubeBuffer.vertex,
+        this.CubeBuffer.indices,
+        this.WireframeCubeShader,
+        {
+          VertexPosition: { offset: 0, stride: 24, sizeOverride: 3 },
+          VertexColor: { offset: 12, stride: 24 }
+        }
+      );
+    }
+
+    this.gl.bindVertexArray(this.wireframeCubeVAO);
     this.gl.drawElements(this.gl.LINES, 24, this.gl.UNSIGNED_INT, 0);
     this.gl.bindVertexArray(null);
   }
@@ -204,19 +215,24 @@ export class GLRenderer {
       this.matViewProj
     );
 
-    const objectVao = GlUtils.createInterleavedVao(
-      this.gl,
-      obj.buffer.vertex,
-      obj.buffer.indices,
-      obj.shader,
-      {
-        VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
-        VertexNormal: { offset: 12, stride: 36 },
-        VertexColor: { offset: 24, stride: 36 }
-      }
-    );
+    // TODO: vao should be per mesh, not per object
+    // Do we need to have some sort of meshid instead of objectid?
+    if (!this.worldObjectVAOs.has(obj.id)) {
+      const vao = GlUtils.createInterleavedVao(
+        this.gl,
+        obj.buffer.vertex,
+        obj.buffer.indices,
+        obj.shader,
+        {
+          VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+          VertexNormal: { offset: 12, stride: 36 },
+          VertexColor: { offset: 24, stride: 36 }
+        }
+      );
+      this.worldObjectVAOs.set(obj.id, vao);
+    }
 
-    this.gl.bindVertexArray(objectVao);
+    this.gl.bindVertexArray(this.worldObjectVAOs.get(obj.id)!);
     this.gl.drawElements(
       this.gl.TRIANGLES,
       obj.meshSize,
