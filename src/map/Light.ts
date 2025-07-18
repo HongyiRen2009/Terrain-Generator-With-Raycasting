@@ -7,7 +7,7 @@ import { Color } from "./terrains";
 export class Light {
   position: vec3;
   color: Color; //Emission color
-  showColor: Color; //color of what the light looks 
+  showColor: Color; //color of what the light looks
   /*Note:
   The idea is that color is the color emmitted, while showColor is the color it looks like. This is useful in sun-like lights where it emits white light but looks yellow. 
   */

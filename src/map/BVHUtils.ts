@@ -90,7 +90,7 @@ export class BVHUtils {
    */
   static packTerrainTypes() {
     let floatsPerTexel = 4;
-    let numberTerrains = 3;
+    let numberTerrains = Object.keys(Terrains).length;
     let numberFloats = 6;
     let out = new Float32Array(
       Math.ceil((numberTerrains * numberFloats) / floatsPerTexel) *

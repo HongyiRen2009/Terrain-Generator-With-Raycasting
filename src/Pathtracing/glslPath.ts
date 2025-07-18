@@ -70,7 +70,7 @@ struct TerrainType{
     int type; //Type. See terrains.ts
 };
 
-#define NUM_TERRAINS 3
+#define NUM_TERRAINS 5
 TerrainType[NUM_TERRAINS] Terrains;
 
 // Provides a high quality 32-bit hash function to generate pseudo-random numbers
@@ -335,7 +335,7 @@ float smoothItem(float[3] a, vec3 baryCentric){
     );
 }
 
-void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness){
+void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){
     TerrainType t1 = Terrains[tri.types[0]];
     TerrainType t2 = Terrains[tri.types[1]];
     TerrainType t3 = Terrains[tri.types[2]];
@@ -358,10 +358,11 @@ void getInfo(Triangle tri, vec3 baryCentric, out vec3 smoothNormal, out vec3 mat
     smoothNormal = normalize(smoothItem(tri.normals,baryCentric));
     matColor = smoothItem(colors,baryCentric);
     matRoughness = smoothItem(roughness,baryCentric);
+    reflectiveness = smoothItem(reflectivities,baryCentric);
 }
 
 /**
-Return random direction based on normal via cosine
+Return random direction based on given via cosine
 */
 vec3 weightedDIR(vec3 normal, inout uint rng_state){
     float r1 = rand(rng_state);
@@ -378,6 +379,34 @@ vec3 weightedDIR(vec3 normal, inout uint rng_state){
     return normalize(dirWorld);
 }
 
+vec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {
+    float r1 = rand(rng_state);
+    float r2 = rand(rng_state);
+
+    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed
+
+    float phi = 2.0 * PI * r1;
+    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+
+    vec3 localDir = vec3(
+        cos(phi) * sinTheta,
+        sin(phi) * sinTheta,
+        cosTheta
+    );
+
+    // Construct tangent space around the perfect reflection direction
+    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, perfectDir));
+    vec3 bitangent = cross(perfectDir, tangent);
+
+    vec3 worldDir = normalize(
+        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z
+    );
+
+    return worldDir;
+}
+
 bool isValidVec3(vec3 v) {
     return all(greaterThanEqual(v, vec3(-1e20))) &&
            all(lessThanEqual(v, vec3(1e20))) &&
@@ -392,7 +421,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 throughput = vec3(1.0);
 
     int hasMirror = -2;
-
     for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
         float minHitDistance;
@@ -436,21 +464,29 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         Triangle tri = getTriangle(triIndex);
 
         vec3 smoothNormal, matColor;
-        float matRoughness;
+        float matRoughness, reflectiveness;
         int type = 2;
         type = Terrains[tri.types[0]].type;
-        getInfo(tri, baryCentric, smoothNormal, matColor, matRoughness);
+        getInfo(tri, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);
         
 
         vec3 geometricNormal = tri.triNormal;
+        bool didSwitch = false;
         if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;
-        if (dot(smoothNormal, geometricNormal) < 0.0) smoothNormal = -smoothNormal;
+        if (dot(smoothNormal, geometricNormal) < 0.0) {
+            smoothNormal = -smoothNormal;
+            didSwitch = true;
+        }
 
         vec3 BRDF = matColor / PI;
         
+        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy
+
+
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
-        rayOrigin = hitPoint + geometricNormal * 0.01;
+        if(type != 4) //Transmission goes through
+            rayOrigin = hitPoint + geometricNormal * 0.01;
         if(type == 1){ //Diffuse
             rayDir = weightedDIR(smoothNormal, rng_state);
             throughput *= matColor;
@@ -458,6 +494,37 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in
             throughput *= vec3(0.8); // decrease brightness a bit
             hasMirror = bounce;
+        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular
+            vec3 perfect = normalize(reflect(rayDir, smoothNormal));
+            rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);
+            throughput *= matColor; //Switch to BDF later
+            //Consider fresnel in the future
+            hasMirror = bounce;
+        }else if (type == 4){ //Transmission (Glass)
+            float eta;
+            vec3 transmissionNormal;
+            if(didSwitch){ //exiting
+                eta = matRoughness / 1.0;
+                transmissionNormal = -smoothNormal; // Refract in the opposite direction
+            }else{ //entering
+                eta = 1.0 / matRoughness;
+                transmissionNormal = smoothNormal; // Refract in the same direction
+            }
+            vec3 refracted = refract(rayDir, transmissionNormal, eta);
+            if (length(refracted) < 0.001) {
+                // TIR: fall back to mirror reflection
+                rayDir = normalize(reflect(rayDir, transmissionNormal));
+                rayOrigin = hitPoint + geometricNormal * 0.01;
+            } else {
+                rayDir = normalize(refracted);
+                rayOrigin = hitPoint + rayDir * 0.01;
+            }
+            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
+            vec3 absorption = (vec3(1.0) - matColor)*0.2;  // if matColor is tint
+            throughput *= exp(-absorption * (minHitDistance*0.2)); //Beer Lambert law
+        }else if (type == 5){ // Emissive
+            color += throughput * matColor;
+            break;
         }
     }
     return min(color, vec3(10.0));
