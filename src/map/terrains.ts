@@ -70,7 +70,7 @@ export interface Terrain {
  * The class for calculating the information for all our terrain types
  */
 export const Terrains: { [id: number]: Terrain } = {
-  //NOTE: WHEN ADD TERRAINS CHANGE numberTerrains in packTerrainTypes in BVHUtils.ts and NUM_TERRAINS in glslPath.ts
+  //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
   0: {
     //Regular ground
     color: new Color(0, 255, 0),
