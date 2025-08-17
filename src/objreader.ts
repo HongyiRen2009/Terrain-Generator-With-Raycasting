@@ -1,5 +1,5 @@
 import { vec3 } from "gl-matrix";
-import { Mesh } from "./map/Mesh";
+import { Mesh, Triangle } from "./map/Mesh";
 
 const calculateNormal = (vertices: vec3[]): vec3 => {
   const normal = vec3.create();
@@ -44,3 +44,79 @@ export const objSourceToMesh = (objSource: string): Mesh => {
 
   return mesh;
 };
+
+
+export function loadPLYToMesh(plyString: string): Mesh {
+  const lines = plyString.split(/\r?\n/);
+  let numVertices = 0;
+  let numFaces = 0;
+  let headerEnded = false;
+  let vertexLines: string[] = [];
+  let faceLines: string[] = [];
+  let lineIndex = 0;
+
+  // Parse header
+  while (!headerEnded && lineIndex < lines.length) {
+    const line = lines[lineIndex].trim();
+    if (line.startsWith("element vertex")) {
+      numVertices = parseInt(line.split(" ")[2]);
+    } else if (line.startsWith("element face")) {
+      numFaces = parseInt(line.split(" ")[2]);
+    } else if (line === "end_header") {
+      headerEnded = true;
+    }
+    lineIndex++;
+  }
+
+  // Get vertex lines
+  vertexLines = lines.slice(lineIndex, lineIndex + numVertices);
+  lineIndex += numVertices;
+
+  // Get face lines
+  faceLines = lines.slice(lineIndex, lineIndex + numFaces);
+
+  const vertices: vec3[] = [];
+  const normals: vec3[] = [];
+
+  // Parse vertices (assumes x y z nx ny nz r g b)
+  for (const line of vertexLines) {
+    const parts = line.trim().split(/\s+/).map(Number);
+    const v = vec3.fromValues(parts[0], parts[1], parts[2]);
+    vertices.push(v);
+
+    // Normal fallback: if normals exist
+    if (parts.length >= 6) {
+      const n = vec3.fromValues(parts[3], parts[4], parts[5]);
+      normals.push(n);
+    } else {
+      normals.push(vec3.fromValues(0, 0, 0));
+    }
+  }
+
+  const mesh = new Mesh();
+
+  // Parse faces
+  for (const line of faceLines) {
+    const parts = line.trim().split(/\s+/).map(Number);
+    const vertexCount = parts[0];
+    if (vertexCount < 3) continue;
+
+    const indices = parts.slice(1, vertexCount + 1);
+    // triangulate polygon (assumes convex)
+    for (let i = 1; i < vertexCount - 1; i++) {
+      const t: Triangle = [
+        vertices[indices[0]],
+        vertices[indices[i]],
+        vertices[indices[i + 1]],
+      ];
+      const n: Triangle = [
+        normals[indices[0]],
+        normals[indices[i]],
+        normals[indices[i + 1]],
+      ];
+      mesh.addTriangle(t, n);
+    }
+  }
+
+  return mesh;
+}

@@ -117,7 +117,7 @@ export class WorldMap {
   /**
    * Add an object to the game world
    */
-  public addObject(objectData: Mesh, objectLocation: mat4) {
+  public addObject(objectData: Mesh, objectLocation: mat4, scale: number = 1) {
     const { vertices, indices } = meshToVerticesAndIndices(objectData);
     const meshSize = indices.length;
 
@@ -129,7 +129,7 @@ export class WorldMap {
 
     let objectBuffer = GlUtils.CreateStaticBuffer(
       this.gl,
-      vertices,
+      vertices.map((v)=>{return v*scale}),
       Array.from(indices)
     );
 
@@ -138,7 +138,7 @@ export class WorldMap {
       buffer: objectBuffer,
       position: objectLocation,
       meshSize: meshSize,
-      id: this.nextWorldObjectId
+      id: this.nextWorldObjectId,
     };
 
     this.nextWorldObjectId++;

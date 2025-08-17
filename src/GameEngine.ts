@@ -7,7 +7,8 @@ import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
 
 import teapotObj from "../models/teapot.obj";
-import { objSourceToMesh } from "./objreader";
+import teapotPly from "../models/teapot.ply";
+import { loadPLYToMesh, objSourceToMesh } from "./objreader";
 
 /**
  * Our holding class for all game mechanics
@@ -129,11 +130,6 @@ export class GameEngine {
     }
 
     this.initialize();
-
-    const triangleMesh = objSourceToMesh(teapotObj);
-    const identity = mat4.create();
-    mat4.identity(identity);
-    this.world.addObject(triangleMesh, identity);
   }
   public async initialize() {
     await Promise.all(
@@ -148,6 +144,12 @@ export class GameEngine {
     this.renderer.GenerateTriangleBuffer(
       GlUtils.genTerrainVertices(this.world)
     );
+
+    const triangleMesh = loadPLYToMesh(teapotPly);//objSourceToMesh(teapotObj);
+    const identity = mat4.create();
+    mat4.identity(identity);
+    this.world.addObject(triangleMesh, identity,0.1);
+
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
     this.worldInitialized = true;
