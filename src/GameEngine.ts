@@ -9,6 +9,7 @@ import { GlUtils } from "./render/GlUtils";
 import teapotObj from "../models/teapot.obj";
 import teapotPly from "../models/teapot.ply";
 import { loadPLYToMesh, objSourceToMesh } from "./objreader";
+import { Terrains } from "./map/terrains";
 
 /**
  * Our holding class for all game mechanics
@@ -90,6 +91,7 @@ export class GameEngine {
 
     //Debugging
     this.debug.addElement("FPS", () => Math.round(this.currentFPS));
+    this.debug.addElement("#Types", () => Object.keys(Terrains).length);
 
     //Initialize switcher
     const rayBtn = document.getElementById("raytracing")!;
