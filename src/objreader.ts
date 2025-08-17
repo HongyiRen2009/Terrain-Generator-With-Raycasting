@@ -1,5 +1,6 @@
 import { vec3 } from "gl-matrix";
 import { Mesh, Triangle } from "./map/Mesh";
+import { Color, Terrains } from "./map/terrains";
 
 const calculateNormal = (vertices: vec3[]): vec3 => {
   const normal = vec3.create();
@@ -45,8 +46,7 @@ export const objSourceToMesh = (objSource: string): Mesh => {
   return mesh;
 };
 
-
-export function loadPLYToMesh(plyString: string): Mesh {
+export function loadPLYToMesh(plyString: string, importMap: Map<string,number> | null = null): Mesh {
   const lines = plyString.split(/\r?\n/);
   let numVertices = 0;
   let numFaces = 0;
@@ -77,6 +77,7 @@ export function loadPLYToMesh(plyString: string): Mesh {
 
   const vertices: vec3[] = [];
   const normals: vec3[] = [];
+  const colors: Color[] = [];
 
   // Parse vertices (assumes x y z nx ny nz r g b)
   for (const line of vertexLines) {
@@ -90,6 +91,14 @@ export function loadPLYToMesh(plyString: string): Mesh {
       normals.push(n);
     } else {
       normals.push(vec3.fromValues(0, 0, 0));
+    }
+
+    //Color fallback
+    if(parts.length >=9){
+      const c: Color = new Color(parts[6]*255,parts[7]*255,parts[8]*255);
+      colors.push(c);
+    }else{
+      colors.push(new Color(255,255,255));
     }
   }
 
@@ -114,7 +123,36 @@ export function loadPLYToMesh(plyString: string): Mesh {
         normals[indices[i]],
         normals[indices[i + 1]],
       ];
-      mesh.addTriangle(t, n);
+
+      let types: number[] = [0,0,0];
+      if(importMap){
+        //No support as of now
+        types = [0,0,0];
+      }else{
+        //Make it based on color
+        for(let j = 0; j < 3; j++){
+          const col = colors[indices[j]];
+          //Check if simple exists
+          for(let key in Terrains){
+            const terrain = Terrains[parseInt(key)];
+            if(terrain.type == 1 && col.equals(terrain.color)){
+              //use that color.
+              types[j] = parseInt(key);
+            }else{
+              //make a new terrain type
+              Terrains[Object.keys(Terrains).length] = {
+                color: col,
+                reflectiveness: 0.2,
+                roughness: 0.8,
+                type: 1
+              };
+              types[j] = Object.keys(Terrains).length - 1;
+            }
+          }
+        }
+      }
+
+      mesh.addTriangle(t, n, types as [number, number, number]);
     }
   }
 

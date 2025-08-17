@@ -29,6 +29,10 @@ export class Color {
   createVec3() {
     return vec3.fromValues(this.r / 255, this.g / 255, this.b / 255);
   }
+
+  equals(other: Color){
+    return this.r === other.r && this.g === other.g && this.b === other.b;
+  }
 }
 
 /**
