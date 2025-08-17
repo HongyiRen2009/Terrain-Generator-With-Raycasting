@@ -4,10 +4,10 @@ import { Shader } from "../render/Shader";
 import { Mesh } from "./Mesh";
 
 export type WorldObject = {
-  shader: Shader;
   buffer: ReturnType<typeof GlUtils.CreateStaticBuffer>;
   position: mat4;
   meshSize: number;
   id: number;
   mesh: Mesh;
+  name: string;
 };

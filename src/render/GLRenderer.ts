@@ -205,12 +205,12 @@ export class GLRenderer {
     // for now, just use the terrain mesh
     this.gl.useProgram(this.TerrainMeshShader.Program!);
     this.gl.uniformMatrix4fv(
-      obj.shader.VertexUniforms["MatrixTransform"].location,
+      this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location,
       false,
       obj.position
     );
     this.gl.uniformMatrix4fv(
-      obj.shader.VertexUniforms["matViewProj"].location,
+      this.TerrainMeshShader.VertexUniforms["matViewProj"].location,
       false,
       this.matViewProj
     );
@@ -222,7 +222,7 @@ export class GLRenderer {
         this.gl,
         obj.buffer.vertex,
         obj.buffer.indices,
-        obj.shader,
+        this.TerrainMeshShader,
         {
           VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
           VertexNormal: { offset: 12, stride: 36 },

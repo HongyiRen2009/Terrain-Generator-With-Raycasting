@@ -39,6 +39,7 @@ export class GameEngine {
   private currentFPS: number = 0;
 
   private worldInitialized = false;
+  private updatePathracing: () => void;
   /**
    * Constructs game engine
    * @param canvasId The ID of the canvas rendered to
@@ -59,8 +60,10 @@ export class GameEngine {
     //Initialize controls
     this.addKeys();
 
+    this.updatePathracing = () => {};
+
     //Initialize world
-    this.world = new WorldMap(1000, 64, 1000, this.gl);
+    this.world = new WorldMap(1000, 64, 1000, this.gl,()=>this.updatePathracing);
 
     //Initialize Camera
     this.mainCamera = new Camera(vec3.fromValues(0, 0, 3));
@@ -81,6 +84,10 @@ export class GameEngine {
       this.mainCamera,
       this.debug
     );
+    this.updatePathracing = () => {
+      this.pathTracer.initBVH(this.world.combinedMesh());
+      this.pathTracer.init(false);
+    };
 
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
@@ -151,7 +158,7 @@ export class GameEngine {
     triangleMesh.scale(0.1);
     const identity = mat4.create();
     mat4.identity(identity);
-    this.world.addObject(triangleMesh, identity);
+    this.world.addObject(triangleMesh, identity,"Teapot");
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);

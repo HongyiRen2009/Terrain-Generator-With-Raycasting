@@ -152,3 +152,12 @@ input[type="range"]::-ms-thumb {
   font-weight: bold;
   color: #007bff;
 }
+
+/********************** World Object Editor ***********************/
+.world-object {
+  background-color: rgba(50, 50, 50, 0.8);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
