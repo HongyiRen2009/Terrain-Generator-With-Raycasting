@@ -146,9 +146,10 @@ export class GameEngine {
     );
 
     const triangleMesh = loadPLYToMesh(teapotPly);//objSourceToMesh(teapotObj);
+    triangleMesh.scale(0.1);
     const identity = mat4.create();
     mat4.identity(identity);
-    this.world.addObject(triangleMesh, identity,0.1);
+    this.world.addObject(triangleMesh, identity);
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);

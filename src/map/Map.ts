@@ -112,12 +112,15 @@ export class WorldMap {
     for (const chunk of this.chunks) {
       CombinedMesh.merge(chunk.getMesh());
     }
+    for(const object of this.worldObjects){
+      CombinedMesh.merge(object.mesh);
+    }
     return CombinedMesh;
   }
   /**
    * Add an object to the game world
    */
-  public addObject(objectData: Mesh, objectLocation: mat4, scale: number = 1) {
+  public addObject(objectData: Mesh, objectLocation: mat4) {
     const { vertices, indices } = meshToVerticesAndIndices(objectData);
     const meshSize = indices.length;
 
@@ -129,7 +132,7 @@ export class WorldMap {
 
     let objectBuffer = GlUtils.CreateStaticBuffer(
       this.gl,
-      vertices.map((v)=>{return v*scale}),
+      vertices,
       Array.from(indices)
     );
 
@@ -139,6 +142,7 @@ export class WorldMap {
       position: objectLocation,
       meshSize: meshSize,
       id: this.nextWorldObjectId,
+      mesh: objectData
     };
 
     this.nextWorldObjectId++;
