@@ -5,7 +5,7 @@ import { mat4, vec2, vec3, vec4 } from "gl-matrix";
 import { Light } from "./Light";
 
 import { Color } from "./terrains";
-import { Mesh } from "./Mesh";
+import { Mesh, Triangle } from "./Mesh";
 import { Shader } from "../render/Shader";
 import { GlUtils } from "../render/GlUtils";
 import { WorldObject } from "./WorldObject";
@@ -119,52 +119,61 @@ export class WorldMap {
   }
   public combinedMesh(): Mesh {
     const CombinedMesh = new Mesh();
+
+    // Merge chunks (these are already independent)
     for (const chunk of this.chunks) {
       CombinedMesh.merge(chunk.getMesh());
     }
 
     // Merge worldObjects with transformation applied
     for (const obj of this.worldObjects) {
-      const meshCopy = obj.mesh.copy();
-      meshCopy.translate(vec3.fromValues(obj.position[12],obj.position[13],obj.position[14]));
-      /*const meshCopy = obj.mesh.copy(); 
-      const transform = obj.position;   // mat4
+      const meshCopy = obj.mesh.copy(); // copy original mesh
 
-      // Apply transform to all vertices and normals
+      const transformedMesh = new Mesh();
+
       for (let i = 0; i < meshCopy.mesh.length; i++) {
-        
-        //const tri = meshCopy.mesh[i];
-        //const norm = meshCopy.normals[i];
+        const tri = meshCopy.mesh[i];
+        const norm = meshCopy.normals[i];
 
+        // Deep copy triangle and normal
+        const newTri: Triangle = [
+          vec3.clone(tri[0]),
+          vec3.clone(tri[1]),
+          vec3.clone(tri[2])
+        ];
+        const newNorm: Triangle = [
+          vec3.clone(norm[0]),
+          vec3.clone(norm[1]),
+          vec3.clone(norm[2])
+        ];
 
-        // Transform each vertex
+        // Apply transformation
         for (let j = 0; j < 3; j++) {
-          const v = vec4.fromValues(tri[j][0], tri[j][1], tri[j][2], 1);
-          vec4.transformMat4(v, v, transform);
-          vec3.set(tri[j], v[0], v[1], v[2]);
-        }
+          // Transform vertex
+          const v = vec4.fromValues(newTri[j][0], newTri[j][1], newTri[j][2], 1);
+          vec4.transformMat4(v, v, obj.position);
+          vec3.set(newTri[j], v[0], v[1], v[2]);
 
-        // Transform normals (ignore translation, only use rotation + scale)
-        const normalMat = mat4.create();
-        mat4.copy(normalMat, transform);
-        normalMat[12] = 0;
-        normalMat[13] = 0;
-        normalMat[14] = 0;
-
-        for (let j = 0; j < 3; j++) {
-          const n = vec4.fromValues(norm[j][0], norm[j][1], norm[j][2], 0);
+          // Transform normal (rotation + scale only)
+          const n = vec4.fromValues(newNorm[j][0], newNorm[j][1], newNorm[j][2], 0);
+          const normalMat = mat4.clone(obj.position);
+          normalMat[12] = 0;
+          normalMat[13] = 0;
+          normalMat[14] = 0;
           vec4.transformMat4(n, n, normalMat);
-          vec3.normalize(norm[j], vec3.fromValues(n[0], n[1], n[2]));
+          vec3.normalize(newNorm[j], vec3.fromValues(n[0], n[1], n[2]));
         }
+
+        // Add transformed triangle
+        transformedMesh.addTriangle(newTri, newNorm, meshCopy.type[i]);
       }
-      CombinedMesh.merge(meshCopy);
-      */
-      CombinedMesh.merge(meshCopy);
+
+      // Merge safely into combined mesh
+      CombinedMesh.merge(transformedMesh);
     }
 
     return CombinedMesh;
   }
-
   public onObjectAdded?: (obj: WorldObject) => void;
 
   /**
@@ -202,88 +211,94 @@ export class WorldMap {
   public render() {}
 
   setupObjectUI(world: WorldMap, container: HTMLElement) {
-    world.onObjectAdded = (obj) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "world-object";
+  world.onObjectAdded = (obj) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "world-object";
 
-      // Name
-      const nameEl = document.createElement("h3");
-      nameEl.textContent = obj.name;
-      wrapper.appendChild(nameEl);
+    // Name
+    const nameEl = document.createElement("h3");
+    nameEl.textContent = obj.name;
+    wrapper.appendChild(nameEl);
 
-      // Vertex count
-      const vertsEl = document.createElement("p");
-      vertsEl.textContent = `Vertices: ${obj.mesh.mesh.length * 3}`;
-      wrapper.appendChild(vertsEl);
+    // Vertex count
+    const vertsEl = document.createElement("p");
+    vertsEl.textContent = `Vertices: ${obj.mesh.mesh.length * 3}`;
+    wrapper.appendChild(vertsEl);
 
-      // Helper to create labeled number input
-      function createInput(labelText: string, value: number, onChange: (v: number) => void) {
-        const label = document.createElement("label");
-        label.innerHTML = `<br>${labelText}: `;
-        const input = document.createElement("input");
-        input.type = "number";
-        input.value = value.toString();
-        input.step = "0.1";
-        input.addEventListener("input", () => {
-          onChange(parseFloat(input.value));
-        });
-        label.appendChild(input);
-        wrapper.appendChild(label);
-      }
+    // Helper to create labeled number input
+    function createInput(
+      labelText: string,
+      value: number,
+      onChange: (v: number) => void
+    ) {
+      const label = document.createElement("label");
+      label.innerHTML = `<br>${labelText}: `;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = value.toString();
+      input.step = "0.1";
+      input.addEventListener("input", () => {
+        const val = input.value === "" ? 0 : parseFloat(input.value);
+        onChange(val);
+      });
+      label.appendChild(input);
+      wrapper.appendChild(label);
+    }
 
-      // Extract current translation, rotation, scale from mat4
-      const translation = [obj.position[12], obj.position[13], obj.position[14]];
-      const rotationDegrees = [0, 0, 0]; // default 0, or you can store separately in WorldObject
-      const scale = [1, 1, 1];    // default 1, or store separately
+    // Extract current transform components
+    const translation = [obj.position[12], obj.position[13], obj.position[14]];
+    const rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
+    const scale = [1, 1, 1];           // default 1 or store separately
 
-      // Translation inputs
-      let a = document.createElement("h4");
-      a.textContent = "Translation:";
-      wrapper.appendChild(a);
-      ["X", "Y", "Z"].forEach((axis, i) =>
-        createInput(`${axis}`, translation[i], (v) => {
-          obj.position[12 + i] = v;
-          this.tracerUpdateSupplier()();
-        })
-      );
+    // Function to rebuild mat4 from translation, rotation, scale
+    function rebuildMatrix() {
+      const rad = rotationDegrees.map((d) => (d * Math.PI) / 180);
+      const newMat = mat4.create();
 
-      // Rotation inputs (in radians)
-      a = document.createElement("h4");
-      a.textContent = "Rotation:";
-      wrapper.appendChild(a);
-      ["X", "Y", "Z"].forEach((axis, i) =>
-        createInput(`${axis}`, rotationDegrees[i], (deg) => {
-          rotationDegrees[i] = deg;
-          const rad = rotationDegrees.map((d) => (d * Math.PI) / 180); // convert all to radians
+      mat4.translate(newMat, newMat, vec3.fromValues(translation[0], translation[1], translation[2]));
+      mat4.rotateX(newMat, newMat, rad[0]);
+      mat4.rotateY(newMat, newMat, rad[1]);
+      mat4.rotateZ(newMat, newMat, rad[2]);
+      mat4.scale(newMat, newMat, vec3.fromValues(scale[0], scale[1], scale[2]));
 
-          // Build rotation matrix
-          const r = mat4.create();
-          mat4.rotateX(r, r, rad[0]);
-          mat4.rotateY(r, r, rad[1]);
-          mat4.rotateZ(r, r, rad[2]);
+      mat4.copy(obj.position, newMat);
 
-          // Preserve translation
-          const t = [obj.position[12], obj.position[13], obj.position[14]];
-          mat4.copy(obj.position, r);
-          obj.position[12] = t[0];
-          obj.position[13] = t[1];
-          obj.position[14] = t[2];
-          this.tracerUpdateSupplier()();
-        })
-      );
+      if (world.tracerUpdateSupplier) world.tracerUpdateSupplier()();
+    }
+    // Translation inputs
+    const tHeader = document.createElement("h4");
+    tHeader.textContent = "Translation:";
+    wrapper.appendChild(tHeader);
+    ["X", "Y", "Z"].forEach((axis, i) =>
+      createInput(axis, translation[i], (v) => {
+        translation[i] = v;
+        rebuildMatrix();
+      })
+    );
 
-      // Scale inputs
-      a = document.createElement("h4");
-      a.textContent = "Scale:";
-      wrapper.appendChild(a);
-      ["X", "Y", "Z"].forEach((axis, i) =>
-        createInput(`${axis}`, scale[i], (v) => {
-          obj.position[parseInt(axis) * 5] = v; // crude: scale affects diagonal (0,5,10)
-          this.tracerUpdateSupplier()();
-        })
-      );
+    // Rotation inputs (degrees)
+    const rHeader = document.createElement("h4");
+    rHeader.textContent = "Rotation (degrees):";
+    wrapper.appendChild(rHeader);
+    ["X", "Y", "Z"].forEach((axis, i) =>
+      createInput(axis, rotationDegrees[i], (v) => {
+        rotationDegrees[i] = v;
+        rebuildMatrix();
+      })
+    );
 
-      container.appendChild(wrapper);
-    };
-  }
+    // Scale inputs
+    const sHeader = document.createElement("h4");
+    sHeader.textContent = "Scale:";
+    wrapper.appendChild(sHeader);
+    ["X", "Y", "Z"].forEach((axis, i) =>
+      createInput(axis, scale[i], (v) => {
+        scale[i] = v;
+        rebuildMatrix();
+      })
+    );
+
+    container.appendChild(wrapper);
+  };
+}
 }
