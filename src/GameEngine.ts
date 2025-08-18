@@ -154,11 +154,16 @@ export class GameEngine {
       GlUtils.genTerrainVertices(this.world)
     );
 
-    const triangleMesh = loadPLYToMesh(teapotPly);//objSourceToMesh(teapotObj);
+    const triangleMesh = loadPLYToMesh(teapotPly);
     triangleMesh.scale(0.1);
     const identity = mat4.create();
     mat4.identity(identity);
     this.world.addObject(triangleMesh, identity,"Teapot");
+
+    const triangleMesh2 = objSourceToMesh(teapotObj);
+    const identity2 = mat4.create();
+    mat4.identity(identity2);
+    this.world.addObject(triangleMesh2, identity2, "Teapot2");
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
