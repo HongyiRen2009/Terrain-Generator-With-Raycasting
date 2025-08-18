@@ -9,7 +9,7 @@ import { GlUtils } from "./render/GlUtils";
 import teapotObj from "../models/teapot.obj";
 import teapotPly from "../models/teapot.ply";
 import { loadPLYToMesh, objSourceToMesh } from "./objreader";
-import { Terrains } from "./map/terrains";
+import { Color, Terrains } from "./map/terrains";
 
 /**
  * Our holding class for all game mechanics
@@ -154,7 +154,9 @@ export class GameEngine {
       GlUtils.genTerrainVertices(this.world)
     );
 
-    const triangleMesh = loadPLYToMesh(teapotPly);
+    const test = new Color(0*255, 0.975*255, 1*255);
+    let id = test.toString()
+    const triangleMesh = loadPLYToMesh(teapotPly,{id:1});
     triangleMesh.scale(0.1);
     const identity = mat4.create();
     mat4.identity(identity);
@@ -163,7 +165,7 @@ export class GameEngine {
     const triangleMesh2 = objSourceToMesh(teapotObj);
     const identity2 = mat4.create();
     mat4.identity(identity2);
-    this.world.addObject(triangleMesh2, identity2, "Teapot2");
+    //this.world.addObject(triangleMesh2, identity2, "Teapot2");
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);

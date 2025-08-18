@@ -30,6 +30,10 @@ export class Color {
     this.g = g;
     this.b = b;
   }
+
+  toString(): string {
+    return `rgb(${this.r}, ${this.g}, ${this.b})`;
+  }
   /**
    * Creates a vec3 from the color values
    * @returns vec3 with color values.
