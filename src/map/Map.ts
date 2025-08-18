@@ -4,7 +4,7 @@ import { Chunk } from "./marching_cubes";
 import { mat4, vec2, vec3, vec4 } from "gl-matrix";
 import { Light } from "./Light";
 
-import { Color } from "./terrains";
+import { Color, Terrain, Terrains } from "./terrains";
 import { Mesh, Triangle } from "./Mesh";
 import { Shader } from "../render/Shader";
 import { GlUtils } from "../render/GlUtils";
@@ -12,6 +12,13 @@ import { WorldObject } from "./WorldObject";
 import { meshToVerticesAndIndices } from "./cubes_utils";
 import { MeshFragmentShaderCode, MeshVertexShaderCode } from "../render/glsl";
 import { Supplier } from "../DebugMenu";
+import { loadPLYToMesh } from "../objreader";
+
+
+interface ImportMapEntry {
+  color: string;
+  terrain: Terrain;
+}
 
 /**
  * The object holding the map of the world
@@ -46,6 +53,8 @@ export class WorldMap {
 
   private tracerUpdateSupplier: () => () => void;
 
+  private importMapEntries: ImportMapEntry[] = []
+
   /**
    * Constructs a world
    * @param width Width in # of chunks
@@ -72,7 +81,108 @@ export class WorldMap {
     this.generate();
 
     this.fieldMap = new Map<string, number>();
+
+    const popup = document.getElementById("popup") as HTMLDivElement;
+    const openBtn = document.getElementById("open-popup-btn")!;
+    const closeBtn = document.getElementById("close-popup-btn")!;
+    const submitBtn = document.getElementById("submit-object")!;
+    const addMapEntryBtn = document.getElementById("add-map-entry")!;
+    const importMapDiv = document.getElementById("import-map")!;
+    const fileInput = document.getElementById("ply-file") as HTMLInputElement;
+    const nameInput = document.getElementById("object-name") as HTMLInputElement;
+
+    openBtn.addEventListener("click", () => popup.classList.remove("hidden"));
+    closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
+
+    // Add mapping UI
+    addMapEntryBtn.addEventListener("click", () => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "map-entry";
+
+      // Color input
+      const colorInput = document.createElement("input");
+      colorInput.type = "color";
+
+      // Terrain type select
+      const terrainSelect = document.createElement("select");
+      [1,2,3,4,5].forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.toString();
+        opt.textContent = `Type ${t}`;
+        terrainSelect.appendChild(opt);
+      });
+
+      // Reflectiveness
+      const reflectInput = document.createElement("input");
+      reflectInput.type = "number";
+      reflectInput.step = "0.1";
+      reflectInput.min = "0"; reflectInput.max = "1";
+      reflectInput.value = "0.5";
+
+      // Roughness
+      const roughInput = document.createElement("input");
+      roughInput.type = "number";
+      roughInput.step = "0.1";
+      roughInput.min = "0"; roughInput.max = "1";
+      roughInput.value = "0.5";
+
+      wrapper.append("Color: ", colorInput, " Terrain: ", terrainSelect,
+                    " Reflect: ", reflectInput, " Rough: ", roughInput);
+
+      importMapDiv.appendChild(wrapper);
+    });
+    // Handle submission
+    
+    // Handle submission
+    submitBtn.addEventListener("click", async () => {
+      const file = fileInput.files?.[0];
+      if (!file || !file.name.endsWith(".ply")) {
+        alert("Please upload a valid .ply file.");
+        return;
+      }
+      if (!nameInput.value.trim()) {
+        alert("Please enter a name for the object.");
+        return;
+      }
+
+      // Collect import map entries into `{[colorHex]: terrainType}`
+      const importMap: { [id: string]: number } = {};
+      document.querySelectorAll(".map-entry").forEach(entry => {
+        const inputs = entry.querySelectorAll("input, select") as NodeListOf<HTMLInputElement|HTMLSelectElement>;
+        const color = Color.fromHex((inputs[0] as HTMLInputElement).value); // e.g. "#ff0000"
+        const type = parseInt((inputs[1] as HTMLSelectElement).value) as 1|2|3|4|5;
+        Terrains[Object.keys(Terrains).length] = {
+          color: color,
+          reflectiveness: Math.min(1,Math.max(0,parseFloat((inputs[2] as HTMLInputElement).value))),
+          roughness: Math.min(1,Math.max(0,parseFloat((inputs[3] as HTMLInputElement).value))),
+          type: type
+        }
+        importMap[color.toString()] = Object.keys(Terrains).length - 1;
+      });
+
+      // Read file contents
+      const plyText = await file.text();
+
+      // Convert PLY → Mesh
+      console.log(importMap);
+      console.log(Terrains);
+      const mesh = loadPLYToMesh(plyText, importMap);
+
+      // Add object to world
+      this.addObject(mesh, mat4.create(), nameInput.value.trim());
+
+      // Reset + close popup
+      importMapDiv.innerHTML = "";
+      fileInput.value = "";
+      nameInput.value = "";
+      popup.classList.add("hidden");
+
+      //Generate for pathtracing
+      if (this.tracerUpdateSupplier) this.tracerUpdateSupplier()();
+    });
   }
+
+  
   public populateFieldMap() {
     for (const chunk of this.chunks) {
       for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
@@ -211,94 +321,110 @@ export class WorldMap {
   public render() {}
 
   setupObjectUI(world: WorldMap, container: HTMLElement) {
-  world.onObjectAdded = (obj) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "world-object";
+    world.onObjectAdded = (obj) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "world-object";
 
-    // Name
-    const nameEl = document.createElement("h3");
-    nameEl.textContent = obj.name;
-    wrapper.appendChild(nameEl);
+      // Name
+      const nameEl = document.createElement("h3");
+      nameEl.textContent = obj.name;
+      wrapper.appendChild(nameEl);
 
-    // Vertex count
-    const vertsEl = document.createElement("p");
-    vertsEl.textContent = `Vertices: ${obj.mesh.mesh.length * 3}`;
-    wrapper.appendChild(vertsEl);
+      // Vertex count
+      const vertsEl = document.createElement("p");
+      vertsEl.textContent = `Vertices: ${obj.mesh.mesh.length * 3}`;
+      wrapper.appendChild(vertsEl);
 
-    // Helper to create labeled number input
-    function createInput(
-      labelText: string,
-      value: number,
-      onChange: (v: number) => void
-    ) {
-      const label = document.createElement("label");
-      label.innerHTML = `<br>${labelText}: `;
-      const input = document.createElement("input");
-      input.type = "number";
-      input.value = value.toString();
-      input.step = "0.1";
-      input.addEventListener("input", () => {
-        const val = input.value === "" ? 0 : parseFloat(input.value);
-        onChange(val);
+      // --- NEW: Delete button ---
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "Delete Object";
+      deleteBtn.style.marginBottom = "10px";
+      deleteBtn.addEventListener("click", () => {
+        // Remove from world
+        world.worldObjects = world.worldObjects.filter(o => o.id !== obj.id);
+
+        // Remove UI
+        wrapper.remove();
+
+        // Trigger re-trace/update if needed
+        if (world.tracerUpdateSupplier) world.tracerUpdateSupplier()();
       });
-      label.appendChild(input);
-      wrapper.appendChild(label);
-    }
+      wrapper.appendChild(deleteBtn);
 
-    // Extract current transform components
-    const translation = [obj.position[12], obj.position[13], obj.position[14]];
-    const rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
-    const scale = [1, 1, 1];           // default 1 or store separately
+      // Helper to create labeled number input
+      function createInput(
+        labelText: string,
+        value: number,
+        onChange: (v: number) => void
+      ) {
+        const label = document.createElement("label");
+        label.innerHTML = `<br>${labelText}: `;
+        const input = document.createElement("input");
+        input.type = "number";
+        input.value = value.toString();
+        input.step = "0.1";
+        input.addEventListener("input", () => {
+          const val = input.value === "" ? 0 : parseFloat(input.value);
+          onChange(val);
+        });
+        label.appendChild(input);
+        wrapper.appendChild(label);
+      }
 
-    // Function to rebuild mat4 from translation, rotation, scale
-    function rebuildMatrix() {
-      const rad = rotationDegrees.map((d) => (d * Math.PI) / 180);
-      const newMat = mat4.create();
+      // Extract current transform components
+      const translation = [obj.position[12], obj.position[13], obj.position[14]];
+      const rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
+      const scale = [1, 1, 1];           // default 1 or store separately
 
-      mat4.translate(newMat, newMat, vec3.fromValues(translation[0], translation[1], translation[2]));
-      mat4.rotateX(newMat, newMat, rad[0]);
-      mat4.rotateY(newMat, newMat, rad[1]);
-      mat4.rotateZ(newMat, newMat, rad[2]);
-      mat4.scale(newMat, newMat, vec3.fromValues(scale[0], scale[1], scale[2]));
+      // Function to rebuild mat4 from translation, rotation, scale
+      function rebuildMatrix() {
+        const rad = rotationDegrees.map((d) => (d * Math.PI) / 180);
+        const newMat = mat4.create();
 
-      mat4.copy(obj.position, newMat);
+        mat4.translate(newMat, newMat, vec3.fromValues(translation[0], translation[1], translation[2]));
+        mat4.rotateX(newMat, newMat, rad[0]);
+        mat4.rotateY(newMat, newMat, rad[1]);
+        mat4.rotateZ(newMat, newMat, rad[2]);
+        mat4.scale(newMat, newMat, vec3.fromValues(scale[0], scale[1], scale[2]));
 
-      if (world.tracerUpdateSupplier) world.tracerUpdateSupplier()();
-    }
-    // Translation inputs
-    const tHeader = document.createElement("h4");
-    tHeader.textContent = "Translation:";
-    wrapper.appendChild(tHeader);
-    ["X", "Y", "Z"].forEach((axis, i) =>
-      createInput(axis, translation[i], (v) => {
-        translation[i] = v;
-        rebuildMatrix();
-      })
-    );
+        mat4.copy(obj.position, newMat);
 
-    // Rotation inputs (degrees)
-    const rHeader = document.createElement("h4");
-    rHeader.textContent = "Rotation (degrees):";
-    wrapper.appendChild(rHeader);
-    ["X", "Y", "Z"].forEach((axis, i) =>
-      createInput(axis, rotationDegrees[i], (v) => {
-        rotationDegrees[i] = v;
-        rebuildMatrix();
-      })
-    );
+        if (world.tracerUpdateSupplier) world.tracerUpdateSupplier()();
+      }
+      // Translation inputs
+      const tHeader = document.createElement("h4");
+      tHeader.textContent = "Translation:";
+      wrapper.appendChild(tHeader);
+      ["X", "Y", "Z"].forEach((axis, i) =>
+        createInput(axis, translation[i], (v) => {
+          translation[i] = v;
+          rebuildMatrix();
+        })
+      );
 
-    // Scale inputs
-    const sHeader = document.createElement("h4");
-    sHeader.textContent = "Scale:";
-    wrapper.appendChild(sHeader);
-    ["X", "Y", "Z"].forEach((axis, i) =>
-      createInput(axis, scale[i], (v) => {
-        scale[i] = v;
-        rebuildMatrix();
-      })
-    );
+      // Rotation inputs (degrees)
+      const rHeader = document.createElement("h4");
+      rHeader.textContent = "Rotation (degrees):";
+      wrapper.appendChild(rHeader);
+      ["X", "Y", "Z"].forEach((axis, i) =>
+        createInput(axis, rotationDegrees[i], (v) => {
+          rotationDegrees[i] = v;
+          rebuildMatrix();
+        })
+      );
 
-    container.appendChild(wrapper);
-  };
-}
+      // Scale inputs
+      const sHeader = document.createElement("h4");
+      sHeader.textContent = "Scale:";
+      wrapper.appendChild(sHeader);
+      ["X", "Y", "Z"].forEach((axis, i) =>
+        createInput(axis, scale[i], (v) => {
+          scale[i] = v;
+          rebuildMatrix();
+        })
+      );
+
+      container.appendChild(wrapper);
+    };
+  }
 }

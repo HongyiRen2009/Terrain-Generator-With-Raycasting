@@ -35,12 +35,56 @@
         <p class = "sliderInput">(Pathtracing) Number of Bounces: <span id="bounceValue">5</span></p>
       </div>
       <h3>World Objects</h3>
+      <button id="open-popup-btn">Add World Object</button>
       <div id = "world-objects">
 
       </div>
     </div>
 
+    <div id="popup" class="popup hidden">
+      <div class="popup-content">
+        <span id="close-popup-btn" class="close">&times;</span>
+        <h2>Add World Object</h2>
 
+        <!-- Object Name -->
+        <label>
+          Object Name:
+          <input type="text" id="object-name" />
+        </label>
+        <br/>
+
+        <!-- File Upload -->
+        <label>
+          Upload .ply file:
+          <input type="file" id="ply-file" accept=".ply" />
+        </label>
+        <br/>
+
+        <!-- Import Map Section -->
+        <h3>Import Map</h3>
+        <div id="import-map"></div>
+        <div style="display: inline-flex; align-items: center; gap: 6px;">
+          <button id="add-map-entry">+ Add Mapping</button>
+          <span class="help-tooltip">?
+            <div class="tooltip-box">
+              <p><b>Material Mapping</b> basically means a color in the .ply file corresponds to a custom material type, to which you can edit.</p>
+              <p>Each material type has different properties and appearance.</p>
+              <p><u>These are the types currently supported:</u></p>
+              <ul>
+                <li>Diffuse (Lambertian): Matte surface</li>
+                <li>Specular (Perfect Mirror) – color ignored</li>
+                <li>Glossy (Microfacet Reflection)<br>(roughness 0=mirror, 1=diffuse)</li>
+                <li>Transmission (Glass/Dielectric)<br>(roughness ~ index of refraction)</li>
+                <li>Emission: Emissive surface</li>
+              </ul>
+            </div>
+          </span>
+        </div>
+
+        <br/><br/>
+        <button id="submit-object">Submit</button>
+      </div>
+    </div>
     <canvas id="#MainCanvas" width="500" height="500"></canvas>
     <style src="css/style.css"></style>
   </body>
