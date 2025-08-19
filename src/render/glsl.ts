@@ -34,20 +34,22 @@ uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProj;
 
-out vec4 vPosition;
-out vec3 vNormal;
+out vec4 vWorldPosition;  // World space position
+out vec4 vViewPosition;   // View space position  
+out vec3 vWorldNormal;    // World space normal
 out vec3 vColor;
-out vec2 vTexCoords;
 
 void main(){
-  mat3 normalMatrix = transpose(inverse(mat3(uView * uModel)));
-
-  vPosition = uView * uModel * aPosition;
-  vNormal = normalMatrix * aNormal;
-  vColor=aColor;
-  gl_Position = uProj * vPosition;
+  // Calculate world space position and normal
+  vWorldPosition = uModel * aPosition;
+  vWorldNormal = mat3(uModel) * aNormal;
+  
+  // Calculate view space position
+  vViewPosition = uView * vWorldPosition;
+  
+  vColor = aColor;
+  gl_Position = uProj * vViewPosition;
 }`;
-//
 
 export const MeshGeometryFragmentShaderCode = /* glsl */ `#version 300 es 
 precision highp float;
@@ -55,15 +57,23 @@ precision highp float;
 layout(location = 0) out vec4 gPosition;
 layout(location = 1) out vec4 gNormal;
 layout(location = 2) out vec4 gAlbedo;
-in vec4 vPosition;
-in vec3 vNormal;
+
+in vec4 vWorldPosition;
+in vec4 vViewPosition;
+in vec3 vWorldNormal;
 in vec3 vColor;
+
 void main(){
-  gPosition=vPosition;
-  gNormal=vec4(normalize(vNormal*0.5+0.5),1.0);
-  gAlbedo=vec4(vColor,1.0);
-}
-`;
+  // Store view space position for SSAO (more stable than world space)
+  gPosition = vViewPosition;
+  
+  // Store view space normal (normalize and encode)
+  vec3 viewNormal = normalize(vWorldNormal);
+  gNormal = vec4(viewNormal * 0.5 + 0.5, 1.0);
+  
+  gAlbedo = vec4(vColor, 1.0);
+}`;
+
 export const MeshSSAOVertexShaderCode = /* glsl */ `#version 300 es
 precision highp float;
 
@@ -131,6 +141,7 @@ void main(){
   ssao = occlusion;
 }
 `;
+
 export const MeshLightingVertexShaderCode = /* glsl */ `#version 300 es
 precision highp float;
 
@@ -138,11 +149,10 @@ in vec2 aPosition;
 out vec2 vTexCoords;
 
 void main() {
-    vTexCoords = aPosition * 0.5 + 0.5; // Map from [-1,1] to [0,1]
+    vTexCoords = aPosition * 0.5 + 0.5;
     gl_Position = vec4(aPosition, 0.0, 1.0);
-}
+}`;
 
-`;
 export const MeshLightingFragmentShaderCode = /* glsl */ `#version 300 es
 precision highp float;
 

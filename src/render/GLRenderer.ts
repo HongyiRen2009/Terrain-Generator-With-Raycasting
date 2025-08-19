@@ -63,6 +63,7 @@ export class GLRenderer {
     gPosition: WebGLTexture;
     gNormal: WebGLTexture;
     gAlbedo: WebGLTexture;
+    gDepth: WebGLTexture;
   };
 
   constructor(
@@ -187,12 +188,13 @@ export class GLRenderer {
     this.initSSAOBuffers();
     this.initLightingBuffers();
   }
+
   initializeGeometryBuffers() {
     // Create and set up G-Buffer and its textures
     const gBuffer = this.gl.createFramebuffer()!;
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, gBuffer);
 
-    // Position Texture
+    // Position Texture (World Space)
     const gPosition = this.gl.createTexture()!;
     this.gl.bindTexture(this.gl.TEXTURE_2D, gPosition);
     this.gl.texImage2D(
@@ -234,7 +236,7 @@ export class GLRenderer {
       0
     );
 
-    // Normal Texture
+    // Normal Texture (World Space)
     const gNormal = this.gl.createTexture()!;
     this.gl.bindTexture(this.gl.TEXTURE_2D, gNormal);
     this.gl.texImage2D(
@@ -318,11 +320,61 @@ export class GLRenderer {
       0
     );
 
+    const gDepth = this.gl.createTexture()!;
+    this.gl.bindTexture(this.gl.TEXTURE_2D, gDepth);
+    this.gl.texImage2D(
+      this.gl.TEXTURE_2D,
+      0,
+      this.gl.DEPTH_COMPONENT24,
+      this.canvas.width,
+      this.canvas.height,
+      0,
+      this.gl.DEPTH_COMPONENT,
+      this.gl.UNSIGNED_INT,
+      null
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MIN_FILTER,
+      this.gl.NEAREST
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MAG_FILTER,
+      this.gl.NEAREST
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_S,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_T,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.DEPTH_ATTACHMENT,
+      this.gl.TEXTURE_2D,
+      gDepth,
+      0
+    );
+
+    // Check framebuffer completeness
+    if (
+      this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER) !==
+      this.gl.FRAMEBUFFER_COMPLETE
+    ) {
+      console.error("G-Buffer framebuffer is not complete!");
+    }
+
     this.gBuffer = {
       frameBuffer: gBuffer,
       gPosition: gPosition,
       gNormal: gNormal,
-      gAlbedo: gAlbedo
+      gAlbedo: gAlbedo,
+      gDepth: gDepth
     };
 
     // Create VAO for mesh geometry (assuming TriangleBuffer is already set)
@@ -342,6 +394,13 @@ export class GLRenderer {
   //Geometry Pass for Deferred Rendering
   MeshGeometryPass(uModelMatrix: mat4) {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.gBuffer.frameBuffer);
+
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+
+    this.gl.enable(this.gl.DEPTH_TEST);
+    this.gl.depthFunc(this.gl.LESS);
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+
     this.gl.useProgram(this.MeshGeometryShader.Program!);
     this.gl.bindVertexArray(this.meshGeometryVao);
 
@@ -375,8 +434,8 @@ export class GLRenderer {
       0
     );
 
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.bindVertexArray(null);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
   //Kernels for SSAO
   generateKernels() {
@@ -386,7 +445,7 @@ export class GLRenderer {
       let sample = vec3.fromValues(
         Math.random() * 2.0 - 1.0,
         Math.random() * 2.0 - 1.0,
-        Math.random() * 2.0 - 1.0
+        Math.random()
       );
       vec3.normalize(sample, sample);
       vec3.scale(sample, sample, Math.random());
@@ -398,6 +457,7 @@ export class GLRenderer {
       this.kernels.push(sample);
     }
   }
+
   // Initialize SSAO buffers and textures
   initSSAOBuffers() {
     // Create Noise Texture
@@ -454,11 +514,11 @@ export class GLRenderer {
     this.gl.texImage2D(
       this.gl.TEXTURE_2D,
       0,
-      this.gl.RGBA,
+      this.gl.R8,
       this.canvas.width,
       this.canvas.height,
       0,
-      this.gl.RGBA,
+      this.gl.RED,
       this.gl.UNSIGNED_BYTE,
       null
     );
@@ -491,7 +551,14 @@ export class GLRenderer {
       0
     );
 
-    // Store the framebuffer for later use
+    // Check framebuffer completeness
+    if (
+      this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER) !==
+      this.gl.FRAMEBUFFER_COMPLETE
+    ) {
+      console.error("SSAO framebuffer is not complete!");
+    }
+
     this.ssaoFramebuffer = ssaoBuffer;
 
     // Create fullscreen quad VAO for SSAO
@@ -504,13 +571,10 @@ export class GLRenderer {
       this.MeshSSAOShader
     );
 
-    // Unbind framebuffer
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
 
-  // Initialize lighting pass buffers
   initLightingBuffers() {
-    // Create fullscreen quad VAO for lighting
     this.lightingQuadVAO = GlUtils.createNonInterleavedVao(
       this.gl,
       {
@@ -523,13 +587,21 @@ export class GLRenderer {
 
   // Screen Space Ambient Occlusion Pass
   SSAOPass() {
-    // Bind the SSAO framebuffer
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.ssaoFramebuffer);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.gl.disable(this.gl.DEPTH_TEST); // No depth testing for post-process
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
 
-    // Use SSAO shader program
     this.gl.useProgram(this.MeshSSAOShader.Program!);
 
-    // Send uniforms to the SSAO shader
+    // Send projection matrix to SSAO shader
+    this.gl.uniformMatrix4fv(
+      this.MeshSSAOShader.Uniforms["uProj"].location,
+      false,
+      this.matProj
+    );
+
+    // Send kernels
     for (let i = 0; i < this.kernels.length; i++) {
       const loc = this.gl.getUniformLocation(
         this.MeshSSAOShader.Program!,
@@ -538,10 +610,7 @@ export class GLRenderer {
       this.gl.uniform3fv(loc, this.kernels[i]);
     }
 
-    const noiseScale = [
-      this.canvas.width / 4, // noiseSize is 4
-      this.canvas.height / 4
-    ];
+    const noiseScale = [this.canvas.width / 4, this.canvas.height / 4];
     const loc = this.gl.getUniformLocation(
       this.MeshSSAOShader.Program!,
       "noiseScale"
@@ -571,29 +640,23 @@ export class GLRenderer {
       2
     );
 
-    // Bind VAO and render
     this.gl.bindVertexArray(this.ssaoQuadVAO);
-    this.gl.drawElements(
-      this.gl.TRIANGLES,
-      quadIndices.length,
-      this.gl.UNSIGNED_SHORT,
-      0
-    );
+    this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
 
-    // Unbind
     this.gl.bindVertexArray(null);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
 
   // Lighting Pass
   LightingPass() {
-    // Bind the default framebuffer (the screen)
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.gl.disable(this.gl.DEPTH_TEST); // No depth testing for final composite
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
-    // Use lighting shader program
     this.gl.useProgram(this.MeshLightingShader.Program!);
 
-    // Bind G-Buffer textures and SSAO texture to the lighting shader
+    // Bind G-Buffer textures and SSAO texture
     GlUtils.bindTex(
       this.gl,
       this.MeshLightingShader.Program!,
@@ -623,7 +686,7 @@ export class GLRenderer {
       3
     );
 
-    // Update lights
+    // Update lights and view matrix
     GlUtils.updateLights(
       this.gl,
       this.MeshLightingShader.Program!,
@@ -635,16 +698,22 @@ export class GLRenderer {
       false,
       this.matView
     );
-    // Bind VAO and render fullscreen quad
+
     this.gl.bindVertexArray(this.lightingQuadVAO);
-    this.gl.drawElements(
-      this.gl.TRIANGLES,
-      quadIndices.length,
-      this.gl.UNSIGNED_SHORT,
-      0
-    );
+    this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
 
     this.gl.bindVertexArray(null);
+  }
+
+  drawMesh(uModelMatrix: mat4) {
+    // 1. Geometry Pass - Fill G-Buffer
+    this.MeshGeometryPass(uModelMatrix);
+
+    // 2. SSAO Pass
+    this.SSAOPass();
+
+    // 3. Lighting Pass - Final render
+    this.LightingPass();
   }
 
   DrawWireFrameCube(TransformationMatrix: mat4) {
@@ -676,28 +745,6 @@ export class GLRenderer {
     this.gl.bindVertexArray(cubeVao);
     this.gl.drawElements(this.gl.LINES, 24, this.gl.UNSIGNED_INT, 0);
     this.gl.bindVertexArray(null);
-  }
-  drawMesh(uModelMatrix: mat4) {
-    // 1. Geometry Pass - Fill G-Buffer
-    this.gl.enable(this.gl.DEPTH_TEST);
-
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.gBuffer.frameBuffer);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.MeshGeometryPass(uModelMatrix);
-    // 2. SSAO Pass
-    this.gl.disable(this.gl.DEPTH_TEST);
-
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.ssaoFramebuffer);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.SSAOPass();
-
-    // 3. Lighting Pass - Final render
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.LightingPass();
   }
   render() {
     // Set clear color to black, fully opaque
