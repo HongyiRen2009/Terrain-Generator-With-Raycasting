@@ -13,15 +13,17 @@ import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
 import { cubeVertices, cubeWireframeIndices } from "../map/geometry";
 import { Mesh } from "../map/Mesh";
+import { WorldObject } from "../map/WorldObject";
 
 export class GLRenderer {
   gl: WebGL2RenderingContext;
   canvas: HTMLCanvasElement;
   camera: Camera;
 
-  TriangleBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
+  TerrainTriangleBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null =
+    null;
   CubeBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
-  MeshSize: number = 0;
+  TerrainMeshSize: number = 0;
 
   matViewProj: mat4;
 
@@ -29,8 +31,14 @@ export class GLRenderer {
 
   world: WorldMap;
 
-  MeshShader: Shader;
-  CubeShader: Shader;
+  TerrainMeshShader: Shader;
+  terrainVAO: WebGLVertexArrayObject | null = null;
+
+  WireframeCubeShader: Shader;
+  wireframeCubeVAO: WebGLVertexArrayObject | null = null;
+
+  worldObjectVAOs: Map<number, WebGLVertexArrayObject> = new Map();
+
   constructor(
     gl: WebGL2RenderingContext,
     canvas: HTMLCanvasElement,
@@ -48,12 +56,12 @@ export class GLRenderer {
 
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
-    this.CubeShader = new Shader(
+    this.WireframeCubeShader = new Shader(
       gl,
       CubeVertexShaderCode,
       CubeFragmentShaderCode
     );
-    this.MeshShader = new Shader(
+    this.TerrainMeshShader = new Shader(
       gl,
       MeshVertexShaderCode,
       MeshFragmentShaderCode
@@ -85,9 +93,9 @@ export class GLRenderer {
       // Update offset for next chunk
       indexOffset += vertexData.vertices.length / 9; // 9 components per vertex
     }
-    this.MeshSize = triangleIndices.length;
+    this.TerrainMeshSize = triangleIndices.length;
 
-    this.TriangleBuffer = GlUtils.CreateStaticBuffer(
+    this.TerrainTriangleBuffer = GlUtils.CreateStaticBuffer(
       this.gl,
       new Float32Array(triangleVertices),
       triangleIndices
@@ -98,12 +106,12 @@ export class GLRenderer {
       cubeWireframeIndices
     );
 
-    this.CubeShader = new Shader(
+    this.WireframeCubeShader = new Shader(
       this.gl,
       CubeVertexShaderCode,
       CubeFragmentShaderCode
     );
-    this.MeshShader = new Shader(
+    this.TerrainMeshShader = new Shader(
       this.gl,
       MeshVertexShaderCode,
       MeshFragmentShaderCode
@@ -111,82 +119,129 @@ export class GLRenderer {
 
     this.matViewProj = mat4.create();
   }
-  drawMesh(TransformationMatrix: mat4) {
-    this.gl.useProgram(this.MeshShader.Program!);
+  drawTerrain(TransformationMatrix: mat4) {
+    this.gl.useProgram(this.TerrainMeshShader.Program!);
     GlUtils.updateLights(
       this.gl,
-      this.MeshShader.Program!,
+      this.TerrainMeshShader.Program!,
       this.world.lights,
       this.camera
     );
     this.gl.uniformMatrix4fv(
-      this.MeshShader.VertexUniforms["MatrixTransform"].location,
+      this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location,
       false,
       TransformationMatrix
     );
     this.gl.uniformMatrix4fv(
-      this.MeshShader.VertexUniforms["matViewProj"].location,
+      this.TerrainMeshShader.VertexUniforms["matViewProj"].location,
       false,
       this.matViewProj
     );
 
     //Create vertice array object
-    if (!this.TriangleBuffer) {
+    if (!this.TerrainTriangleBuffer) {
       console.error("TriangleBuffer not initialized.");
       return;
     }
 
-    const triangleVao = GlUtils.createInterleavedVao(
-      this.gl,
-      this.TriangleBuffer.vertex,
-      this.TriangleBuffer.indices,
-      this.MeshShader,
-      {
-        VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
-        VertexNormal: { offset: 12, stride: 36 },
-        VertexColor: { offset: 24, stride: 36 }
-      }
-    );
+    if (!this.terrainVAO) {
+      this.terrainVAO = GlUtils.createInterleavedVao(
+        this.gl,
+        this.TerrainTriangleBuffer.vertex,
+        this.TerrainTriangleBuffer.indices,
+        this.TerrainMeshShader,
+        {
+          VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+          VertexNormal: { offset: 12, stride: 36 },
+          VertexColor: { offset: 24, stride: 36 }
+        }
+      );
+    }
 
-    this.gl.bindVertexArray(triangleVao);
+    this.gl.bindVertexArray(this.terrainVAO);
 
     this.gl.drawElements(
       this.gl.TRIANGLES,
-      this.MeshSize,
+      this.TerrainMeshSize,
       this.gl.UNSIGNED_INT,
       0
     );
     this.gl.bindVertexArray(null);
   }
   DrawWireFrameCube(TransformationMatrix: mat4) {
-    this.gl.useProgram(this.CubeShader.Program!);
+    this.gl.useProgram(this.WireframeCubeShader.Program!);
     this.gl.uniformMatrix4fv(
-      this.CubeShader.VertexUniforms["MatrixTransform"].location,
+      this.WireframeCubeShader.VertexUniforms["MatrixTransform"].location,
       false,
       TransformationMatrix
     );
     this.gl.uniformMatrix4fv(
-      this.CubeShader.VertexUniforms["matViewProj"].location,
+      this.WireframeCubeShader.VertexUniforms["matViewProj"].location,
       false,
       this.matViewProj
     );
 
     if (!this.CubeBuffer) throw new Error("CubeBuffer not initialized.");
 
-    const cubeVao = GlUtils.createInterleavedVao(
-      this.gl,
-      this.CubeBuffer.vertex,
-      this.CubeBuffer.indices,
-      this.CubeShader,
-      {
-        VertexPosition: { offset: 0, stride: 24, sizeOverride: 3 },
-        VertexColor: { offset: 12, stride: 24 }
-      }
-    );
-    this.gl.bindVertexArray(cubeVao);
+    if (!this.wireframeCubeVAO) {
+      this.wireframeCubeVAO = GlUtils.createInterleavedVao(
+        this.gl,
+        this.CubeBuffer.vertex,
+        this.CubeBuffer.indices,
+        this.WireframeCubeShader,
+        {
+          VertexPosition: { offset: 0, stride: 24, sizeOverride: 3 },
+          VertexColor: { offset: 12, stride: 24 }
+        }
+      );
+    }
+
+    this.gl.bindVertexArray(this.wireframeCubeVAO);
     this.gl.drawElements(this.gl.LINES, 24, this.gl.UNSIGNED_INT, 0);
     this.gl.bindVertexArray(null);
   }
+
+  drawWorldObject(obj: WorldObject) {
+    // for now, just use the terrain mesh
+    this.gl.useProgram(this.TerrainMeshShader.Program!);
+    this.gl.uniformMatrix4fv(
+      this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location,
+      false,
+      obj.position
+    );
+    this.gl.uniformMatrix4fv(
+      this.TerrainMeshShader.VertexUniforms["matViewProj"].location,
+      false,
+      this.matViewProj
+    );
+
+    // TODO: vao should be per mesh, not per object
+    // Do we need to have some sort of meshid instead of objectid?
+    if (!this.worldObjectVAOs.has(obj.id)) {
+      const vao = GlUtils.createInterleavedVao(
+        this.gl,
+        obj.buffer.vertex,
+        obj.buffer.indices,
+        this.TerrainMeshShader,
+        {
+          VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+          VertexNormal: { offset: 12, stride: 36 },
+          VertexColor: { offset: 24, stride: 36 }
+        }
+      );
+      this.worldObjectVAOs.set(obj.id, vao);
+    }
+
+    this.gl.bindVertexArray(this.worldObjectVAOs.get(obj.id)!);
+    this.gl.drawElements(
+      this.gl.TRIANGLES,
+      obj.meshSize,
+      this.gl.UNSIGNED_INT,
+      0
+    );
+    this.gl.bindVertexArray(null);
+  }
+
   render() {
     // Set clear color to black, fully opaque
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -216,12 +271,16 @@ export class GLRenderer {
       }
     }
 
-    this.drawMesh(
+    this.drawTerrain(
       GlUtils.CreateTransformations(
         vec3.fromValues(0, 0, 0),
         vec3.fromValues(0, 0, 0),
         vec3.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)
       )
     );
+
+    for (const object of this.world.worldObjects) {
+      this.drawWorldObject(object);
+    }
   }
 }

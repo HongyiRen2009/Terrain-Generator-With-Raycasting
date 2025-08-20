@@ -1,7 +1,7 @@
 interface Dictionary<T> {
   [Key: string]: T;
 }
-type Supplier<T> = () => T;
+export type Supplier<T> = () => T;
 
 /**
  * Our class for debug screen

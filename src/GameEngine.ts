@@ -1,11 +1,15 @@
-import { vec3 } from "gl-matrix";
+import { mat3, mat4, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
-import { Utilities } from "./map/Utilities";
+
+import teapotObj from "../models/teapot.obj";
+import teapotPly from "../models/teapot.ply";
+import { loadPLYToMesh, objSourceToMesh } from "./objreader";
+import { Color, Terrains } from "./map/terrains";
 
 /**
  * Our holding class for all game mechanics
@@ -35,6 +39,7 @@ export class GameEngine {
   private currentFPS: number = 0;
 
   private worldInitialized = false;
+  private updatePathracing: () => void;
   /**
    * Constructs game engine
    * @param canvasId The ID of the canvas rendered to
@@ -55,8 +60,10 @@ export class GameEngine {
     //Initialize controls
     this.addKeys();
 
+    this.updatePathracing = () => {};
+
     //Initialize world
-    this.world = new WorldMap(1000, 64, 1000);
+    this.world = new WorldMap(1000, 64, 1000, this.gl,()=>this.updatePathracing);
 
     //Initialize Camera
     this.mainCamera = new Camera(vec3.fromValues(0, 0, 3));
@@ -77,6 +84,10 @@ export class GameEngine {
       this.mainCamera,
       this.debug
     );
+    this.updatePathracing = () => {
+      this.pathTracer.initBVH(this.world.combinedMesh());
+      this.pathTracer.init(false);
+    };
 
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
@@ -87,6 +98,7 @@ export class GameEngine {
 
     //Debugging
     this.debug.addElement("FPS", () => Math.round(this.currentFPS));
+    this.debug.addElement("#Types", () => Object.keys(Terrains).length);
 
     //Initialize switcher
     const rayBtn = document.getElementById("raytracing")!;
@@ -128,23 +140,33 @@ export class GameEngine {
 
     this.initialize();
   }
-  public async initialize(usingWorkerMarchingCubes = true) {
+  public async initialize() {
     await Promise.all(
       this.world.chunks.map((chunk) => chunk.generateTerrain())
     );
     this.world.populateFieldMap();
-    if (!usingWorkerMarchingCubes) {
-      for (const chunk of this.world.chunks) {
-        chunk.CreateMarchingCubes();
-      }
-    } else {
-      await Promise.all(
-        this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
-      );
-    }
+
+    await Promise.all(
+      this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
+    );
+
     this.renderer.GenerateTriangleBuffer(
       GlUtils.genTerrainVertices(this.world)
     );
+
+    const test = new Color(0*255, 0.975*255, 1*255);
+    let id = test.toString()
+    const triangleMesh = loadPLYToMesh(teapotPly,{id:1});
+    triangleMesh.scale(0.1);
+    const identity = mat4.create();
+    mat4.identity(identity);
+    this.world.addObject(triangleMesh, identity,"Teapot");
+
+    const triangleMesh2 = objSourceToMesh(teapotObj);
+    const identity2 = mat4.create();
+    mat4.identity(identity2);
+    //this.world.addObject(triangleMesh2, identity2, "Teapot2");
+
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
     this.worldInitialized = true;
