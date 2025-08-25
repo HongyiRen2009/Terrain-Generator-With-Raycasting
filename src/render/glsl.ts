@@ -23,139 +23,198 @@ void main() {
   outputColor = vec4(fragmentColor, 1);
 }`;
 //
-
 export const MeshGeometryVertexShaderCode = /* glsl */ `#version 300 es
 precision highp float;
 
-in vec4 aPosition;
-in vec3 aNormal;
-in vec3 aColor;
+in vec3 VertexPosition;
+in vec3 VertexNormal;
+in vec3 VertexColor;
+
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProj;
 
-out vec4 vWorldPosition;  // World space position
-out vec4 vViewPosition;   // View space position  
-out vec3 vWorldNormal;    // World space normal
-out vec3 vColor;
+out vec3 vWorldNormal;
+out vec3 vAlbedo;
+out vec4 vViewPos;
 
-void main(){
-  // Calculate world space position and normal
-  vWorldPosition = uModel * aPosition;
-  vWorldNormal = mat3(uModel) * aNormal;
-  
-  // Calculate view space position
-  vViewPosition = uView * vWorldPosition;
-  
-  vColor = aColor;
-  gl_Position = uProj * vViewPosition;
-}`;
+void main() {
+    // Transform position to view space for depth reconstruction
+    vec4 worldPos = uModel * vec4(VertexPosition, 1.0);
+    vViewPos = uView * worldPos;
+    
+    // Transform normals to world space and then to view space
+    mat3 normalMatrix = mat3(transpose(inverse(uView * uModel)));
+    vWorldNormal = normalize(normalMatrix * VertexNormal);
+    
+    // Pass through albedo (using vertex color)
+    vAlbedo = VertexColor;
+    
+    gl_Position = uProj * vViewPos;
+}
+`;
 
 export const MeshGeometryFragmentShaderCode = /* glsl */ `#version 300 es 
 precision highp float;
 
-layout(location = 0) out vec4 gPosition;
-layout(location = 1) out vec4 gNormal;
-layout(location = 2) out vec4 gAlbedo;
-
-in vec4 vWorldPosition;
-in vec4 vViewPosition;
 in vec3 vWorldNormal;
-in vec3 vColor;
+in vec3 vAlbedo;
+in vec4 vViewPos;
 
-void main(){
-  // Store view space position for SSAO (more stable than world space)
-  gPosition = vViewPosition;
-  
-  // Store view space normal (normalize and encode)
-  vec3 viewNormal = normalize(vWorldNormal);
-  gNormal = vec4(viewNormal * 0.5 + 0.5, 1.0);
-  
-  gAlbedo = vec4(vColor, 1.0);
-}`;
+layout(location = 0) out vec4 outNormal;
+layout(location = 1) out vec4 outAlbedo;
 
+void main() {
+    // Store view-space normals (normalized)
+    outNormal = vec4(normalize(vWorldNormal), 1.0);
+    
+    // Store albedo color
+    outAlbedo = vec4(vAlbedo, 1.0);
+    
+    // Depth is automatically written to the depth buffer
+    // For depth reconstruction in SSAO, we'll use gl_FragCoord.z
+}
+`;
 export const MeshSSAOVertexShaderCode = /* glsl */ `#version 300 es
 precision highp float;
-
-in vec2 aPosition;
-
-out vec2 vTexCoords;
-
+layout(location = 0) in vec3 VertexPosition;
+layout(location = 1) in vec2 VertexUV;
+out vec2 vUV;
 void main() {
-    // Convert from clip space [-1, 1] to UV space [0, 1]
-    vTexCoords = aPosition * 0.5 + 0.5;
-    gl_Position = vec4(aPosition, 0.0, 1.0);
+    vUV = VertexUV;
+    gl_Position = vec4(VertexPosition, 1.0);
 }
 `;
-
 export const MeshSSAOFragmentShaderCode = /* glsl */ `#version 300 es
 precision highp float;
-
-#define NUM_SAMPLES 16
-
-in vec2 vTexCoords;
+#define NUM_SAMPLES 64
+in vec2 vUV;
 out float ssao;
-
-
-uniform sampler2D gPosition;
-uniform sampler2D gNormal;
-uniform sampler2D texNoise;
-
+uniform sampler2D uNormalTex;
+uniform sampler2D uDepthTex;
+uniform sampler2D uNoiseTex;
+uniform float uNoiseSize;
+uniform vec3 uSamples[64];
 uniform mat4 uProj;
-uniform vec3 samples[NUM_SAMPLES];
-uniform vec2 noiseScale;
+uniform mat4 uProjInverse;
 
-const float radius = 0.5;
-const float bias = 0.025;
-
-void main(){
-  vec3 fragPos = texture(gPosition, vTexCoords).xyz;
-  vec3 normal = normalize(texture(gNormal, vTexCoords).xyz * 2.0 - 1.0);
-  vec3 randomVec = texture(texNoise, vTexCoords * noiseScale).xyz;
-  
-  //Create TBN Roration Matrix
-  vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
-  vec3 bitangent = cross(normal, tangent);
-  mat3 TBN = mat3(tangent, bitangent, normal);
-  
-  float occlusion = 0.0;
-  for (int i = 0; i < 16; ++i) {
-    // Sample vector in view space
-    vec3 samplePos = TBN * samples[i];
-    samplePos = fragPos + samplePos * radius;
-
-    // project sample position (to get screen-space coords)
-    vec4 offset = uProj * vec4(samplePos, 1.0);
-    offset.xyz /= offset.w;
-    offset.xyz = offset.xyz * 0.5 + 0.5;
-
-    float sampleDepth = texture(gPosition, offset.xy).z;
-
-    float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPos.z - sampleDepth));
-    if ((sampleDepth + bias) < samplePos.z) {
-      occlusion += rangeCheck;
-    }
-  }
-
-  occlusion = 1.0 - (occlusion / 16.0);
-  ssao = occlusion;
+// Improved depth reconstruction function
+vec3 getViewPosition(vec2 texCoord) {
+    float depth = texture(uDepthTex, texCoord).r;
+    
+    // Convert screen coordinates to NDC
+    vec2 ndc = texCoord * 2.0 - 1.0;
+    
+    // Create clip space position
+    vec4 clipSpacePos = vec4(ndc, depth * 2.0 - 1.0, 1.0);
+    
+    // Transform to view space
+    vec4 viewSpacePos = uProjInverse * clipSpacePos;
+    
+    // Perspective divide
+    return viewSpacePos.xyz / viewSpacePos.w;
 }
-`;
-
-export const MeshLightingVertexShaderCode = /* glsl */ `#version 300 es
-precision highp float;
-
-in vec2 aPosition;
-out vec2 vTexCoords;
 
 void main() {
-    vTexCoords = aPosition * 0.5 + 0.5;
-    gl_Position = vec4(aPosition, 0.0, 1.0);
-}`;
+    vec2 noiseScale = vec2(textureSize(uDepthTex, 0)) / uNoiseSize;
+    
+    vec3 fragPos = getViewPosition(vUV);
+    vec3 normal = normalize(texture(uNormalTex, vUV).rgb);
+    vec3 randomVec = normalize(texture(uNoiseTex, vUV * noiseScale).xyz);
+
+    // Create TBN matrix - ensure proper hemisphere orientation
+    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+    vec3 bitangent = cross(normal, tangent);
+    mat3 TBN = mat3(tangent, bitangent, normal);
+    
+    float occlusion = 0.0;
+    float radius = 0.5; // Reduced radius for better alignment
+    float bias = 0.025;
+    
+    for(int i = 0; i < NUM_SAMPLES; i++) {
+        // Get sample position in hemisphere around surface normal
+        vec3 samplePos = TBN * uSamples[i];
+        samplePos = fragPos + samplePos * radius;
+
+        // Project sample position to screen space
+        vec4 offset = uProj * vec4(samplePos, 1.0);
+        offset.xyz /= offset.w;
+        offset.xyz = offset.xyz * 0.5 + 0.5;
+
+        // Skip samples outside screen bounds
+        if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) {
+            continue;
+        }
+
+        // Get sample depth
+        float sampleDepth = getViewPosition(offset.xy).z;
+
+        // Range check to avoid artifacts from distant geometry
+        float rangeCheck= abs(fragPos.z - sampleDepth) < radius ? 1.0 : 0.0;
+        occlusion += (sampleDepth >= samplePos.z ? 1.0 : 0.0) * rangeCheck;
+    }
+    
+    occlusion = 1.0 - (occlusion / float(NUM_SAMPLES));
+    ssao = occlusion;
+}
+`;
+export const MeshSSAOBlurVertexShaderCode = /* glsl */ `#version 300 es
+precision highp float;
+layout(location = 0) in vec3 VertexPosition;
+layout(location = 1) in vec2 VertexUV;
+out vec2 vUV;
+void main() {
+    vUV = VertexUV;
+    gl_Position = vec4(VertexPosition, 1.0);
+}
+`;
+//ps. I'm so happy that I get to use convolutions besides AI :D
+// I love you 3Blue1Brown
+export const MeshSSAOBlurFragmentShaderCode = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 vUV;
+out float ssaoBlur;
+uniform sampler2D ssaoInput;
+void main() {
+    float result = 0.0;
+    float[9] kernel = float[](
+        1.0, 2.0, 1.0,
+        2.0, 4.0, 2.0,
+        1.0, 2.0, 1.0
+    );
+    vec2 texelSize = 1.0 / vec2(textureSize(ssaoInput, 0));
+    int index = 0;
+    for(int y = -1; y <= 1; y++) {
+        for(int x = -1; x <= 1; x++) {
+            vec2 offset = vec2(float(x), float(y)) * texelSize;
+            result += texture(ssaoInput, vUV + offset).r * kernel[index];
+            index++;
+        }
+    }
+    ssaoBlur = result / 16.0; // Normalize by kernel sum
+}
+`;
+export const MeshLightingVertexShaderCode = /* glsl */ `#version 300 es
+precision highp float;
+layout(location = 0) in vec3 VertexPosition;
+layout(location = 1) in vec2 VertexUV;
+out vec2 vUV;
+void main() {
+    vUV = VertexUV;
+    gl_Position = vec4(VertexPosition, 1.0);
+}
+`;
 
 export const MeshLightingFragmentShaderCode = /* glsl */ `#version 300 es
 precision highp float;
-
+in vec2 vUV;
+out vec4 outputColor;
+uniform sampler2D gNormal;
+uniform sampler2D gAlbedo;
+uniform sampler2D gDepth;
+uniform sampler2D ssao;
+uniform mat4 uViewInverse;
+uniform mat4 uProjInverse;
 struct Light {
   vec3 position;
   vec3 color;
@@ -167,68 +226,64 @@ struct Light {
 
 uniform Light lights[MAX_LIGHTS];
 uniform int numActiveLights;
-uniform vec3 viewPosition;
+uniform vec3 viewPos; // Camera position in world space
 
-uniform sampler2D gPosition;   // World/view-space positions
-uniform sampler2D gNormal;     // World/view-space normals
-uniform sampler2D gAlbedo;     // Albedo/color buffer
-uniform sampler2D ssao;        // SSAO occlusion
-uniform mat4 uView;
-in vec2 vTexCoords;
-out vec4 fragColor;
+// Use the same depth reconstruction function as SSAO
+vec3 getViewPosition(vec2 texCoord) {
+    float depth = texture(gDepth, texCoord).r;
+    
+    // Convert screen coordinates to NDC
+    vec2 ndc = texCoord * 2.0 - 1.0;
+    
+    // Create clip space position
+    vec4 clipSpacePos = vec4(ndc, depth * 2.0 - 1.0, 1.0);
+    
+    // Transform to view space
+    vec4 viewSpacePos = uProjInverse * clipSpacePos;
+    
+    // Perspective divide
+    return viewSpacePos.xyz / viewSpacePos.w;
+}
+
+vec3 getWorldPosition(vec3 viewPos) {
+    vec4 worldPos = uViewInverse * vec4(viewPos, 1.0);
+    return worldPos.xyz;
+}
 
 void main() {
-mat4 inverseViewMatrix = inverse(uView);
+    vec3 fragViewPos = getViewPosition(vUV);
+    vec3 fragWorldPos = getWorldPosition(fragViewPos);
+    vec3 viewNormal = normalize(texture(gNormal, vUV).rgb);
     
-    // Convert vec3 to vec4 for matrix multiplication, then back to vec3
-    vec3 viewSpacePos = texture(gPosition, vTexCoords).xyz;
-    vec3 fragPos = (inverseViewMatrix * vec4(viewSpacePos, 1.0)).xyz;
+    // Transform normal back to world space for lighting calculations
+    vec3 worldNormal = normalize(mat3(uViewInverse) * viewNormal);
     
-    // For normals, use w=0.0 since they're directions, not positions
-    vec3 viewSpaceNormal = normalize(texture(gNormal, vTexCoords).xyz * 2.0 - 1.0);
-    vec3 normal = (inverseViewMatrix * vec4(viewSpaceNormal, 0.0)).xyz;
-    vec3 albedo = texture(gAlbedo, vTexCoords).rgb;
-    float occlusion = texture(ssao, vTexCoords).r;
+    vec3 albedo = texture(gAlbedo, vUV).rgb;
+    float ambientOcclusion = texture(ssao, vUV).r;
+    
+    vec3 ambient = vec3(0.3) * albedo * ambientOcclusion; // Ambient light with SSAO
+    vec3 lighting = ambient;
+    
+    for(int i = 0; i < numActiveLights; i++) {
+        // Diffuse
+        vec3 lightDir = normalize(lights[i].position - fragWorldPos);
+        float diff = max(dot(lightDir, worldNormal), 0.0);
+        vec3 diffuse = diff * lights[i].color * lights[i].intensity;
 
-    vec3 specular = vec3(0.0);
-    vec3 totalDiffuse = vec3(0.0);
+        // Specular
+        vec3 viewDir = normalize(viewPos - fragWorldPos);
+        vec3 reflectDir = reflect(-lightDir, worldNormal);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0); // Shininess hardcoded to 16
+        vec3 specular = spec * lights[i].color * lights[i].intensity;
+        
+        // Attenuation
+        float distance = length(lights[i].position - fragWorldPos);
+        float attenuation = 1.0 / (1.0 + (distance / lights[i].radius) * (distance / lights[i].radius));
+        diffuse *= attenuation;
+        specular *= attenuation;
 
-    float ambientStrength = 0.15;
-    vec3 ambientLight = vec3(0.4, 0.45, 0.5);
-
-    float metallic = 0.1;
-    float roughness = 0.7;
-    float specularStrength = mix(0.04, 0.9, metallic);
-    int shininess = int(mix(2.0, 32.0, 1.0 - roughness));
-
-    for(int i = 0; i < MAX_LIGHTS; i++) {
-        if(i >= numActiveLights) break;
-
-        vec3 lightDir = normalize(lights[i].position - fragPos);
-        float distance = length(lights[i].position - fragPos);
-
-        // Diffuse lighting
-        float diffuseStrength = max(dot(normal, lightDir), 0.1);
-        vec3 diffuse = diffuseStrength * lights[i].color * lights[i].intensity;
-        totalDiffuse += diffuse;
-
-        // Specular lighting (Blinn-Phong)
-        vec3 viewDir = normalize(viewPosition - fragPos);
-        vec3 halfwayDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(normal, halfwayDir), 0.0), float(shininess));
-        specular += spec * lights[i].color * lights[i].intensity * specularStrength;
+        lighting += (diffuse + specular) * albedo;
     }
-
-    // Combine lighting components
-    vec3 ambient = ambientLight * ambientStrength * occlusion;
-    vec3 lighting = ambient + totalDiffuse + specular;
-
-    // Apply lighting to material color
-    vec3 finalColor = albedo * lighting;
-
-    // Gamma correction
-    finalColor = pow(finalColor, vec3(1.0 / 2.2));
-
-    fragColor = vec4(finalColor, 1.0);
+    outputColor = vec4(lighting, 1.0);
 }
 `;
