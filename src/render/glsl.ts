@@ -34,7 +34,7 @@ uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProj;
 
-out vec3 vWorldNormal;
+out vec3 vViewNormal;
 out vec3 vAlbedo;
 out vec4 vViewPos;
 
@@ -45,7 +45,7 @@ void main() {
     
     // Transform normals to world space and then to view space
     mat3 normalMatrix = mat3(transpose(inverse(uView * uModel)));
-    vWorldNormal = normalize(normalMatrix * VertexNormal);
+    vViewNormal = normalize(normalMatrix * VertexNormal);
     
     // Pass through albedo (using vertex color)
     vAlbedo = VertexColor;
@@ -57,7 +57,7 @@ void main() {
 export const MeshGeometryFragmentShaderCode = /* glsl */ `#version 300 es 
 precision highp float;
 
-in vec3 vWorldNormal;
+in vec3 vViewNormal;
 in vec3 vAlbedo;
 in vec4 vViewPos;
 
@@ -66,7 +66,7 @@ layout(location = 1) out vec4 outAlbedo;
 
 void main() {
     // Store view-space normals (normalized)
-    outNormal = vec4(normalize(vWorldNormal), 1.0);
+    outNormal = vec4(normalize(vViewNormal), 1.0);
     
     // Store albedo color
     outAlbedo = vec4(vAlbedo, 1.0);
@@ -261,7 +261,7 @@ void main() {
     vec3 albedo = texture(gAlbedo, vUV).rgb;
     float ambientOcclusion = texture(ssao, vUV).r;
     
-    vec3 ambient = vec3(0.3) * albedo * ambientOcclusion; // Ambient light with SSAO
+    vec3 ambient = (vec3(0.3) * albedo) * ambientOcclusion; // Ambient light with SSAO
     vec3 lighting = ambient;
     
     for(int i = 0; i < numActiveLights; i++) {
@@ -284,6 +284,6 @@ void main() {
 
         lighting += (diffuse + specular) * albedo;
     }
-    outputColor = vec4(lighting, 1.0);
+    outputColor = vec4(ambient, 1.0);
 }
 `;

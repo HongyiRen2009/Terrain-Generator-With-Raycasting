@@ -249,7 +249,7 @@ export class GLRenderer {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.DEPTH_COMPONENT32F, // 24-bit depth precision
+      gl.DEPTH_COMPONENT32F,
       this.canvas.width,
       this.canvas.height,
       0,
@@ -854,7 +854,7 @@ export class GLRenderer {
   }
 
   render() {
-    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
 
     const matViewAndProj = this.camera.calculateProjectionMatrices(
       this.canvas.width,
