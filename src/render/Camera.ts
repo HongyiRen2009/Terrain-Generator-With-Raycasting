@@ -4,7 +4,7 @@ import { GameEngine } from "../GameEngine";
 export class Camera {
   position: vec3;
   sensitivity = 0.1;
-  yaw = -90; // Left right rotation in degrees
+  yaw = 0; // Left right rotation in degrees
   pitch = 0; // Up down rotation in degrees
   //Computed Dynamically
   front = vec3.fromValues(0, 0, -1);

@@ -148,14 +148,14 @@ void main() {
 
         // Get sample depth
         float sampleDepth = getViewPosition(offset.xy).z;
-
+        if(texture(uDepthTex, offset.xy).r>=1.0) continue; // Ignore far plane samples
         // Range check to avoid artifacts from distant geometry
         float rangeCheck= abs(fragPos.z - sampleDepth) < radius ? 1.0 : 0.0;
         occlusion += (sampleDepth >= samplePos.z ? 1.0 : 0.0) * rangeCheck;
     }
     
     occlusion = 1.0 - (occlusion / float(NUM_SAMPLES));
-    ssao = occlusion;
+    ssao = fragPos.y;
 }
 `;
 export const MeshSSAOBlurVertexShaderCode = /* glsl */ `#version 300 es
@@ -254,6 +254,7 @@ void main() {
     vec3 fragViewPos = getViewPosition(vUV);
     vec3 fragWorldPos = getWorldPosition(fragViewPos);
     vec3 viewNormal = normalize(texture(gNormal, vUV).rgb);
+    vec3 skyColor = vec3(0.5, 0.7, 1.0); // Light blue sky color
     
     // Transform normal back to world space for lighting calculations
     vec3 worldNormal = normalize(mat3(uViewInverse) * viewNormal);
@@ -284,6 +285,11 @@ void main() {
 
         lighting += (diffuse + specular) * albedo;
     }
-    outputColor = vec4(ambient, 1.0);
+    if(texture(gDepth, vUV).r>=1.0) { // Background
+        outputColor = vec4(skyColor,1.0);
+    }
+    else{
+        outputColor = vec4(vec3(fragViewPos.y-ambientOcclusion), 1.0);
+    }
 }
 `;

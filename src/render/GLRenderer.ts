@@ -611,6 +611,7 @@ export class GLRenderer {
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     this.gl.enable(this.gl.DEPTH_TEST);
+    this.gl.depthMask(true);
     this.gl.disable(this.gl.BLEND);
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
@@ -695,8 +696,9 @@ export class GLRenderer {
       false,
       this.matProj
     );
+    console.log("MatProjInverse SSAO:", this.matProjInverse);
     this.gl.uniformMatrix4fv(
-      this.ssaoPassShader.Uniforms["uProjInverse"].location,
+      this.gl.getUniformLocation(this.ssaoPassShader.Program!, "uProjInverse"),
       false,
       this.matProjInverse
     );
@@ -795,8 +797,12 @@ export class GLRenderer {
       false,
       this.matViewInverse
     );
+    console.log("MatProjInverse:", this.matProjInverse);
     this.gl.uniformMatrix4fv(
-      this.lightingPassShader.Uniforms["uProjInverse"].location,
+      this.gl.getUniformLocation(
+        this.lightingPassShader.Program!,
+        "uProjInverse"
+      ),
       false,
       this.matProjInverse
     );
