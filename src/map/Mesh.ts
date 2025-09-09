@@ -53,6 +53,7 @@ export class Mesh {
   /**
    * Adds triangle to mesh
    * @param triangle The triangle to add
+   * @param normal The normals of the triangle to add
    * @param type (optional) the terrain types of the triangles to add
    */
   addTriangle(

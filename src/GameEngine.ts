@@ -164,9 +164,8 @@ export class GameEngine {
     mat4.identity(identity);
     this.world.addObject(triangleMesh, identity,"Teapot");
 
-    const response = await fetch(standModelUrl);
-    const arrayBuffer = await response.arrayBuffer();
-    const mesh = await threemfToMesh(arrayBuffer);
+
+    const mesh = await threemfToMesh(standModelUrl);
     const identity2 = mat4.create();
     mat4.identity(identity2);
     console.log(mesh);
