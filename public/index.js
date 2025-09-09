@@ -4587,7 +4587,6 @@ var GameEngine = /** @class */ (function () {
                         identity2 = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
                         gl_matrix__WEBPACK_IMPORTED_MODULE_10__.identity(identity2);
                         this.world.addObject(mesh, identity2, "Gear");
-                        console.log(_map_terrains__WEBPACK_IMPORTED_MODULE_8__.Terrains);
                         this.pathTracer.initBVH(this.world.combinedMesh());
                         this.pathTracer.init(false);
                         this.worldInitialized = true;
@@ -5609,7 +5608,14 @@ var ObjectUI = /** @class */ (function () {
             roughInput.min = "0";
             roughInput.max = "1";
             roughInput.value = "0.5";
-            wrapper.append("Color: ", colorInput, " Terrain: ", terrainSelect, " Reflect: ", reflectInput, " Rough: ", roughInput);
+            var deleteBtn = document.createElement("button");
+            deleteBtn.textContent = "Remove";
+            deleteBtn.style.marginLeft = "10px"; // Add some spacing
+            // 2. Add the click event listener to remove the wrapper
+            deleteBtn.addEventListener("click", function () {
+                wrapper.remove();
+            });
+            wrapper.append("Color: ", colorInput, " Terrain: ", terrainSelect, " Reflect: ", reflectInput, " Rough: ", roughInput, deleteBtn);
             importMapDiv.appendChild(wrapper);
         });
         // Handle submission
@@ -7801,7 +7807,7 @@ var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("f7983c438be1b74563d3")
+/******/ 		__webpack_require__.h = () => ("9eb20356eff8ab7b105e")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */

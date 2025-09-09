@@ -58,6 +58,15 @@ export class ObjectUI {
       roughInput.max = "1";
       roughInput.value = "0.5";
 
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "Remove";
+      deleteBtn.style.marginLeft = "10px"; // Add some spacing
+
+      // 2. Add the click event listener to remove the wrapper
+      deleteBtn.addEventListener("click", () => {
+        wrapper.remove();
+      });
+
       wrapper.append(
         "Color: ",
         colorInput,
@@ -66,7 +75,8 @@ export class ObjectUI {
         " Reflect: ",
         reflectInput,
         " Rough: ",
-        roughInput
+        roughInput,
+        deleteBtn
       );
 
       importMapDiv.appendChild(wrapper);

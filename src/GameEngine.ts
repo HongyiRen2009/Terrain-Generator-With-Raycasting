@@ -165,7 +165,6 @@ export class GameEngine {
     const identity2 = mat4.create();
     mat4.identity(identity2);
     this.world.addObject(mesh, identity2, "Gear");
-    console.log(Terrains);
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
