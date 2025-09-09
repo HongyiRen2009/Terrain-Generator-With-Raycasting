@@ -65,22 +65,25 @@
         <!-- Import Map Section -->
         <h3>Import Map</h3>
         <div id="import-map"></div>
-        <div style="display: inline-flex; align-items: center; gap: 6px;" class="tooltip-container">
+        <div style="display: inline-flex; align-items: center; gap: 6px;">
           <button id="add-map-entry">+ Add Mapping</button>
-          <span class="help-tooltip">?</span>
-          <div class="tooltip-box">
-              <p><b>Material Mapping</b> basically means a color corresponds to a custom material type, to which you can edit. If no map for that specific color is provided, a new diffuse surface is created.</p>
-              <p>Each material type has different properties and appearance.</p>
-              <p><u>These are the types currently supported:</u></p>
-              <ul>
-                <li>Diffuse (Lambertian): Matte surface</li>
-                <li>Specular (Perfect Mirror) – color ignored</li>
-                <li>Glossy (Microfacet Reflection)<br>(roughness 0=mirror, 1=diffuse)</li>
-                <li>Transmission (Glass/Dielectric)<br>(roughness ~ index of refraction)</li>
-                <li>Emission: Emissive surface</li>
-              </ul>
+          <div class="tooltip-container">
+            <span class="help-tooltip">?</span>
+            <div class="tooltip-box">
+                <p><b>Material Mapping</b> basically means a color corresponds to a custom material type, to which you can edit. If no map for that specific color is provided, a new diffuse surface is created.</p>
+                <p>Each material type has different properties and appearance.</p>
+                <p><u>These are the types currently supported:</u></p>
+                <ul>
+                  <li>Diffuse (Lambertian): Matte surface</li>
+                  <li>Specular (Perfect Mirror) – color ignored</li>
+                  <li>Glossy (Microfacet Reflection)<br>(roughness 0=mirror, 1=diffuse)</li>
+                  <li>Transmission (Glass/Dielectric)<br>(roughness ~ index of refraction)</li>
+                  <li>Emission: Emissive surface</li>
+                </ul>
             </div>
+          </div>
         </div>
+
 
         <br/><br/>
         <button id="submit-object">Submit</button>

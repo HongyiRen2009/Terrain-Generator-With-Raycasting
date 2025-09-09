@@ -164,8 +164,8 @@ export class GameEngine {
     const mesh = await threemfToMesh(gearModelUrl);
     const identity2 = mat4.create();
     mat4.identity(identity2);
-    console.log(mesh);
     this.world.addObject(mesh, identity2, "Gear");
+    console.log(Terrains);
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);

@@ -183,7 +183,7 @@ input[type="range"]::-ms-thumb {
   background: #fff;
   padding: 20px;
   border-radius: 12px;
-  width: 400px;
+  width: 500px;
   max-height: 80%;
   overflow-y: auto;
   position: relative;
@@ -201,7 +201,6 @@ input[type="range"]::-ms-thumb {
   position: relative; /* Needed for positioning tooltip */
   display: inline-flex;
   align-items: center;
-  gap: 6px;
 }
 
 /* Initially hide the tooltip */
@@ -246,7 +245,7 @@ input[type="range"]::-ms-thumb {
 /* Style the question mark */
 .help-tooltip {
   cursor: pointer;
-  background-color: #eee;
+  background-color: #5d67ec;
   border-radius: 50%;
   width: 18px;
   height: 18px;
@@ -255,4 +254,5 @@ input[type="range"]::-ms-thumb {
   align-items: center;
   font-weight: bold;
   font-size: 0.9rem;
+  color:white;
 }
