@@ -15,7 +15,6 @@ import { Supplier } from "../DebugMenu";
 import { loadPLYToMesh, objSourceToMesh } from "../modelLoader/objreader";
 import { threemfToMesh } from "../modelLoader/3fmreader";
 
-
 interface ImportMapEntry {
   color: string;
   terrain: Terrain;
@@ -54,7 +53,7 @@ export class WorldMap {
 
   private tracerUpdateSupplier: () => () => void;
 
-  private importMapEntries: ImportMapEntry[] = []
+  private importMapEntries: ImportMapEntry[] = [];
 
   /**
    * Constructs a world
@@ -67,7 +66,7 @@ export class WorldMap {
     height: number,
     length: number,
     gl: WebGL2RenderingContext,
-    updateTracer: () => ()=> void
+    updateTracer: () => () => void
   ) {
     this.tracerUpdateSupplier = updateTracer;
 
@@ -90,7 +89,9 @@ export class WorldMap {
     const addMapEntryBtn = document.getElementById("add-map-entry")!;
     const importMapDiv = document.getElementById("import-map")!;
     const fileInput = document.getElementById("ply-file") as HTMLInputElement;
-    const nameInput = document.getElementById("object-name") as HTMLInputElement;
+    const nameInput = document.getElementById(
+      "object-name"
+    ) as HTMLInputElement;
 
     openBtn.addEventListener("click", () => popup.classList.remove("hidden"));
     closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
@@ -106,7 +107,7 @@ export class WorldMap {
 
       // Terrain type select
       const terrainSelect = document.createElement("select");
-      [1,2,3,4,5].forEach(t => {
+      [1, 2, 3, 4, 5].forEach((t) => {
         const opt = document.createElement("option");
         opt.value = t.toString();
         opt.textContent = `Type ${t}`;
@@ -117,28 +118,45 @@ export class WorldMap {
       const reflectInput = document.createElement("input");
       reflectInput.type = "number";
       reflectInput.step = "0.1";
-      reflectInput.min = "0"; reflectInput.max = "1";
+      reflectInput.min = "0";
+      reflectInput.max = "1";
       reflectInput.value = "0.5";
 
       // Roughness
       const roughInput = document.createElement("input");
       roughInput.type = "number";
       roughInput.step = "0.1";
-      roughInput.min = "0"; roughInput.max = "1";
+      roughInput.min = "0";
+      roughInput.max = "1";
       roughInput.value = "0.5";
 
-      wrapper.append("Color: ", colorInput, " Terrain: ", terrainSelect,
-                    " Reflect: ", reflectInput, " Rough: ", roughInput);
+      wrapper.append(
+        "Color: ",
+        colorInput,
+        " Terrain: ",
+        terrainSelect,
+        " Reflect: ",
+        reflectInput,
+        " Rough: ",
+        roughInput
+      );
 
       importMapDiv.appendChild(wrapper);
     });
     // Handle submission
-    
+
     submitBtn.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
 
       // 1. UPDATED: Validate for either .ply or .3mf
-      if (!file || !(file.name.endsWith(".ply") || file.name.endsWith(".3mf") || file.name.endsWith(".obj"))) {
+      if (
+        !file ||
+        !(
+          file.name.endsWith(".ply") ||
+          file.name.endsWith(".3mf") ||
+          file.name.endsWith(".obj")
+        )
+      ) {
         alert("Please upload a valid .ply, .3mf, or .obj file.");
         return;
       }
@@ -149,16 +167,29 @@ export class WorldMap {
 
       // Collect import map entries (this logic remains the same)
       const importMap: { [id: string]: number } = {};
-      document.querySelectorAll(".map-entry").forEach(entry => {
-        const inputs = entry.querySelectorAll("input, select") as NodeListOf<HTMLInputElement|HTMLSelectElement>;
+      document.querySelectorAll(".map-entry").forEach((entry) => {
+        const inputs = entry.querySelectorAll("input, select") as NodeListOf<
+          HTMLInputElement | HTMLSelectElement
+        >;
         const color = Color.fromHex((inputs[0] as HTMLInputElement).value);
-        const type = parseInt((inputs[1] as HTMLSelectElement).value) as 1|2|3|4|5;
+        const type = parseInt((inputs[1] as HTMLSelectElement).value) as
+          | 1
+          | 2
+          | 3
+          | 4
+          | 5;
         Terrains[Object.keys(Terrains).length] = {
           color: color,
-          reflectiveness: Math.min(1,Math.max(0,parseFloat((inputs[2] as HTMLInputElement).value))),
-          roughness: Math.min(1,Math.max(0,parseFloat((inputs[3] as HTMLInputElement).value))),
+          reflectiveness: Math.min(
+            1,
+            Math.max(0, parseFloat((inputs[2] as HTMLInputElement).value))
+          ),
+          roughness: Math.min(
+            1,
+            Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value))
+          ),
           type: type
-        }
+        };
         importMap[color.toString()] = Object.keys(Terrains).length - 1;
       });
 
@@ -175,8 +206,8 @@ export class WorldMap {
         const fileUrl = URL.createObjectURL(file);
         mesh = await threemfToMesh(fileUrl, importMap);
         URL.revokeObjectURL(fileUrl); // Clean up the temporary URL after loading
-      } else if (file.name.endsWith(".obj")){
-        if(Object.keys(importMap).length != 0){
+      } else if (file.name.endsWith(".obj")) {
+        if (Object.keys(importMap).length != 0) {
           alert("OBJ import with color mapping is not yet supported.");
           return;
         }
@@ -201,7 +232,6 @@ export class WorldMap {
     });
   }
 
-  
   public populateFieldMap() {
     for (const chunk of this.chunks) {
       for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
@@ -244,7 +274,6 @@ export class WorldMap {
 
     const container = document.getElementById("world-objects")!;
     this.setupObjectUI(this, container);
-    
   }
   public combinedMesh(): Mesh {
     const CombinedMesh = new Mesh();
@@ -279,12 +308,22 @@ export class WorldMap {
         // Apply transformation
         for (let j = 0; j < 3; j++) {
           // Transform vertex
-          const v = vec4.fromValues(newTri[j][0], newTri[j][1], newTri[j][2], 1);
+          const v = vec4.fromValues(
+            newTri[j][0],
+            newTri[j][1],
+            newTri[j][2],
+            1
+          );
           vec4.transformMat4(v, v, obj.position);
           vec3.set(newTri[j], v[0], v[1], v[2]);
 
           // Transform normal (rotation + scale only)
-          const n = vec4.fromValues(newNorm[j][0], newNorm[j][1], newNorm[j][2], 0);
+          const n = vec4.fromValues(
+            newNorm[j][0],
+            newNorm[j][1],
+            newNorm[j][2],
+            0
+          );
           const normalMat = mat4.clone(obj.position);
           normalMat[12] = 0;
           normalMat[13] = 0;
@@ -360,7 +399,7 @@ export class WorldMap {
       deleteBtn.style.marginBottom = "10px";
       deleteBtn.addEventListener("click", () => {
         // Remove from world
-        world.worldObjects = world.worldObjects.filter(o => o.id !== obj.id);
+        world.worldObjects = world.worldObjects.filter((o) => o.id !== obj.id);
 
         // Remove UI
         wrapper.remove();
@@ -391,20 +430,32 @@ export class WorldMap {
       }
 
       // Extract current transform components
-      const translation = [obj.position[12], obj.position[13], obj.position[14]];
+      const translation = [
+        obj.position[12],
+        obj.position[13],
+        obj.position[14]
+      ];
       const rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
-      const scale = [1, 1, 1];           // default 1 or store separately
+      const scale = [1, 1, 1]; // default 1 or store separately
 
       // Function to rebuild mat4 from translation, rotation, scale
       function rebuildMatrix() {
         const rad = rotationDegrees.map((d) => (d * Math.PI) / 180);
         const newMat = mat4.create();
 
-        mat4.translate(newMat, newMat, vec3.fromValues(translation[0], translation[1], translation[2]));
+        mat4.translate(
+          newMat,
+          newMat,
+          vec3.fromValues(translation[0], translation[1], translation[2])
+        );
         mat4.rotateX(newMat, newMat, rad[0]);
         mat4.rotateY(newMat, newMat, rad[1]);
         mat4.rotateZ(newMat, newMat, rad[2]);
-        mat4.scale(newMat, newMat, vec3.fromValues(scale[0], scale[1], scale[2]));
+        mat4.scale(
+          newMat,
+          newMat,
+          vec3.fromValues(scale[0], scale[1], scale[2])
+        );
 
         mat4.copy(obj.position, newMat);
 

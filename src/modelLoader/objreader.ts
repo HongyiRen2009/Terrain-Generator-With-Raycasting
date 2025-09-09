@@ -46,7 +46,10 @@ export const objSourceToMesh = (objSource: string): Mesh => {
   return mesh;
 };
 
-export function loadPLYToMesh(plyString: string, importMap: {[id: string]: number} | null = null): Mesh {
+export function loadPLYToMesh(
+  plyString: string,
+  importMap: { [id: string]: number } | null = null
+): Mesh {
   const lines = plyString.split(/\r?\n/);
   let numVertices = 0;
   let numFaces = 0;
@@ -94,11 +97,15 @@ export function loadPLYToMesh(plyString: string, importMap: {[id: string]: numbe
     }
 
     //Color fallback
-    if(parts.length >=9){
-      const c: Color = new Color(Math.abs(parts[6]*255),Math.abs(parts[7]*255),Math.abs(parts[8]*255));
+    if (parts.length >= 9) {
+      const c: Color = new Color(
+        Math.abs(parts[6] * 255),
+        Math.abs(parts[7] * 255),
+        Math.abs(parts[8] * 255)
+      );
       colors.push(c);
-    }else{
-      colors.push(new Color(255,255,255));
+    } else {
+      colors.push(new Color(255, 255, 255));
     }
   }
 
@@ -116,33 +123,33 @@ export function loadPLYToMesh(plyString: string, importMap: {[id: string]: numbe
       const t: Triangle = [
         vertices[indices[0]],
         vertices[indices[i]],
-        vertices[indices[i + 1]],
+        vertices[indices[i + 1]]
       ];
       const n: Triangle = [
         normals[indices[0]],
         normals[indices[i]],
-        normals[indices[i + 1]],
+        normals[indices[i + 1]]
       ];
 
-      let types: number[] = [0,0,0];
-      if(importMap){
-        for(let j = 0; j < 3; j++){
+      let types: number[] = [0, 0, 0];
+      if (importMap) {
+        for (let j = 0; j < 3; j++) {
           const col = colors[indices[j]];
-          if(col.toString() in importMap){
+          if (col.toString() in importMap) {
             types[j] = importMap[col.toString()] as number;
-          }else{
+          } else {
             const col = colors[indices[j]];
             //Check if simple exists
             let found = false;
-            for(let key in Terrains){
+            for (let key in Terrains) {
               const terrain = Terrains[parseInt(key)];
-              if(terrain.type == 1 && col.equals(terrain.color)){
+              if (terrain.type == 1 && col.equals(terrain.color)) {
                 //use that color.
                 types[j] = parseInt(key);
                 found = true;
               }
             }
-            if(!found){
+            if (!found) {
               //make a new terrain type
               Terrains[Object.keys(Terrains).length] = {
                 color: col,
@@ -151,24 +158,24 @@ export function loadPLYToMesh(plyString: string, importMap: {[id: string]: numbe
                 type: 1
               };
               types[j] = Object.keys(Terrains).length - 1;
-            } 
+            }
           }
         }
-      }else{
+      } else {
         //Make it based on color
-        for(let j = 0; j < 3; j++){
+        for (let j = 0; j < 3; j++) {
           const col = colors[indices[j]];
           //Check if simple exists
           let found = false;
-          for(let key in Terrains){
+          for (let key in Terrains) {
             const terrain = Terrains[parseInt(key)];
-            if(terrain.type == 1 && col.equals(terrain.color)){
+            if (terrain.type == 1 && col.equals(terrain.color)) {
               //use that color.
               types[j] = parseInt(key);
               found = true;
             }
           }
-          if(!found){
+          if (!found) {
             //make a new terrain type
             Terrains[Object.keys(Terrains).length] = {
               color: col,

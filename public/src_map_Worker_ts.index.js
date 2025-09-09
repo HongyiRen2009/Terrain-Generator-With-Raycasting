@@ -40,6 +40,7 @@ var Mesh = /** @class */ (function () {
     /**
      * Adds triangle to mesh
      * @param triangle The triangle to add
+     * @param normal The normals of the triangle to add
      * @param type (optional) the terrain types of the triangles to add
      */
     Mesh.prototype.addTriangle = function (triangle, normal, type) {
@@ -68,6 +69,17 @@ var Mesh = /** @class */ (function () {
             gl_matrix__WEBPACK_IMPORTED_MODULE_2__.add(this.mesh[i][0], this.mesh[i][0], a);
             gl_matrix__WEBPACK_IMPORTED_MODULE_2__.add(this.mesh[i][1], this.mesh[i][1], a);
             gl_matrix__WEBPACK_IMPORTED_MODULE_2__.add(this.mesh[i][2], this.mesh[i][2], a);
+        }
+    };
+    /**
+     * Scales the entire mesh
+     * @param s Scaling factor
+     */
+    Mesh.prototype.scale = function (s) {
+        for (var i = 0; i < this.mesh.length; i++) {
+            this.mesh[i][0] = this.mesh[i][0].map(function (val) { return val * s; });
+            this.mesh[i][1] = this.mesh[i][1].map(function (val) { return val * s; });
+            this.mesh[i][2] = this.mesh[i][2].map(function (val) { return val * s; });
         }
     };
     Mesh.prototype.exportBVHTriangles = function () {
@@ -230,6 +242,9 @@ var Utilities = /** @class */ (function () {
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 __webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   calculateNormal: () => (/* binding */ calculateNormal)
+/* harmony export */ });
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 /* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
 /* harmony import */ var alea__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! alea */ "./node_modules/alea/alea.js");
@@ -789,6 +804,29 @@ var Color = /** @class */ (function () {
         this.g = g;
         this.b = b;
     }
+    Color.fromHex = function (hex) {
+        // Remove the leading '#' if present
+        if (hex.startsWith("#")) {
+            hex = hex.slice(1);
+        }
+        // Parse the hex string
+        var bigint = parseInt(hex, 16);
+        var r = (bigint >> 16) & 255;
+        var g = (bigint >> 8) & 255;
+        var b = bigint & 255;
+        return new Color(r, g, b);
+    };
+    /**
+     * Creates color object from vec3
+     * @param vec Each color should be 0-1
+     * @returns Color Object
+     */
+    Color.fromVec3 = function (vec) {
+        return new Color(Math.min(255, Math.max(0, Math.floor(vec[0] * 255))), Math.min(255, Math.max(0, Math.floor(vec[1] * 255))), Math.min(255, Math.max(0, Math.floor(vec[2] * 255))));
+    };
+    Color.prototype.toString = function () {
+        return "rgb(".concat(this.r, ", ").concat(this.g, ", ").concat(this.b, ")");
+    };
     /**
      * Creates a vec3 from the color values
      * @returns vec3 with color values.
@@ -797,6 +835,9 @@ var Color = /** @class */ (function () {
     Color.prototype.createVec3 = function () {
         return gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(this.r / 255, this.g / 255, this.b / 255);
     };
+    Color.prototype.equals = function (other) {
+        return this.r === other.r && this.g === other.g && this.b === other.b;
+    };
     return Color;
 }());
 
@@ -804,7 +845,7 @@ var Color = /** @class */ (function () {
  * The class for calculating the information for all our terrain types
  */
 var Terrains = {
-    //NOTE: WHEN ADD TERRAINS CHANGE numberTerrains in packTerrainTypes in BVHUtils.ts and NUM_TERRAINS in glslPath.ts
+    //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
     0: {
         //Regular ground
         color: new Color(0, 255, 0),
@@ -992,7 +1033,7 @@ var Terrains = {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("8bb5be3431d2c14ff7fd")
+/******/ 		__webpack_require__.h = () => ("2eb9d09a57dee51d2ad1")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

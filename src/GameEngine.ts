@@ -6,8 +6,7 @@ import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
 
-import teapotPly from "../models/teapot.ply";
-import standModelUrl from "../models/stand.3mf";
+import gearModelUrl from "../models/stand.3mf";
 
 import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
 import { threemfToMesh } from "./modelLoader/3fmreader";
@@ -65,7 +64,13 @@ export class GameEngine {
     this.updatePathracing = () => {};
 
     //Initialize world
-    this.world = new WorldMap(1000, 64, 1000, this.gl,()=>this.updatePathracing);
+    this.world = new WorldMap(
+      1000,
+      64,
+      1000,
+      this.gl,
+      () => this.updatePathracing
+    );
 
     //Initialize Camera
     this.mainCamera = new Camera(vec3.fromValues(0, 0, 3));
@@ -156,12 +161,12 @@ export class GameEngine {
       GlUtils.genTerrainVertices(this.world)
     );
 
-    const mesh = await threemfToMesh(standModelUrl);
+    const mesh = await threemfToMesh(gearModelUrl);
     const identity2 = mat4.create();
     mat4.identity(identity2);
     console.log(mesh);
     this.world.addObject(mesh, identity2, "Gear");
-    
+
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
     this.worldInitialized = true;
