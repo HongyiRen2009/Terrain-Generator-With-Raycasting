@@ -7,6 +7,22 @@ export class Color {
   public r: number;
   public g: number;
   public b: number;
+
+  static fromHex(hex: string): Color {
+    // Remove the leading '#' if present
+    if (hex.startsWith("#")) {
+      hex = hex.slice(1);
+    }
+
+    // Parse the hex string
+    const bigint = parseInt(hex, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+
+    return new Color(r, g, b);
+  }
+
   /**
    * Creates color
    * @param r - Red value (out of 255)
@@ -30,6 +46,10 @@ export class Color {
     this.g = g;
     this.b = b;
   }
+
+  toString(): string {
+    return `rgb(${this.r}, ${this.g}, ${this.b})`;
+  }
   /**
    * Creates a vec3 from the color values
    * @returns vec3 with color values.
@@ -37,6 +57,10 @@ export class Color {
    */
   createVec3() {
     return vec3.fromValues(this.r / 255, this.g / 255, this.b / 255);
+  }
+
+  equals(other: Color){
+    return this.r === other.r && this.g === other.g && this.b === other.b;
   }
 }
 

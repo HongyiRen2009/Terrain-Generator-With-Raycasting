@@ -88,6 +88,17 @@ export class Mesh {
     }
   }
 
+  /**
+   * Scales the entire mesh
+   * @param s Scaling factor
+   */
+  scale(s: number) {
+    for (let i = 0; i < this.mesh.length; i++) {
+      this.mesh[i][0] = this.mesh[i][0].map((val)=>val*s) as vec3;
+      this.mesh[i][1] = this.mesh[i][1].map((val)=>val*s) as vec3;
+      this.mesh[i][2] = this.mesh[i][2].map((val)=>val*s) as vec3;
+    }
+  }
   exportBVHTriangles(): BVHTriangle[] {
     return this.mesh.map((val, i, arr) => {
       let center = vec3.fromValues(
