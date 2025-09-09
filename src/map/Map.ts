@@ -190,7 +190,7 @@ export class WorldMap {
   }
 
   public onObjectAdded?: (obj: WorldObject) => void;
-  
+
   /**
    * Add an object to the game world
    */

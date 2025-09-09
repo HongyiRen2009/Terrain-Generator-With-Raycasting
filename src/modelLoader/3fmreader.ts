@@ -17,12 +17,12 @@ export async function threemfToMesh(
     const TriangleVerticesNormals: vec3[] = modelData.triangles[i].map(
       (vIdx) => modelData.normals[vIdx]
     );
-
     let types: number[] = [0, 0, 0];
     if (importMap) {
       for (let j = 0; j < 3; j++) {
         const col = Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
         if (col.toString() in importMap) {
+          console.log("YAYYY");
           types[j] = importMap[col.toString()] as number;
         } else {
           const col = Color.fromVec3(
@@ -302,7 +302,12 @@ function parse3MFModel(xmlDoc: XMLDocument): Extracted3MFData {
         }
       }
       resourceLibrary.objects.set(objectId, {
-        mesh: { vertices, triangles, colors: objectColors, uvs: objectUvs }
+        mesh: {
+          vertices,
+          triangles,
+          colors: objectColors,
+          uvs: objectUvs
+        }
       });
     } else if (componentsNode) {
       const components: ComponentData[] = [];

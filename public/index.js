@@ -4586,8 +4586,8 @@ var GameEngine = /** @class */ (function () {
                         mesh = _a.sent();
                         identity2 = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
                         gl_matrix__WEBPACK_IMPORTED_MODULE_10__.identity(identity2);
-                        console.log(mesh);
                         this.world.addObject(mesh, identity2, "Gear");
+                        console.log(_map_terrains__WEBPACK_IMPORTED_MODULE_8__.Terrains);
                         this.pathTracer.initBVH(this.world.combinedMesh());
                         this.pathTracer.init(false);
                         this.worldInitialized = true;
@@ -5147,55 +5147,17 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   WorldMap: () => (/* binding */ WorldMap)
 /* harmony export */ });
 /* harmony import */ var _marching_cubes__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./marching_cubes */ "./src/map/marching_cubes.ts");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
 /* harmony import */ var _Light__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Light */ "./src/map/Light.ts");
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
 /* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
 /* harmony import */ var _render_GlUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
 /* harmony import */ var _cubes_utils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_utils.ts");
-/* harmony import */ var _modelLoader_objreader__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../modelLoader/objreader */ "./src/modelLoader/objreader.ts");
-/* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
+/* harmony import */ var _ObjectUI__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./ObjectUI */ "./src/map/ObjectUI.ts");
 //Wrapper classes (will write stuff later)
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __generator = (undefined && undefined.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
-            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [op[0] & 2, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
-            }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
-
 
 
 
@@ -5216,16 +5178,14 @@ var WorldMap = /** @class */ (function () {
      * @param height Height of world
      */
     function WorldMap(width, height, length, gl, updateTracer) {
-        var _this = this;
         this.lights = [
-            new _Light__WEBPACK_IMPORTED_MODULE_1__.Light(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 500, 0), new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 255, 255), 1, 200, new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 228, 132))
+            new _Light__WEBPACK_IMPORTED_MODULE_1__.Light(gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0, 500, 0), new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 255, 255), 1, 200, new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 228, 132))
         ];
         this.resolution = 64; //#of vertices square size of chunk
         this.Workers = [];
         this.seed = 10; // Random seed for noise generation
         this.worldObjects = [];
         this.nextWorldObjectId = 0;
-        this.importMapEntries = [];
         this.tracerUpdateSupplier = updateTracer;
         this.gl = gl;
         this.width = width;
@@ -5237,125 +5197,7 @@ var WorldMap = /** @class */ (function () {
         }
         this.generate();
         this.fieldMap = new Map();
-        var popup = document.getElementById("popup");
-        var openBtn = document.getElementById("open-popup-btn");
-        var closeBtn = document.getElementById("close-popup-btn");
-        var submitBtn = document.getElementById("submit-object");
-        var addMapEntryBtn = document.getElementById("add-map-entry");
-        var importMapDiv = document.getElementById("import-map");
-        var fileInput = document.getElementById("ply-file");
-        var nameInput = document.getElementById("object-name");
-        openBtn.addEventListener("click", function () { return popup.classList.remove("hidden"); });
-        closeBtn.addEventListener("click", function () { return popup.classList.add("hidden"); });
-        // Add mapping UI
-        addMapEntryBtn.addEventListener("click", function () {
-            var wrapper = document.createElement("div");
-            wrapper.className = "map-entry";
-            // Color input
-            var colorInput = document.createElement("input");
-            colorInput.type = "color";
-            // Terrain type select
-            var terrainSelect = document.createElement("select");
-            [1, 2, 3, 4, 5].forEach(function (t) {
-                var opt = document.createElement("option");
-                opt.value = t.toString();
-                opt.textContent = "Type ".concat(t);
-                terrainSelect.appendChild(opt);
-            });
-            // Reflectiveness
-            var reflectInput = document.createElement("input");
-            reflectInput.type = "number";
-            reflectInput.step = "0.1";
-            reflectInput.min = "0";
-            reflectInput.max = "1";
-            reflectInput.value = "0.5";
-            // Roughness
-            var roughInput = document.createElement("input");
-            roughInput.type = "number";
-            roughInput.step = "0.1";
-            roughInput.min = "0";
-            roughInput.max = "1";
-            roughInput.value = "0.5";
-            wrapper.append("Color: ", colorInput, " Terrain: ", terrainSelect, " Reflect: ", reflectInput, " Rough: ", roughInput);
-            importMapDiv.appendChild(wrapper);
-        });
-        // Handle submission
-        submitBtn.addEventListener("click", function () { return __awaiter(_this, void 0, void 0, function () {
-            var file, importMap, mesh, plyText, fileUrl, _a;
-            var _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        file = (_b = fileInput.files) === null || _b === void 0 ? void 0 : _b[0];
-                        // 1. UPDATED: Validate for either .ply or .3mf
-                        if (!file ||
-                            !(file.name.endsWith(".ply") ||
-                                file.name.endsWith(".3mf") ||
-                                file.name.endsWith(".obj"))) {
-                            alert("Please upload a valid .ply, .3mf, or .obj file.");
-                            return [2 /*return*/];
-                        }
-                        if (!nameInput.value.trim()) {
-                            alert("Please enter a name for the object.");
-                            return [2 /*return*/];
-                        }
-                        importMap = {};
-                        document.querySelectorAll(".map-entry").forEach(function (entry) {
-                            var inputs = entry.querySelectorAll("input, select");
-                            var color = _terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(inputs[0].value);
-                            var type = parseInt(inputs[1].value);
-                            _terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length] = {
-                                color: color,
-                                reflectiveness: Math.min(1, Math.max(0, parseFloat(inputs[2].value))),
-                                roughness: Math.min(1, Math.max(0, parseFloat(inputs[3].value))),
-                                type: type
-                            };
-                            importMap[color.toString()] = Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length - 1;
-                        });
-                        if (!file.name.endsWith(".ply")) return [3 /*break*/, 2];
-                        return [4 /*yield*/, file.text()];
-                    case 1:
-                        plyText = _c.sent();
-                        mesh = (0,_modelLoader_objreader__WEBPACK_IMPORTED_MODULE_6__.loadPLYToMesh)(plyText, importMap);
-                        return [3 /*break*/, 7];
-                    case 2:
-                        if (!file.name.endsWith(".3mf")) return [3 /*break*/, 4];
-                        fileUrl = URL.createObjectURL(file);
-                        return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(fileUrl, importMap)];
-                    case 3:
-                        mesh = _c.sent();
-                        URL.revokeObjectURL(fileUrl); // Clean up the temporary URL after loading
-                        return [3 /*break*/, 7];
-                    case 4:
-                        if (!file.name.endsWith(".obj")) return [3 /*break*/, 6];
-                        if (Object.keys(importMap).length != 0) {
-                            alert("OBJ import with color mapping is not yet supported.");
-                            return [2 /*return*/];
-                        }
-                        _a = _modelLoader_objreader__WEBPACK_IMPORTED_MODULE_6__.objSourceToMesh;
-                        return [4 /*yield*/, file.text()];
-                    case 5:
-                        mesh = _a.apply(void 0, [_c.sent()]);
-                        return [3 /*break*/, 7];
-                    case 6:
-                        // This case should not be reached due to the validation above, but it's good practice
-                        alert("Unsupported file type.");
-                        return [2 /*return*/];
-                    case 7:
-                        // This part remains the same, as it works with the generic Mesh object
-                        this.addObject(mesh, gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), nameInput.value.trim());
-                        // Reset + close popup
-                        importMapDiv.innerHTML = "";
-                        fileInput.value = "";
-                        nameInput.value = "";
-                        popup.classList.add("hidden");
-                        // Generate for pathtracing
-                        if (this.tracerUpdateSupplier)
-                            this.tracerUpdateSupplier()();
-                        return [2 /*return*/];
-                }
-            });
-        }); });
+        this.objectUI = new _ObjectUI__WEBPACK_IMPORTED_MODULE_6__.ObjectUI(this, this.tracerUpdateSupplier);
     }
     WorldMap.prototype.populateFieldMap = function () {
         for (var _i = 0, _a = this.chunks; _i < _a.length; _i++) {
@@ -5374,13 +5216,11 @@ var WorldMap = /** @class */ (function () {
     WorldMap.prototype.generate = function () {
         this.chunks = [
             // Row 1
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[0]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[1]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(2 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[2]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(3 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[3])
+            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[0]),
+            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[1]),
+            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(2 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[2]),
+            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(3 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[3])
         ];
-        var container = document.getElementById("world-objects");
-        this.setupObjectUI(this, container);
     };
     WorldMap.prototype.combinedMesh = function () {
         var CombinedMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
@@ -5399,29 +5239,29 @@ var WorldMap = /** @class */ (function () {
                 var norm = meshCopy.normals[i];
                 // Deep copy triangle and normal
                 var newTri = [
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.clone(tri[0]),
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.clone(tri[1]),
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.clone(tri[2])
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(tri[0]),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(tri[1]),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(tri[2])
                 ];
                 var newNorm = [
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.clone(norm[0]),
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.clone(norm[1]),
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.clone(norm[2])
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(norm[0]),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(norm[1]),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(norm[2])
                 ];
                 // Apply transformation
                 for (var j = 0; j < 3; j++) {
                     // Transform vertex
-                    var v = gl_matrix__WEBPACK_IMPORTED_MODULE_11__.fromValues(newTri[j][0], newTri[j][1], newTri[j][2], 1);
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_11__.transformMat4(v, v, obj.position);
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.set(newTri[j], v[0], v[1], v[2]);
+                    var v = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(newTri[j][0], newTri[j][1], newTri[j][2], 1);
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_9__.transformMat4(v, v, obj.position);
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.set(newTri[j], v[0], v[1], v[2]);
                     // Transform normal (rotation + scale only)
-                    var n = gl_matrix__WEBPACK_IMPORTED_MODULE_11__.fromValues(newNorm[j][0], newNorm[j][1], newNorm[j][2], 0);
-                    var normalMat = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.clone(obj.position);
+                    var n = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(newNorm[j][0], newNorm[j][1], newNorm[j][2], 0);
+                    var normalMat = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.clone(obj.position);
                     normalMat[12] = 0;
                     normalMat[13] = 0;
                     normalMat[14] = 0;
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_11__.transformMat4(n, n, normalMat);
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.normalize(newNorm[j], gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(n[0], n[1], n[2]));
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_9__.transformMat4(n, n, normalMat);
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.normalize(newNorm[j], gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(n[0], n[1], n[2]));
                 }
                 // Add transformed triangle
                 transformedMesh.addTriangle(newTri, newNorm, meshCopy.type[i]);
@@ -5451,103 +5291,6 @@ var WorldMap = /** @class */ (function () {
         if (this.onObjectAdded) {
             this.onObjectAdded(worldObject);
         }
-    };
-    //Renders map (later implementation we don't care abt it rn.)
-    WorldMap.prototype.render = function () { };
-    WorldMap.prototype.setupObjectUI = function (world, container) {
-        world.onObjectAdded = function (obj) {
-            var wrapper = document.createElement("div");
-            wrapper.className = "world-object";
-            // Name
-            var nameEl = document.createElement("h3");
-            nameEl.textContent = obj.name;
-            wrapper.appendChild(nameEl);
-            // Vertex count
-            var vertsEl = document.createElement("p");
-            vertsEl.textContent = "Vertices: ".concat(obj.mesh.mesh.length * 3);
-            wrapper.appendChild(vertsEl);
-            // Delete button
-            var deleteBtn = document.createElement("button");
-            deleteBtn.textContent = "Delete Object";
-            deleteBtn.style.marginBottom = "10px";
-            deleteBtn.addEventListener("click", function () {
-                // Remove from world
-                world.worldObjects = world.worldObjects.filter(function (o) { return o.id !== obj.id; });
-                // Remove UI
-                wrapper.remove();
-                // Trigger re-trace/update if needed
-                if (world.tracerUpdateSupplier)
-                    world.tracerUpdateSupplier()();
-            });
-            wrapper.appendChild(deleteBtn);
-            // Helper to create labeled number input
-            function createInput(labelText, value, onChange) {
-                var label = document.createElement("label");
-                label.innerHTML = "<br>".concat(labelText, ": ");
-                var input = document.createElement("input");
-                input.type = "number";
-                input.value = value.toString();
-                input.step = "0.1";
-                input.addEventListener("input", function () {
-                    var val = input.value === "" ? 0 : parseFloat(input.value);
-                    onChange(val);
-                });
-                label.appendChild(input);
-                wrapper.appendChild(label);
-            }
-            // Extract current transform components
-            var translation = [
-                obj.position[12],
-                obj.position[13],
-                obj.position[14]
-            ];
-            var rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
-            var scale = [1, 1, 1]; // default 1 or store separately
-            // Function to rebuild mat4 from translation, rotation, scale
-            function rebuildMatrix() {
-                var rad = rotationDegrees.map(function (d) { return (d * Math.PI) / 180; });
-                var newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
-                gl_matrix__WEBPACK_IMPORTED_MODULE_9__.translate(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(translation[0], translation[1], translation[2]));
-                gl_matrix__WEBPACK_IMPORTED_MODULE_9__.rotateX(newMat, newMat, rad[0]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_9__.rotateY(newMat, newMat, rad[1]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_9__.rotateZ(newMat, newMat, rad[2]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scale(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(scale[0], scale[1], scale[2]));
-                gl_matrix__WEBPACK_IMPORTED_MODULE_9__.copy(obj.position, newMat);
-                if (world.tracerUpdateSupplier)
-                    world.tracerUpdateSupplier()();
-            }
-            // Translation inputs
-            var tHeader = document.createElement("h4");
-            tHeader.textContent = "Translation:";
-            wrapper.appendChild(tHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, translation[i], function (v) {
-                    translation[i] = v;
-                    rebuildMatrix();
-                });
-            });
-            // Rotation inputs (degrees)
-            var rHeader = document.createElement("h4");
-            rHeader.textContent = "Rotation (degrees):";
-            wrapper.appendChild(rHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, rotationDegrees[i], function (v) {
-                    rotationDegrees[i] = v;
-                    rebuildMatrix();
-                });
-            });
-            // Scale inputs
-            var sHeader = document.createElement("h4");
-            sHeader.textContent = "Scale:";
-            wrapper.appendChild(sHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, scale[i], function (v) {
-                    scale[i] = v;
-                    rebuildMatrix();
-                });
-            });
-            container.appendChild(wrapper);
-        };
     };
     return WorldMap;
 }());
@@ -5761,6 +5504,290 @@ var Mesh = /** @class */ (function () {
         this.type = value;
     };
     return Mesh;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/map/ObjectUI.ts":
+/*!*****************************!*\
+  !*** ./src/map/ObjectUI.ts ***!
+  \*****************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   ObjectUI: () => (/* binding */ ObjectUI)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
+/* harmony import */ var _modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../modelLoader/objreader */ "./src/modelLoader/objreader.ts");
+/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __generator = (undefined && undefined.__generator) || function (thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
+    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+};
+
+
+
+
+var ObjectUI = /** @class */ (function () {
+    function ObjectUI(map, updateTracer) {
+        var _this = this;
+        this.tracerUpdateSupplier = updateTracer;
+        var popup = document.getElementById("popup");
+        var openBtn = document.getElementById("open-popup-btn");
+        var closeBtn = document.getElementById("close-popup-btn");
+        var submitBtn = document.getElementById("submit-object");
+        var addMapEntryBtn = document.getElementById("add-map-entry");
+        var importMapDiv = document.getElementById("import-map");
+        var fileInput = document.getElementById("ply-file");
+        var nameInput = document.getElementById("object-name");
+        openBtn.addEventListener("click", function () { return popup.classList.remove("hidden"); });
+        closeBtn.addEventListener("click", function () { return popup.classList.add("hidden"); });
+        // Add mapping UI
+        addMapEntryBtn.addEventListener("click", function () {
+            var wrapper = document.createElement("div");
+            wrapper.className = "map-entry";
+            // Color input
+            var colorInput = document.createElement("input");
+            colorInput.type = "color";
+            // Terrain type select
+            var terrainSelect = document.createElement("select");
+            [1, 2, 3, 4, 5].forEach(function (t) {
+                var opt = document.createElement("option");
+                opt.value = t.toString();
+                opt.textContent = "Type ".concat(t);
+                terrainSelect.appendChild(opt);
+            });
+            // Reflectiveness
+            var reflectInput = document.createElement("input");
+            reflectInput.type = "number";
+            reflectInput.step = "0.1";
+            reflectInput.min = "0";
+            reflectInput.max = "1";
+            reflectInput.value = "0.5";
+            // Roughness
+            var roughInput = document.createElement("input");
+            roughInput.type = "number";
+            roughInput.step = "0.1";
+            roughInput.min = "0";
+            roughInput.max = "1";
+            roughInput.value = "0.5";
+            wrapper.append("Color: ", colorInput, " Terrain: ", terrainSelect, " Reflect: ", reflectInput, " Rough: ", roughInput);
+            importMapDiv.appendChild(wrapper);
+        });
+        // Handle submission
+        submitBtn.addEventListener("click", function () { return __awaiter(_this, void 0, void 0, function () {
+            var file, importMap, mesh, plyText, fileUrl, _a;
+            var _b;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        file = (_b = fileInput.files) === null || _b === void 0 ? void 0 : _b[0];
+                        // 1. UPDATED: Validate for either .ply or .3mf
+                        if (!file ||
+                            !(file.name.endsWith(".ply") ||
+                                file.name.endsWith(".3mf") ||
+                                file.name.endsWith(".obj"))) {
+                            alert("Please upload a valid .ply, .3mf, or .obj file.");
+                            return [2 /*return*/];
+                        }
+                        if (!nameInput.value.trim()) {
+                            alert("Please enter a name for the object.");
+                            return [2 /*return*/];
+                        }
+                        importMap = {};
+                        document.querySelectorAll(".map-entry").forEach(function (entry) {
+                            var inputs = entry.querySelectorAll("input, select");
+                            var color = _terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(inputs[0].value);
+                            var type = parseInt(inputs[1].value);
+                            _terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length] = {
+                                color: color,
+                                reflectiveness: Math.min(1, Math.max(0, parseFloat(inputs[2].value))),
+                                roughness: Math.min(1, Math.max(0, parseFloat(inputs[3].value))),
+                                type: type
+                            };
+                            importMap[color.toString()] = Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length - 1;
+                        });
+                        if (!file.name.endsWith(".ply")) return [3 /*break*/, 2];
+                        return [4 /*yield*/, file.text()];
+                    case 1:
+                        plyText = _c.sent();
+                        mesh = (0,_modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__.loadPLYToMesh)(plyText, importMap);
+                        return [3 /*break*/, 7];
+                    case 2:
+                        if (!file.name.endsWith(".3mf")) return [3 /*break*/, 4];
+                        fileUrl = URL.createObjectURL(file);
+                        return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_0__.threemfToMesh)(fileUrl, importMap)];
+                    case 3:
+                        mesh = _c.sent();
+                        URL.revokeObjectURL(fileUrl); // Clean up the temporary URL after loading
+                        return [3 /*break*/, 7];
+                    case 4:
+                        if (!file.name.endsWith(".obj")) return [3 /*break*/, 6];
+                        if (Object.keys(importMap).length != 0) {
+                            alert("OBJ import with color mapping is not yet supported.");
+                            return [2 /*return*/];
+                        }
+                        _a = _modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__.objSourceToMesh;
+                        return [4 /*yield*/, file.text()];
+                    case 5:
+                        mesh = _a.apply(void 0, [_c.sent()]);
+                        return [3 /*break*/, 7];
+                    case 6:
+                        // This case should not be reached due to the validation above, but it's good practice
+                        alert("Unsupported file type.");
+                        return [2 /*return*/];
+                    case 7:
+                        // This part remains the same, as it works with the generic Mesh object
+                        map.addObject(mesh, gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create(), nameInput.value.trim());
+                        // Reset + close popup
+                        importMapDiv.innerHTML = "";
+                        fileInput.value = "";
+                        nameInput.value = "";
+                        popup.classList.add("hidden");
+                        // Generate for pathtracing
+                        if (this.tracerUpdateSupplier)
+                            this.tracerUpdateSupplier()();
+                        return [2 /*return*/];
+                }
+            });
+        }); });
+        var container = document.getElementById("world-objects");
+        this.setupObjectUI(map, container, this);
+    }
+    ObjectUI.prototype.setupObjectUI = function (world, container, UI) {
+        world.onObjectAdded = function (obj) {
+            var wrapper = document.createElement("div");
+            wrapper.className = "world-object";
+            // Name
+            var nameEl = document.createElement("h3");
+            nameEl.textContent = obj.name;
+            wrapper.appendChild(nameEl);
+            // Vertex count
+            var vertsEl = document.createElement("p");
+            vertsEl.textContent = "Vertices: ".concat(obj.mesh.mesh.length * 3);
+            wrapper.appendChild(vertsEl);
+            // Delete button
+            var deleteBtn = document.createElement("button");
+            deleteBtn.textContent = "Delete Object";
+            deleteBtn.style.marginBottom = "10px";
+            deleteBtn.addEventListener("click", function () {
+                // Remove from world
+                world.worldObjects = world.worldObjects.filter(function (o) { return o.id !== obj.id; });
+                // Remove UI
+                wrapper.remove();
+                // Trigger re-trace/update if needed
+                if (UI.tracerUpdateSupplier)
+                    UI.tracerUpdateSupplier()();
+            });
+            wrapper.appendChild(deleteBtn);
+            // Helper to create labeled number input
+            function createInput(labelText, value, onChange) {
+                var label = document.createElement("label");
+                label.innerHTML = "<br>".concat(labelText, ": ");
+                var input = document.createElement("input");
+                input.type = "number";
+                input.value = value.toString();
+                input.step = "0.1";
+                input.addEventListener("input", function () {
+                    var val = input.value === "" ? 0 : parseFloat(input.value);
+                    onChange(val);
+                });
+                label.appendChild(input);
+                wrapper.appendChild(label);
+            }
+            // Extract current transform components
+            var translation = [
+                obj.position[12],
+                obj.position[13],
+                obj.position[14]
+            ];
+            var rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
+            var scale = [1, 1, 1]; // default 1 or store separately
+            // Function to rebuild mat4 from translation, rotation, scale
+            function rebuildMatrix() {
+                var rad = rotationDegrees.map(function (d) { return (d * Math.PI) / 180; });
+                var newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.translate(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(translation[0], translation[1], translation[2]));
+                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateX(newMat, newMat, rad[0]);
+                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateY(newMat, newMat, rad[1]);
+                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateZ(newMat, newMat, rad[2]);
+                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.scale(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(scale[0], scale[1], scale[2]));
+                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.copy(obj.position, newMat);
+                if (UI.tracerUpdateSupplier)
+                    UI.tracerUpdateSupplier()();
+            }
+            // Translation inputs
+            var tHeader = document.createElement("h4");
+            tHeader.textContent = "Translation:";
+            wrapper.appendChild(tHeader);
+            ["X", "Y", "Z"].forEach(function (axis, i) {
+                return createInput(axis, translation[i], function (v) {
+                    translation[i] = v;
+                    rebuildMatrix();
+                });
+            });
+            // Rotation inputs (degrees)
+            var rHeader = document.createElement("h4");
+            rHeader.textContent = "Rotation (degrees):";
+            wrapper.appendChild(rHeader);
+            ["X", "Y", "Z"].forEach(function (axis, i) {
+                return createInput(axis, rotationDegrees[i], function (v) {
+                    rotationDegrees[i] = v;
+                    rebuildMatrix();
+                });
+            });
+            // Scale inputs
+            var sHeader = document.createElement("h4");
+            sHeader.textContent = "Scale:";
+            wrapper.appendChild(sHeader);
+            ["X", "Y", "Z"].forEach(function (axis, i) {
+                return createInput(axis, scale[i], function (v) {
+                    scale[i] = v;
+                    rebuildMatrix();
+                });
+            });
+            container.appendChild(wrapper);
+        };
+    };
+    return ObjectUI;
 }());
 
 
@@ -6482,6 +6509,7 @@ function threemfToMesh(url_1) {
                             for (j = 0; j < 3; j++) {
                                 col = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
                                 if (col.toString() in importMap) {
+                                    console.log("YAYYY");
                                     types[j] = importMap[col.toString()];
                                 }
                                 else {
@@ -6684,7 +6712,12 @@ function parse3MFModel(xmlDoc) {
                 }
             }
             resourceLibrary.objects.set(objectId, {
-                mesh: { vertices: vertices, triangles: triangles, colors: objectColors, uvs: objectUvs }
+                mesh: {
+                    vertices: vertices,
+                    triangles: triangles,
+                    colors: objectColors,
+                    uvs: objectUvs
+                }
             });
         }
         else if (componentsNode) {
@@ -7235,7 +7268,11 @@ var GLRenderer = /** @class */ (function () {
         }
         if (!this.terrainVAO) {
             this.terrainVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.TerrainTriangleBuffer.vertex, this.TerrainTriangleBuffer.indices, this.TerrainMeshShader, {
-                VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+                VertexPosition: {
+                    offset: 0,
+                    stride: 36,
+                    sizeOverride: 3
+                },
                 VertexNormal: { offset: 12, stride: 36 },
                 VertexColor: { offset: 24, stride: 36 }
             });
@@ -7252,7 +7289,11 @@ var GLRenderer = /** @class */ (function () {
             throw new Error("CubeBuffer not initialized.");
         if (!this.wireframeCubeVAO) {
             this.wireframeCubeVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.CubeBuffer.vertex, this.CubeBuffer.indices, this.WireframeCubeShader, {
-                VertexPosition: { offset: 0, stride: 24, sizeOverride: 3 },
+                VertexPosition: {
+                    offset: 0,
+                    stride: 24,
+                    sizeOverride: 3
+                },
                 VertexColor: { offset: 12, stride: 24 }
             });
         }
@@ -7269,7 +7310,11 @@ var GLRenderer = /** @class */ (function () {
         // Do we need to have some sort of meshid instead of objectid?
         if (!this.worldObjectVAOs.has(obj.id)) {
             var vao = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, obj.buffer.vertex, obj.buffer.indices, this.TerrainMeshShader, {
-                VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+                VertexPosition: {
+                    offset: 0,
+                    stride: 36,
+                    sizeOverride: 3
+                },
                 VertexNormal: { offset: 12, stride: 36 },
                 VertexColor: { offset: 24, stride: 36 }
             });
@@ -7756,7 +7801,7 @@ var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("2eb9d09a57dee51d2ad1")
+/******/ 		__webpack_require__.h = () => ("f7983c438be1b74563d3")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */

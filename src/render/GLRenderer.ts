@@ -20,8 +20,10 @@ export class GLRenderer {
   canvas: HTMLCanvasElement;
   camera: Camera;
 
-  TerrainTriangleBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null =
-    null;
+  TerrainTriangleBuffer: {
+    vertex: WebGLBuffer;
+    indices: WebGLBuffer;
+  } | null = null;
   CubeBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
   TerrainMeshSize: number = 0;
 
@@ -151,7 +153,11 @@ export class GLRenderer {
         this.TerrainTriangleBuffer.indices,
         this.TerrainMeshShader,
         {
-          VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+          VertexPosition: {
+            offset: 0,
+            stride: 36,
+            sizeOverride: 3
+          },
           VertexNormal: { offset: 12, stride: 36 },
           VertexColor: { offset: 24, stride: 36 }
         }
@@ -190,7 +196,11 @@ export class GLRenderer {
         this.CubeBuffer.indices,
         this.WireframeCubeShader,
         {
-          VertexPosition: { offset: 0, stride: 24, sizeOverride: 3 },
+          VertexPosition: {
+            offset: 0,
+            stride: 24,
+            sizeOverride: 3
+          },
           VertexColor: { offset: 12, stride: 24 }
         }
       );
@@ -224,7 +234,11 @@ export class GLRenderer {
         obj.buffer.indices,
         this.TerrainMeshShader,
         {
-          VertexPosition: { offset: 0, stride: 36, sizeOverride: 3 },
+          VertexPosition: {
+            offset: 0,
+            stride: 36,
+            sizeOverride: 3
+          },
           VertexNormal: { offset: 12, stride: 36 },
           VertexColor: { offset: 24, stride: 36 }
         }
