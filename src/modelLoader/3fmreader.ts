@@ -1,34 +1,79 @@
 import JSZip from "jszip";
 import { mat4, vec2, vec3 } from 'gl-matrix'; 
 import { Mesh, Triangle } from "../map/Mesh";
+import { Color, Terrains } from "../map/terrains";
 
-type RGB = { r: number; g: number; b: number };
-type mfTriangle = { v: [number, number, number]; colors?: (RGB | null)[] };
-
-export async function threemfToMesh(url: string): Promise<Mesh>{
-    console.log("Hi");
+export async function threemfToMesh(url: string, importMap: {[id: string]: number} | null = null): Promise<Mesh>{
     const mesh = new Mesh();
     const modelData: Extracted3MFData = await load3MF(url);
-    //get everything
-    /*
-    const { vertices, vertexColors, vertexNormals, triangles } = await parse3mf(data);
-    */
-    console.log(modelData.triangles);
-    console.log(modelData.vertices);
     //creteMesh
     for(let i=0;i<modelData.triangles.length;i++){
         const TriangleVertices: vec3[] = modelData.triangles[i].map(vIdx=>modelData.vertices[vIdx]);
         const TriangleVerticesNormals: vec3[] = modelData.triangles[i].map(vIdx=>modelData.normals[vIdx]);
-        mesh.addTriangle(TriangleVertices as Triangle, TriangleVerticesNormals as Triangle);
+
+        let types: number[] = [0,0,0];
+        if(importMap){
+            for(let j = 0; j < 3; j++){
+                const col = Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
+                if(col.toString() in importMap){
+                    types[j] = importMap[col.toString()] as number;
+                }else{
+                    const col = Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
+                    //Check if simple exists
+                    let found = false;
+                    for(let key in Terrains){
+                    const terrain = Terrains[parseInt(key)];
+                    if(terrain.type == 1 && col.equals(terrain.color)){
+                        //use that color.
+                        types[j] = parseInt(key);
+                        found = true;
+                    }
+                    }
+                    if(!found){
+                    //make a new terrain type
+                    Terrains[Object.keys(Terrains).length] = {
+                        color: col,
+                        reflectiveness: 0.2,
+                        roughness: 0.8,
+                        type: 1
+                    };
+                    types[j] = Object.keys(Terrains).length - 1;
+                    } 
+                }
+            }
+        }else{
+            //Make it based on color
+            for(let j = 0; j < 3; j++){
+                const col = Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
+                //Check if simple exists
+                let found = false;
+                for(let key in Terrains){
+                    const terrain = Terrains[parseInt(key)];
+                    if(terrain.type == 1 && col.equals(terrain.color)){
+                    //use that color.
+                    types[j] = parseInt(key);
+                    found = true;
+                    }
+                }
+                if(!found){
+                    //make a new terrain type
+                    Terrains[Object.keys(Terrains).length] = {
+                    color: col,
+                    reflectiveness: 0.2,
+                    roughness: 0.8,
+                    type: 1
+                    };
+                    types[j] = Object.keys(Terrains).length - 1;
+                }
+            }
+        }
+
+        mesh.addTriangle(TriangleVertices as Triangle, TriangleVerticesNormals as Triangle, types as [number, number, number]);
     }
 
     return mesh;
 }
 
-/**
- * UPDATED: The structure of the data extracted from the 3MF file.
- * Now includes texture coordinates (uvs).
- */
 export interface Extracted3MFData {
     vertices: vec3[];
     normals: vec3[];
