@@ -55,8 +55,9 @@
 
         <!-- File Upload -->
         <label>
-          Upload .ply file:
-          <input type="file" id="ply-file" accept=".ply" />
+          Upload .ply, .3mf, or .obj file:
+          <input type="file" id="ply-file" accept=".ply, .3mf, .obj" />
+          <br/>
           Note: We only support .ply files in ASCII format for now.
         </label>
         <br/>
@@ -64,11 +65,11 @@
         <!-- Import Map Section -->
         <h3>Import Map</h3>
         <div id="import-map"></div>
-        <div style="display: inline-flex; align-items: center; gap: 6px;">
+        <div style="display: inline-flex; align-items: center; gap: 6px;" class="tooltip-container">
           <button id="add-map-entry">+ Add Mapping</button>
-          <span class="help-tooltip">?
-            <div class="tooltip-box">
-              <p><b>Material Mapping</b> basically means a color in the .ply file corresponds to a custom material type, to which you can edit.</p>
+          <span class="help-tooltip">?</span>
+          <div class="tooltip-box">
+              <p><b>Material Mapping</b> basically means a color corresponds to a custom material type, to which you can edit. If no map for that specific color is provided, a new diffuse surface is created.</p>
               <p>Each material type has different properties and appearance.</p>
               <p><u>These are the types currently supported:</u></p>
               <ul>
@@ -79,7 +80,6 @@
                 <li>Emission: Emissive surface</li>
               </ul>
             </div>
-          </span>
         </div>
 
         <br/><br/>

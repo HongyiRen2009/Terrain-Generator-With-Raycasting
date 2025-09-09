@@ -12,7 +12,8 @@ import { WorldObject } from "./WorldObject";
 import { meshToVerticesAndIndices } from "./cubes_utils";
 import { MeshFragmentShaderCode, MeshVertexShaderCode } from "../render/glsl";
 import { Supplier } from "../DebugMenu";
-import { loadPLYToMesh } from "../modelLoader/objreader";
+import { loadPLYToMesh, objSourceToMesh } from "../modelLoader/objreader";
+import { threemfToMesh } from "../modelLoader/3fmreader";
 
 
 interface ImportMapEntry {
@@ -133,11 +134,12 @@ export class WorldMap {
     });
     // Handle submission
     
-    // Handle submission
     submitBtn.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
-      if (!file || !file.name.endsWith(".ply")) {
-        alert("Please upload a valid .ply file.");
+
+      // 1. UPDATED: Validate for either .ply or .3mf
+      if (!file || !(file.name.endsWith(".ply") || file.name.endsWith(".3mf") || file.name.endsWith(".obj"))) {
+        alert("Please upload a valid .ply, .3mf, or .obj file.");
         return;
       }
       if (!nameInput.value.trim()) {
@@ -145,11 +147,11 @@ export class WorldMap {
         return;
       }
 
-      // Collect import map entries into `{[colorHex]: terrainType}`
+      // Collect import map entries (this logic remains the same)
       const importMap: { [id: string]: number } = {};
       document.querySelectorAll(".map-entry").forEach(entry => {
         const inputs = entry.querySelectorAll("input, select") as NodeListOf<HTMLInputElement|HTMLSelectElement>;
-        const color = Color.fromHex((inputs[0] as HTMLInputElement).value); // e.g. "#ff0000"
+        const color = Color.fromHex((inputs[0] as HTMLInputElement).value);
         const type = parseInt((inputs[1] as HTMLSelectElement).value) as 1|2|3|4|5;
         Terrains[Object.keys(Terrains).length] = {
           color: color,
@@ -160,15 +162,32 @@ export class WorldMap {
         importMap[color.toString()] = Object.keys(Terrains).length - 1;
       });
 
-      // Read file contents
-      const plyText = await file.text();
+      let mesh: Mesh; // Declare mesh variable here to be used by both loaders
 
-      // Convert PLY → Mesh
-      console.log(importMap);
-      console.log(Terrains);
-      const mesh = loadPLYToMesh(plyText, importMap);
+      // 2. NEW: Conditional loading based on file type
+      if (file.name.endsWith(".ply")) {
+        // Use the existing PLY loader
+        const plyText = await file.text();
+        mesh = loadPLYToMesh(plyText, importMap);
+      } else if (file.name.endsWith(".3mf")) {
+        // Use the new 3MF loader
+        // threemfToMesh function needs a URL. We create a temporary local URL for the selected file.
+        const fileUrl = URL.createObjectURL(file);
+        mesh = await threemfToMesh(fileUrl, importMap);
+        URL.revokeObjectURL(fileUrl); // Clean up the temporary URL after loading
+      } else if (file.name.endsWith(".obj")){
+        if(Object.keys(importMap).length != 0){
+          alert("OBJ import with color mapping is not yet supported.");
+          return;
+        }
+        mesh = objSourceToMesh(await file.text());
+      } else {
+        // This case should not be reached due to the validation above, but it's good practice
+        alert("Unsupported file type.");
+        return;
+      }
 
-      // Add object to world
+      // This part remains the same, as it works with the generic Mesh object
       this.addObject(mesh, mat4.create(), nameInput.value.trim());
 
       // Reset + close popup
@@ -177,7 +196,7 @@ export class WorldMap {
       nameInput.value = "";
       popup.classList.add("hidden");
 
-      //Generate for pathtracing
+      // Generate for pathtracing
       if (this.tracerUpdateSupplier) this.tracerUpdateSupplier()();
     });
   }
@@ -335,7 +354,7 @@ export class WorldMap {
       vertsEl.textContent = `Vertices: ${obj.mesh.mesh.length * 3}`;
       wrapper.appendChild(vertsEl);
 
-      // --- NEW: Delete button ---
+      // Delete button
       const deleteBtn = document.createElement("button");
       deleteBtn.textContent = "Delete Object";
       deleteBtn.style.marginBottom = "10px";

@@ -156,20 +156,11 @@ export class GameEngine {
       GlUtils.genTerrainVertices(this.world)
     );
 
-    const test = new Color(0*255, 0.975*255, 1*255);
-    let id = test.toString()
-    const triangleMesh = loadPLYToMesh(teapotPly,{id:1});
-    triangleMesh.scale(0.1);
-    const identity = mat4.create();
-    mat4.identity(identity);
-    this.world.addObject(triangleMesh, identity,"Teapot");
-
-
     const mesh = await threemfToMesh(standModelUrl);
     const identity2 = mat4.create();
     mat4.identity(identity2);
     console.log(mesh);
-    this.world.addObject(mesh, identity2, "Phone stand");
+    this.world.addObject(mesh, identity2, "Gear");
     
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
