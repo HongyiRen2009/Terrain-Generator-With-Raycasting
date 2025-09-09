@@ -38,6 +38,10 @@ const config: webpack.Configuration = {
       {
         test: /\.ply$/,
         type: "asset/source"
+      },
+      {
+        test: /\.3mf$/,
+        type: "asset/resource"
       }
     ]
   },

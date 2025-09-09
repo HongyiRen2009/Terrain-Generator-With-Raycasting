@@ -6,9 +6,11 @@ import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
 
-import teapotObj from "../models/teapot.obj";
 import teapotPly from "../models/teapot.ply";
+import standModelUrl from "../models/stand.3mf";
+
 import { loadPLYToMesh, objSourceToMesh } from "./objreader";
+import { threemfToMesh } from "./3fmreader";
 import { Color, Terrains } from "./map/terrains";
 
 /**
@@ -162,11 +164,14 @@ export class GameEngine {
     mat4.identity(identity);
     this.world.addObject(triangleMesh, identity,"Teapot");
 
-    const triangleMesh2 = objSourceToMesh(teapotObj);
+    const response = await fetch(standModelUrl);
+    const arrayBuffer = await response.arrayBuffer();
+    const mesh = await threemfToMesh(arrayBuffer);
     const identity2 = mat4.create();
     mat4.identity(identity2);
-    //this.world.addObject(triangleMesh2, identity2, "Teapot2");
-
+    console.log(mesh);
+    this.world.addObject(mesh, identity2, "Phone stand");
+    
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
     this.worldInitialized = true;

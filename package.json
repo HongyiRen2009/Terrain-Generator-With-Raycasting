@@ -19,7 +19,9 @@
   "dependencies": {
     "alea": "^1.0.1",
     "express": "^4.21.2",
-    "gl-matrix": "^3.4.3"
+    "fast-xml-parser": "^5.2.5",
+    "gl-matrix": "^3.4.3",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "prettier": "^3.5.3",
