@@ -1,6 +1,6 @@
 import { vec3 } from "gl-matrix";
-import { Mesh, Triangle } from "./map/Mesh";
-import { Color, Terrains } from "./map/terrains";
+import { Mesh, Triangle } from "../map/Mesh";
+import { Color, Terrains } from "../map/terrains";
 
 const calculateNormal = (vertices: vec3[]): vec3 => {
   const normal = vec3.create();

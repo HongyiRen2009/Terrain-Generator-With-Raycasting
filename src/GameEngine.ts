@@ -9,8 +9,8 @@ import { GlUtils } from "./render/GlUtils";
 import teapotPly from "../models/teapot.ply";
 import standModelUrl from "../models/stand.3mf";
 
-import { loadPLYToMesh, objSourceToMesh } from "./objreader";
-import { threemfToMesh } from "./3fmreader";
+import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
+import { threemfToMesh } from "./modelLoader/3fmreader";
 import { Color, Terrains } from "./map/terrains";
 
 /**

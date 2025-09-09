@@ -12,7 +12,7 @@ import { WorldObject } from "./WorldObject";
 import { meshToVerticesAndIndices } from "./cubes_utils";
 import { MeshFragmentShaderCode, MeshVertexShaderCode } from "../render/glsl";
 import { Supplier } from "../DebugMenu";
-import { loadPLYToMesh } from "../objreader";
+import { loadPLYToMesh } from "../modelLoader/objreader";
 
 
 interface ImportMapEntry {
