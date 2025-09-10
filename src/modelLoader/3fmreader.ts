@@ -22,7 +22,6 @@ export async function threemfToMesh(
       for (let j = 0; j < 3; j++) {
         const col = Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
         if (col.toString() in importMap) {
-          console.log("YAYYY");
           types[j] = importMap[col.toString()] as number;
         } else {
           const col = Color.fromVec3(

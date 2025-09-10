@@ -6515,7 +6515,6 @@ function threemfToMesh(url_1) {
                             for (j = 0; j < 3; j++) {
                                 col = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
                                 if (col.toString() in importMap) {
-                                    console.log("YAYYY");
                                     types[j] = importMap[col.toString()];
                                 }
                                 else {
@@ -7793,7 +7792,7 @@ var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("097d0b51158bca9c91f3")
+/******/ 		__webpack_require__.h = () => ("c2e95382f2e49bf54fd0")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
