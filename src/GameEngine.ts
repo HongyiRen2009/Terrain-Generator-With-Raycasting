@@ -6,9 +6,10 @@ import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { GlUtils } from "./render/GlUtils";
 
-import teapotObj from "../models/teapot.obj";
-import teapotPly from "../models/teapot.ply";
-import { loadPLYToMesh, objSourceToMesh } from "./objreader";
+import gearModelUrl from "../models/stand.3mf";
+
+import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
+import { threemfToMesh } from "./modelLoader/3fmreader";
 import { Color, Terrains } from "./map/terrains";
 
 /**
@@ -63,7 +64,13 @@ export class GameEngine {
     this.updatePathracing = () => {};
 
     //Initialize world
-    this.world = new WorldMap(1000, 64, 1000, this.gl,()=>this.updatePathracing);
+    this.world = new WorldMap(
+      1000,
+      64,
+      1000,
+      this.gl,
+      () => this.updatePathracing
+    );
 
     //Initialize Camera
     this.mainCamera = new Camera(vec3.fromValues(0, 0, 3));
@@ -154,18 +161,10 @@ export class GameEngine {
       GlUtils.genTerrainVertices(this.world)
     );
 
-    const test = new Color(0*255, 0.975*255, 1*255);
-    let id = test.toString()
-    const triangleMesh = loadPLYToMesh(teapotPly,{id:1});
-    triangleMesh.scale(0.1);
-    const identity = mat4.create();
-    mat4.identity(identity);
-    this.world.addObject(triangleMesh, identity,"Teapot");
-
-    const triangleMesh2 = objSourceToMesh(teapotObj);
+    const mesh = await threemfToMesh(gearModelUrl);
     const identity2 = mat4.create();
     mat4.identity(identity2);
-    //this.world.addObject(triangleMesh2, identity2, "Teapot2");
+    this.world.addObject(mesh, identity2, "Gear");
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);

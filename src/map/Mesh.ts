@@ -53,6 +53,7 @@ export class Mesh {
   /**
    * Adds triangle to mesh
    * @param triangle The triangle to add
+   * @param normal The normals of the triangle to add
    * @param type (optional) the terrain types of the triangles to add
    */
   addTriangle(
@@ -94,9 +95,9 @@ export class Mesh {
    */
   scale(s: number) {
     for (let i = 0; i < this.mesh.length; i++) {
-      this.mesh[i][0] = this.mesh[i][0].map((val)=>val*s) as vec3;
-      this.mesh[i][1] = this.mesh[i][1].map((val)=>val*s) as vec3;
-      this.mesh[i][2] = this.mesh[i][2].map((val)=>val*s) as vec3;
+      this.mesh[i][0] = this.mesh[i][0].map((val) => val * s) as vec3;
+      this.mesh[i][1] = this.mesh[i][1].map((val) => val * s) as vec3;
+      this.mesh[i][2] = this.mesh[i][2].map((val) => val * s) as vec3;
     }
   }
   exportBVHTriangles(): BVHTriangle[] {

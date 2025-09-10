@@ -24,6 +24,19 @@ export class Color {
   }
 
   /**
+   * Creates color object from vec3
+   * @param vec Each color should be 0-1
+   * @returns Color Object
+   */
+  static fromVec3(vec: vec3): Color {
+    return new Color(
+      Math.min(255, Math.max(0, Math.floor(vec[0] * 255))),
+      Math.min(255, Math.max(0, Math.floor(vec[1] * 255))),
+      Math.min(255, Math.max(0, Math.floor(vec[2] * 255)))
+    );
+  }
+
+  /**
    * Creates color
    * @param r - Red value (out of 255)
    * @param g - Green value (out of 255)
@@ -59,7 +72,7 @@ export class Color {
     return vec3.fromValues(this.r / 255, this.g / 255, this.b / 255);
   }
 
-  equals(other: Color){
+  equals(other: Color) {
     return this.r === other.r && this.g === other.g && this.b === other.b;
   }
 }

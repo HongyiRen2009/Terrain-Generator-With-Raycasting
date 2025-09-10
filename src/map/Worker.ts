@@ -126,7 +126,7 @@ function edgeIndexToCoordinate(
 }
 // Helper for normal calculation
 // Helper for normal calculation
-export function calculateNormal(vertex: vec3): vec3 {
+function calculateNormal(vertex: vec3): vec3 {
   const delta = 1.0;
   const normal = vec3.create();
 
