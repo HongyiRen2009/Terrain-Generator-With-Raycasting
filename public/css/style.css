@@ -183,7 +183,7 @@ input[type="range"]::-ms-thumb {
   background: #fff;
   padding: 20px;
   border-radius: 12px;
-  width: 500px;
+  width: 600px;
   max-height: 90%;
   overflow-y: auto;
   position: relative;

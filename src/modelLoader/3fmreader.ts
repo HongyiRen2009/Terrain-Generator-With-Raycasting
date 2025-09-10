@@ -118,22 +118,6 @@ interface ObjectData {
 }
 
 /**
- * Parses an #RRGGBB or #RRGGBBAA hex color string into a gl-matrix vec3 (0-1 range).
- * Alpha is ignored.
- * @param hex The hex color string (e.g., "#FF0000").
- * @returns A vec3 representing the color.
- */
-function parseHexColor(hex: string): vec3 {
-  if (hex.startsWith("#")) {
-    hex = hex.substring(1);
-  }
-  const r = parseInt(hex.substring(0, 2), 16) / 255.0;
-  const g = parseInt(hex.substring(2, 4), 16) / 255.0;
-  const b = parseInt(hex.substring(4, 6), 16) / 255.0;
-  return vec3.fromValues(r, g, b);
-}
-
-/**
  * Calculates smooth vertex normals by averaging the face normals of adjacent triangles.
  * @param vertices The array of vertex positions.
  * @param triangles The array of triangle indices.
@@ -179,6 +163,7 @@ function calculateNormals(
  */
 function parse3MFModel(xmlDoc: XMLDocument): Extracted3MFData {
   // Define the XML Namespaces
+  // Yes these don't exist but idk XML has them idk why.
   const CORE_NAMESPACE =
     "http://schemas.microsoft.com/3dmanufacturing/core/2015/02";
   const MATERIAL_NAMESPACE =
@@ -211,7 +196,7 @@ function parse3MFModel(xmlDoc: XMLDocument): Extracted3MFData {
     if (!id) continue;
     const colors = Array.from(
       group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "color")
-    ).map((c) => parseHexColor(c.getAttribute("color")!));
+    ).map((c) => Color.fromHex(c.getAttribute("color")!).createVec3());
     resourceLibrary.colors.set(id, colors);
   }
   const baseMaterials = xmlDoc.getElementsByTagNameNS(
@@ -223,7 +208,7 @@ function parse3MFModel(xmlDoc: XMLDocument): Extracted3MFData {
     if (!id) continue;
     const colors = Array.from(
       group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "base")
-    ).map((b) => parseHexColor(b.getAttribute("displaycolor")!));
+    ).map((b) => Color.fromHex(b.getAttribute("displaycolor")!).createVec3());
     resourceLibrary.colors.set(id, colors);
   }
 

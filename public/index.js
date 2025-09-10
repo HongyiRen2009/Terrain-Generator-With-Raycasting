@@ -6575,21 +6575,6 @@ function threemfToMesh(url_1) {
     });
 }
 /**
- * Parses an #RRGGBB or #RRGGBBAA hex color string into a gl-matrix vec3 (0-1 range).
- * Alpha is ignored.
- * @param hex The hex color string (e.g., "#FF0000").
- * @returns A vec3 representing the color.
- */
-function parseHexColor(hex) {
-    if (hex.startsWith("#")) {
-        hex = hex.substring(1);
-    }
-    var r = parseInt(hex.substring(0, 2), 16) / 255.0;
-    var g = parseInt(hex.substring(2, 4), 16) / 255.0;
-    var b = parseInt(hex.substring(4, 6), 16) / 255.0;
-    return gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(r, g, b);
-}
-/**
  * Calculates smooth vertex normals by averaging the face normals of adjacent triangles.
  * @param vertices The array of vertex positions.
  * @param triangles The array of triangle indices.
@@ -6628,6 +6613,7 @@ function calculateNormals(vertices, triangles) {
 function parse3MFModel(xmlDoc) {
     var _a;
     // Define the XML Namespaces
+    // Yes these don't exist but idk XML has them idk why.
     var CORE_NAMESPACE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02";
     var MATERIAL_NAMESPACE = "http://schemas.microsoft.com/3dmanufacturing/material/2015/02";
     // --- Step 1: Set up scale ---
@@ -6654,7 +6640,7 @@ function parse3MFModel(xmlDoc) {
         var id = group.getAttribute("id");
         if (!id)
             continue;
-        var colors = Array.from(group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "color")).map(function (c) { return parseHexColor(c.getAttribute("color")); });
+        var colors = Array.from(group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "color")).map(function (c) { return _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(c.getAttribute("color")).createVec3(); });
         resourceLibrary.colors.set(id, colors);
     }
     var baseMaterials = xmlDoc.getElementsByTagNameNS(MATERIAL_NAMESPACE, "basematerials");
@@ -6663,7 +6649,7 @@ function parse3MFModel(xmlDoc) {
         var id = group.getAttribute("id");
         if (!id)
             continue;
-        var colors = Array.from(group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "base")).map(function (b) { return parseHexColor(b.getAttribute("displaycolor")); });
+        var colors = Array.from(group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "base")).map(function (b) { return _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(b.getAttribute("displaycolor")).createVec3(); });
         resourceLibrary.colors.set(id, colors);
     }
     // Parse all <object> definitions
@@ -7807,7 +7793,7 @@ var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("9eb20356eff8ab7b105e")
+/******/ 		__webpack_require__.h = () => ("097d0b51158bca9c91f3")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
