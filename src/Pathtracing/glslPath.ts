@@ -416,6 +416,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
     vec3 color = vec3(0.0);
     vec3 throughput = vec3(1.0);
+    vec3 directLight = vec3(0.0);
 
     int hasMirror = -2;
     for (int bounce = 0; bounce < numBounces; bounce++) {
@@ -450,7 +451,8 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             if(bounce == 0 || bounce == hasMirror + 1){
                 color = throughput * vec3(0.54,0.824,0.94);
             }else{
-                color += throughput * 0.00001; // light sky!
+                color += throughput * 1.0/(float(1000*bounce)); // light sky!
+                //color = color/2.0 + directLight/2.0;
             }
             break;
         }
@@ -481,8 +483,36 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         vec3 BRDF = matColor / PI;
         
-        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy
-
+        // Direct Lighting (Next Event Estimation)
+        //for now let's do one light sample per bounce
+        //https://www.cg.tuwien.ac.at/sites/default/files/course/4411/attachments/08_next%20event%20estimation.pdf
+        if(type == 1){ //Diffuse only
+            //int lightToSample = int(floor(rand(rng_state) * float(numActiveLights)));
+            //lightToSample = clamp(lightToSample, 0, numActiveLights - 1);
+            Light light = lights[0];
+            
+            vec3 toLight = light.position - hitPoint;
+            float distToLight = length(toLight);
+            toLight = normalize(toLight);
+            // Shadow ray
+            vec3 shadowRayOrigin = hitPoint + geometricNormal * 0.01;
+            vec3 shadowRayDir = toLight;
+            
+            vec3 shadowBarycentric;
+            float shadowHitDistance;
+            int shadowTriIndex = traverseBVH(shadowRayOrigin, shadowRayDir, 0, shadowBarycentric, shadowHitDistance);
+            
+            vec3 lightHitNormal;
+            float lightHitDistance = intersectLight(shadowRayOrigin, shadowRayDir, light, lightHitNormal);
+            
+            if (shadowTriIndex == -1 && lightHitDistance > 0.0 && lightHitDistance < distToLight) {
+                // No occlusion
+                float NdotL = max(dot(smoothNormal, toLight), 0.0);
+                float attenuation = 1.0 / (distToLight * distToLight); // Inverse square law
+                vec3 radiance = light.color * light.intensity * attenuation;
+                directLight += throughput * BRDF * radiance * NdotL * PI * 1.0/(float(1000000*bounce)) ;
+            }
+        }
 
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
