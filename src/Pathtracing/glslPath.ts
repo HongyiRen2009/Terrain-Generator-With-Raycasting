@@ -416,12 +416,13 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
     vec3 color = vec3(0.0);
     vec3 throughput = vec3(1.0);
-    vec3 directLight = vec3(0.0);
 
     int hasMirror = -2;
     for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
         float minHitDistance;
+        vec3 directLight = vec3(1.0);
+
         
         int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);
         
@@ -452,7 +453,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
                 color = throughput * vec3(0.54,0.824,0.94);
             }else{
                 color += throughput * 1.0/(float(1000*bounce)); // light sky!
-                //color = color/2.0 + directLight/2.0;
             }
             break;
         }
@@ -468,7 +468,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         vec3 smoothNormal, matColor;
         float matRoughness, reflectiveness;
-        int type = 2;
+        int type = -1;
         type = getTerrainType(tri.types[0]).type;
         getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);
         
@@ -485,6 +485,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         
         // Direct Lighting (Next Event Estimation)
         //for now let's do one light sample per bounce
+        //https://www.youtube.com/watch?v=FU1dbi827LY
         //https://www.cg.tuwien.ac.at/sites/default/files/course/4411/attachments/08_next%20event%20estimation.pdf
         if(type == 1){ //Diffuse only
             //int lightToSample = int(floor(rand(rng_state) * float(numActiveLights)));
@@ -505,12 +506,14 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             vec3 lightHitNormal;
             float lightHitDistance = intersectLight(shadowRayOrigin, shadowRayDir, light, lightHitNormal);
             
-            if (shadowTriIndex == -1 && lightHitDistance > 0.0 && lightHitDistance < distToLight) {
+            if ((shadowTriIndex == -1 || shadowHitDistance >= lightHitDistance) && lightHitDistance > 0.0 && lightHitDistance <= distToLight) {
                 // No occlusion
-                float NdotL = max(dot(smoothNormal, toLight), 0.0);
-                float attenuation = 1.0 / (distToLight * distToLight); // Inverse square law
-                vec3 radiance = light.color * light.intensity * attenuation;
-                directLight += throughput * BRDF * radiance * NdotL * PI * 1.0/(float(1000000*bounce)) ;
+                float P = dot(smoothNormal,-toLight)/dot(light.position - hitPoint,light.position - hitPoint);
+                vec3 thingy = BRDF * light.color * light.intensity * P * dot(smoothNormal, toLight);
+                if(length(thingy) == 0.0 || !isValidVec3(thingy)){
+                    thingy = vec3(1.0,0,0);
+                }
+                directLight = thingy;
             }
         }
 
@@ -520,8 +523,15 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             rayOrigin = hitPoint + geometricNormal * 0.01;
         if(type == 1){ //Diffuse
             rayDir = weightedDIR(smoothNormal, rng_state);
-            throughput *= matColor;
-        }else if (type == 2) { // Specular (mirror)
+            if(directLight == vec3(1.0)){
+                throughput *= matColor; 
+            }else{
+                float weight = 1.0;
+                if(bounce > 0){weight = 0.5;} //First bounce is full, subsequent are half
+                throughput *= (weight * (matColor + directLight)); //Simple mix of direct and indirect
+            }
+        }
+        else if (type == 2) { // Specular (mirror)
             rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in
             throughput *= vec3(0.8); // decrease brightness a bit
             hasMirror = bounce;

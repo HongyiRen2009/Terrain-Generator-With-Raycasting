@@ -23,7 +23,7 @@ export class PathTracer {
   private accumulationTextures: WebGLTexture[] = [];
   private currentFrame = 0; // The source texture/framebuffer index
   private frameNumber = 0; // The accumulation counter
-  private numBounces = 15;
+  private numBounces = 8;
   //Shaders
   private meshShader: Shader;
   private copyShader: Shader;
