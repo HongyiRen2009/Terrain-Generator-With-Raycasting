@@ -39,6 +39,15 @@ export class PathTracer {
   private terrainTypes: Float32Array = null!;
   private vertexNormals: Float32Array = null!;
 
+  //textures
+  private vertexTex: WebGLTexture | null = null;
+  private terrainTex: WebGLTexture | null = null;
+  private boundingBoxesTex: WebGLTexture | null = null;
+  private nodesTex: WebGLTexture | null = null;
+  private leafsTex: WebGLTexture | null = null;
+  private terrainTypesTex: WebGLTexture | null = null;
+  private vertexNormalsTex: WebGLTexture | null = null;
+
   //Classes
   private world: WorldMap;
   private camera: Camera;
@@ -121,6 +130,8 @@ export class PathTracer {
     this.leafs = leafs;
     this.terrainTypes = terrainTypes;
     this.vertexNormals = normals;
+
+    this.uploadSceneData();
   }
   public render(time: number) {
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -132,8 +143,7 @@ export class PathTracer {
   }
 
   public drawMesh() {
-    this.initPathtracing();
-
+    this.bindSceneData();
     //Put camera position, direction in shader
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.meshShader.Program!, "u_cameraPos"),
@@ -244,83 +254,61 @@ export class PathTracer {
   public init(showAccumulation: boolean = true) {
     if (showAccumulation)
       this.debug.addElement("Accumulation Frame", () => this.frameNumber);
-    this.initPathtracing();
     this.makeVao();
     this.resetAccumulation();
   }
   public leave() {
     this.debug.removeElement("Accumulation Frame");
   }
-
-  private initPathtracing() {
+  private uploadSceneData() {
     this.gl.useProgram(this.meshShader.Program!);
-    //Textures
-    let verticeTex = GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
-    let terrainTex = GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
-    let boundingBoxesTex = GlUtils.packFloatArrayToTexture(
-      this.gl,
-      this.boundingBoxes
-    );
-    let nodesTex = GlUtils.packFloatArrayToTexture(this.gl, this.nodes);
-    let leafsTex = GlUtils.packFloatArrayToTexture(this.gl, this.leafs);
-    let terrainTypeTex = GlUtils.packFloatArrayToTexture(
-      this.gl,
-      this.terrainTypes
-    );
-    let vertexNormalsTex = GlUtils.packFloatArrayToTexture(
-      this.gl,
-      this.vertexNormals
-    );
 
-    GlUtils.bindTex(
-      this.gl,
-      this.meshShader.Program!,
-      verticeTex,
-      "u_vertices",
-      0
-    );
-    GlUtils.bindTex(
-      this.gl,
-      this.meshShader.Program!,
-      terrainTex,
-      "u_terrains",
-      1
-    );
-    GlUtils.bindTex(
-      this.gl,
-      this.meshShader.Program!,
-      boundingBoxesTex,
-      "u_boundingBox",
-      2
-    );
-    GlUtils.bindTex(
-      this.gl,
-      this.meshShader.Program!,
-      nodesTex,
-      "u_nodesTex",
-      3
-    );
-    GlUtils.bindTex(
-      this.gl,
-      this.meshShader.Program!,
-      leafsTex,
-      "u_leafsTex",
-      4
-    );
-    GlUtils.bindTex(
-      this.gl,
-      this.meshShader.Program!,
-      terrainTypeTex,
-      "u_terrainTypes",
-      5
-    );
-    GlUtils.bindTex(
-      this.gl,
-      this.meshShader.Program!,
-      vertexNormalsTex,
-      "u_normals",
-      6
-    );
+    {
+      const { texture, texWidth, texHeight } = GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
+      this.vertexTex = texture;
+      this.gl.uniform2i(this.gl.getUniformLocation(this.meshShader.Program!, "u_verticesTexSize"), texWidth, texHeight);
+    }
+    {
+      const { texture, texWidth, texHeight } = GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
+      this.terrainTex = texture;
+      this.gl.uniform2i(this.gl.getUniformLocation(this.meshShader.Program!, "u_terrainsTexSize"), texWidth, texHeight);
+    }
+    {
+      const { texture, texWidth, texHeight } = GlUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+      this.boundingBoxesTex = texture;
+      this.gl.uniform2i(this.gl.getUniformLocation(this.meshShader.Program!, "u_boundingBoxTexSize"), texWidth, texHeight);
+    }
+    {
+      const { texture, texWidth, texHeight } = GlUtils.packFloatArrayToTexture(this.gl, this.nodes);
+      this.nodesTex = texture;
+      this.gl.uniform2i(this.gl.getUniformLocation(this.meshShader.Program!, "u_nodesTexSize"), texWidth, texHeight);
+    }
+    {
+      const { texture, texWidth, texHeight } = GlUtils.packFloatArrayToTexture(this.gl, this.leafs);
+      this.leafsTex = texture;
+      this.gl.uniform2i(this.gl.getUniformLocation(this.meshShader.Program!, "u_leafsTexSize"), texWidth, texHeight);
+    }
+    {
+      const { texture, texWidth, texHeight } = GlUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+      this.terrainTypesTex = texture;
+      this.gl.uniform2i(this.gl.getUniformLocation(this.meshShader.Program!, "u_terrainTypesTexSize"), texWidth, texHeight);
+    }
+    {
+      const { texture, texWidth, texHeight } = GlUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+      this.vertexNormalsTex = texture;
+      this.gl.uniform2i(this.gl.getUniformLocation(this.meshShader.Program!, "u_normalsTexSize"), texWidth, texHeight);
+    }
+  }
+  private bindSceneData() {
+    this.gl.useProgram(this.meshShader.Program!);
+
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, this.vertexTex!,        "u_vertices",      0);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, this.terrainTex!,       "u_terrains",      1);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, this.boundingBoxesTex!, "u_boundingBox", 2);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, this.nodesTex!,         "u_nodesTex",         3);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, this.leafsTex!,         "u_leafsTex",         4);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, this.terrainTypesTex!,  "u_terrainTypes",  5);
+    GlUtils.bindTex(this.gl, this.meshShader.Program!, this.vertexNormalsTex!, "u_normals",      6);
   }
 
   private initBuffers() {

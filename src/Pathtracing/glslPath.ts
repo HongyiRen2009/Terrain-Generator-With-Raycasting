@@ -33,6 +33,14 @@ uniform vec3 u_cameraPos;
 uniform mat4 u_invViewProjMatrix;
 uniform vec2 u_resolution;
 
+uniform ivec2 u_verticesTexSize;
+uniform ivec2 u_normalsTexSize;
+uniform ivec2 u_boundingBoxTexSize;
+uniform ivec2 u_nodesTexSize;
+uniform ivec2 u_leafsTexSize;
+uniform ivec2 u_terrainTypesTexSize;
+uniform ivec2 u_terrainsTexSize;
+
 struct Light {
     vec3 position;
     vec3 color;
@@ -91,12 +99,11 @@ float rand(inout uint state) {
     return float(state) / 4294967295.0; // 2^32 - 1
 }
 
-float fetchFloatFrom1D(sampler2D tex, int index) {
-    ivec2 size = textureSize(tex, 0);
-    int texWidth = size.x;
+float fetchFloatFrom1D(sampler2D tex, ivec2 texSize, int index) {
+    int texWidth = texSize.x;
     
     int texelIndex = index / 4;      // Which texel (pixel) contains our float
-    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel
+    int componentIndex = index & 3;  // Which component (r,g,b,a) of the texel. index & 3 is equivalent to index % 4
 
     // Calculate 2D coordinates of the texel
     int y_coord = texelIndex / texWidth;
@@ -105,7 +112,7 @@ float fetchFloatFrom1D(sampler2D tex, int index) {
     // Convert to UV coordinates [0, 1] for sampling
     // Add 0.5 to sample the center of the texel
     float u = (float(x_coord) + 0.5) / float(texWidth);
-    float v = (float(y_coord) + 0.5) / float(size.y);
+    float v = (float(y_coord) + 0.5) / float(texSize.y);
 
     vec4 texel = texture(tex, vec2(u, v));
 
@@ -118,18 +125,18 @@ float fetchFloatFrom1D(sampler2D tex, int index) {
 BVH getBVH(int i){
     BVH r;
     int bbBoxSize = 6;
-    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));
-    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));
+    r.min = vec3(fetchFloatFrom1D(u_boundingBox, u_boundingBoxTexSize, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, u_boundingBoxTexSize, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, u_boundingBoxTexSize, i*bbBoxSize+2));
+    r.max = vec3(fetchFloatFrom1D(u_boundingBox, u_boundingBoxTexSize, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, u_boundingBoxTexSize, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, u_boundingBoxTexSize, i*bbBoxSize+5));
 
     int nodeSize = 2;
-    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));
-    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));
+    r.left = int(fetchFloatFrom1D(u_nodesTex, u_nodesTexSize,i*nodeSize));
+    r.right = int(fetchFloatFrom1D(u_nodesTex, u_nodesTexSize,i*nodeSize+1));
 
     int leafSize = 4;
-    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));
-    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));
-    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));
-    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));
+    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex, u_leafsTexSize,i*leafSize));
+    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex, u_leafsTexSize,i*leafSize+1));
+    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex, u_leafsTexSize,i*leafSize+2));
+    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex, u_leafsTexSize,i*leafSize+3));
     
     return r;
 }
@@ -137,14 +144,14 @@ BVH getBVH(int i){
 Triangle getTriangle(int i){
     Triangle tri;
     int triVertexSize = 9;
-    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));
-    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));
-    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));
+    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize), fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize+2));
+    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize+5));
+    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, u_verticesTexSize, i*triVertexSize+8));
 
     int typeSize = 3;
-    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));
-    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));
-    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));
+    tri.types[0] = int(fetchFloatFrom1D(u_terrains, u_terrainsTexSize, i*typeSize));
+    tri.types[1] = int(fetchFloatFrom1D(u_terrains, u_terrainsTexSize, i*typeSize+1));
+    tri.types[2] = int(fetchFloatFrom1D(u_terrains, u_terrainsTexSize, i*typeSize+2));
 
     tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),
                    min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),
@@ -155,9 +162,9 @@ Triangle getTriangle(int i){
     tri.center = (tri.min + tri.max) * 0.5;
     tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));
 
-    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));
-    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));
-    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));
+    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize), fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize+1), fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize+2));
+    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize+3), fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize+4), fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize+5));
+    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize+6), fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize+7), fetchFloatFrom1D(u_normals, u_normalsTexSize, i*triVertexSize+8));
 
     return tri;
 }
@@ -165,10 +172,10 @@ Triangle getTriangle(int i){
 TerrainType getTerrainType(int i){
     TerrainType t;
     int terrainTypeSize = 6;
-    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));
-    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); 
-    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); 
-    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));
+    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, u_terrainTypesTexSize, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, u_terrainTypesTexSize, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, u_terrainTypesTexSize, i*terrainTypeSize+2));
+    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, u_terrainTypesTexSize, i*terrainTypeSize+3); 
+    t.roughness = fetchFloatFrom1D(u_terrainTypes, u_terrainTypesTexSize, i*terrainTypeSize+4); 
+    t.type = int(fetchFloatFrom1D(u_terrainTypes, u_terrainTypesTexSize, i*terrainTypeSize+5));
 
     return t;
 }
@@ -576,13 +583,8 @@ void main() {
     uint pixel_x = uint(v_uv.x * u_resolution.x); 
     uint pixel_y = uint(v_uv.y * u_resolution.y);
     uint seed = hash(pixel_x) + hash(pixel_y * 1999u);
-    uint rng_state = hash(seed + uint(u_frameNumber));
+    uint rng_state = hash(seed * hash(uint(u_frameNumber)) + uint(u_frameNumber));
     rng_state = hash(rng_state + uint(u_frameNumber));
-
-    //Load terrains
-    /*for(int i = 0; i < NUM_TERRAINS; i++){
-        Terrains[i] = getTerrainType(i);
-    }*/
     
     // Jitter calculation for Anti-Alising
     uint jitter_rng_state = hash(rng_state); // Create a new state from the main one
