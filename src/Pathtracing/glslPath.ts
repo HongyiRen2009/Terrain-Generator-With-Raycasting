@@ -180,8 +180,7 @@ TerrainType getTerrainType(int i){
     return t;
 }
 
-bool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {
-    vec3 invDir = 1.0 / rayDir;
+bool intersectAABB(vec3 rayOrigin, vec3 invDir, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {
     vec3 t0s = (boxMin - rayOrigin) * invDir;
     vec3 t1s = (boxMax - rayOrigin) * invDir;
 
@@ -279,7 +278,7 @@ float intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNorma
 /**
  * Returns TRIANGLE index
  */
-int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {
+int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance, vec3 invDir) {
     int closestHitIndex = -1;
     minHitDistance = 1.0/0.0; // Infinity
 
@@ -292,7 +291,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBaryc
         BVH node = getBVH(nodeIndex);
 
         float tMin, tMax;
-        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {
+        if (!intersectAABB(rayOrigin, invDir, rayDir, node.min, node.max, tMin, tMax)) {
             continue;
         }
 
@@ -426,12 +425,18 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
     int hasMirror = -2;
     for (int bounce = 0; bounce < numBounces; bounce++) {
+        if (bounce > 3) {
+            float p = max(max(throughput.r, throughput.g), throughput.b);
+            float q = clamp(p, 0.05, 0.95);
+            if (rand(rng_state) > q) break;
+            throughput /= q; // account for survival probability
+        }
         vec3 baryCentric;
         float minHitDistance;
         vec3 directLight = vec3(1.0);
 
-        
-        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);
+        vec3 invDir = 1.0 / rayDir;
+        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance, invDir);
         
         int hitLightIndex = -1;
         for (int i = 0; i < numActiveLights; i++) {
@@ -508,7 +513,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             
             vec3 shadowBarycentric;
             float shadowHitDistance;
-            int shadowTriIndex = traverseBVH(shadowRayOrigin, shadowRayDir, 0, shadowBarycentric, shadowHitDistance);
+            int shadowTriIndex = traverseBVH(shadowRayOrigin, shadowRayDir, 0, shadowBarycentric, shadowHitDistance, 1.0 / shadowRayDir);
             
             vec3 lightHitNormal;
             float lightHitDistance = intersectLight(shadowRayOrigin, shadowRayDir, light, lightHitNormal);
