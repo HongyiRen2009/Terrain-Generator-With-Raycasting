@@ -125,7 +125,63 @@ export class GlUtils {
     }
     return transformMatrix;
   }
+  static CreateBufferTexture(
+    gl: WebGL2RenderingContext,
+    width: number,
+    height: number,
+    internalFormat: GLenum,
+    format: GLenum,
+    type: GLenum,
+    data: ArrayBufferView | null = null,
+    filter = gl.NEAREST,
+    wrap = gl.CLAMP_TO_EDGE
+  ) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      internalFormat,
+      width,
+      height,
+      0,
+      format,
+      type,
+      null
+    );
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return t;
+  }
 
+  static CreateDepthTexture(
+    gl: WebGL2RenderingContext,
+    width: number,
+    height: number
+  ) {
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.DEPTH_COMPONENT24,
+      width,
+      height,
+      0,
+      gl.DEPTH_COMPONENT,
+      gl.UNSIGNED_INT,
+      null
+    );
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return t;
+  }
   /**
    * Creates an index buffer for the given indices.
    * @param gl The WebGL2RenderingContext to use for creating the buffer.

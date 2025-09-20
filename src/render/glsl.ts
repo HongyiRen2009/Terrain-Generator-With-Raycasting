@@ -22,99 +22,130 @@ out vec4 outputColor;
 void main() {
   outputColor = vec4(fragmentColor, 1);
 }`;
-//
-
-export const MeshVertexShaderCode = /*glsl*/ `#version 300 es
-precision mediump float;
-//If you see lessons that use attribute, that's an old version of Webgl
-struct Light {
-  vec3 position;
-  vec3 color;
-  vec3 showColor;
-  float intensity;
-  float radius;
-};
-#define MAX_LIGHTS 100
-uniform Light lights[MAX_LIGHTS];
-in vec4 VertexPosition;
+// Deffered Rendering for terrain
+export const TerrainGeometryVertexShaderCode = /*glsl*/ `#version 300 es
+precision highp float;
+in vec3 VertexPosition;
 in vec3 VertexNormal;
-in vec3 VertexColor;
-out vec3 fragmentColor;
-out vec3 fragmentNormal;
-out vec3 fragmentPosition;
-uniform mat4 MatrixTransform;
-uniform mat4 matViewProj;
-
-void main() {  
-  fragmentColor = VertexColor;
-  fragmentNormal = VertexNormal;
-  fragmentPosition = VertexPosition.xyz;
-  gl_Position = matViewProj*MatrixTransform*VertexPosition;
+in vec3 VertexAlbedo;
+out vec3 viewPosition;
+out vec3 viewNormal;
+out vec3 Albedo;
+uniform mat4 MatView;
+uniform mat4 MatProj;
+uniform mat4 MatTransform;
+void main() {
+  Albedo = VertexAlbedo;
+  vec4 worldPosition = MatTransform * vec4(VertexPosition, 1.0);
+  viewPosition = (MatView * worldPosition).xyz;
+  viewNormal = mat3(transpose(inverse(MatView * MatTransform))) * VertexNormal;
+  gl_Position = MatProj * MatView * worldPosition;
 }
 `;
+export const TerrainGeometryFragmentShaderCode = /*glsl*/ `#version 300 es
+precision highp float;
+in vec3 viewPosition;
+in vec3 viewNormal;
+in vec3 Albedo;
+layout(location = 0) out vec4 outPosition;
+layout(location = 1) out vec4 outNormal;
+layout(location = 2) out vec4 outAlbedo;
+void main() {
+  outPosition = vec4(viewPosition, 1.0);
+  outNormal = vec4(normalize(viewNormal), 1.0);
+  outAlbedo = vec4(Albedo, 1.0);
+}
+`;
+export const TerrainSSAOVertexShaderCode = /*glsl*/ `#version 300 es
+precision highp float;
+in vec3 VertexPosition;
+in vec2 UV;
+out vec2 fragUV;
+void main()
+{
+  fragUV = UV;
+  gl_Position = vec4(VertexPosition, 1.0);
+}
+`;
+export const TerrainSSAOFragmentShaderCode = /*glsl*/ `#version 300 es
+precision highp float;
 
-export const MeshFragmentShaderCode = /*glsl*/ `#version 300 es
-precision mediump float;
+in vec2 fragUV;
+out float outputColor;
 
-struct Light {
-  vec3 position;
-  vec3 color;
-  vec3 showColor;
-  float intensity;
-  float radius;
-};
+uniform sampler2D VertexPositionTexture;
+uniform sampler2D VertexNormalTexture;
+uniform sampler2D NoiseTexture;
+uniform vec3 samples[64];
+uniform mat4 MatProj;
+uniform float NoiseScale;
 
-#define MAX_LIGHTS 100
-uniform Light lights[MAX_LIGHTS];
-uniform int numActiveLights;
-uniform vec3 viewPosition;
-
-in vec3 fragmentColor;
-in vec3 fragmentNormal;
-in vec3 fragmentPosition;
-out vec4 outputColor;
+const int kernelSize = 64;
+const float radius = 0.5;
+const float bias = 0.025;
 
 void main() {
-    vec3 normal = normalize(fragmentNormal);
-    vec3 specular = vec3(0.0);
-    vec3 totalDiffuse = vec3(0.0);
-    
-    float ambientStrength = 0.15;
-    vec3 ambientLight = vec3(0.4, 0.45, 0.5);
-    
-    float metallic = 0.1;
-    float roughness = 0.7;
-    float specularStrength = mix(0.04, 0.9, metallic);
-    int shininess = int(mix(2.0, 32.0, 1.0 - roughness));
-    
-    for(int i = 0; i < MAX_LIGHTS; i++) {
-        if(i >= numActiveLights) break;
-        
-        vec3 lightDir = normalize(lights[i].position - fragmentPosition);
-        float distance = length(lights[i].position - fragmentPosition);
-        
-        
-        // Diffuse lighting
-        float diffuseStrength = max(dot(normal, lightDir), 0.1);
-        vec3 diffuse = diffuseStrength * lights[i].color * lights[i].intensity;
-        totalDiffuse += diffuse;
-        
-        // Specular lighting (Blinn-Phong)
-        vec3 viewDir = normalize(viewPosition - fragmentPosition);
-        vec3 halfwayDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(normal, halfwayDir), 0.0), float(shininess));
-        specular += spec * lights[i].color * lights[i].intensity * specularStrength;
+    // Get fragment position and normal in view space
+    vec3 fragPos = texture(VertexPositionTexture, fragUV).xyz;
+    vec3 normal = normalize(texture(VertexNormalTexture, fragUV).xyz);
+
+    // Get random vector from noise texture
+    vec2 noiseUV = fragUV * NoiseScale;
+    vec3 randomVec = normalize(texture(NoiseTexture, noiseUV).xyz);
+
+    // Create TBN matrix
+    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+    vec3 bitangent = cross(normal, tangent);
+    mat3 TBN = mat3(tangent, bitangent, normal);
+
+    float occlusion = 0.0;
+    for(int i = 0; i < kernelSize; ++i) {
+        // Sample in tangent space
+        vec3 sampleVec = TBN * samples[i];
+        sampleVec = fragPos + sampleVec * radius;
+
+        // Project sample position (view space) to screen space
+        vec4 offset = MatProj * vec4(sampleVec, 1.0);
+        offset.xyz /= offset.w;
+        vec2 sampleUV = offset.xy * 0.5 + 0.5;
+
+        float sampleDepth = texture(VertexPositionTexture, sampleUV).z;
+        float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPos.z - sampleDepth));
+        if((sampleDepth - fragPos.z) >= bias) {
+            occlusion += rangeCheck;
+        }
     }
-    
-    // Combine lighting components
-    vec3 ambient = ambientLight * ambientStrength;
-    vec3 lighting = ambient + totalDiffuse + specular;
-    
-    // Apply lighting to material color
-    vec3 finalColor = fragmentColor * lighting;
-    
-    // Gamma correction
-    finalColor = pow(finalColor, vec3(1.0 / 2.2));
-    
-    outputColor = vec4(finalColor, 1.0);
-}`;
+    occlusion = 1.0 - (occlusion / float(kernelSize));
+    outputColor = occlusion;
+}
+`;
+export const TerrainLightingVertexShaderCode = /*glsl*/ `#version 300 es
+precision highp float;
+in vec3 VertexPosition;
+in vec2 UV;
+out vec2 fragUV;
+void main()
+{
+  fragUV = UV;
+  gl_Position = vec4(VertexPosition, 1.0);
+}
+`;
+export const TerrainLightingFragmentShaderCode = /*glsl*/ `#version 300 es
+precision highp float;
+in vec2 fragUV;
+out vec4 outputColor;
+uniform sampler2D SSAOTexture;
+uniform sampler2D VertexPositionTexture;
+uniform sampler2D VertexNormalTexture;
+uniform sampler2D VertexAlbedoTexture;
+void main() {
+  vec3 albedo = texture(VertexAlbedoTexture, fragUV).rgb;
+  vec3 normal = normalize(texture(VertexNormalTexture, fragUV).rgb);
+  vec3 fragPos = texture(VertexPositionTexture, fragUV).rgb;
+  //Lighting parameters
+  //Apply SSAO
+  float ambientOcclusion = texture(SSAOTexture, fragUV).r;
+  vec3 ambient = ambientOcclusion*albedo+normal*0.0+fragPos*0.0;
+  outputColor = vec4(ambient, 1.0);
+}
+`;

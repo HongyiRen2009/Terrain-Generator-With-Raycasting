@@ -40,7 +40,7 @@ export class Camera {
   getPosition() {
     return this.position;
   }
-  getViewMatrix() {
+  calculateViewMatrix() {
     let viewMatrix = mat4.create();
     let target = vec3.create();
     vec3.add(target, this.position, this.front); // Look-at target
@@ -48,8 +48,6 @@ export class Camera {
     return viewMatrix;
   }
   calculateProjectionMatrix(canvasWidth: number, canvasHeight: number) {
-    const matViewProj = mat4.create();
-    const matView = this.getViewMatrix();
     const matProj = mat4.create();
     mat4.perspective(
       matProj,
@@ -58,8 +56,7 @@ export class Camera {
       /* near, far= */ 0.1,
       100.0
     );
-    mat4.multiply(matViewProj, matProj, matView);
-    return matViewProj;
+    return matProj;
   }
 
   UpdateCameraVectors() {
