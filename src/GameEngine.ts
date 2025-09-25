@@ -2,9 +2,9 @@ import { mat3, mat4, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
-import { GLRenderer } from "./render/GLRenderer";
-import { PathTracer } from "./Pathtracing/PathTracer";
-import { GlUtils } from "./render/GlUtils";
+import { GLRenderer } from "./render/core/GlRenderer";
+import { PathTracer } from "./pathtracing/PathTracer";
+import { worldUtils } from "./render/utils/WorldUtils";
 
 import gearModelUrl from "../models/stand.3mf";
 
@@ -157,14 +157,14 @@ export class GameEngine {
       this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
     );
 
-    this.renderer.GenerateTriangleBuffer(
-      GlUtils.genTerrainVertices(this.world)
+    this.renderer.generateTerrainBuffers(
+      worldUtils.genTerrainVertices(this.world)
     );
 
     const mesh = await threemfToMesh(gearModelUrl);
     const identity2 = mat4.create();
     mat4.identity(identity2);
-    this.world.addObject(mesh, identity2, "Gear");
+    //this.world.addObject(mesh, identity2, "Gear");
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);

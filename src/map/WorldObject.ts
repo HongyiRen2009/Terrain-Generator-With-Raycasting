@@ -1,10 +1,9 @@
 import { mat4 } from "gl-matrix";
-import { GlUtils } from "../render/GlUtils";
-import { Shader } from "../render/Shader";
+import { glUtils } from "../render/utils/GlUtils";
 import { Mesh } from "./Mesh";
 
 export type WorldObject = {
-  buffer: ReturnType<typeof GlUtils.CreateStaticBuffer>;
+  buffer: ReturnType<typeof glUtils.CreateStaticBuffer>;
   position: mat4;
   meshSize: number;
   id: number;

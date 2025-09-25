@@ -158,16 +158,26 @@ export class Mesh {
   }
 
   static computeBoundingBox(...boxes: { max: vec3; min: vec3 }[]) {
-    let min = vec3.fromValues(
-      Math.min(...boxes.map((val) => val.min[0])),
-      Math.min(...boxes.map((val) => val.min[1])),
-      Math.min(...boxes.map((val) => val.min[2]))
-    );
-    let max = vec3.fromValues(
-      Math.max(...boxes.map((val) => val.max[0])),
-      Math.max(...boxes.map((val) => val.max[1])),
-      Math.max(...boxes.map((val) => val.max[2]))
-    );
+    if (boxes.length === 0) {
+      return { max: vec3.create(), min: vec3.create() };
+    }
+    
+    // Calculate min and max safely to avoid stack overflow with large arrays
+    let minX = boxes[0].min[0], minY = boxes[0].min[1], minZ = boxes[0].min[2];
+    let maxX = boxes[0].max[0], maxY = boxes[0].max[1], maxZ = boxes[0].max[2];
+    
+    for (let i = 1; i < boxes.length; i++) {
+      const box = boxes[i];
+      minX = Math.min(minX, box.min[0]);
+      minY = Math.min(minY, box.min[1]);
+      minZ = Math.min(minZ, box.min[2]);
+      maxX = Math.max(maxX, box.max[0]);
+      maxY = Math.max(maxY, box.max[1]);
+      maxZ = Math.max(maxZ, box.max[2]);
+    }
+    
+    let min = vec3.fromValues(minX, minY, minZ);
+    let max = vec3.fromValues(maxX, maxY, maxZ);
     return { max: max, min: min };
   }
 

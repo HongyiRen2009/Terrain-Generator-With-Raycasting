@@ -4429,9 +4429,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _DebugMenu__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
 /* harmony import */ var _map_Map__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./map/Map */ "./src/map/Map.ts");
 /* harmony import */ var _render_Camera__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
-/* harmony import */ var _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
-/* harmony import */ var _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./Pathtracing/PathTracer */ "./src/Pathtracing/PathTracer.ts");
-/* harmony import */ var _render_GlUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./render/GlUtils */ "./src/render/GlUtils.ts");
+/* harmony import */ var _render_core_GlRenderer__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./render/core/GlRenderer */ "./src/render/core/GlRenderer.ts");
+/* harmony import */ var _pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./pathtracing/PathTracer */ "./src/pathtracing/PathTracer.ts");
+/* harmony import */ var _render_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./render/utils/WorldUtils */ "./src/render/utils/WorldUtils.ts");
 /* harmony import */ var _models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../models/stand.3mf */ "./models/stand.3mf");
 /* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
 /* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./map/terrains */ "./src/map/terrains.ts");
@@ -4520,9 +4520,9 @@ var GameEngine = /** @class */ (function () {
         //Initialize Camera
         this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(0, 0, 3));
         //Initialize Renderer
-        this.renderer = new _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
+        this.renderer = new _render_core_GlRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
         //Initial pathTracer
-        this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.debug);
+        this.pathTracer = new _pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.debug);
         this.updatePathracing = function () {
             _this.pathTracer.initBVH(_this.world.combinedMesh());
             _this.pathTracer.init(false);
@@ -4580,7 +4580,7 @@ var GameEngine = /** @class */ (function () {
                         return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateMarchingCubes(); }))];
                     case 2:
                         _a.sent();
-                        this.renderer.GenerateTriangleBuffer(_render_GlUtils__WEBPACK_IMPORTED_MODULE_5__.GlUtils.genTerrainVertices(this.world));
+                        this.renderer.generateTerrainBuffers(_render_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.worldUtils.genTerrainVertices(this.world));
                         return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__)];
                     case 3:
                         mesh = _a.sent();
@@ -4709,260 +4709,6 @@ var GameEngine = /** @class */ (function () {
     return GameEngine;
 }());
 
-
-
-/***/ }),
-
-/***/ "./src/Pathtracing/PathTracer.ts":
-/*!***************************************!*\
-  !*** ./src/Pathtracing/PathTracer.ts ***!
-  \***************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   PathTracer: () => (/* binding */ PathTracer)
-/* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
-/* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
-/* harmony import */ var _render_Shader__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../render/Shader */ "./src/render/Shader.ts");
-/* harmony import */ var _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
-/* harmony import */ var _glslPath__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./glslPath */ "./src/Pathtracing/glslPath.ts");
-/* harmony import */ var _map_BVHUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
-/* harmony import */ var _copyShader__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./copyShader */ "./src/Pathtracing/copyShader.ts");
-// Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
-
-
-
-
-
-
-
-var PathTracer = /** @class */ (function () {
-    function PathTracer(canvas, context, world, camera, debug) {
-        // Accumulation stuff
-        this.framebuffers = [];
-        this.accumulationTextures = [];
-        this.currentFrame = 0; // The source texture/framebuffer index
-        this.frameNumber = 0; // The accumulation counter
-        this.numBounces = 15;
-        //Information
-        this.vertices = null;
-        this.terrains = null;
-        this.boundingBoxes = null;
-        // BVH
-        this.nodes = null;
-        this.leafs = null;
-        // Terrain Info
-        this.terrainTypes = null;
-        this.vertexNormals = null;
-        this.canvas = canvas;
-        this.gl = context;
-        this.world = world;
-        this.camera = camera;
-        this.debug = debug;
-        //this.gl.enable(this.gl.BLEND);
-        //Enable float texture writing extention
-        var float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
-        if (!float_render_ext) {
-            alert("Error: Floating point render targets are not supported on this browser/GPU.");
-            throw new Error("EXT_color_buffer_float not supported");
-        }
-        //shader
-        this.meshShader = new _render_Shader__WEBPACK_IMPORTED_MODULE_1__.Shader(this.gl, _glslPath__WEBPACK_IMPORTED_MODULE_3__.pathTracingVertexShaderCode, _glslPath__WEBPACK_IMPORTED_MODULE_3__.pathTracingFragmentShaderCode);
-        this.copyShader = new _render_Shader__WEBPACK_IMPORTED_MODULE_1__.Shader(this.gl, _copyShader__WEBPACK_IMPORTED_MODULE_5__.copyVertexShader, _copyShader__WEBPACK_IMPORTED_MODULE_5__.copyFragmentShader);
-        //Slider
-        var slider = document.getElementById("bounceSlider");
-        slider.addEventListener("input", this.handleBounceInput.bind(this));
-        slider.value = this.numBounces.toString();
-        var bounceValue = document.getElementById("bounceValue");
-        bounceValue.textContent = "".concat(this.numBounces);
-    }
-    PathTracer.prototype.handleBounceInput = function (event) {
-        var target = event.target;
-        var newValue = parseInt(target.value);
-        this.numBounces = newValue;
-        var bounceValue = document.getElementById("bounceValue");
-        bounceValue.textContent = newValue.toString();
-    };
-    PathTracer.prototype.initBVH = function (mainMesh) {
-        ////////////////////// build flat BVH structure
-        //Obtain bvh from mesh.
-        var BVHtriangles = mainMesh.exportBVHTriangles();
-        var BVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.exportBVH(BVHtriangles);
-        var flatBVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.flattenBVH(BVHtree);
-        ////////////// Pack everything float format to send to glsl
-        //Pack triangles
-        var _a = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_4__.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals), vertices = _a.vertices, terrains = _a.terrains, normals = _a.normals;
-        //Pack BVH
-        var _b = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_4__.BVHUtils.packBVH(flatBVHtree), boundingBoxes = _b.boundingBoxes, nodes = _b.nodes, leafs = _b.leafs;
-        //Pack terrain Types
-        var terrainTypes = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_4__.BVHUtils.packTerrainTypes();
-        //save
-        this.vertices = vertices;
-        this.terrains = terrains;
-        this.boundingBoxes = boundingBoxes;
-        this.nodes = nodes;
-        this.leafs = leafs;
-        this.terrainTypes = terrainTypes;
-        this.vertexNormals = normals;
-    };
-    PathTracer.prototype.render = function (time) {
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        // Clear the color buffer with specified clear color
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-        //const resScaleFactor = 1 / (this.world.resolution / 4);
-        this.drawMesh();
-    };
-    PathTracer.prototype.drawMesh = function () {
-        this.initPathtracing();
-        //Put camera position, direction in shader
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.meshShader.Program, "u_cameraPos"), this.camera.position);
-        var viewProjMatrix = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
-        gl_matrix__WEBPACK_IMPORTED_MODULE_6__.invert(invViewProjMatrix, viewProjMatrix);
-        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.meshShader.Program, "u_invViewProjMatrix"), false, invViewProjMatrix);
-        var resolution = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
-        resolution[0] = this.canvas.width;
-        resolution[1] = this.canvas.height;
-        this.gl.uniform2fv(this.gl.getUniformLocation(this.meshShader.Program, "u_resolution"), resolution);
-        //put lights in the shader
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.updateLights(this.gl, this.meshShader.Program, this.world.lights);
-        //Bind Previous Frame
-        var lastFrameIndex = this.currentFrame;
-        var nextFrameIndex = (this.currentFrame + 1) % 2;
-        this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
-        this.gl.bindTexture(this.gl.TEXTURE_2D, this.accumulationTextures[lastFrameIndex]);
-        var lastFrameLoc = this.gl.getUniformLocation(this.meshShader.Program, "u_lastFrame");
-        this.gl.uniform1i(lastFrameLoc, 8);
-        //put samples, bounce in shader
-        this.frameNumber++;
-        this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program, "numBounces"), this.numBounces);
-        this.gl.uniform1f(this.gl.getUniformLocation(this.meshShader.Program, "u_frameNumber"), this.frameNumber); // Send as a float for seeding
-        // Draw
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffers[nextFrameIndex]);
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-        //Ping Pong
-        this.currentFrame = nextFrameIndex;
-        //Draw to canvas using copy shader
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-        this.gl.useProgram(this.copyShader.Program);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.copyShader.Program, this.accumulationTextures[nextFrameIndex], "u_sourceTexture", 0);
-        var frameLoc = this.gl.getUniformLocation(this.copyShader.Program, "u_frameNumber");
-        this.gl.uniform1f(frameLoc, this.frameNumber);
-        // We can reuse the same fullscreen triangle VAO
-        this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-        this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-    };
-    PathTracer.prototype.makeVao = function () {
-        var fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
-        var vao = this.gl.createVertexArray();
-        this.gl.bindVertexArray(vao);
-        var vbo = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenTriangle, this.gl.STATIC_DRAW);
-        this.gl.enableVertexAttribArray(0);
-        this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
-    };
-    PathTracer.prototype.init = function (showAccumulation) {
-        var _this = this;
-        if (showAccumulation === void 0) { showAccumulation = true; }
-        if (showAccumulation)
-            this.debug.addElement("Accumulation Frame", function () { return _this.frameNumber; });
-        this.initPathtracing();
-        this.makeVao();
-        this.resetAccumulation();
-    };
-    PathTracer.prototype.leave = function () {
-        this.debug.removeElement("Accumulation Frame");
-    };
-    PathTracer.prototype.initPathtracing = function () {
-        this.gl.useProgram(this.meshShader.Program);
-        //Textures
-        var verticeTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
-        var terrainTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
-        var boundingBoxesTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
-        var nodesTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.nodes);
-        var leafsTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.leafs);
-        var terrainTypeTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
-        var vertexNormalsTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, verticeTex, "u_vertices", 0);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, terrainTex, "u_terrains", 1);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, boundingBoxesTex, "u_boundingBox", 2);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, nodesTex, "u_nodesTex", 3);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, leafsTex, "u_leafsTex", 4);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, terrainTypeTex, "u_terrainTypes", 5);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, vertexNormalsTex, "u_normals", 6);
-    };
-    PathTracer.prototype.initBuffers = function () {
-        this.accumulationTextures = [];
-        this.framebuffers = [];
-        for (var i = 0; i < 2; ++i) {
-            // Create a texture to store the accumulated image
-            var texture = this.gl.createTexture();
-            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA32F, this.canvas.width, this.canvas.height, 0, this.gl.RGBA, this.gl.FLOAT, null);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-            this.accumulationTextures.push(texture);
-            // Create a framebuffer and attach the texture to it
-            var fbo = this.gl.createFramebuffer();
-            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
-            this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, texture, 0);
-            this.framebuffers.push(fbo);
-        }
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null); // Unbind
-    };
-    PathTracer.prototype.resetAccumulation = function () {
-        this.frameNumber = 0;
-        this.initBuffers();
-    };
-    return PathTracer;
-}());
-
-
-
-/***/ }),
-
-/***/ "./src/Pathtracing/copyShader.ts":
-/*!***************************************!*\
-  !*** ./src/Pathtracing/copyShader.ts ***!
-  \***************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   copyFragmentShader: () => (/* binding */ copyFragmentShader),
-/* harmony export */   copyVertexShader: () => (/* binding */ copyVertexShader)
-/* harmony export */ });
-//Imma be honest all this code was written by AI cause I'm too lazy to right the Tone mapping
-var copyVertexShader = /* glsl */ "#version 300 es\nprecision highp float;\n\n// Input: A hardcoded triangle that fills the screen\nlayout(location = 0) in vec2 a_position;\n\n// Output: The UV coordinates to sample the texture\nout vec2 v_uv;\n\nvoid main() {\n    // We want the UVs to go from (0,0) to (1,1) across the screen\n    v_uv = a_position * 0.5 + 0.5;\n    \n    // Output the clip-space position of the triangle vertices\n    gl_Position = vec4(a_position, 0.0, 1.0);\n}\n";
-var copyFragmentShader = /* glsl */ "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_sourceTexture; // This texture now contains the SUM of samples\nuniform float u_frameNumber;       // We need the frame number here now\nin vec2 v_uv;\nout vec4 fragColor;\n\n// ACES Filmic Tone Mapping Curve\nvec3 ACESFilmic(vec3 x) {\n    const float a = 2.51;\n    const float b = 0.03;\n    const float c = 2.43;\n    const float d = 0.59;\n    const float e = 0.14;\n    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);\n}\n\nvoid main() {\n    // 1. Get the SUM of colors from the accumulation texture\n    vec3 sumColor = texture(u_sourceTexture, v_uv).rgb;\n\n    // 2. Calculate the correct average by dividing by the number of samples (frames)\n    //    Add a max to prevent division by zero if frameNumber is somehow 0.\n    vec3 avgColor = sumColor / max(u_frameNumber, 1.0);\n\n    // 3. Now apply tone mapping and gamma to the STABLE AVERAGE\n    float exposure = 1.0;\n    vec3 tonedColor = ACESFilmic(avgColor * exposure);\n    \n    float gamma = 2.2;\n    vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));\n\n    fragColor = vec4(finalColor, 1.0);\n}\n";
-
-
-/***/ }),
-
-/***/ "./src/Pathtracing/glslPath.ts":
-/*!*************************************!*\
-  !*** ./src/Pathtracing/glslPath.ts ***!
-  \*************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   pathTracingFragmentShaderCode: () => (/* binding */ pathTracingFragmentShaderCode),
-/* harmony export */   pathTracingVertexShaderCode: () => (/* binding */ pathTracingVertexShaderCode)
-/* harmony export */ });
-var pathTracingVertexShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\n\nlayout(location = 0) in vec2 a_position;\nout vec2 v_uv;\n\nvoid main() {\n    v_uv = a_position * 0.5 + 0.5; // map [-1, 1] \u2192 [0, 1]\n    gl_Position = vec4(a_position, 0.0, 1.0);\n}\n";
-var pathTracingFragmentShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\n\n#define MAX_LIGHTS 30\n#define PI 3.1415926\n//#define NUM_TERRAINS 1000 \n\n//Note: \nuniform sampler2D u_lastFrame;\nuniform float u_frameNumber;\nuniform int numBounces;\n\n\nuniform sampler2D u_vertices;\nuniform sampler2D u_terrains;\nuniform sampler2D u_normals;\nuniform sampler2D u_boundingBox;\nuniform sampler2D u_nodesTex;\nuniform sampler2D u_leafsTex;\nuniform sampler2D u_terrainTypes;\nuniform vec3 u_cameraPos;\nuniform mat4 u_invViewProjMatrix;\nuniform vec2 u_resolution;\n\nstruct Light {\n    vec3 position;\n    vec3 color;\n    vec3 showColor;\n    float intensity;\n    float radius;\n};\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\n\nin vec2 v_uv;\nout vec4 fragColor;\n\nstruct BVH{\n    vec3 min;\n    vec3 max;\n    int right;\n    int left;\n    int[4] triangles;\n};\n\nstruct Triangle{\n    vec3[3] vertices; \n    int[3] types;\n    vec3 min;\n    vec3 max;\n    vec3 center;\n    vec3 triNormal;\n    vec3[3] normals;\n};\n\nstruct TerrainType{\n    vec3 color;\n    float reflectiveness; // Decimal 0-1   \n    float roughness; // Decimal 0-1\n    int type; //Type. See terrains.ts\n};\n\n//TerrainType[NUM_TERRAINS] Terrains;\n\n// Provides a high quality 32-bit hash function to generate pseudo-random numbers\n// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins\nuint hash(uint state) {\n    state ^= 2747636419u;\n    state *= 2654435769u;\n    state ^= state >> 16;\n    state *= 2654435769u;\n    state ^= state >> 16;\n    state *= 2654435769u;\n    return state;\n}\n\n// Generates a random float in the [0, 1] range\nfloat rand(inout uint state) {\n    state = hash(state);\n    return float(state) / 4294967295.0; // 2^32 - 1\n}\n\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\n    ivec2 size = textureSize(tex, 0);\n    int texWidth = size.x;\n    \n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\n\n    // Calculate 2D coordinates of the texel\n    int y_coord = texelIndex / texWidth;\n    int x_coord = texelIndex % texWidth;\n\n    // Convert to UV coordinates [0, 1] for sampling\n    // Add 0.5 to sample the center of the texel\n    float u = (float(x_coord) + 0.5) / float(texWidth);\n    float v = (float(y_coord) + 0.5) / float(size.y);\n\n    vec4 texel = texture(tex, vec2(u, v));\n\n    if (componentIndex == 0) return texel.r;\n    else if (componentIndex == 1) return texel.g;\n    else if (componentIndex == 2) return texel.b;\n    else return texel.a;\n}\n\nBVH getBVH(int i){\n    BVH r;\n    int bbBoxSize = 6;\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\n\n    int nodeSize = 2;\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\n\n    int leafSize = 4;\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\n    \n    return r;\n}\n\nTriangle getTriangle(int i){\n    Triangle tri;\n    int triVertexSize = 9;\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\n\n    int typeSize = 3;\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\n\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.center = (tri.min + tri.max) * 0.5;\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\n\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\n\n    return tri;\n}\n\nTerrainType getTerrainType(int i){\n    TerrainType t;\n    int terrainTypeSize = 6;\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \n    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));\n\n    return t;\n}\n\nbool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\n    vec3 invDir = 1.0 / rayDir;\n    vec3 t0s = (boxMin - rayOrigin) * invDir;\n    vec3 t1s = (boxMax - rayOrigin) * invDir;\n\n    vec3 tSmalls = min(t0s, t1s);\n    vec3 tBigs = max(t0s, t1s);\n\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\n\n    return tMax >= max(tMin, 0.0);\n}\n\n//AI written; Returns distance to intersection with triangle\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\n    const float EPSILON = 0.000001;\n    vec3 v0 = tri.vertices[0];\n    vec3 v1 = tri.vertices[1];\n    vec3 v2 = tri.vertices[2];\n    vec3 edge1 = v1 - v0;\n    vec3 edge2 = v2 - v0;\n\n    vec3 h = cross(rayDir, edge2);\n    float a = dot(edge1, h);\n\n    if (a > -EPSILON && a < EPSILON) {\n        return -1.0; // Ray is parallel to the triangle\n    }\n\n    float f = 1.0 / a;\n    vec3 s = rayOrigin - v0;\n    float u = f * dot(s, h);\n\n    if (u < 0.0 || u > 1.0) {\n        return -1.0;\n    }\n\n    vec3 q = cross(s, edge1);\n    float v = f * dot(rayDir, q);\n\n    if (v < 0.0 || u + v > 1.0) {\n        return -1.0;\n    }\n\n    // At this stage we can compute t to find out where the intersection point is on the line.\n    float t = f * dot(edge2, q);\n    if (t > EPSILON) { // ray intersection\n        barycentric = vec3(1.0 - u - v, u, v);\n        return t;\n    }\n    \n    return -1.0; // This means that there is a line intersection but not a ray intersection.\n}\n\n//AI written; Returns distance to intersection with light sphere\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\n    vec3 oc = rayOrigin - light.position; \n\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\n    float b = 2.0 * dot(oc, rayDir);\n    float c = dot(oc, oc) - light.radius * light.radius;\n\n    float discriminant = b*b - 4.0*a*c;\n\n    // If the discriminant is negative, the ray misses the sphere.\n    if (discriminant < 0.0) {\n        return -1.0;\n    }\n\n    float sqrt_d = sqrt(discriminant);\n\n    // Calculate the two potential intersection distances (solutions for t)\n    float t0 = (-b - sqrt_d) / (2.0 * a);\n    float t1 = (-b + sqrt_d) / (2.0 * a);\n\n    // We need the smallest, positive t value.\n    // Check the closer intersection point (t0) first.\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\n        hitNormal = normalize(hitPoint - light.position);\n        return t0;\n    }\n    // If t0 was behind the ray, check the farther intersection point (t1).\n    // This case occurs if the ray starts inside the sphere.\n    else if (t1 > 0.001) {\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\n        hitNormal = normalize(hitPoint - light.position);\n        return t1;\n    }\n\n    // Both intersection points are behind the ray's origin.\n    return -1.0;\n}\n\n/**\n * Returns TRIANGLE index\n */\nint traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {\n    int closestHitIndex = -1;\n    minHitDistance = 1.0/0.0; // Infinity\n\n    int stack[64]; // Stack of 64 - May need to change for larger BVH later\n    int stackPtr = 0;\n    stack[stackPtr++] = 0; // Push root node index\n\n    while (stackPtr > 0) {\n        int nodeIndex = stack[--stackPtr];\n        BVH node = getBVH(nodeIndex);\n\n        float tMin, tMax;\n        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {\n            continue;\n        }\n\n        if (tMin >= minHitDistance) {\n            continue;\n        }\n\n        if (node.left == -1) { // Leaf Node\n            for (int j = 0; j < 4; j++) {\n                int triIdx = node.triangles[j];\n                if (triIdx == -1) continue;\n\n                Triangle tri = getTriangle(triIdx);\n                vec3 currentBarycentric;\n                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);\n\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\n                    minHitDistance = hitDist;\n                    closestHitIndex = triIdx;\n                    closestBarycentric = currentBarycentric;\n                }\n            }\n        } else { // Internal Node\n            // Check for space for two children to prevent stack overflow\n            if (stackPtr < 63) { \n                stack[stackPtr++] = node.left;\n                stack[stackPtr++] = node.right;\n            }\n        }\n    }\n\n    return closestHitIndex;\n}\n\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\n    return (\n        baryCentric.x * a[0] + \n        baryCentric.y * a[1] +\n        baryCentric.z * a[2]\n    );\n}\nfloat smoothItem(float[3] a, vec3 baryCentric){\n    return(\n        baryCentric.x * a[0] + \n        baryCentric.y * a[1] +\n        baryCentric.z * a[2]\n    );\n}\n\nvoid getInfo(Triangle tri, TerrainType tt1, TerrainType tt2, TerrainType tt3, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){\n    vec3[3] colors = vec3[3](\n        tt1.color,\n        tt2.color,\n        tt3.color\n    );\n    float[3] reflectivities = float[3](\n        tt1.reflectiveness,\n        tt2.reflectiveness,\n        tt3.reflectiveness\n    );\n    float[3] roughness = float[3](\n        tt1.roughness,\n        tt2.roughness,\n        tt3.roughness\n    );\n\n    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));\n    matColor = smoothItem(colors,baryCentric);\n    matRoughness = smoothItem(roughness,baryCentric);\n    reflectiveness = smoothItem(reflectivities,baryCentric);\n}\n\n/**\nReturn random direction based on given via cosine\n*/\nvec3 weightedDIR(vec3 normal, inout uint rng_state){\n    float r1 = rand(rng_state);\n    float r2 = rand(rng_state);\n\n    float phi = 2.0 * PI * r1;\n    float cos_theta = sqrt(1.0 - r2);\n    float sin_theta = sqrt(r2);\n    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);\n    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\n    vec3 tangent = normalize(cross(up, normal));\n    vec3 bitangent = cross(normal, tangent);\n    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;\n    return normalize(dirWorld);\n}\n\nvec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {\n    float r1 = rand(rng_state);\n    float r2 = rand(rng_state);\n\n    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed\n\n    float phi = 2.0 * PI * r1;\n    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));\n    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\n\n    vec3 localDir = vec3(\n        cos(phi) * sinTheta,\n        sin(phi) * sinTheta,\n        cosTheta\n    );\n\n    // Construct tangent space around the perfect reflection direction\n    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\n    vec3 tangent = normalize(cross(up, perfectDir));\n    vec3 bitangent = cross(perfectDir, tangent);\n\n    vec3 worldDir = normalize(\n        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z\n    );\n\n    return worldDir;\n}\n\nbool isValidVec3(vec3 v) {\n    return all(greaterThanEqual(v, vec3(-1e20))) &&\n           all(lessThanEqual(v, vec3(1e20))) &&\n           !any(isnan(v));\n}\n\nvec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {\n    vec3 rayOrigin = OGrayOrigin;\n    vec3 rayDir = OGrayDir;\n\n    vec3 color = vec3(0.0);\n    vec3 throughput = vec3(1.0);\n\n    int hasMirror = -2;\n    for (int bounce = 0; bounce < numBounces; bounce++) {\n        vec3 baryCentric;\n        float minHitDistance;\n        \n        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);\n        \n        int hitLightIndex = -1;\n        for (int i = 0; i < numActiveLights; i++) {\n            vec3 lightHitNormal;\n            float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);\n            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {\n                hitLightIndex = i;\n                minHitDistance = lightHitDistance;\n            }\n        }\n\n        if (hitLightIndex != -1) {\n            // Ray hit light source\n            if(bounce != 0){\n                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;\n            }else{\n                color = lights[hitLightIndex].showColor;\n            }\n            \n            break; // Path terminates.\n        }\n\n        if (triIndex == -1) {\n            // Ray missed everything and flew into space.\n            if(bounce == 0 || bounce == hasMirror + 1){\n                color = throughput * vec3(0.54,0.824,0.94);\n            }else{\n                color += throughput * 0.00001; // light sky!\n            }\n            break;\n        }\n\n        // The ray hit a triangle \n        //Get information\n        vec3 hitPoint = rayOrigin + rayDir * minHitDistance;\n        Triangle tri = getTriangle(triIndex);\n\n        TerrainType t1 = getTerrainType(tri.types[0]);\n        TerrainType t2 = getTerrainType(tri.types[1]);\n        TerrainType t3 = getTerrainType(tri.types[2]);\n\n        vec3 smoothNormal, matColor;\n        float matRoughness, reflectiveness;\n        int type = 2;\n        type = getTerrainType(tri.types[0]).type;\n        getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);\n        \n\n        vec3 geometricNormal = tri.triNormal;\n        bool didSwitch = false;\n        if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;\n        if (dot(smoothNormal, geometricNormal) < 0.0) {\n            smoothNormal = -smoothNormal;\n            didSwitch = true;\n        }\n\n        vec3 BRDF = matColor / PI;\n        \n        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy\n\n\n        // INDIRECT LIGHTING (Prepare for the NEXT bounce)\n        // Create the next bounce ray\n        if(type != 4) //Transmission goes through\n            rayOrigin = hitPoint + geometricNormal * 0.01;\n        if(type == 1){ //Diffuse\n            rayDir = weightedDIR(smoothNormal, rng_state);\n            throughput *= matColor;\n        }else if (type == 2) { // Specular (mirror)\n            rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in\n            throughput *= vec3(0.8); // decrease brightness a bit\n            hasMirror = bounce;\n        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular\n            vec3 perfect = normalize(reflect(rayDir, smoothNormal));\n            rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);\n            throughput *= matColor; //Switch to BDF later\n            //Consider fresnel in the future\n            hasMirror = bounce;\n        }else if (type == 4){ //Transmission (Glass)\n            float eta;\n            vec3 transmissionNormal;\n            if(didSwitch){ //exiting\n                eta = matRoughness / 1.0;\n                transmissionNormal = -smoothNormal; // Refract in the opposite direction\n            }else{ //entering\n                eta = 1.0 / matRoughness;\n                transmissionNormal = smoothNormal; // Refract in the same direction\n            }\n            vec3 refracted = refract(rayDir, transmissionNormal, eta);\n            if (length(refracted) < 0.001) {\n                // TIR: fall back to mirror reflection\n                rayDir = normalize(reflect(rayDir, transmissionNormal));\n                rayOrigin = hitPoint + geometricNormal * 0.01;\n            } else {\n                rayDir = normalize(refracted);\n                rayOrigin = hitPoint + rayDir * 0.01;\n            }\n            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce\n            vec3 absorption = (vec3(1.0) - matColor)*0.2;  // if matColor is tint\n            throughput *= exp(-absorption * (minHitDistance*0.2)); //Beer Lambert law\n        }else if (type == 5){ // Emissive\n            color += throughput * matColor;\n            break;\n        }\n    }\n    return min(color, vec3(10.0));\n}\n\nvoid main() {\n    //Random Hash\n    uint pixel_x = uint(v_uv.x * u_resolution.x); \n    uint pixel_y = uint(v_uv.y * u_resolution.y);\n    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);\n    uint rng_state = hash(seed + uint(u_frameNumber));\n    rng_state = hash(rng_state + uint(u_frameNumber));\n\n    //Load terrains\n    /*for(int i = 0; i < NUM_TERRAINS; i++){\n        Terrains[i] = getTerrainType(i);\n    }*/\n    \n    // Jitter calculation for Anti-Alising\n    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one\n    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\n    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\n    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].\n\n    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;\n    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC\n\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \n    // Transform from clip space to world space\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\n    // Perform perspective divide\n    rayWorld /= rayWorld.w;\n    // The ray direction is the vector from the camera to this point in the world\n    vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);\n    vec3 rayOrigin = u_cameraPos;\n\n    vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color\n    vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color\n    vec3 newSum = lastSum + newSampleColor; // New sum\n\n    fragColor = vec4(newSum,1.0); \n}\n";
 
 
 /***/ }),
@@ -5145,7 +4891,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   WorldMap: () => (/* binding */ WorldMap)
 /* harmony export */ });
-/* harmony import */ var _marching_cubes__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./marching_cubes */ "./src/map/marching_cubes.ts");
+/* harmony import */ var _marching_cubes_marching_cubes__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./marching cubes/marching_cubes */ "./src/map/marching cubes/marching_cubes.ts");
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
@@ -5153,8 +4899,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Light__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Light */ "./src/map/Light.ts");
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
 /* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
-/* harmony import */ var _render_GlUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
-/* harmony import */ var _cubes_utils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_utils.ts");
+/* harmony import */ var _render_utils_GlUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../render/utils/GlUtils */ "./src/render/utils/GlUtils.ts");
+/* harmony import */ var _marching_cubes_cubes_utils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./marching cubes/cubes_utils */ "./src/map/marching cubes/cubes_utils.ts");
 /* harmony import */ var _ObjectUI__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./ObjectUI */ "./src/map/ObjectUI.ts");
 //Wrapper classes (will write stuff later)
 
@@ -5215,10 +4961,10 @@ var WorldMap = /** @class */ (function () {
     WorldMap.prototype.generate = function () {
         this.chunks = [
             // Row 1
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[0]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[1]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(2 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[2]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(3 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[3])
+            new _marching_cubes_marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[0]),
+            new _marching_cubes_marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[1]),
+            new _marching_cubes_marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(2 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[2]),
+            new _marching_cubes_marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(3 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[3])
         ];
     };
     WorldMap.prototype.combinedMesh = function () {
@@ -5226,7 +4972,14 @@ var WorldMap = /** @class */ (function () {
         // Merge chunks (these are already independent)
         for (var _i = 0, _a = this.chunks; _i < _a.length; _i++) {
             var chunk = _a[_i];
-            CombinedMesh.merge(chunk.getMesh());
+            var chunkMesh = chunk.getMesh();
+            if (chunkMesh && chunkMesh.mesh.length > 0) {
+                console.log("Chunk has ".concat(chunkMesh.mesh.length, " triangles"));
+                CombinedMesh.merge(chunkMesh);
+            }
+            else {
+                console.warn("Chunk has no mesh data");
+            }
         }
         // Merge worldObjects with transformation applied
         for (var _b = 0, _c = this.worldObjects; _b < _c.length; _b++) {
@@ -5274,9 +5027,9 @@ var WorldMap = /** @class */ (function () {
      * Add an object to the game world
      */
     WorldMap.prototype.addObject = function (objectData, objectLocation, name) {
-        var _a = (0,_cubes_utils__WEBPACK_IMPORTED_MODULE_5__.meshToVerticesAndIndices)(objectData), vertices = _a.vertices, indices = _a.indices;
+        var _a = (0,_marching_cubes_cubes_utils__WEBPACK_IMPORTED_MODULE_5__.meshToVerticesAndIndices)(objectData), vertices = _a.vertices, indices = _a.indices;
         var meshSize = indices.length;
-        var objectBuffer = _render_GlUtils__WEBPACK_IMPORTED_MODULE_4__.GlUtils.CreateStaticBuffer(this.gl, vertices, Array.from(indices));
+        var objectBuffer = _render_utils_GlUtils__WEBPACK_IMPORTED_MODULE_4__.glUtils.CreateStaticBuffer(this.gl, vertices, Array.from(indices));
         var worldObject = {
             buffer: objectBuffer,
             position: objectLocation,
@@ -5824,58 +5577,6 @@ var Utilities = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/map/cubes_utils.ts":
-/*!********************************!*\
-  !*** ./src/map/cubes_utils.ts ***!
-  \********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   meshToVerticesAndIndices: () => (/* binding */ meshToVerticesAndIndices),
-/* harmony export */   vertexKey: () => (/* binding */ vertexKey)
-/* harmony export */ });
-/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
-
-var roundToPrecision = function (value, precision) {
-    return Math.round(value * precision) / precision;
-};
-var vertexKey = function (vertex) {
-    return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
-};
-var meshToVerticesAndIndices = function (mesh) {
-    // For each vertex: x, y, z, r, g, b
-    var vertexMap = new Map();
-    var vertices = [];
-    var indices = [];
-    var vertexIndex = 0;
-    for (var i = 0; i < mesh.mesh.length; i++) {
-        var triangle = mesh.mesh[i];
-        var types = mesh.type[i];
-        for (var j = 0; j < 3; j++) {
-            var vertex = triangle[j];
-            var normal = mesh.normals[i][j];
-            var key = vertexKey(vertex);
-            if (!vertexMap.has(key)) {
-                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
-                var color = type.color;
-                vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255);
-                vertexMap.set(key, vertexIndex);
-                vertexIndex++;
-            }
-            indices.push(vertexMap.get(key)); // Store the index of the vertex
-        }
-    }
-    return {
-        vertices: new Float32Array(vertices),
-        indices: new Uint32Array(indices)
-    };
-};
-
-
-/***/ }),
-
 /***/ "./src/map/geometry.ts":
 /*!*****************************!*\
   !*** ./src/map/geometry.ts ***!
@@ -5888,8 +5589,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   CASES: () => (/* binding */ CASES),
 /* harmony export */   EDGES: () => (/* binding */ EDGES),
 /* harmony export */   VERTICES: () => (/* binding */ VERTICES),
-/* harmony export */   cubeVertices: () => (/* binding */ cubeVertices),
-/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices)
+/* harmony export */   quadIndices: () => (/* binding */ quadIndices),
+/* harmony export */   quadVertices: () => (/* binding */ quadVertices)
 /* harmony export */ });
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 var VERTICES = [
@@ -6173,23 +5874,86 @@ var CASES = [[],
     [[9, 0, 1]],
     [[3, 0, 8]],
     []];
-var cubeVertices = new Float32Array([
-    // x, y, z, r, g, b
-    0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0,
-    1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0
+var quadVertices = new Float32Array([
+    // positions   // texCoords
+    -1.0,
+    1.0,
+    0.0,
+    1.0, // top left
+    -1.0,
+    -1.0,
+    0.0,
+    0.0, // bottom left
+    1.0,
+    -1.0,
+    1.0,
+    0.0, // bottom right
+    1.0,
+    1.0,
+    1.0,
+    1.0 // top right
 ]);
-var cubeWireframeIndices = [
-    // 12 edges × 2 vertices = 24 indices
-    0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
-];
+var quadIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
 
 /***/ }),
 
-/***/ "./src/map/marching_cubes.ts":
-/*!***********************************!*\
-  !*** ./src/map/marching_cubes.ts ***!
-  \***********************************/
+/***/ "./src/map/marching cubes/cubes_utils.ts":
+/*!***********************************************!*\
+  !*** ./src/map/marching cubes/cubes_utils.ts ***!
+  \***********************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   meshToVerticesAndIndices: () => (/* binding */ meshToVerticesAndIndices),
+/* harmony export */   vertexKey: () => (/* binding */ vertexKey)
+/* harmony export */ });
+/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../terrains */ "./src/map/terrains.ts");
+
+var roundToPrecision = function (value, precision) {
+    return Math.round(value * precision) / precision;
+};
+var vertexKey = function (vertex) {
+    return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
+};
+var meshToVerticesAndIndices = function (mesh) {
+    // For each vertex: x, y, z, r, g, b
+    var vertexMap = new Map();
+    var vertices = [];
+    var indices = [];
+    var vertexIndex = 0;
+    for (var i = 0; i < mesh.mesh.length; i++) {
+        var triangle = mesh.mesh[i];
+        var types = mesh.type[i];
+        for (var j = 0; j < 3; j++) {
+            var vertex = triangle[j];
+            var normal = mesh.normals[i][j];
+            var key = vertexKey(vertex);
+            if (!vertexMap.has(key)) {
+                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                var color = type.color;
+                vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255);
+                vertexMap.set(key, vertexIndex);
+                vertexIndex++;
+            }
+            indices.push(vertexMap.get(key)); // Store the index of the vertex
+        }
+    }
+    return {
+        vertices: new Float32Array(vertices),
+        indices: new Uint32Array(indices)
+    };
+};
+
+
+/***/ }),
+
+/***/ "./src/map/marching cubes/marching_cubes.ts":
+/*!**************************************************!*\
+  !*** ./src/map/marching cubes/marching_cubes.ts ***!
+  \**************************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -6197,7 +5961,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   Chunk: () => (/* binding */ Chunk)
 /* harmony export */ });
-/* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../Mesh */ "./src/map/Mesh.ts");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7078,6 +6842,262 @@ function loadPLYToMesh(plyString, importMap) {
 
 /***/ }),
 
+/***/ "./src/pathtracing/PathTracer.ts":
+/*!***************************************!*\
+  !*** ./src/pathtracing/PathTracer.ts ***!
+  \***************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   PathTracer: () => (/* binding */ PathTracer)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
+/* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var _glslPath__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./glslPath */ "./src/pathtracing/glslPath.ts");
+/* harmony import */ var _map_BVHUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
+/* harmony import */ var _copyShader__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./copyShader */ "./src/pathtracing/copyShader.ts");
+/* harmony import */ var _render_utils_GlUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../render/utils/GlUtils */ "./src/render/utils/GlUtils.ts");
+/* harmony import */ var _render_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../render/utils/WorldUtils */ "./src/render/utils/WorldUtils.ts");
+/* harmony import */ var _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../render/utils/TextureUtils */ "./src/render/utils/TextureUtils.ts");
+// Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
+
+
+
+
+
+
+
+
+var PathTracer = /** @class */ (function () {
+    function PathTracer(canvas, context, world, camera, debug) {
+        // Accumulation stuff
+        this.framebuffers = [];
+        this.accumulationTextures = [];
+        this.currentFrame = 0; // The source texture/framebuffer index
+        this.frameNumber = 0; // The accumulation counter
+        this.numBounces = 15;
+        //Information
+        this.vertices = null;
+        this.terrains = null;
+        this.boundingBoxes = null;
+        // BVH
+        this.nodes = null;
+        this.leafs = null;
+        // Terrain Info
+        this.terrainTypes = null;
+        this.vertexNormals = null;
+        this.canvas = canvas;
+        this.gl = context;
+        this.world = world;
+        this.camera = camera;
+        this.debug = debug;
+        //this.gl.enable(this.gl.BLEND);
+        //Enable float texture writing extention
+        var float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
+        if (!float_render_ext) {
+            alert("Error: Floating point render targets are not supported on this browser/GPU.");
+            throw new Error("EXT_color_buffer_float not supported");
+        }
+        //shader
+        this.meshProgram = _render_utils_GlUtils__WEBPACK_IMPORTED_MODULE_4__.glUtils.CreateProgram(this.gl, _glslPath__WEBPACK_IMPORTED_MODULE_1__.pathTracingVertexShaderCode, _glslPath__WEBPACK_IMPORTED_MODULE_1__.pathTracingFragmentShaderCode);
+        this.copyProgram = _render_utils_GlUtils__WEBPACK_IMPORTED_MODULE_4__.glUtils.CreateProgram(this.gl, _copyShader__WEBPACK_IMPORTED_MODULE_3__.copyVertexShader, _copyShader__WEBPACK_IMPORTED_MODULE_3__.copyFragmentShader);
+        //Slider
+        var slider = document.getElementById("bounceSlider");
+        slider.addEventListener("input", this.handleBounceInput.bind(this));
+        slider.value = this.numBounces.toString();
+        var bounceValue = document.getElementById("bounceValue");
+        bounceValue.textContent = "".concat(this.numBounces);
+    }
+    PathTracer.prototype.handleBounceInput = function (event) {
+        var target = event.target;
+        var newValue = parseInt(target.value);
+        this.numBounces = newValue;
+        var bounceValue = document.getElementById("bounceValue");
+        bounceValue.textContent = newValue.toString();
+    };
+    PathTracer.prototype.initBVH = function (mainMesh) {
+        ////////////////////// build flat BVH structure
+        //Obtain bvh from mesh.
+        var BVHtriangles = mainMesh.exportBVHTriangles();
+        var BVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.exportBVH(BVHtriangles);
+        var flatBVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.flattenBVH(BVHtree);
+        ////////////// Pack everything float format to send to glsl
+        //Pack triangles
+        var _a = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_2__.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals), vertices = _a.vertices, terrains = _a.terrains, normals = _a.normals;
+        //Pack BVH
+        var _b = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_2__.BVHUtils.packBVH(flatBVHtree), boundingBoxes = _b.boundingBoxes, nodes = _b.nodes, leafs = _b.leafs;
+        //Pack terrain Types
+        var terrainTypes = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_2__.BVHUtils.packTerrainTypes();
+        //save
+        this.vertices = vertices;
+        this.terrains = terrains;
+        this.boundingBoxes = boundingBoxes;
+        this.nodes = nodes;
+        this.leafs = leafs;
+        this.terrainTypes = terrainTypes;
+        this.vertexNormals = normals;
+    };
+    PathTracer.prototype.render = function (time) {
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // Clear the color buffer with specified clear color
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        //const resScaleFactor = 1 / (this.world.resolution / 4);
+        this.drawMesh();
+    };
+    PathTracer.prototype.drawMesh = function () {
+        this.initPathtracing();
+        //Put camera position, direction in shader
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.meshProgram, "u_cameraPos"), this.camera.position);
+        var viewProjMatrix = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
+        var invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_7__.invert(invViewProjMatrix, viewProjMatrix);
+        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.meshProgram, "u_invViewProjMatrix"), false, invViewProjMatrix);
+        var resolution = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
+        resolution[0] = this.canvas.width;
+        resolution[1] = this.canvas.height;
+        this.gl.uniform2fv(this.gl.getUniformLocation(this.meshProgram, "u_resolution"), resolution);
+        //put lights in the shader
+        _render_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.worldUtils.updateLights(this.gl, this.meshProgram, this.world.lights);
+        //Bind Previous Frame
+        var lastFrameIndex = this.currentFrame;
+        var nextFrameIndex = (this.currentFrame + 1) % 2;
+        this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.accumulationTextures[lastFrameIndex]);
+        var lastFrameLoc = this.gl.getUniformLocation(this.meshProgram, "u_lastFrame");
+        this.gl.uniform1i(lastFrameLoc, 8);
+        //put samples, bounce in shader
+        this.frameNumber++;
+        this.gl.uniform1i(this.gl.getUniformLocation(this.meshProgram, "numBounces"), this.numBounces);
+        this.gl.uniform1f(this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"), this.frameNumber); // Send as a float for seeding
+        // Draw
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffers[nextFrameIndex]);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+        //Ping Pong
+        this.currentFrame = nextFrameIndex;
+        //Draw to canvas using copy shader
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.useProgram(this.copyProgram);
+        _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.bindTex(this.gl, this.copyProgram, this.accumulationTextures[nextFrameIndex], "u_sourceTexture", 0);
+        var frameLoc = this.gl.getUniformLocation(this.copyProgram, "u_frameNumber");
+        this.gl.uniform1f(frameLoc, this.frameNumber);
+        // We can reuse the same fullscreen triangle VAO
+        this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+    };
+    PathTracer.prototype.makeVao = function () {
+        var fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
+        var vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        var vbo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenTriangle, this.gl.STATIC_DRAW);
+        this.gl.enableVertexAttribArray(0);
+        this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+    };
+    PathTracer.prototype.init = function (showAccumulation) {
+        var _this = this;
+        if (showAccumulation === void 0) { showAccumulation = true; }
+        if (showAccumulation)
+            this.debug.addElement("Accumulation Frame", function () { return _this.frameNumber; });
+        this.initPathtracing();
+        this.makeVao();
+        this.resetAccumulation();
+    };
+    PathTracer.prototype.leave = function () {
+        this.debug.removeElement("Accumulation Frame");
+    };
+    PathTracer.prototype.initPathtracing = function () {
+        this.gl.useProgram(this.meshProgram);
+        //Textures
+        var verticeTex = _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+        var terrainTex = _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+        var boundingBoxesTex = _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+        var nodesTex = _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+        var leafsTex = _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+        var terrainTypeTex = _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+        var vertexNormalsTex = _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+        _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
+        _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
+        _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.bindTex(this.gl, this.meshProgram, boundingBoxesTex, "u_boundingBox", 2);
+        _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.bindTex(this.gl, this.meshProgram, nodesTex, "u_nodesTex", 3);
+        _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.bindTex(this.gl, this.meshProgram, leafsTex, "u_leafsTex", 4);
+        _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.bindTex(this.gl, this.meshProgram, terrainTypeTex, "u_terrainTypes", 5);
+        _render_utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.textureUtils.bindTex(this.gl, this.meshProgram, vertexNormalsTex, "u_normals", 6);
+    };
+    PathTracer.prototype.initBuffers = function () {
+        this.accumulationTextures = [];
+        this.framebuffers = [];
+        for (var i = 0; i < 2; ++i) {
+            // Create a texture to store the accumulated image
+            var texture = this.gl.createTexture();
+            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA32F, this.canvas.width, this.canvas.height, 0, this.gl.RGBA, this.gl.FLOAT, null);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+            this.accumulationTextures.push(texture);
+            // Create a framebuffer and attach the texture to it
+            var fbo = this.gl.createFramebuffer();
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+            this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, texture, 0);
+            this.framebuffers.push(fbo);
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null); // Unbind
+    };
+    PathTracer.prototype.resetAccumulation = function () {
+        this.frameNumber = 0;
+        this.initBuffers();
+    };
+    return PathTracer;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/pathtracing/copyShader.ts":
+/*!***************************************!*\
+  !*** ./src/pathtracing/copyShader.ts ***!
+  \***************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   copyFragmentShader: () => (/* binding */ copyFragmentShader),
+/* harmony export */   copyVertexShader: () => (/* binding */ copyVertexShader)
+/* harmony export */ });
+//Imma be honest all this code was written by AI cause I'm too lazy to right the Tone mapping
+var copyVertexShader = /* glsl */ "#version 300 es\nprecision highp float;\n\n// Input: A hardcoded triangle that fills the screen\nlayout(location = 0) in vec2 a_position;\n\n// Output: The UV coordinates to sample the texture\nout vec2 v_uv;\n\nvoid main() {\n    // We want the UVs to go from (0,0) to (1,1) across the screen\n    v_uv = a_position * 0.5 + 0.5;\n    \n    // Output the clip-space position of the triangle vertices\n    gl_Position = vec4(a_position, 0.0, 1.0);\n}\n";
+var copyFragmentShader = /* glsl */ "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_sourceTexture; // This texture now contains the SUM of samples\nuniform float u_frameNumber;       // We need the frame number here now\nin vec2 v_uv;\nout vec4 fragColor;\n\n// ACES Filmic Tone Mapping Curve\nvec3 ACESFilmic(vec3 x) {\n    const float a = 2.51;\n    const float b = 0.03;\n    const float c = 2.43;\n    const float d = 0.59;\n    const float e = 0.14;\n    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);\n}\n\nvoid main() {\n    // 1. Get the SUM of colors from the accumulation texture\n    vec3 sumColor = texture(u_sourceTexture, v_uv).rgb;\n\n    // 2. Calculate the correct average by dividing by the number of samples (frames)\n    //    Add a max to prevent division by zero if frameNumber is somehow 0.\n    vec3 avgColor = sumColor / max(u_frameNumber, 1.0);\n\n    // 3. Now apply tone mapping and gamma to the STABLE AVERAGE\n    float exposure = 1.0;\n    vec3 tonedColor = ACESFilmic(avgColor * exposure);\n    \n    float gamma = 2.2;\n    vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));\n\n    fragColor = vec4(finalColor, 1.0);\n}\n";
+
+
+/***/ }),
+
+/***/ "./src/pathtracing/glslPath.ts":
+/*!*************************************!*\
+  !*** ./src/pathtracing/glslPath.ts ***!
+  \*************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   pathTracingFragmentShaderCode: () => (/* binding */ pathTracingFragmentShaderCode),
+/* harmony export */   pathTracingVertexShaderCode: () => (/* binding */ pathTracingVertexShaderCode)
+/* harmony export */ });
+var pathTracingVertexShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\n\nlayout(location = 0) in vec2 a_position;\nout vec2 v_uv;\n\nvoid main() {\n    v_uv = a_position * 0.5 + 0.5; // map [-1, 1] \u2192 [0, 1]\n    gl_Position = vec4(a_position, 0.0, 1.0);\n}\n";
+var pathTracingFragmentShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\n\n#define MAX_LIGHTS 30\n#define PI 3.1415926\n//#define NUM_TERRAINS 1000 \n\n//Note: \nuniform sampler2D u_lastFrame;\nuniform float u_frameNumber;\nuniform int numBounces;\n\n\nuniform sampler2D u_vertices;\nuniform sampler2D u_terrains;\nuniform sampler2D u_normals;\nuniform sampler2D u_boundingBox;\nuniform sampler2D u_nodesTex;\nuniform sampler2D u_leafsTex;\nuniform sampler2D u_terrainTypes;\nuniform vec3 u_cameraPos;\nuniform mat4 u_invViewProjMatrix;\nuniform vec2 u_resolution;\n\nstruct Light {\n    vec3 position;\n    vec3 color;\n    vec3 showColor;\n    float intensity;\n    float radius;\n};\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\n\nin vec2 v_uv;\nout vec4 fragColor;\n\nstruct BVH{\n    vec3 min;\n    vec3 max;\n    int right;\n    int left;\n    int[4] triangles;\n};\n\nstruct Triangle{\n    vec3[3] vertices; \n    int[3] types;\n    vec3 min;\n    vec3 max;\n    vec3 center;\n    vec3 triNormal;\n    vec3[3] normals;\n};\n\nstruct TerrainType{\n    vec3 color;\n    float reflectiveness; // Decimal 0-1   \n    float roughness; // Decimal 0-1\n    int type; //Type. See terrains.ts\n};\n\n//TerrainType[NUM_TERRAINS] Terrains;\n\n// Provides a high quality 32-bit hash function to generate pseudo-random numbers\n// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins\nuint hash(uint state) {\n    state ^= 2747636419u;\n    state *= 2654435769u;\n    state ^= state >> 16;\n    state *= 2654435769u;\n    state ^= state >> 16;\n    state *= 2654435769u;\n    return state;\n}\n\n// Generates a random float in the [0, 1] range\nfloat rand(inout uint state) {\n    state = hash(state);\n    return float(state) / 4294967295.0; // 2^32 - 1\n}\n\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\n    ivec2 size = textureSize(tex, 0);\n    int texWidth = size.x;\n    \n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\n\n    // Calculate 2D coordinates of the texel\n    int y_coord = texelIndex / texWidth;\n    int x_coord = texelIndex % texWidth;\n\n    // Convert to UV coordinates [0, 1] for sampling\n    // Add 0.5 to sample the center of the texel\n    float u = (float(x_coord) + 0.5) / float(texWidth);\n    float v = (float(y_coord) + 0.5) / float(size.y);\n\n    vec4 texel = texture(tex, vec2(u, v));\n\n    if (componentIndex == 0) return texel.r;\n    else if (componentIndex == 1) return texel.g;\n    else if (componentIndex == 2) return texel.b;\n    else return texel.a;\n}\n\nBVH getBVH(int i){\n    BVH r;\n    int bbBoxSize = 6;\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\n\n    int nodeSize = 2;\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\n\n    int leafSize = 4;\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\n    \n    return r;\n}\n\nTriangle getTriangle(int i){\n    Triangle tri;\n    int triVertexSize = 9;\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\n\n    int typeSize = 3;\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\n\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.center = (tri.min + tri.max) * 0.5;\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\n\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\n\n    return tri;\n}\n\nTerrainType getTerrainType(int i){\n    TerrainType t;\n    int terrainTypeSize = 6;\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \n    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));\n\n    return t;\n}\n\nbool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\n    vec3 invDir = 1.0 / rayDir;\n    vec3 t0s = (boxMin - rayOrigin) * invDir;\n    vec3 t1s = (boxMax - rayOrigin) * invDir;\n\n    vec3 tSmalls = min(t0s, t1s);\n    vec3 tBigs = max(t0s, t1s);\n\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\n\n    return tMax >= max(tMin, 0.0);\n}\n\n//AI written; Returns distance to intersection with triangle\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\n    const float EPSILON = 0.000001;\n    vec3 v0 = tri.vertices[0];\n    vec3 v1 = tri.vertices[1];\n    vec3 v2 = tri.vertices[2];\n    vec3 edge1 = v1 - v0;\n    vec3 edge2 = v2 - v0;\n\n    vec3 h = cross(rayDir, edge2);\n    float a = dot(edge1, h);\n\n    if (a > -EPSILON && a < EPSILON) {\n        return -1.0; // Ray is parallel to the triangle\n    }\n\n    float f = 1.0 / a;\n    vec3 s = rayOrigin - v0;\n    float u = f * dot(s, h);\n\n    if (u < 0.0 || u > 1.0) {\n        return -1.0;\n    }\n\n    vec3 q = cross(s, edge1);\n    float v = f * dot(rayDir, q);\n\n    if (v < 0.0 || u + v > 1.0) {\n        return -1.0;\n    }\n\n    // At this stage we can compute t to find out where the intersection point is on the line.\n    float t = f * dot(edge2, q);\n    if (t > EPSILON) { // ray intersection\n        barycentric = vec3(1.0 - u - v, u, v);\n        return t;\n    }\n    \n    return -1.0; // This means that there is a line intersection but not a ray intersection.\n}\n\n//AI written; Returns distance to intersection with light sphere\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\n    vec3 oc = rayOrigin - light.position; \n\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\n    float b = 2.0 * dot(oc, rayDir);\n    float c = dot(oc, oc) - light.radius * light.radius;\n\n    float discriminant = b*b - 4.0*a*c;\n\n    // If the discriminant is negative, the ray misses the sphere.\n    if (discriminant < 0.0) {\n        return -1.0;\n    }\n\n    float sqrt_d = sqrt(discriminant);\n\n    // Calculate the two potential intersection distances (solutions for t)\n    float t0 = (-b - sqrt_d) / (2.0 * a);\n    float t1 = (-b + sqrt_d) / (2.0 * a);\n\n    // We need the smallest, positive t value.\n    // Check the closer intersection point (t0) first.\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\n        hitNormal = normalize(hitPoint - light.position);\n        return t0;\n    }\n    // If t0 was behind the ray, check the farther intersection point (t1).\n    // This case occurs if the ray starts inside the sphere.\n    else if (t1 > 0.001) {\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\n        hitNormal = normalize(hitPoint - light.position);\n        return t1;\n    }\n\n    // Both intersection points are behind the ray's origin.\n    return -1.0;\n}\n\n/**\n * Returns TRIANGLE index\n */\nint traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {\n    int closestHitIndex = -1;\n    minHitDistance = 1.0/0.0; // Infinity\n\n    int stack[64]; // Stack of 64 - May need to change for larger BVH later\n    int stackPtr = 0;\n    stack[stackPtr++] = 0; // Push root node index\n\n    while (stackPtr > 0) {\n        int nodeIndex = stack[--stackPtr];\n        BVH node = getBVH(nodeIndex);\n\n        float tMin, tMax;\n        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {\n            continue;\n        }\n\n        if (tMin >= minHitDistance) {\n            continue;\n        }\n\n        if (node.left == -1) { // Leaf Node\n            for (int j = 0; j < 4; j++) {\n                int triIdx = node.triangles[j];\n                if (triIdx == -1) continue;\n\n                Triangle tri = getTriangle(triIdx);\n                vec3 currentBarycentric;\n                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);\n\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\n                    minHitDistance = hitDist;\n                    closestHitIndex = triIdx;\n                    closestBarycentric = currentBarycentric;\n                }\n            }\n        } else { // Internal Node\n            // Check for space for two children to prevent stack overflow\n            if (stackPtr < 63) { \n                stack[stackPtr++] = node.left;\n                stack[stackPtr++] = node.right;\n            }\n        }\n    }\n\n    return closestHitIndex;\n}\n\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\n    return (\n        baryCentric.x * a[0] + \n        baryCentric.y * a[1] +\n        baryCentric.z * a[2]\n    );\n}\nfloat smoothItem(float[3] a, vec3 baryCentric){\n    return(\n        baryCentric.x * a[0] + \n        baryCentric.y * a[1] +\n        baryCentric.z * a[2]\n    );\n}\n\nvoid getInfo(Triangle tri, TerrainType tt1, TerrainType tt2, TerrainType tt3, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){\n    vec3[3] colors = vec3[3](\n        tt1.color,\n        tt2.color,\n        tt3.color\n    );\n    float[3] reflectivities = float[3](\n        tt1.reflectiveness,\n        tt2.reflectiveness,\n        tt3.reflectiveness\n    );\n    float[3] roughness = float[3](\n        tt1.roughness,\n        tt2.roughness,\n        tt3.roughness\n    );\n\n    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));\n    matColor = smoothItem(colors,baryCentric);\n    matRoughness = smoothItem(roughness,baryCentric);\n    reflectiveness = smoothItem(reflectivities,baryCentric);\n}\n\n/**\nReturn random direction based on given via cosine\n*/\nvec3 weightedDIR(vec3 normal, inout uint rng_state){\n    float r1 = rand(rng_state);\n    float r2 = rand(rng_state);\n\n    float phi = 2.0 * PI * r1;\n    float cos_theta = sqrt(1.0 - r2);\n    float sin_theta = sqrt(r2);\n    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);\n    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\n    vec3 tangent = normalize(cross(up, normal));\n    vec3 bitangent = cross(normal, tangent);\n    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;\n    return normalize(dirWorld);\n}\n\nvec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {\n    float r1 = rand(rng_state);\n    float r2 = rand(rng_state);\n\n    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed\n\n    float phi = 2.0 * PI * r1;\n    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));\n    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\n\n    vec3 localDir = vec3(\n        cos(phi) * sinTheta,\n        sin(phi) * sinTheta,\n        cosTheta\n    );\n\n    // Construct tangent space around the perfect reflection direction\n    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\n    vec3 tangent = normalize(cross(up, perfectDir));\n    vec3 bitangent = cross(perfectDir, tangent);\n\n    vec3 worldDir = normalize(\n        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z\n    );\n\n    return worldDir;\n}\n\nbool isValidVec3(vec3 v) {\n    return all(greaterThanEqual(v, vec3(-1e20))) &&\n           all(lessThanEqual(v, vec3(1e20))) &&\n           !any(isnan(v));\n}\n\nvec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {\n    vec3 rayOrigin = OGrayOrigin;\n    vec3 rayDir = OGrayDir;\n\n    vec3 color = vec3(0.0);\n    vec3 throughput = vec3(1.0);\n\n    int hasMirror = -2;\n    for (int bounce = 0; bounce < numBounces; bounce++) {\n        vec3 baryCentric;\n        float minHitDistance;\n        \n        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);\n        \n        int hitLightIndex = -1;\n        for (int i = 0; i < numActiveLights; i++) {\n            vec3 lightHitNormal;\n            float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);\n            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {\n                hitLightIndex = i;\n                minHitDistance = lightHitDistance;\n            }\n        }\n\n        if (hitLightIndex != -1) {\n            // Ray hit light source\n            if(bounce != 0){\n                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;\n            }else{\n                color = lights[hitLightIndex].showColor;\n            }\n            \n            break; // Path terminates.\n        }\n\n        if (triIndex == -1) {\n            // Ray missed everything and flew into space.\n            if(bounce == 0 || bounce == hasMirror + 1){\n                color = throughput * vec3(0.54,0.824,0.94);\n            }else{\n                color += throughput * 0.00001; // light sky!\n            }\n            break;\n        }\n\n        // The ray hit a triangle \n        //Get information\n        vec3 hitPoint = rayOrigin + rayDir * minHitDistance;\n        Triangle tri = getTriangle(triIndex);\n\n        TerrainType t1 = getTerrainType(tri.types[0]);\n        TerrainType t2 = getTerrainType(tri.types[1]);\n        TerrainType t3 = getTerrainType(tri.types[2]);\n\n        vec3 smoothNormal, matColor;\n        float matRoughness, reflectiveness;\n        int type = 2;\n        type = getTerrainType(tri.types[0]).type;\n        getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);\n        \n\n        vec3 geometricNormal = tri.triNormal;\n        bool didSwitch = false;\n        if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;\n        if (dot(smoothNormal, geometricNormal) < 0.0) {\n            smoothNormal = -smoothNormal;\n            didSwitch = true;\n        }\n\n        vec3 BRDF = matColor / PI;\n        \n        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy\n\n\n        // INDIRECT LIGHTING (Prepare for the NEXT bounce)\n        // Create the next bounce ray\n        if(type != 4) //Transmission goes through\n            rayOrigin = hitPoint + geometricNormal * 0.01;\n        if(type == 1){ //Diffuse\n            rayDir = weightedDIR(smoothNormal, rng_state);\n            throughput *= matColor;\n        }else if (type == 2) { // Specular (mirror)\n            rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in\n            throughput *= vec3(0.8); // decrease brightness a bit\n            hasMirror = bounce;\n        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular\n            vec3 perfect = normalize(reflect(rayDir, smoothNormal));\n            rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);\n            throughput *= matColor; //Switch to BDF later\n            //Consider fresnel in the future\n            hasMirror = bounce;\n        }else if (type == 4){ //Transmission (Glass)\n            float eta;\n            vec3 transmissionNormal;\n            if(didSwitch){ //exiting\n                eta = matRoughness / 1.0;\n                transmissionNormal = -smoothNormal; // Refract in the opposite direction\n            }else{ //entering\n                eta = 1.0 / matRoughness;\n                transmissionNormal = smoothNormal; // Refract in the same direction\n            }\n            vec3 refracted = refract(rayDir, transmissionNormal, eta);\n            if (length(refracted) < 0.001) {\n                // TIR: fall back to mirror reflection\n                rayDir = normalize(reflect(rayDir, transmissionNormal));\n                rayOrigin = hitPoint + geometricNormal * 0.01;\n            } else {\n                rayDir = normalize(refracted);\n                rayOrigin = hitPoint + rayDir * 0.01;\n            }\n            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce\n            vec3 absorption = (vec3(1.0) - matColor)*0.2;  // if matColor is tint\n            throughput *= exp(-absorption * (minHitDistance*0.2)); //Beer Lambert law\n        }else if (type == 5){ // Emissive\n            color += throughput * matColor;\n            break;\n        }\n    }\n    return min(color, vec3(10.0));\n}\n\nvoid main() {\n    //Random Hash\n    uint pixel_x = uint(v_uv.x * u_resolution.x); \n    uint pixel_y = uint(v_uv.y * u_resolution.y);\n    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);\n    uint rng_state = hash(seed + uint(u_frameNumber));\n    rng_state = hash(rng_state + uint(u_frameNumber));\n\n    //Load terrains\n    /*for(int i = 0; i < NUM_TERRAINS; i++){\n        Terrains[i] = getTerrainType(i);\n    }*/\n    \n    // Jitter calculation for Anti-Alising\n    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one\n    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\n    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\n    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].\n\n    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;\n    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC\n\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \n    // Transform from clip space to world space\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\n    // Perform perspective divide\n    rayWorld /= rayWorld.w;\n    // The ray direction is the vector from the camera to this point in the world\n    vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);\n    vec3 rayOrigin = u_cameraPos;\n\n    vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color\n    vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color\n    vec3 newSum = lastSum + newSampleColor; // New sum\n\n    fragColor = vec4(newSum,1.0); \n}\n";
+
+
+/***/ }),
+
 /***/ "./src/render/Camera.ts":
 /*!******************************!*\
   !*** ./src/render/Camera.ts ***!
@@ -7142,7 +7162,7 @@ var Camera = /** @class */ (function () {
     Camera.prototype.getPosition = function () {
         return this.position;
     };
-    Camera.prototype.getViewMatrix = function () {
+    Camera.prototype.calculateViewMatrix = function () {
         var viewMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
         var target = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
         gl_matrix__WEBPACK_IMPORTED_MODULE_1__.add(target, this.position, this.front); // Look-at target
@@ -7150,15 +7170,12 @@ var Camera = /** @class */ (function () {
         return viewMatrix;
     };
     Camera.prototype.calculateProjectionMatrix = function (canvasWidth, canvasHeight) {
-        var matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
-        var matView = this.getViewMatrix();
         var matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.perspective(matProj, 
         /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(90), 
         /* aspectRatio= */ canvasWidth / canvasHeight, 
         /* near, far= */ 0.1, 100.0);
-        gl_matrix__WEBPACK_IMPORTED_MODULE_2__.multiply(matViewProj, matProj, matView);
-        return matViewProj;
+        return matProj;
     };
     Camera.prototype.UpdateCameraVectors = function () {
         var front = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
@@ -7180,10 +7197,10 @@ var Camera = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/render/GLRenderer.ts":
-/*!**********************************!*\
-  !*** ./src/render/GLRenderer.ts ***!
-  \**********************************/
+/***/ "./src/render/core/GlRenderer.ts":
+/*!***************************************!*\
+  !*** ./src/render/core/GlRenderer.ts ***!
+  \***************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
@@ -7191,13 +7208,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   GLRenderer: () => (/* binding */ GLRenderer)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var _GlUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./GlUtils */ "./src/render/GlUtils.ts");
-/* harmony import */ var _glsl__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./glsl */ "./src/render/glsl.ts");
-/* harmony import */ var _Shader__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./Shader */ "./src/render/Shader.ts");
-/* harmony import */ var _map_cubes_utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../map/cubes_utils */ "./src/map/cubes_utils.ts");
-/* harmony import */ var _map_geometry__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../map/geometry */ "./src/map/geometry.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _utils_GlUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../utils/GlUtils */ "./src/render/utils/GlUtils.ts");
+/* harmony import */ var _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./passes/SSAOPass */ "./src/render/core/passes/SSAOPass.ts");
+/* harmony import */ var _managers_BufferManager__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./managers/BufferManager */ "./src/render/core/managers/BufferManager.ts");
+/* harmony import */ var _managers_VAOManager__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./managers/VAOManager */ "./src/render/core/managers/VAOManager.ts");
+/* harmony import */ var _passes_geometryPass__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./passes/geometryPass */ "./src/render/core/passes/geometryPass.ts");
+/* harmony import */ var _passes_lightingPass__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./passes/lightingPass */ "./src/render/core/passes/lightingPass.ts");
+
+
 
 
 
@@ -7206,12 +7226,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var GLRenderer = /** @class */ (function () {
     function GLRenderer(gl, canvas, camera, debug, world) {
-        this.TerrainTriangleBuffer = null;
-        this.CubeBuffer = null;
         this.TerrainMeshSize = 0;
-        this.terrainVAO = null;
-        this.wireframeCubeVAO = null;
-        this.worldObjectVAOs = new Map();
         this.gl = gl;
         this.canvas = canvas;
         this.camera = camera;
@@ -7220,18 +7235,178 @@ var GLRenderer = /** @class */ (function () {
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
-        this.WireframeCubeShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeFragmentShaderCode);
-        this.TerrainMeshShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshFragmentShaderCode);
-        this.matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        this.matView = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
+        this.matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
+        this.matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
+        this.gl.getExtension("EXT_color_buffer_float");
+        // Initialize managers
+        this.bufferManager = new _managers_BufferManager__WEBPACK_IMPORTED_MODULE_2__.BufferManager(gl, canvas);
+        this.vaoManager = new _managers_VAOManager__WEBPACK_IMPORTED_MODULE_3__.VAOManager(gl);
+        // Initialize passes
+        this.geometryPass = new _passes_geometryPass__WEBPACK_IMPORTED_MODULE_4__.geometryPass(gl);
+        this.ssaoPass = new _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_1__.SSAOPass(gl);
+        this.lightingPass = new _passes_lightingPass__WEBPACK_IMPORTED_MODULE_5__.lightingPass(gl);
+        // Initialize SSAO functions
+        this.ssaoFunctions = new _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_1__.SSAOfunctions(gl);
+        // Connect properties between components
+        this.connectComponents();
     }
-    GLRenderer.prototype.GenerateTriangleBuffer = function (triangleMeshes) {
+    GLRenderer.prototype.connectComponents = function () {
+        // Connect buffer manager properties to passes
+        this.geometryPass.gBUffer = this.bufferManager.gBuffer;
+        this.geometryPass.terrainVAO = this.vaoManager.terrainVAO;
+        this.geometryPass.TerrainMeshSize = this.bufferManager.TerrainMeshSize;
+        this.geometryPass.matView = this.matView;
+        this.geometryPass.matProj = this.matProj;
+        this.ssaoPass.gBUffer = this.bufferManager.gBuffer;
+        this.ssaoPass.SSAOFramebuffer = this.bufferManager.SSAOFramebuffer;
+        this.ssaoPass.QuadVAO = this.vaoManager.QuadVAO;
+        this.ssaoPass.SSAONoiseTexture = this.ssaoFunctions.SSAONoiseTexture;
+        this.ssaoPass.SSAOKernel = this.ssaoFunctions.SSAOKernel;
+        this.ssaoPass.matProj = this.matProj;
+        this.ssaoPass.canvas = this.canvas;
+        this.lightingPass.gBuffer = this.bufferManager.gBuffer;
+        this.lightingPass.SSAOFramebuffer = this.bufferManager.SSAOFramebuffer;
+        this.lightingPass.QuadVAO = this.vaoManager.QuadVAO;
+    };
+    GLRenderer.prototype.generateTerrainBuffers = function (triangleMeshes) {
+        // Generate triangle buffer in BufferManager
+        this.bufferManager.GenerateTriangleBuffer(triangleMeshes);
+        // Update terrain VAO with the new buffer
+        this.vaoManager.InitalizeTerrainVAO(this.bufferManager.TerrainTriangleBuffer, this.geometryPass.TerrainGeometryProgram);
+        // Update connections after buffer generation
+        this.connectComponents();
+    };
+    GLRenderer.prototype.drawTerrain = function (TransformationMatrix) {
+        this.geometryPass.DefferedRenderingGeometryPass(TransformationMatrix);
+        this.ssaoPass.DefferedRenderingSSAOPass();
+        this.lightingPass.DefferedRenderingLightingPass();
+    };
+    GLRenderer.prototype.render = function () {
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.matView = this.camera.calculateViewMatrix();
+        this.matProj = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_6__.multiply(this.matViewProj, this.matProj, this.matView);
+        var resScaleFactor = 1;
+        this.drawTerrain(_utils_GlUtils__WEBPACK_IMPORTED_MODULE_0__.glUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)));
+    };
+    return GLRenderer;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/core/managers/BufferManager.ts":
+/*!***************************************************!*\
+  !*** ./src/render/core/managers/BufferManager.ts ***!
+  \***************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   BufferManager: () => (/* binding */ BufferManager)
+/* harmony export */ });
+/* harmony import */ var _utils_GlUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../utils/GlUtils */ "./src/render/utils/GlUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/render/utils/TextureUtils.ts");
+/* harmony import */ var _map_marching_cubes_cubes_utils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../../map/marching cubes/cubes_utils */ "./src/map/marching cubes/cubes_utils.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+
+
+
+
+var BufferManager = /** @class */ (function () {
+    function BufferManager(gl, canvas) {
+        this.TerrainTriangleBuffer = null;
+        this.TerrainMeshSize = 0;
+        this.gBuffer = null;
+        this.SSAOFramebuffer = null;
+        this.gl = gl;
+        this.canvas = canvas;
+        this.InitalizeGBuffer();
+        this.InitalizeSSAOFramebuffer();
+    }
+    BufferManager.prototype.InitalizeGBuffer = function () {
+        var framebuffer = this.gl.createFramebuffer();
+        if (!framebuffer)
+            throw new Error("Failed to create framebuffer");
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
+        var positionTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__.textureUtils.CreateBufferTexture(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        var normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__.textureUtils.CreateBufferTexture(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        var albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__.textureUtils.CreateBufferTexture(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        var depthRenderbuffer = this.gl.createRenderbuffer();
+        this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, depthRenderbuffer);
+        this.gl.renderbufferStorage(this.gl.RENDERBUFFER, this.gl.DEPTH_COMPONENT24, this.canvas.width, this.canvas.height);
+        this.gl.framebufferRenderbuffer(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.RENDERBUFFER, depthRenderbuffer);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, positionTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, normalTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, albedoTexture, 0);
+        var drawBuffers = [
+            this.gl.COLOR_ATTACHMENT0,
+            this.gl.COLOR_ATTACHMENT1,
+            this.gl.COLOR_ATTACHMENT2
+        ];
+        this.gl.drawBuffers(drawBuffers);
+        // Add this before the framebuffer status check:
+        var status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+        if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+            console.error("G-Buffer framebuffer status:", status);
+            switch (status) {
+                case this.gl.FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
+                    console.error("FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
+                    break;
+                case this.gl.FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
+                    console.error("FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT");
+                    break;
+                case this.gl.FRAMEBUFFER_INCOMPLETE_DIMENSIONS:
+                    console.error("FRAMEBUFFER_INCOMPLETE_DIMENSIONS");
+                    break;
+                case this.gl.FRAMEBUFFER_UNSUPPORTED:
+                    console.error("FRAMEBUFFER_UNSUPPORTED");
+                    break;
+            }
+            throw new Error("G-Buffer framebuffer is not complete: ".concat(status));
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gBuffer = {
+            framebuffer: framebuffer,
+            position: positionTexture,
+            normal: normalTexture,
+            albedo: albedoTexture,
+            depth: depthRenderbuffer // now a renderbuffer, not a texture
+        };
+    };
+    BufferManager.prototype.InitalizeSSAOFramebuffer = function () {
+        var framebuffer = this.gl.createFramebuffer();
+        if (!framebuffer)
+            throw new Error("Failed to create framebuffer");
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
+        var SSAOTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__.textureUtils.CreateBufferTexture(this.gl, this.canvas.width, this.canvas.height, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, SSAOTexture, 0);
+        var drawBuffers = [this.gl.COLOR_ATTACHMENT0];
+        this.gl.drawBuffers(drawBuffers);
+        // Add similar error checking here:
+        var status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+        if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+            console.error("SSAO framebuffer status:", status);
+            throw new Error("SSAO framebuffer is not complete: ".concat(status));
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.SSAOFramebuffer = {
+            framebuffer: framebuffer,
+            SSAOTexture: SSAOTexture
+        };
+    };
+    BufferManager.prototype.GenerateTriangleBuffer = function (triangleMeshes) {
         // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
         var triangleVertices = [];
         var triangleIndices = [];
         var indexOffset = 0;
         for (var i = 0; i < triangleMeshes.length; i++) {
             var Mesh_1 = triangleMeshes[i];
-            var vertexData = (0,_map_cubes_utils__WEBPACK_IMPORTED_MODULE_3__.meshToVerticesAndIndices)(Mesh_1);
+            var vertexData = (0,_map_marching_cubes_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.meshToVerticesAndIndices)(Mesh_1);
             // Add vertices
             triangleVertices = triangleVertices.concat(Array.from(vertexData.vertices));
             // Add indices with offset
@@ -7241,125 +7416,350 @@ var GLRenderer = /** @class */ (function () {
             indexOffset += vertexData.vertices.length / 9; // 9 components per vertex
         }
         this.TerrainMeshSize = triangleIndices.length;
-        this.TerrainTriangleBuffer = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateStaticBuffer(this.gl, new Float32Array(triangleVertices), triangleIndices);
-        this.CubeBuffer = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateStaticBuffer(this.gl, new Float32Array(_map_geometry__WEBPACK_IMPORTED_MODULE_4__.cubeVertices), _map_geometry__WEBPACK_IMPORTED_MODULE_4__.cubeWireframeIndices);
-        this.WireframeCubeShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeFragmentShaderCode);
-        this.TerrainMeshShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshFragmentShaderCode);
-        this.matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        this.TerrainTriangleBuffer = _utils_GlUtils__WEBPACK_IMPORTED_MODULE_0__.glUtils.CreateStaticBuffer(this.gl, new Float32Array(triangleVertices), triangleIndices);
+        this.matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
     };
-    GLRenderer.prototype.drawTerrain = function (TransformationMatrix) {
-        this.gl.useProgram(this.TerrainMeshShader.Program);
-        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.updateLights(this.gl, this.TerrainMeshShader.Program, this.world.lights, this.camera);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        //Create vertice array object
-        if (!this.TerrainTriangleBuffer) {
-            console.error("TriangleBuffer not initialized.");
-            return;
-        }
-        if (!this.terrainVAO) {
-            this.terrainVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.TerrainTriangleBuffer.vertex, this.TerrainTriangleBuffer.indices, this.TerrainMeshShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 36,
-                    sizeOverride: 3
-                },
-                VertexNormal: { offset: 12, stride: 36 },
-                VertexColor: { offset: 24, stride: 36 }
-            });
-        }
-        this.gl.bindVertexArray(this.terrainVAO);
-        this.gl.drawElements(this.gl.TRIANGLES, this.TerrainMeshSize, this.gl.UNSIGNED_INT, 0);
-        this.gl.bindVertexArray(null);
-    };
-    GLRenderer.prototype.DrawWireFrameCube = function (TransformationMatrix) {
-        this.gl.useProgram(this.WireframeCubeShader.Program);
-        this.gl.uniformMatrix4fv(this.WireframeCubeShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
-        this.gl.uniformMatrix4fv(this.WireframeCubeShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        if (!this.CubeBuffer)
-            throw new Error("CubeBuffer not initialized.");
-        if (!this.wireframeCubeVAO) {
-            this.wireframeCubeVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.CubeBuffer.vertex, this.CubeBuffer.indices, this.WireframeCubeShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 24,
-                    sizeOverride: 3
-                },
-                VertexColor: { offset: 12, stride: 24 }
-            });
-        }
-        this.gl.bindVertexArray(this.wireframeCubeVAO);
-        this.gl.drawElements(this.gl.LINES, 24, this.gl.UNSIGNED_INT, 0);
-        this.gl.bindVertexArray(null);
-    };
-    GLRenderer.prototype.drawWorldObject = function (obj) {
-        // for now, just use the terrain mesh
-        this.gl.useProgram(this.TerrainMeshShader.Program);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location, false, obj.position);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        // TODO: vao should be per mesh, not per object
-        // Do we need to have some sort of meshid instead of objectid?
-        if (!this.worldObjectVAOs.has(obj.id)) {
-            var vao = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, obj.buffer.vertex, obj.buffer.indices, this.TerrainMeshShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 36,
-                    sizeOverride: 3
-                },
-                VertexNormal: { offset: 12, stride: 36 },
-                VertexColor: { offset: 24, stride: 36 }
-            });
-            this.worldObjectVAOs.set(obj.id, vao);
-        }
-        this.gl.bindVertexArray(this.worldObjectVAOs.get(obj.id));
-        this.gl.drawElements(this.gl.TRIANGLES, obj.meshSize, this.gl.UNSIGNED_INT, 0);
-        this.gl.bindVertexArray(null);
-    };
-    GLRenderer.prototype.render = function () {
-        // Set clear color to black, fully opaque
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        // Clear the color buffer with specified clear color
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-        // Calculate view and projection matrices once per frame
-        this.matViewProj = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var resScaleFactor = 1;
-        if (this.debug.debugMode) {
-            for (var _i = 0, _a = this.world.chunks; _i < _a.length; _i++) {
-                var chunk = _a[_i];
-                this.DrawWireFrameCube(_GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), undefined, gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(this.world.resolution, this.world.height, this.world.resolution)));
-            }
-        }
-        this.drawTerrain(_GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)));
-        for (var _b = 0, _c = this.world.worldObjects; _b < _c.length; _b++) {
-            var object = _c[_b];
-            this.drawWorldObject(object);
-        }
-    };
-    return GLRenderer;
+    return BufferManager;
 }());
 
 
 
 /***/ }),
 
-/***/ "./src/render/GlUtils.ts":
-/*!*******************************!*\
-  !*** ./src/render/GlUtils.ts ***!
-  \*******************************/
+/***/ "./src/render/core/managers/VAOManager.ts":
+/*!************************************************!*\
+  !*** ./src/render/core/managers/VAOManager.ts ***!
+  \************************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   GlUtils: () => (/* binding */ GlUtils)
+/* harmony export */   VAOManager: () => (/* binding */ VAOManager)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var _map_geometry__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../map/geometry */ "./src/map/geometry.ts");
+/* harmony import */ var _utils_GlUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../utils/GlUtils */ "./src/render/utils/GlUtils.ts");
 
 
-var GlUtils = /** @class */ (function () {
-    function GlUtils() {
+
+var VAOManager = /** @class */ (function () {
+    function VAOManager(gl) {
+        this.QuadVAO = null;
+        this.terrainVAO = null;
+        this.worldObjectVAOs = new Map();
+        this.gl = gl;
+        this.InitalizeFullScreenQuad();
+    }
+    VAOManager.prototype.InitalizeFullScreenQuad = function () {
+        // Create and bind VAO
+        var quadVAO = this.gl.createVertexArray();
+        var quadVBO = this.gl.createBuffer();
+        var quadEBO = this.gl.createBuffer();
+        if (!quadVAO || !quadVBO || !quadEBO) {
+            throw new Error("Failed to create buffers for full-screen quad");
+        }
+        this.gl.bindVertexArray(quadVAO);
+        // Vertex buffer
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, quadVBO);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, _map_geometry__WEBPACK_IMPORTED_MODULE_0__.quadVertices, this.gl.STATIC_DRAW);
+        // Element buffer
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, quadEBO);
+        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, _map_geometry__WEBPACK_IMPORTED_MODULE_0__.quadIndices, this.gl.STATIC_DRAW);
+        // Position attribute
+        this.gl.enableVertexAttribArray(0);
+        this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 16, 0);
+        // TexCoord attribute
+        this.gl.enableVertexAttribArray(1);
+        this.gl.vertexAttribPointer(1, 2, this.gl.FLOAT, false, 16, 8);
+        // Unbind VAO
+        this.gl.bindVertexArray(null);
+        this.QuadVAO = quadVAO;
+    };
+    VAOManager.prototype.InitalizeTerrainVAO = function (TerrainTriangleBuffer, TerrainGeometryShader) {
+        if (!TerrainTriangleBuffer || !TerrainGeometryShader)
+            return;
+        if (!this.terrainVAO) {
+            this.terrainVAO = _utils_GlUtils__WEBPACK_IMPORTED_MODULE_1__.glUtils.createInterleavedVao(this.gl, TerrainTriangleBuffer.vertex, TerrainTriangleBuffer.indices, {
+                VertexPosition: {
+                    offset: 0,
+                    stride: 36,
+                    size: 3,
+                    sizeOverride: 3
+                },
+                VertexNormal: { offset: 12, stride: 36, size: 3 },
+                VertexAlbedo: { offset: 24, stride: 36, size: 3 }
+            }, {
+                VertexPosition: this.gl.getAttribLocation(TerrainGeometryShader, "VertexPosition"),
+                VertexNormal: this.gl.getAttribLocation(TerrainGeometryShader, "VertexNormal"),
+                VertexAlbedo: this.gl.getAttribLocation(TerrainGeometryShader, "VertexAlbedo")
+            });
+        }
+    };
+    return VAOManager;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/core/passes/SSAOPass.ts":
+/*!********************************************!*\
+  !*** ./src/render/core/passes/SSAOPass.ts ***!
+  \********************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   SSAOPass: () => (/* binding */ SSAOPass),
+/* harmony export */   SSAOfunctions: () => (/* binding */ SSAOfunctions)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/render/utils/TextureUtils.ts");
+/* harmony import */ var _utils_GlUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../utils/GlUtils */ "./src/render/utils/GlUtils.ts");
+/* harmony import */ var _glsl_ssao__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../glsl/ssao */ "./src/render/glsl/ssao.ts");
+
+
+
+
+var SSAOPass = /** @class */ (function () {
+    function SSAOPass(gl) {
+        this.gl = gl;
+        this.QuadVAO = null;
+        this.SSAONoiseTexture = null;
+        this.SSAOKernel = [];
+        this.TerrainSSAOProgram = _utils_GlUtils__WEBPACK_IMPORTED_MODULE_1__.glUtils.CreateProgram(gl, _glsl_ssao__WEBPACK_IMPORTED_MODULE_2__.TerrainSSAOVertexShaderCode, _glsl_ssao__WEBPACK_IMPORTED_MODULE_2__.TerrainSSAOFragmentShaderCode) || null;
+    }
+    SSAOPass.prototype.DefferedRenderingSSAOPass = function () {
+        if (!this.gBUffer || !this.SSAOFramebuffer || !this.QuadVAO || !this.TerrainSSAOProgram)
+            return;
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.SSAOFramebuffer.framebuffer);
+        this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.useProgram(this.TerrainSSAOProgram);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.textureUtils.bindTex(this.gl, this.TerrainSSAOProgram, this.gBUffer.position, "VertexPositionTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.textureUtils.bindTex(this.gl, this.TerrainSSAOProgram, this.gBUffer.normal, "VertexNormalTexture", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.textureUtils.bindTex(this.gl, this.TerrainSSAOProgram, this.SSAONoiseTexture, "NoiseTexture", 2);
+        // Send kernel samples to shader
+        for (var i = 0; i < this.SSAOKernel.length; i++) {
+            this.gl.uniform3fv(this.gl.getUniformLocation(this.TerrainSSAOProgram, "samples[".concat(i, "]")), this.SSAOKernel[i]);
+        }
+        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.TerrainSSAOProgram, "MatProj"), false, this.matProj);
+        // Send Noise to shader
+        this.gl.uniform1f(this.gl.getUniformLocation(this.TerrainSSAOProgram, "NoiseScale"), this.canvas.width / 4.0);
+        this.gl.bindVertexArray(this.QuadVAO);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    };
+    return SSAOPass;
+}());
+
+var SSAOfunctions = /** @class */ (function () {
+    function SSAOfunctions(gl) {
+        this.SSAONoiseTexture = null;
+        this.SSAOKernel = [];
+        this.gl = gl;
+        this.GenerateSSAOKernel();
+        this.GenerateSSAONoiseTexture();
+    }
+    SSAOfunctions.prototype.GenerateSSAOKernel = function () {
+        var kernelSize = 64;
+        this.SSAOKernel = [];
+        for (var i = 0; i < kernelSize; i++) {
+            var sample = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(Math.random() * 2.0 - 1.0, Math.random() * 2.0 - 1.0, Math.random());
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.normalize(sample, sample);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.scale(sample, sample, Math.random());
+            var scale = i / kernelSize;
+            scale = 0.1 + 0.9 * scale * scale;
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.scale(sample, sample, scale);
+            this.SSAOKernel.push(sample);
+        }
+    };
+    SSAOfunctions.prototype.GenerateSSAONoiseTexture = function () {
+        var noiseSize = 64;
+        var noiseData = new Float32Array(noiseSize * noiseSize * 3);
+        for (var i = 0; i < noiseSize * noiseSize; i++) {
+            noiseData[i * 3] = Math.random() * 2.0 - 1.0;
+            noiseData[i * 3 + 1] = Math.random() * 2.0 - 1.0;
+            noiseData[i * 3 + 2] = 0.0;
+        }
+        this.SSAONoiseTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.textureUtils.CreateBufferTexture(this.gl, noiseSize, noiseSize, this.gl.RGB16F, this.gl.RGB, this.gl.FLOAT, noiseData);
+    };
+    return SSAOfunctions;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/core/passes/geometryPass.ts":
+/*!************************************************!*\
+  !*** ./src/render/core/passes/geometryPass.ts ***!
+  \************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   geometryPass: () => (/* binding */ geometryPass)
+/* harmony export */ });
+/* harmony import */ var _utils_GlUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../utils/GlUtils */ "./src/render/utils/GlUtils.ts");
+/* harmony import */ var _glsl_geometry__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../glsl/geometry */ "./src/render/glsl/geometry.ts");
+
+
+var geometryPass = /** @class */ (function () {
+    function geometryPass(gl) {
+        this.gl = gl;
+        this.terrainVAO = null;
+        this.TerrainMeshSize = 0;
+        this.TerrainGeometryProgram = _utils_GlUtils__WEBPACK_IMPORTED_MODULE_0__.glUtils.CreateProgram(gl, _glsl_geometry__WEBPACK_IMPORTED_MODULE_1__.TerrainGeometryVertexShaderCode, _glsl_geometry__WEBPACK_IMPORTED_MODULE_1__.TerrainGeometryFragmentShaderCode) || null;
+    }
+    geometryPass.prototype.DefferedRenderingGeometryPass = function (TransformationMatrix) {
+        if (!this.gBUffer || !this.TerrainGeometryProgram) {
+            console.warn("Geometry pass: Missing gBuffer or program");
+            return;
+        }
+        if (!this.terrainVAO) {
+            console.warn("Geometry pass: Missing terrain VAO");
+            return;
+        }
+        if (this.TerrainMeshSize === 0) {
+            console.warn("Geometry pass: No mesh data to draw");
+            return;
+        }
+        console.log("Drawing ".concat(this.TerrainMeshSize, " elements"));
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.gBUffer.framebuffer);
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.useProgram(this.TerrainGeometryProgram);
+        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.TerrainGeometryProgram, "MatView"), false, this.matView);
+        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.TerrainGeometryProgram, "MatProj"), false, this.matProj);
+        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.TerrainGeometryProgram, "MatTransform"), false, TransformationMatrix);
+        this.gl.bindVertexArray(this.terrainVAO);
+        this.gl.drawElements(this.gl.TRIANGLES, this.TerrainMeshSize, this.gl.UNSIGNED_INT, 0);
+        this.gl.bindVertexArray(null);
+    };
+    return geometryPass;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/core/passes/lightingPass.ts":
+/*!************************************************!*\
+  !*** ./src/render/core/passes/lightingPass.ts ***!
+  \************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   lightingPass: () => (/* binding */ lightingPass)
+/* harmony export */ });
+/* harmony import */ var _utils_GlUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../utils/GlUtils */ "./src/render/utils/GlUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/render/utils/TextureUtils.ts");
+/* harmony import */ var _glsl_lighting__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../glsl/lighting */ "./src/render/glsl/lighting.ts");
+
+
+
+var lightingPass = /** @class */ (function () {
+    function lightingPass(gl) {
+        this.gl = gl;
+        this.QuadVAO = null;
+        this.TerrainLightingProgram = _utils_GlUtils__WEBPACK_IMPORTED_MODULE_0__.glUtils.CreateProgram(gl, _glsl_lighting__WEBPACK_IMPORTED_MODULE_2__.TerrainLightingVertexShaderCode, _glsl_lighting__WEBPACK_IMPORTED_MODULE_2__.TerrainLightingFragmentShaderCode) || null;
+    }
+    lightingPass.prototype.DefferedRenderingLightingPass = function () {
+        if (!this.gBuffer || !this.SSAOFramebuffer || !this.QuadVAO)
+            return;
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.useProgram(this.TerrainLightingProgram);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__.textureUtils.bindTex(this.gl, this.TerrainLightingProgram, this.gBuffer.position, "VertexPositionTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__.textureUtils.bindTex(this.gl, this.TerrainLightingProgram, this.gBuffer.normal, "VertexNormalTexture", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__.textureUtils.bindTex(this.gl, this.TerrainLightingProgram, this.gBuffer.albedo, "VertexAlbedoTexture", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_1__.textureUtils.bindTex(this.gl, this.TerrainLightingProgram, this.SSAOFramebuffer.SSAOTexture, "SSAOTexture", 3);
+        this.gl.bindVertexArray(this.QuadVAO);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+    };
+    return lightingPass;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/glsl/geometry.ts":
+/*!*************************************!*\
+  !*** ./src/render/glsl/geometry.ts ***!
+  \*************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   TerrainGeometryFragmentShaderCode: () => (/* binding */ TerrainGeometryFragmentShaderCode),
+/* harmony export */   TerrainGeometryVertexShaderCode: () => (/* binding */ TerrainGeometryVertexShaderCode)
+/* harmony export */ });
+var TerrainGeometryVertexShaderCode = /*glsl*/ "#version 300 es\nprecision highp float;\nin vec3 VertexPosition;\nin vec3 VertexNormal;\nin vec3 VertexAlbedo;\nout vec3 viewPosition;\nout vec3 viewNormal;\nout vec3 Albedo;\nuniform mat4 MatView;\nuniform mat4 MatProj;\nuniform mat4 MatTransform;\nvoid main() {\n  Albedo = VertexAlbedo;\n  vec4 worldPosition = MatTransform * vec4(VertexPosition, 1.0);\n  viewPosition = (MatView * worldPosition).xyz;\n  viewNormal = mat3(transpose(inverse(MatView * MatTransform))) * VertexNormal;\n  gl_Position = MatProj * MatView * worldPosition;\n}\n";
+var TerrainGeometryFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision highp float;\nin vec3 viewPosition;\nin vec3 viewNormal;\nin vec3 Albedo;\nlayout(location = 0) out vec4 outPosition;\nlayout(location = 1) out vec4 outNormal;\nlayout(location = 2) out vec4 outAlbedo;\nvoid main() {\n  outPosition = vec4(viewPosition, 1.0);\n  outNormal = vec4(normalize(viewNormal), 1.0);\n  outAlbedo = vec4(Albedo, 1.0);\n}\n";
+
+
+/***/ }),
+
+/***/ "./src/render/glsl/lighting.ts":
+/*!*************************************!*\
+  !*** ./src/render/glsl/lighting.ts ***!
+  \*************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   TerrainLightingFragmentShaderCode: () => (/* binding */ TerrainLightingFragmentShaderCode),
+/* harmony export */   TerrainLightingVertexShaderCode: () => (/* binding */ TerrainLightingVertexShaderCode)
+/* harmony export */ });
+var TerrainLightingVertexShaderCode = /*glsl*/ "#version 300 es\nprecision highp float;\nin vec3 VertexPosition;\nin vec2 UV;\nout vec2 fragUV;\nvoid main()\n{\n  fragUV = UV;\n  gl_Position = vec4(VertexPosition, 1.0);\n}\n";
+var TerrainLightingFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout vec4 outputColor;\nuniform sampler2D SSAOTexture;\nuniform sampler2D VertexPositionTexture;\nuniform sampler2D VertexNormalTexture;\nuniform sampler2D VertexAlbedoTexture;\nvoid main() {\n  vec3 albedo = texture(VertexAlbedoTexture, fragUV).rgb;\n  vec3 normal = normalize(texture(VertexNormalTexture, fragUV).rgb);\n  vec3 fragPos = texture(VertexPositionTexture, fragUV).rgb;\n  //Lighting parameters\n  //Apply SSAO\n  float ambientOcclusion = texture(SSAOTexture, fragUV).r;\n  vec3 ambient = ambientOcclusion*albedo+normal*0.0+fragPos*0.0;\n  outputColor = vec4(ambient, 1.0);\n}\n";
+
+
+/***/ }),
+
+/***/ "./src/render/glsl/ssao.ts":
+/*!*********************************!*\
+  !*** ./src/render/glsl/ssao.ts ***!
+  \*********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   TerrainSSAOFragmentShaderCode: () => (/* binding */ TerrainSSAOFragmentShaderCode),
+/* harmony export */   TerrainSSAOVertexShaderCode: () => (/* binding */ TerrainSSAOVertexShaderCode)
+/* harmony export */ });
+var TerrainSSAOVertexShaderCode = /*glsl*/ "#version 300 es\nprecision highp float;\nin vec3 VertexPosition;\nin vec2 UV;\nout vec2 fragUV;\nvoid main()\n{\n  fragUV = UV;\n  gl_Position = vec4(VertexPosition, 1.0);\n}\n";
+var TerrainSSAOFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision highp float;\n\nin vec2 fragUV;\nout float outputColor;\n\nuniform sampler2D VertexPositionTexture;\nuniform sampler2D VertexNormalTexture;\nuniform sampler2D NoiseTexture;\nuniform vec3 samples[64];\nuniform mat4 MatProj;\nuniform float NoiseScale;\n\nconst int kernelSize = 64;\nconst float radius = 0.5;\nconst float bias = 0.025;\n\nvoid main() {\n    // Get fragment position and normal in view space\n    vec3 fragPos = texture(VertexPositionTexture, fragUV).xyz;\n    vec3 normal = normalize(texture(VertexNormalTexture, fragUV).xyz);\n\n    // Get random vector from noise texture\n    vec2 noiseUV = fragUV * NoiseScale;\n    vec3 randomVec = normalize(texture(NoiseTexture, noiseUV).xyz);\n\n    // Create TBN matrix\n    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\n    vec3 bitangent = cross(normal, tangent);\n    mat3 TBN = mat3(tangent, bitangent, normal);\n\n    float occlusion = 0.0;\n    for(int i = 0; i < kernelSize; ++i) {\n        // Sample in tangent space\n        vec3 sampleVec = TBN * samples[i];\n        sampleVec = fragPos + sampleVec * radius;\n\n        // Project sample position (view space) to screen space\n        vec4 offset = MatProj * vec4(sampleVec, 1.0);\n        offset.xyz /= offset.w;\n        vec2 sampleUV = offset.xy * 0.5 + 0.5;\n\n        float sampleDepth = texture(VertexPositionTexture, sampleUV).z;\n        float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPos.z - sampleDepth));\n        if((sampleDepth - fragPos.z) >= bias) {\n            occlusion += rangeCheck;\n        }\n    }\n    occlusion = 1.0 - (occlusion / float(kernelSize));\n    outputColor = occlusion;\n}\n";
+
+
+/***/ }),
+
+/***/ "./src/render/utils/GlUtils.ts":
+/*!*************************************!*\
+  !*** ./src/render/utils/GlUtils.ts ***!
+  \*************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   glUtils: () => (/* binding */ glUtils)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+
+var glUtils = /** @class */ (function () {
+    function glUtils() {
     }
     /**
      * Creates a WebGL program with the given vertex and fragment shader code.
@@ -7369,7 +7769,7 @@ var GlUtils = /** @class */ (function () {
      * @returns The created WebGLProgram or undefined if linking failed.
      * @throws Error if shader compilation fails.
      */
-    GlUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
+    glUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
         var VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
         var FragmentShader = this.CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
         var Program = gl.createProgram();
@@ -7391,7 +7791,7 @@ var GlUtils = /** @class */ (function () {
      * @returns The created WebGLShader.
      * @throws Error if shader compilation fails.
      */
-    GlUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
+    glUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
         var Shader = gl.createShader(ShaderType);
         if (!Shader) {
             throw new Error("Failed to create WebGL shader.");
@@ -7413,7 +7813,7 @@ var GlUtils = /** @class */ (function () {
      * @returns An object containing the vertex buffer and index buffer.
      * @throws Error if buffer creation fails.
      */
-    GlUtils.CreateStaticBuffer = function (gl, CPUVertexBuffer, CPUIndexBuffer) {
+    glUtils.CreateStaticBuffer = function (gl, CPUVertexBuffer, CPUIndexBuffer) {
         var buffer = gl.createBuffer();
         if (!buffer) {
             throw new Error("Failed to create buffer");
@@ -7434,18 +7834,18 @@ var GlUtils = /** @class */ (function () {
      * @param scale A vec3 representing the scale (x, y, z).
      * @returns A mat4 transformation matrix.
      */
-    GlUtils.CreateTransformations = function (translation, rotation, scale) {
-        var transformMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
+    glUtils.CreateTransformations = function (translation, rotation, scale) {
+        var transformMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_0__.create();
         if (translation) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.translate(transformMatrix, transformMatrix, translation);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.translate(transformMatrix, transformMatrix, translation);
         }
         if (rotation) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateX(transformMatrix, transformMatrix, rotation[0]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateY(transformMatrix, transformMatrix, rotation[1]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateZ(transformMatrix, transformMatrix, rotation[2]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.rotateX(transformMatrix, transformMatrix, rotation[0]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.rotateY(transformMatrix, transformMatrix, rotation[1]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.rotateZ(transformMatrix, transformMatrix, rotation[2]);
         }
         if (scale) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.scale(transformMatrix, transformMatrix, scale);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.scale(transformMatrix, transformMatrix, scale);
         }
         return transformMatrix;
     };
@@ -7455,7 +7855,7 @@ var GlUtils = /** @class */ (function () {
      * @param indices The array of indices to be stored in the buffer.
      * @returns The created WebGLBuffer containing the indices.
      */
-    GlUtils.CreateIndexBuffer = function (gl, indices) {
+    glUtils.CreateIndexBuffer = function (gl, indices) {
         var indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         // This array defines each face as two triangles, using the
@@ -7470,71 +7870,93 @@ var GlUtils = /** @class */ (function () {
      * @param gl The WebGL2RenderingContext to use for creating the VAO.
      * @param vertexBuffer The WebGLBuffer containing vertex data.
      * @param indexBuffer The WebGLBuffer containing index data.
-     * @param shader The Shader object containing vertex attribute locations.
      * @param layout An object defining the layout of vertex attributes.
+     * @param locations Optional object mapping attribute names to their locations.
      * @returns The created VAO.
      */
-    GlUtils.createInterleavedVao = function (gl, vertexBuffer, indexBuffer, shader, layout) {
+    glUtils.createInterleavedVao = function (gl, vertexBuffer, indexBuffer, layout, locations) {
         var _a;
         var vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        for (var _i = 0, _b = Object.entries(shader.VertexInputs); _i < _b.length; _i++) {
-            var _c = _b[_i], name_1 = _c[0], attrib = _c[1];
-            var layoutInfo = layout[name_1];
-            if (!layoutInfo) {
-                console.warn("No layout info for attribute ".concat(name_1, ", skipping."));
+        for (var _i = 0, _b = Object.entries(layout); _i < _b.length; _i++) {
+            var _c = _b[_i], name_1 = _c[0], layoutInfo = _c[1];
+            // Get location from layout info, locations parameter, or use gl.getAttribLocation
+            var location_1 = layoutInfo.location;
+            if (location_1 === undefined && locations) {
+                location_1 = locations[name_1];
+            }
+            if (location_1 === undefined) {
+                console.warn("No location specified for attribute ".concat(name_1, ", skipping."));
                 continue;
             }
-            var size = (_a = layoutInfo.sizeOverride) !== null && _a !== void 0 ? _a : attrib.size;
-            gl.enableVertexAttribArray(attrib.location);
-            gl.vertexAttribPointer(attrib.location, size, gl.FLOAT, false, layoutInfo.stride, layoutInfo.offset);
+            var size = (_a = layoutInfo.sizeOverride) !== null && _a !== void 0 ? _a : layoutInfo.size;
+            gl.enableVertexAttribArray(location_1);
+            gl.vertexAttribPointer(location_1, size, gl.FLOAT, false, layoutInfo.stride, layoutInfo.offset);
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         return vao;
     };
+    return glUtils;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/utils/TextureUtils.ts":
+/*!******************************************!*\
+  !*** ./src/render/utils/TextureUtils.ts ***!
+  \******************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   textureUtils: () => (/* binding */ textureUtils)
+/* harmony export */ });
+var textureUtils = /** @class */ (function () {
+    function textureUtils() {
+    }
     /**
-     * Calculates the necessary vertices, normals, and wireframes for cubes for our world
-     * @param world The world we are rendering
-     * @returns { List of triangle meshes }
-     */
-    GlUtils.genTerrainVertices = function (world) {
-        var triangleMeshes = []; // Store all chunks' meshes
-        var mainMesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
-        for (var _i = 0, _a = world.chunks; _i < _a.length; _i++) {
-            var chunk = _a[_i];
-            var triangleMesh = chunk.Mesh;
-            triangleMesh.translate(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]));
-            mainMesh.merge(triangleMesh);
-            triangleMeshes.push(triangleMesh); // Store the chunk's mesh
-        }
-        return triangleMeshes;
+   * Creates a texture for the given data.
+   * @param gl The WebGL2RenderingContext to use for creating the texture.
+   * @param width The width of the texture.
+   * @param height The height of the texture.
+   * @param internalFormat The internal format of the texture.
+   * @param format The format of the texture.
+   * @param type The type of the texture.
+   * @param data The data to be stored in the texture.
+   * @param filter The filter to be used for the texture.
+   * @param wrap The wrap to be used for the texture.
+   * @returns The created WebGLTexture.
+   */
+    textureUtils.CreateBufferTexture = function (gl, width, height, internalFormat, format, type, data, filter, wrap) {
+        if (data === void 0) { data = null; }
+        if (filter === void 0) { filter = gl.NEAREST; }
+        if (wrap === void 0) { wrap = gl.CLAMP_TO_EDGE; }
+        var t = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
+        gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        return t;
     };
-    GlUtils.updateLights = function (gl, program, lights, camera) {
-        // Set number of active lights
-        var numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
-        gl.uniform1i(numLightsLocation, lights.length);
-        // Update each light's data
-        lights.forEach(function (light, index) {
-            var baseUniform = "lights[".concat(index, "]");
-            var posLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".position"));
-            var colorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".color"));
-            var intensityLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".intensity"));
-            var radiusLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".radius"));
-            var showColorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".showColor"));
-            gl.uniform3fv(posLocation, light.position);
-            gl.uniform3fv(colorLocation, light.color.createVec3());
-            gl.uniform3fv(showColorLocation, light.showColor.createVec3());
-            gl.uniform1f(intensityLocation, light.intensity);
-            gl.uniform1f(radiusLocation, light.radius);
-        });
-        if (camera) {
-            var viewPositionLocation = gl.getUniformLocation(program, "viewPosition");
-            gl.uniform3fv(viewPositionLocation, camera.getPosition());
-        }
+    textureUtils.CreateDepthTexture = function (gl, width, height) {
+        var t = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT24, width, height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        return t;
     };
-    ///////////////////////Texture Utilities/////////////////////
     /**
      * Binds a given WebGL texture to texture unit 0 and sets the corresponding sampler uniform in the shader program.
      *
@@ -7547,7 +7969,7 @@ var GlUtils = /** @class */ (function () {
      * @remarks
      * If the specified uniform cannot be found in the shader program, a warning is logged to the console.
      */
-    GlUtils.bindTex = function (gl, program, tex, key, unit) {
+    textureUtils.bindTex = function (gl, program, tex, key, unit) {
         var loc = gl.getUniformLocation(program, key);
         if (loc === null) {
             console.warn("Cannot find ".concat(key, " in fragmentShader"));
@@ -7568,7 +7990,7 @@ var GlUtils = /** @class */ (function () {
      * @param widthHint  - Optional: manual texture width (default auto-calculated)
      * @returns texture: WebGLTexture
      */
-    GlUtils.packFloatArrayToTexture = function (gl, data, widthHint) {
+    textureUtils.packFloatArrayToTexture = function (gl, data, widthHint) {
         if (data.length % 4 !== 0) {
             console.warn("[packFloatArrayToTexture] Padding input from ".concat(data.length, " to multiple of 4"));
             var padded = new Float32Array(Math.ceil(data.length / 4) * 4);
@@ -7591,109 +8013,74 @@ var GlUtils = /** @class */ (function () {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         return texture;
     };
-    return GlUtils;
+    return textureUtils;
 }());
 
 
 
 /***/ }),
 
-/***/ "./src/render/Shader.ts":
-/*!******************************!*\
-  !*** ./src/render/Shader.ts ***!
-  \******************************/
+/***/ "./src/render/utils/WorldUtils.ts":
+/*!****************************************!*\
+  !*** ./src/render/utils/WorldUtils.ts ***!
+  \****************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   Shader: () => (/* binding */ Shader)
+/* harmony export */   worldUtils: () => (/* binding */ worldUtils)
 /* harmony export */ });
-/* harmony import */ var _GlUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./GlUtils */ "./src/render/GlUtils.ts");
+/* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../map/Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 
-var Shader = /** @class */ (function () {
-    function Shader(gl, VertexShaderCode, FragmentShaderCode) {
-        this.VertexShaderCode = VertexShaderCode;
-        this.FragmentShaderCode = FragmentShaderCode;
-        this.Program = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
-        if (!this.Program) {
-            throw new Error("Error creating shader program");
-        }
-        var VertexVariables = this.extractShaderVariables(gl, VertexShaderCode, this.Program);
-        this.VertexInputs = VertexVariables[0];
-        this.VertexUniforms = VertexVariables[1];
+
+var worldUtils = /** @class */ (function () {
+    function worldUtils() {
     }
-    Shader.prototype.extractShaderVariables = function (gl, shaderCode, program) {
-        var inputPattern = /in\s+(\w+)\s+(\w+);/g;
-        var uniformPattern = /uniform\s+(\w+)\s+(\w+);/g;
-        var inputs = {};
-        var uniforms = {};
-        var match;
-        // Extract inputs
-        while ((match = inputPattern.exec(shaderCode)) !== null) {
-            var location_1 = gl.getAttribLocation(program, match[2]);
-            if (location_1 === -1) {
-                console.error("Attribute ".concat(match[2], " not found in shader program."));
-                continue;
-            }
-            inputs[match[2]] = {
-                type: match[1],
-                size: this.glslTypeToSize(match[1]),
-                location: location_1
-            };
+    /**
+  * Calculates the necessary vertices, normals, and wireframes for cubes for our world
+  * @param world The world we are rendering
+  * @returns { List of triangle meshes }
+  */
+    worldUtils.genTerrainVertices = function (world) {
+        var triangleMeshes = []; // Store all chunks' meshes
+        var mainMesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+        for (var _i = 0, _a = world.chunks; _i < _a.length; _i++) {
+            var chunk = _a[_i];
+            var triangleMesh = chunk.Mesh;
+            triangleMesh.translate(gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]));
+            mainMesh.merge(triangleMesh);
+            triangleMeshes.push(triangleMesh); // Store the chunk's mesh
         }
-        // Extract uniforms
-        while ((match = uniformPattern.exec(shaderCode)) !== null) {
-            var location_2 = gl.getUniformLocation(program, match[2]);
-            if (location_2 === null) {
-                console.error("Uniform ".concat(match[2], " not found in shader program."));
-                continue;
-            }
-            uniforms[match[2]] = { type: match[1], location: location_2 };
-        }
-        return [inputs, uniforms];
+        return triangleMeshes;
     };
-    // Method to get the size of a GLSL type
-    Shader.prototype.glslTypeToSize = function (type) {
-        switch (type) {
-            case "float":
-                return 1;
-            case "vec2":
-                return 2;
-            case "vec3":
-                return 3;
-            case "vec4":
-                return 4;
-            default:
-                throw new Error("Unsupported GLSL type: ".concat(type));
+    worldUtils.updateLights = function (gl, program, lights, camera) {
+        // Set number of active lights
+        var numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
+        gl.uniform1i(numLightsLocation, lights.length);
+        // Update each light's data
+        lights.forEach(function (light, index) {
+            var baseUniform = "lights[".concat(index, "]");
+            var posLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".position"));
+            var colorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".color"));
+            var intensityLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".intensity"));
+            var radiusLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".radius"));
+            var showColorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".showColor"));
+            gl.uniform3fv(posLocation, light.position);
+            gl.uniform3fv(colorLocation, light.color.createVec3());
+            gl.uniform3fv(showColorLocation, light.showColor.createVec3());
+            gl.uniform1f(intensityLocation, light.intensity);
+            gl.uniform1f(radiusLocation, light.radius);
+        });
+        if (camera) {
+            var viewPositionLocation = gl.getUniformLocation(program, "viewPosition");
+            gl.uniform3fv(viewPositionLocation, camera.getPosition());
         }
     };
-    return Shader;
+    return worldUtils;
 }());
 
-
-
-/***/ }),
-
-/***/ "./src/render/glsl.ts":
-/*!****************************!*\
-  !*** ./src/render/glsl.ts ***!
-  \****************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   CubeFragmentShaderCode: () => (/* binding */ CubeFragmentShaderCode),
-/* harmony export */   CubeVertexShaderCode: () => (/* binding */ CubeVertexShaderCode),
-/* harmony export */   MeshFragmentShaderCode: () => (/* binding */ MeshFragmentShaderCode),
-/* harmony export */   MeshVertexShaderCode: () => (/* binding */ MeshVertexShaderCode)
-/* harmony export */ });
-var CubeVertexShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-var CubeFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1);\n}";
-//
-var MeshVertexShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nstruct Light {\n  vec3 position;\n  vec3 color;\n  vec3 showColor;\n  float intensity;\n  float radius;\n};\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nin vec4 VertexPosition;\nin vec3 VertexNormal;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nout vec3 fragmentNormal;\nout vec3 fragmentPosition;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  fragmentNormal = VertexNormal;\n  fragmentPosition = VertexPosition.xyz;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n\nstruct Light {\n  vec3 position;\n  vec3 color;\n  vec3 showColor;\n  float intensity;\n  float radius;\n};\n\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 viewPosition;\n\nin vec3 fragmentColor;\nin vec3 fragmentNormal;\nin vec3 fragmentPosition;\nout vec4 outputColor;\n\nvoid main() {\n    vec3 normal = normalize(fragmentNormal);\n    vec3 specular = vec3(0.0);\n    vec3 totalDiffuse = vec3(0.0);\n    \n    float ambientStrength = 0.15;\n    vec3 ambientLight = vec3(0.4, 0.45, 0.5);\n    \n    float metallic = 0.1;\n    float roughness = 0.7;\n    float specularStrength = mix(0.04, 0.9, metallic);\n    int shininess = int(mix(2.0, 32.0, 1.0 - roughness));\n    \n    for(int i = 0; i < MAX_LIGHTS; i++) {\n        if(i >= numActiveLights) break;\n        \n        vec3 lightDir = normalize(lights[i].position - fragmentPosition);\n        float distance = length(lights[i].position - fragmentPosition);\n        \n        \n        // Diffuse lighting\n        float diffuseStrength = max(dot(normal, lightDir), 0.1);\n        vec3 diffuse = diffuseStrength * lights[i].color * lights[i].intensity;\n        totalDiffuse += diffuse;\n        \n        // Specular lighting (Blinn-Phong)\n        vec3 viewDir = normalize(viewPosition - fragmentPosition);\n        vec3 halfwayDir = normalize(lightDir + viewDir);\n        float spec = pow(max(dot(normal, halfwayDir), 0.0), float(shininess));\n        specular += spec * lights[i].color * lights[i].intensity * specularStrength;\n    }\n    \n    // Combine lighting components\n    vec3 ambient = ambientLight * ambientStrength;\n    vec3 lighting = ambient + totalDiffuse + specular;\n    \n    // Apply lighting to material color\n    vec3 finalColor = fragmentColor * lighting;\n    \n    // Gamma correction\n    finalColor = pow(finalColor, vec3(1.0 / 2.2));\n    \n    outputColor = vec4(finalColor, 1.0);\n}";
 
 
 /***/ })
@@ -7792,7 +8179,7 @@ var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("c2e95382f2e49bf54fd0")
+/******/ 		__webpack_require__.h = () => ("8e48ba6787fbfa59d9dd")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */

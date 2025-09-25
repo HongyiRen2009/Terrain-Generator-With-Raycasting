@@ -246,7 +246,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
 /* harmony import */ var alea__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! alea */ "./node_modules/alea/alea.js");
 /* harmony import */ var alea__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(alea__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var _cubes_utils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_utils.ts");
+/* harmony import */ var _marching_cubes_cubes_utils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./marching cubes/cubes_utils */ "./src/map/marching cubes/cubes_utils.ts");
 /* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
 /* harmony import */ var _geometry__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./geometry */ "./src/map/geometry.ts");
 
@@ -264,11 +264,12 @@ function chunkCoordinateToIndex(c, gridSize) {
         c[2] * (gridSize[0] + 1) * (gridSize[1] + 1));
 }
 function noiseFunction(c, simplex) {
-    var frequency = 0.07;
+    var frequency = 0.02;
     var noiseValue = simplex(c[0] * frequency, c[1] * frequency, c[2] * frequency);
     var normalizedNoise = (noiseValue + 1) / 2;
-    var heightParameter = 1 / Math.pow(1.07, c[1]);
-    var floor = +(c[1] === 0);
+    // Create terrain that's more likely to be above 0.5 threshold
+    var heightParameter = Math.max(0.3, 1.0 - c[1] * 0.1);
+    var floor = +(c[1] === 0) * 0.8; // Strong floor at y=0
     return Math.max(normalizedNoise * heightParameter, floor);
 }
 function GenerateCase(cubeCoordinates) {
@@ -293,7 +294,7 @@ function getFieldValue(c) {
     var _a;
     var newVector = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, 0, 0);
     gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(newVector, c, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(globalChunkPosition[0], 0, globalChunkPosition[1]));
-    return (_a = WorldFieldMap.get((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(newVector))) !== null && _a !== void 0 ? _a : 0;
+    return (_a = WorldFieldMap.get((0,_marching_cubes_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(newVector))) !== null && _a !== void 0 ? _a : 0;
 }
 function caseToMesh(c, caseNumber, gridSize) {
     var caseMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
@@ -371,7 +372,7 @@ self.onmessage = function (event) {
                     var idx = chunkCoordinateToIndex(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z), GridSize);
                     var value = noiseFunction(c, simplex);
                     field[idx] = value;
-                    fieldMap.set((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(c), value);
+                    fieldMap.set((0,_marching_cubes_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(c), value);
                 }
             }
         }
@@ -396,63 +397,13 @@ self.onmessage = function (event) {
                 }
             }
         }
+        console.log("Worker generated mesh with ".concat(mesh.getVertices().length, " triangles"));
         self.postMessage({
             meshVertices: mesh.getVertices(),
             meshNormals: mesh.getNormals(),
             meshTypes: mesh.getTypes()
         });
     }
-};
-
-
-/***/ }),
-
-/***/ "./src/map/cubes_utils.ts":
-/*!********************************!*\
-  !*** ./src/map/cubes_utils.ts ***!
-  \********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   meshToVerticesAndIndices: () => (/* binding */ meshToVerticesAndIndices),
-/* harmony export */   vertexKey: () => (/* binding */ vertexKey)
-/* harmony export */ });
-/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
-
-var roundToPrecision = function (value, precision) {
-    return Math.round(value * precision) / precision;
-};
-var vertexKey = function (vertex) {
-    return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
-};
-var meshToVerticesAndIndices = function (mesh) {
-    // For each vertex: x, y, z, r, g, b
-    var vertexMap = new Map();
-    var vertices = [];
-    var indices = [];
-    var vertexIndex = 0;
-    for (var i = 0; i < mesh.mesh.length; i++) {
-        var triangle = mesh.mesh[i];
-        var types = mesh.type[i];
-        for (var j = 0; j < 3; j++) {
-            var vertex = triangle[j];
-            var normal = mesh.normals[i][j];
-            var key = vertexKey(vertex);
-            if (!vertexMap.has(key)) {
-                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
-                var color = type.color;
-                vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255);
-                vertexMap.set(key, vertexIndex);
-                vertexIndex++;
-            }
-            indices.push(vertexMap.get(key)); // Store the index of the vertex
-        }
-    }
-    return {
-        vertices: new Float32Array(vertices),
-        indices: new Uint32Array(indices)
-    };
 };
 
 
@@ -469,8 +420,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   CASES: () => (/* binding */ CASES),
 /* harmony export */   EDGES: () => (/* binding */ EDGES),
 /* harmony export */   VERTICES: () => (/* binding */ VERTICES),
-/* harmony export */   cubeVertices: () => (/* binding */ cubeVertices),
-/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices)
+/* harmony export */   quadIndices: () => (/* binding */ quadIndices),
+/* harmony export */   quadVertices: () => (/* binding */ quadVertices)
 /* harmony export */ });
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 var VERTICES = [
@@ -754,15 +705,77 @@ var CASES = [[],
     [[9, 0, 1]],
     [[3, 0, 8]],
     []];
-var cubeVertices = new Float32Array([
-    // x, y, z, r, g, b
-    0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0,
-    1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0
+var quadVertices = new Float32Array([
+    // positions   // texCoords
+    -1.0,
+    1.0,
+    0.0,
+    1.0, // top left
+    -1.0,
+    -1.0,
+    0.0,
+    0.0, // bottom left
+    1.0,
+    -1.0,
+    1.0,
+    0.0, // bottom right
+    1.0,
+    1.0,
+    1.0,
+    1.0 // top right
 ]);
-var cubeWireframeIndices = [
-    // 12 edges × 2 vertices = 24 indices
-    0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
-];
+var quadIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+
+
+/***/ }),
+
+/***/ "./src/map/marching cubes/cubes_utils.ts":
+/*!***********************************************!*\
+  !*** ./src/map/marching cubes/cubes_utils.ts ***!
+  \***********************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   meshToVerticesAndIndices: () => (/* binding */ meshToVerticesAndIndices),
+/* harmony export */   vertexKey: () => (/* binding */ vertexKey)
+/* harmony export */ });
+/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../terrains */ "./src/map/terrains.ts");
+
+var roundToPrecision = function (value, precision) {
+    return Math.round(value * precision) / precision;
+};
+var vertexKey = function (vertex) {
+    return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
+};
+var meshToVerticesAndIndices = function (mesh) {
+    // For each vertex: x, y, z, r, g, b
+    var vertexMap = new Map();
+    var vertices = [];
+    var indices = [];
+    var vertexIndex = 0;
+    for (var i = 0; i < mesh.mesh.length; i++) {
+        var triangle = mesh.mesh[i];
+        var types = mesh.type[i];
+        for (var j = 0; j < 3; j++) {
+            var vertex = triangle[j];
+            var normal = mesh.normals[i][j];
+            var key = vertexKey(vertex);
+            if (!vertexMap.has(key)) {
+                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                var color = type.color;
+                vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255);
+                vertexMap.set(key, vertexIndex);
+                vertexIndex++;
+            }
+            indices.push(vertexMap.get(key)); // Store the index of the vertex
+        }
+    }
+    return {
+        vertices: new Float32Array(vertices),
+        indices: new Uint32Array(indices)
+    };
+};
 
 
 /***/ }),
@@ -1030,7 +1043,7 @@ var Terrains = {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("c2e95382f2e49bf54fd0")
+/******/ 		__webpack_require__.h = () => ("8e48ba6787fbfa59d9dd")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

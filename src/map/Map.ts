@@ -1,14 +1,14 @@
 //Wrapper classes (will write stuff later)
 
-import { Chunk } from "./marching_cubes";
+import { Chunk } from "./marching cubes/marching_cubes";
 import { mat4, vec2, vec3, vec4 } from "gl-matrix";
 import { Light } from "./Light";
 
 import { Color, Terrain, Terrains } from "./terrains";
 import { Mesh, Triangle } from "./Mesh";
-import { GlUtils } from "../render/GlUtils";
+import { glUtils } from "../render/utils/GlUtils";
 import { WorldObject } from "./WorldObject";
-import { meshToVerticesAndIndices } from "./cubes_utils";
+import { meshToVerticesAndIndices } from "./marching cubes/cubes_utils";
 import { ObjectUI } from "./ObjectUI";
 
 interface ImportMapEntry {
@@ -126,7 +126,13 @@ export class WorldMap {
 
     // Merge chunks (these are already independent)
     for (const chunk of this.chunks) {
-      CombinedMesh.merge(chunk.getMesh());
+      const chunkMesh = chunk.getMesh();
+      if (chunkMesh && chunkMesh.mesh.length > 0) {
+        console.log(`Chunk has ${chunkMesh.mesh.length} triangles`);
+        CombinedMesh.merge(chunkMesh);
+      } else {
+        console.warn("Chunk has no mesh data");
+      }
     }
 
     // Merge worldObjects with transformation applied
@@ -198,7 +204,7 @@ export class WorldMap {
     const { vertices, indices } = meshToVerticesAndIndices(objectData);
     const meshSize = indices.length;
 
-    let objectBuffer = GlUtils.CreateStaticBuffer(
+    let objectBuffer = glUtils.CreateStaticBuffer(
       this.gl,
       vertices,
       Array.from(indices)

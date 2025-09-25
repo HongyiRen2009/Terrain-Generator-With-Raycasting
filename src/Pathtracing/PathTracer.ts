@@ -4,8 +4,6 @@ import { mat4, vec2, vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
-import { Shader } from "../render/Shader";
-import { GlUtils } from "../render/GlUtils";
 import { DebugMenu } from "../DebugMenu";
 import {
   pathTracingFragmentShaderCode,
@@ -13,6 +11,9 @@ import {
 } from "./glslPath";
 import { BVHUtils } from "../map/BVHUtils";
 import { copyFragmentShader, copyVertexShader } from "./copyShader";
+import { glUtils } from "../render/utils/GlUtils";
+import { worldUtils } from "../render/utils/WorldUtils";
+import { textureUtils } from "../render/utils/TextureUtils";
 
 export class PathTracer {
   //Rendering
@@ -25,8 +26,8 @@ export class PathTracer {
   private frameNumber = 0; // The accumulation counter
   private numBounces = 15;
   //Shaders
-  private meshShader: Shader;
-  private copyShader: Shader;
+  private meshProgram: WebGLProgram | undefined;
+  private copyProgram: WebGLProgram | undefined;
 
   //Information
   private vertices: Float32Array = null!;
@@ -68,12 +69,8 @@ export class PathTracer {
     }
 
     //shader
-    this.meshShader = new Shader(
-      this.gl,
-      pathTracingVertexShaderCode,
-      pathTracingFragmentShaderCode
-    );
-    this.copyShader = new Shader(this.gl, copyVertexShader, copyFragmentShader);
+    this.meshProgram = glUtils.CreateProgram(this.gl, pathTracingVertexShaderCode, pathTracingFragmentShaderCode);
+    this.copyProgram = glUtils.CreateProgram(this.gl, copyVertexShader, copyFragmentShader);
 
     //Slider
     const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
@@ -136,7 +133,7 @@ export class PathTracer {
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
-      this.gl.getUniformLocation(this.meshShader.Program!, "u_cameraPos"),
+      this.gl.getUniformLocation(this.meshProgram!, "u_cameraPos"),
       this.camera.position
     );
     const viewProjMatrix = this.camera.calculateProjectionMatrix(
@@ -147,7 +144,7 @@ export class PathTracer {
     mat4.invert(invViewProjMatrix, viewProjMatrix);
     this.gl.uniformMatrix4fv(
       this.gl.getUniformLocation(
-        this.meshShader.Program!,
+        this.meshProgram!,
         "u_invViewProjMatrix"
       ),
       false,
@@ -157,12 +154,12 @@ export class PathTracer {
     resolution[0] = this.canvas.width;
     resolution[1] = this.canvas.height;
     this.gl.uniform2fv(
-      this.gl.getUniformLocation(this.meshShader.Program!, "u_resolution"),
+      this.gl.getUniformLocation(this.meshProgram!, "u_resolution"),
       resolution
     );
 
     //put lights in the shader
-    GlUtils.updateLights(this.gl, this.meshShader.Program!, this.world.lights);
+    worldUtils.updateLights(this.gl, this.meshProgram!, this.world.lights);
 
     //Bind Previous Frame
     const lastFrameIndex = this.currentFrame;
@@ -174,7 +171,7 @@ export class PathTracer {
       this.accumulationTextures[lastFrameIndex]
     );
     const lastFrameLoc = this.gl.getUniformLocation(
-      this.meshShader.Program!,
+      this.meshProgram!,
       "u_lastFrame"
     );
     this.gl.uniform1i(lastFrameLoc, 8);
@@ -182,11 +179,11 @@ export class PathTracer {
     //put samples, bounce in shader
     this.frameNumber++;
     this.gl.uniform1i(
-      this.gl.getUniformLocation(this.meshShader.Program!, "numBounces"),
+      this.gl.getUniformLocation(this.meshProgram!, "numBounces"),
       this.numBounces
     );
     this.gl.uniform1f(
-      this.gl.getUniformLocation(this.meshShader.Program!, "u_frameNumber"),
+      this.gl.getUniformLocation(this.meshProgram!, "u_frameNumber"),
       this.frameNumber
     ); // Send as a float for seeding
 
@@ -203,17 +200,17 @@ export class PathTracer {
 
     //Draw to canvas using copy shader
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    this.gl.useProgram(this.copyShader.Program!);
+    this.gl.useProgram(this.copyProgram!);
 
-    GlUtils.bindTex(
+    textureUtils.bindTex(
       this.gl,
-      this.copyShader.Program!,
+      this.copyProgram!,
       this.accumulationTextures[nextFrameIndex],
       "u_sourceTexture",
       0
     );
     const frameLoc = this.gl.getUniformLocation(
-      this.copyShader.Program!,
+      this.copyProgram!,
       "u_frameNumber"
     );
     this.gl.uniform1f(frameLoc, this.frameNumber);
@@ -253,70 +250,70 @@ export class PathTracer {
   }
 
   private initPathtracing() {
-    this.gl.useProgram(this.meshShader.Program!);
+    this.gl.useProgram(this.meshProgram!);
     //Textures
-    let verticeTex = GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
-    let terrainTex = GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
-    let boundingBoxesTex = GlUtils.packFloatArrayToTexture(
+    let verticeTex = textureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+    let terrainTex = textureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    let boundingBoxesTex = textureUtils.packFloatArrayToTexture(
       this.gl,
       this.boundingBoxes
     );
-    let nodesTex = GlUtils.packFloatArrayToTexture(this.gl, this.nodes);
-    let leafsTex = GlUtils.packFloatArrayToTexture(this.gl, this.leafs);
-    let terrainTypeTex = GlUtils.packFloatArrayToTexture(
+    let nodesTex = textureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+    let leafsTex = textureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+    let terrainTypeTex = textureUtils.packFloatArrayToTexture(
       this.gl,
       this.terrainTypes
     );
-    let vertexNormalsTex = GlUtils.packFloatArrayToTexture(
+    let vertexNormalsTex = textureUtils.packFloatArrayToTexture(
       this.gl,
       this.vertexNormals
     );
 
-    GlUtils.bindTex(
+    textureUtils.bindTex(
       this.gl,
-      this.meshShader.Program!,
+      this.meshProgram!,
       verticeTex,
       "u_vertices",
       0
     );
-    GlUtils.bindTex(
+    textureUtils.bindTex(
       this.gl,
-      this.meshShader.Program!,
+      this.meshProgram!,
       terrainTex,
       "u_terrains",
       1
     );
-    GlUtils.bindTex(
+    textureUtils.bindTex(
       this.gl,
-      this.meshShader.Program!,
+      this.meshProgram!,
       boundingBoxesTex,
       "u_boundingBox",
       2
     );
-    GlUtils.bindTex(
+    textureUtils.bindTex(
       this.gl,
-      this.meshShader.Program!,
+      this.meshProgram!,
       nodesTex,
       "u_nodesTex",
       3
     );
-    GlUtils.bindTex(
+    textureUtils.bindTex(
       this.gl,
-      this.meshShader.Program!,
+      this.meshProgram!,
       leafsTex,
       "u_leafsTex",
       4
     );
-    GlUtils.bindTex(
+    textureUtils.bindTex(
       this.gl,
-      this.meshShader.Program!,
+      this.meshProgram!,
       terrainTypeTex,
       "u_terrainTypes",
       5
     );
-    GlUtils.bindTex(
+    textureUtils.bindTex(
       this.gl,
-      this.meshShader.Program!,
+      this.meshProgram!,
       vertexNormalsTex,
       "u_normals",
       6

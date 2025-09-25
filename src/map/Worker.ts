@@ -1,7 +1,7 @@
 import { vec2, vec3 } from "gl-matrix";
 import { createNoise3D, NoiseFunction3D } from "simplex-noise";
 import alea from "alea";
-import { vertexKey } from "./cubes_utils";
+import { vertexKey } from "./marching cubes/cubes_utils";
 import { Mesh, Triangle } from "./Mesh";
 import { CASES, EDGES, VERTICES } from "./geometry";
 import { Utilities } from "./Utilities";
@@ -208,6 +208,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
         }
       }
     }
+    console.log(`Worker generated mesh with ${mesh.getVertices().length} triangles`);
     self.postMessage({
       meshVertices: mesh.getVertices(),
       meshNormals: mesh.getNormals(),

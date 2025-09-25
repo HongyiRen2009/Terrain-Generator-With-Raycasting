@@ -1,6 +1,6 @@
 import { vec3 } from "gl-matrix";
-import { Mesh } from "./Mesh";
-import { Terrains } from "./terrains";
+import { Mesh } from "../Mesh";
+import { Terrains } from "../terrains";
 
 const roundToPrecision = (value: number, precision: number): number =>
   Math.round(value * precision) / precision;
@@ -42,6 +42,32 @@ export const meshToVerticesAndIndices = (
       }
       indices.push(vertexMap.get(key)!); // Store the index of the vertex
     }
+  }
+
+  // Validate indices before returning
+  const vertexCount = vertices.length / 9; // 9 components per vertex
+  
+  // Find max index safely to avoid stack overflow
+  let maxIndex = 0;
+  for (let i = 0; i < indices.length; i++) {
+    if (indices[i] > maxIndex) {
+      maxIndex = indices[i];
+    }
+  }
+  
+  console.log(`Mesh validation: ${vertices.length} vertex components, ${vertexCount} vertices, ${indices.length} indices, max index: ${maxIndex}`);
+  
+  if (maxIndex >= vertexCount) {
+    console.error(`ERROR: Index ${maxIndex} exceeds vertex count ${vertexCount}!`);
+    console.error(`This will cause WebGL buffer size errors.`);
+  }
+  
+  if (indices.length === 0) {
+    console.warn("WARNING: No indices generated for mesh");
+  }
+  
+  if (vertices.length === 0) {
+    console.warn("WARNING: No vertices generated for mesh");
   }
 
   return {

@@ -283,13 +283,24 @@ export const CASES: [number, number, number][][] = [[],
  [[3, 0, 8]],
  []];
 
-export const cubeVertices = new Float32Array([
-  // x, y, z, r, g, b
-  0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0,
-  1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0
-]);
 
-export const cubeWireframeIndices: number[] = [
-  // 12 edges × 2 vertices = 24 indices
-  0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
-];
+export const quadVertices = new Float32Array([
+  // positions   // texCoords
+  -1.0,
+  1.0,
+  0.0,
+  1.0, // top left
+  -1.0,
+  -1.0,
+  0.0,
+  0.0, // bottom left
+  1.0,
+  -1.0,
+  1.0,
+  0.0, // bottom right
+  1.0,
+  1.0,
+  1.0,
+  1.0 // top right
+]);
+export const quadIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);

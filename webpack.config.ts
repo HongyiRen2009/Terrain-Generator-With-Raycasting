@@ -17,9 +17,8 @@ const config: webpack.Configuration = {
   },
   devServer: {
     static: path.resolve(__dirname, "public"),
+    port: 3000,
     hot: true,
-    open: true,
-    port: 3000
   },
   resolve: {
     extensions: [".ts", ".js"]

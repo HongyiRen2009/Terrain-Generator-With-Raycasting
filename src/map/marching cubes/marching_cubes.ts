@@ -1,6 +1,6 @@
 import { vec2, vec3 } from "gl-matrix";
-import { VERTICES, EDGES, CASES } from "./geometry";
-import { Triangle, Mesh } from "./Mesh";
+import { VERTICES, EDGES, CASES } from "../geometry";
+import { Triangle, Mesh } from "../Mesh";
 import { vertexKey } from "./cubes_utils";
 
 //!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
