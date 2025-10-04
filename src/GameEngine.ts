@@ -3,7 +3,7 @@ import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/core/GlRenderer";
-import { PathTracer } from "./pathtracing/PathTracer";
+import { PathTracer } from "./Pathtracing/PathTracer";
 import { worldUtils } from "./render/utils/WorldUtils";
 
 import gearModelUrl from "../models/stand.3mf";

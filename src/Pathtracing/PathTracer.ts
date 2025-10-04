@@ -8,9 +8,12 @@ import { DebugMenu } from "../DebugMenu";
 import {
   pathTracingFragmentShaderCode,
   pathTracingVertexShaderCode
-} from "./glslPath";
+} from "../Pathtracing/glslPath";
 import { BVHUtils } from "../map/BVHUtils";
-import { copyFragmentShader, copyVertexShader } from "./copyShader";
+import {
+  copyFragmentShader,
+  copyVertexShader
+} from "../Pathtracing/copyShader";
 import { glUtils } from "../render/utils/GlUtils";
 import { worldUtils } from "../render/utils/WorldUtils";
 import { textureUtils } from "../render/utils/TextureUtils";
@@ -69,8 +72,16 @@ export class PathTracer {
     }
 
     //shader
-    this.meshProgram = glUtils.CreateProgram(this.gl, pathTracingVertexShaderCode, pathTracingFragmentShaderCode);
-    this.copyProgram = glUtils.CreateProgram(this.gl, copyVertexShader, copyFragmentShader);
+    this.meshProgram = glUtils.CreateProgram(
+      this.gl,
+      pathTracingVertexShaderCode,
+      pathTracingFragmentShaderCode
+    );
+    this.copyProgram = glUtils.CreateProgram(
+      this.gl,
+      copyVertexShader,
+      copyFragmentShader
+    );
 
     //Slider
     const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
@@ -143,10 +154,7 @@ export class PathTracer {
     const invViewProjMatrix = mat4.create();
     mat4.invert(invViewProjMatrix, viewProjMatrix);
     this.gl.uniformMatrix4fv(
-      this.gl.getUniformLocation(
-        this.meshProgram!,
-        "u_invViewProjMatrix"
-      ),
+      this.gl.getUniformLocation(this.meshProgram!, "u_invViewProjMatrix"),
       false,
       invViewProjMatrix
     );
@@ -252,8 +260,14 @@ export class PathTracer {
   private initPathtracing() {
     this.gl.useProgram(this.meshProgram!);
     //Textures
-    let verticeTex = textureUtils.packFloatArrayToTexture(this.gl, this.vertices);
-    let terrainTex = textureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    let verticeTex = textureUtils.packFloatArrayToTexture(
+      this.gl,
+      this.vertices
+    );
+    let terrainTex = textureUtils.packFloatArrayToTexture(
+      this.gl,
+      this.terrains
+    );
     let boundingBoxesTex = textureUtils.packFloatArrayToTexture(
       this.gl,
       this.boundingBoxes
@@ -290,20 +304,8 @@ export class PathTracer {
       "u_boundingBox",
       2
     );
-    textureUtils.bindTex(
-      this.gl,
-      this.meshProgram!,
-      nodesTex,
-      "u_nodesTex",
-      3
-    );
-    textureUtils.bindTex(
-      this.gl,
-      this.meshProgram!,
-      leafsTex,
-      "u_leafsTex",
-      4
-    );
+    textureUtils.bindTex(this.gl, this.meshProgram!, nodesTex, "u_nodesTex", 3);
+    textureUtils.bindTex(this.gl, this.meshProgram!, leafsTex, "u_leafsTex", 4);
     textureUtils.bindTex(
       this.gl,
       this.meshProgram!,
