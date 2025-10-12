@@ -482,9 +482,33 @@ export class GLRenderer {
     this.gl.bindVertexArray(null);
     this.screenQuadVAO = vao;
   }
-  // Resize G-Buffer when canvas size changes
   resizeGBuffer(width: number, height: number) {
-    // TODO: Recreate G-Buffer textures with new dimensions
+    // Delete old G-Buffer textures and framebuffer
+    if (this.gBuffer) {
+      this.gl.deleteTexture(this.gBuffer.normalTexture);
+      this.gl.deleteTexture(this.gBuffer.albedoTexture);
+      this.gl.deleteTexture(this.gBuffer.depthTexture);
+      this.gl.deleteFramebuffer(this.gBuffer.framebuffer);
+      this.gBuffer = null;
+    }
+    // Delete SSAO and blur textures/framebuffers
+    if (this.ssaoFrameBuffer) {
+      this.gl.deleteTexture(this.ssaoFrameBuffer.ssaoTexture);
+      this.gl.deleteFramebuffer(this.ssaoFrameBuffer.framebuffer);
+      this.ssaoFrameBuffer = null;
+    }
+    if (this.ssaoBlurFrameBuffer) {
+      this.gl.deleteTexture(this.ssaoBlurFrameBuffer.ssaoBlurTexture);
+      this.gl.deleteFramebuffer(this.ssaoBlurFrameBuffer.framebuffer);
+      this.ssaoBlurFrameBuffer = null;
+    }
+    // Resize canvas
+    this.canvas.width = width;
+    this.canvas.height = height;
+    // Recreate G-Buffer and SSAO framebuffers/textures
+    this.initializeGBuffer();
+    this.initializeSSAOFrameBuffer();
+    this.initializeSSAOBlurFrameBuffer();
   }
 
   GenerateTriangleBuffer(triangleMeshes: Mesh[]) {

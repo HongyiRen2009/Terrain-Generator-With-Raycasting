@@ -155,7 +155,7 @@ void main() {
     }
     
     occlusion = 1.0 - (occlusion / float(NUM_SAMPLES));
-    ssao = fragPos.y;
+    ssao = occlusion;
 }
 `;
 export const MeshSSAOBlurVertexShaderCode = /* glsl */ `#version 300 es
@@ -191,7 +191,10 @@ void main() {
             index++;
         }
     }
-    ssaoBlur = result / 16.0; // Normalize by kernel sum
+    //NOTE: The blur currently causes weird dark triangle artifacts
+    //Somebody please fix this
+    ssaoBlur=texture(ssaoInput, vUV).r;
+    //ssaoBlur = result / 16.0;
 }
 `;
 export const MeshLightingVertexShaderCode = /* glsl */ `#version 300 es
@@ -283,13 +286,14 @@ void main() {
         diffuse *= attenuation;
         specular *= attenuation;
 
-        lighting += (diffuse + specular) * albedo;
+        lighting += (diffuse + specular) * ambient;
     }
+
     if(texture(gDepth, vUV).r>=1.0) { // Background
         outputColor = vec4(skyColor,1.0);
     }
     else{
-        outputColor = vec4(vec3(fragViewPos.y-ambientOcclusion), 1.0);
+        outputColor = vec4(lighting, 1.0);
     }
 }
 `;
