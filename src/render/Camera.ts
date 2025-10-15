@@ -4,7 +4,7 @@ import { GameEngine } from "../GameEngine";
 export class Camera {
   position: vec3;
   sensitivity = 0.1;
-  yaw = -90; // Left right rotation in degrees
+  yaw = 0; // Left right rotation in degrees
   pitch = 0; // Up down rotation in degrees
   //Computed Dynamically
   front = vec3.fromValues(0, 0, -1);
@@ -48,9 +48,9 @@ export class Camera {
     return viewMatrix;
   }
   calculateProjectionMatrix(canvasWidth: number, canvasHeight: number) {
-    const matViewProj = mat4.create();
     const matView = this.getViewMatrix();
     const matProj = mat4.create();
+    const matViewProj = mat4.create();
     mat4.perspective(
       matProj,
       /* fovy= */ glMatrix.toRadian(90),
@@ -60,6 +60,19 @@ export class Camera {
     );
     mat4.multiply(matViewProj, matProj, matView);
     return matViewProj;
+  }
+
+  calculateProjectionMatrices(canvasWidth: number, canvasHeight: number) {
+    const matView = this.getViewMatrix();
+    const matProj = mat4.create();
+    mat4.perspective(
+      matProj,
+      /* fovy= */ glMatrix.toRadian(90),
+      /* aspectRatio= */ canvasWidth / canvasHeight,
+      /* near, far= */ 0.1,
+      100.0
+    );
+    return { matView, matProj };
   }
 
   UpdateCameraVectors() {

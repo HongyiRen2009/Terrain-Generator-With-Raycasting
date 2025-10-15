@@ -8,7 +8,7 @@ import { Color, Terrain, Terrains } from "./terrains";
 import { Mesh, Triangle } from "./Mesh";
 import { GlUtils } from "../render/GlUtils";
 import { WorldObject } from "./WorldObject";
-import { meshToVerticesAndIndices } from "./cubes_utils";
+import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { ObjectUI } from "./ObjectUI";
 
 interface ImportMapEntry {
@@ -49,7 +49,7 @@ export class WorldMap {
 
   private tracerUpdateSupplier: () => () => void;
 
-  private objectUI: ObjectUI;
+  public objectUI: ObjectUI;
 
   /**
    * Constructs a world
@@ -195,7 +195,8 @@ export class WorldMap {
    * Add an object to the game world
    */
   public addObject(objectData: Mesh, objectLocation: mat4, name: string) {
-    const { vertices, indices } = meshToVerticesAndIndices(objectData);
+    const { vertices, indices } =
+      meshToInterleavedVerticesAndIndices(objectData);
     const meshSize = indices.length;
 
     let objectBuffer = GlUtils.CreateStaticBuffer(

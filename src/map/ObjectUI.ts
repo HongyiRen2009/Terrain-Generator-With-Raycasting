@@ -4,6 +4,7 @@ import { loadPLYToMesh, objSourceToMesh } from "../modelLoader/objreader";
 import { Mesh } from "./Mesh";
 import { Color, Terrains } from "./terrains";
 import { WorldMap } from "./Map";
+import { WorldObject } from "./WorldObject";
 
 export class ObjectUI {
   private tracerUpdateSupplier: () => () => void;
@@ -170,126 +171,120 @@ export class ObjectUI {
     });
 
     const container = document.getElementById("world-objects")!;
-    this.setupObjectUI(map, container, this);
   }
 
-  setupObjectUI(world: WorldMap, container: HTMLElement, UI: ObjectUI) {
-    world.onObjectAdded = (obj) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "world-object";
+  setupObjectUI(
+    obj: WorldObject,
+    world: WorldMap,
+    container: HTMLElement,
+    UI: ObjectUI
+  ) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "world-object";
 
-      // Name
-      const nameEl = document.createElement("h3");
-      nameEl.textContent = obj.name;
-      wrapper.appendChild(nameEl);
+    // Name
+    const nameEl = document.createElement("h3");
+    nameEl.textContent = obj.name;
+    wrapper.appendChild(nameEl);
 
-      // Vertex count
-      const vertsEl = document.createElement("p");
-      vertsEl.textContent = `Vertices: ${obj.mesh.mesh.length * 3}`;
-      wrapper.appendChild(vertsEl);
+    // Vertex count
+    const vertsEl = document.createElement("p");
+    vertsEl.textContent = `Vertices: ${obj.mesh.mesh.length * 3}`;
+    wrapper.appendChild(vertsEl);
 
-      // Delete button
-      const deleteBtn = document.createElement("button");
-      deleteBtn.textContent = "Delete Object";
-      deleteBtn.style.marginBottom = "10px";
-      deleteBtn.addEventListener("click", () => {
-        // Remove from world
-        world.worldObjects = world.worldObjects.filter((o) => o.id !== obj.id);
+    // Delete button
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Delete Object";
+    deleteBtn.style.marginBottom = "10px";
+    deleteBtn.addEventListener("click", () => {
+      // Remove from world
+      world.worldObjects = world.worldObjects.filter((o) => o.id !== obj.id);
 
-        // Remove UI
-        wrapper.remove();
+      // Remove UI
+      wrapper.remove();
 
-        // Trigger re-trace/update if needed
-        if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
+      // Trigger re-trace/update if needed
+      if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
+    });
+    wrapper.appendChild(deleteBtn);
+
+    // Helper to create labeled number input
+    function createInput(
+      labelText: string,
+      value: number,
+      onChange: (v: number) => void
+    ) {
+      const label = document.createElement("label");
+      label.innerHTML = `<br>${labelText}: `;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = value.toString();
+      input.step = "0.1";
+      input.addEventListener("input", () => {
+        const val = input.value === "" ? 0 : parseFloat(input.value);
+        onChange(val);
       });
-      wrapper.appendChild(deleteBtn);
+      label.appendChild(input);
+      wrapper.appendChild(label);
+    }
 
-      // Helper to create labeled number input
-      function createInput(
-        labelText: string,
-        value: number,
-        onChange: (v: number) => void
-      ) {
-        const label = document.createElement("label");
-        label.innerHTML = `<br>${labelText}: `;
-        const input = document.createElement("input");
-        input.type = "number";
-        input.value = value.toString();
-        input.step = "0.1";
-        input.addEventListener("input", () => {
-          const val = input.value === "" ? 0 : parseFloat(input.value);
-          onChange(val);
-        });
-        label.appendChild(input);
-        wrapper.appendChild(label);
-      }
+    // Extract current transform components
+    const translation = [obj.position[12], obj.position[13], obj.position[14]];
+    const rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
+    const scale = [1, 1, 1]; // default 1 or store separately
 
-      // Extract current transform components
-      const translation = [
-        obj.position[12],
-        obj.position[13],
-        obj.position[14]
-      ];
-      const rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
-      const scale = [1, 1, 1]; // default 1 or store separately
+    // Function to rebuild mat4 from translation, rotation, scale
+    function rebuildMatrix() {
+      const rad = rotationDegrees.map((d) => (d * Math.PI) / 180);
+      const newMat = mat4.create();
 
-      // Function to rebuild mat4 from translation, rotation, scale
-      function rebuildMatrix() {
-        const rad = rotationDegrees.map((d) => (d * Math.PI) / 180);
-        const newMat = mat4.create();
-
-        mat4.translate(
-          newMat,
-          newMat,
-          vec3.fromValues(translation[0], translation[1], translation[2])
-        );
-        mat4.rotateX(newMat, newMat, rad[0]);
-        mat4.rotateY(newMat, newMat, rad[1]);
-        mat4.rotateZ(newMat, newMat, rad[2]);
-        mat4.scale(
-          newMat,
-          newMat,
-          vec3.fromValues(scale[0], scale[1], scale[2])
-        );
-
-        mat4.copy(obj.position, newMat);
-
-        if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
-      }
-      // Translation inputs
-      const tHeader = document.createElement("h4");
-      tHeader.textContent = "Translation:";
-      wrapper.appendChild(tHeader);
-      ["X", "Y", "Z"].forEach((axis, i) =>
-        createInput(axis, translation[i], (v) => {
-          translation[i] = v;
-          rebuildMatrix();
-        })
+      mat4.translate(
+        newMat,
+        newMat,
+        vec3.fromValues(translation[0], translation[1], translation[2])
       );
+      mat4.rotateX(newMat, newMat, rad[0]);
+      mat4.rotateY(newMat, newMat, rad[1]);
+      mat4.rotateZ(newMat, newMat, rad[2]);
+      mat4.scale(newMat, newMat, vec3.fromValues(scale[0], scale[1], scale[2]));
 
-      // Rotation inputs (degrees)
-      const rHeader = document.createElement("h4");
-      rHeader.textContent = "Rotation (degrees):";
-      wrapper.appendChild(rHeader);
-      ["X", "Y", "Z"].forEach((axis, i) =>
-        createInput(axis, rotationDegrees[i], (v) => {
-          rotationDegrees[i] = v;
-          rebuildMatrix();
-        })
-      );
+      mat4.copy(obj.position, newMat);
 
-      // Scale inputs
-      const sHeader = document.createElement("h4");
-      sHeader.textContent = "Scale:";
-      wrapper.appendChild(sHeader);
-      ["X", "Y", "Z"].forEach((axis, i) =>
-        createInput(axis, scale[i], (v) => {
-          scale[i] = v;
-          rebuildMatrix();
-        })
-      );
+      if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
+    }
+    // Translation inputs
+    const tHeader = document.createElement("h4");
+    tHeader.textContent = "Translation:";
+    wrapper.appendChild(tHeader);
+    ["X", "Y", "Z"].forEach((axis, i) =>
+      createInput(axis, translation[i], (v) => {
+        translation[i] = v;
+        rebuildMatrix();
+      })
+    );
 
-      container.appendChild(wrapper);
-    };
+    // Rotation inputs (degrees)
+    const rHeader = document.createElement("h4");
+    rHeader.textContent = "Rotation (degrees):";
+    wrapper.appendChild(rHeader);
+    ["X", "Y", "Z"].forEach((axis, i) =>
+      createInput(axis, rotationDegrees[i], (v) => {
+        rotationDegrees[i] = v;
+        rebuildMatrix();
+      })
+    );
+
+    // Scale inputs
+    const sHeader = document.createElement("h4");
+    sHeader.textContent = "Scale:";
+    wrapper.appendChild(sHeader);
+    ["X", "Y", "Z"].forEach((axis, i) =>
+      createInput(axis, scale[i], (v) => {
+        scale[i] = v;
+        rebuildMatrix();
+      })
+    );
+
+    container.appendChild(wrapper);
   }
 }

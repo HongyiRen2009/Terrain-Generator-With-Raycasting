@@ -10,7 +10,7 @@ export class Shader {
       location: number;
     };
   };
-  VertexUniforms: {
+  Uniforms: {
     [key: string]: {
       type: string;
       location: WebGLUniformLocation;
@@ -36,14 +36,16 @@ export class Shader {
     const VertexVariables = this.extractShaderVariables(
       gl,
       VertexShaderCode,
+      FragmentShaderCode,
       this.Program
     );
     this.VertexInputs = VertexVariables[0];
-    this.VertexUniforms = VertexVariables[1];
+    this.Uniforms = VertexVariables[1];
   }
   extractShaderVariables(
     gl: WebGL2RenderingContext,
-    shaderCode: string,
+    vertexShaderCode: string,
+    fragmentShaderCode: string,
     program: WebGLProgram
   ): [
     { [key: string]: { type: string; size: number; location: number } },
@@ -62,7 +64,7 @@ export class Shader {
     let match;
 
     // Extract inputs
-    while ((match = inputPattern.exec(shaderCode)) !== null) {
+    while ((match = inputPattern.exec(vertexShaderCode)) !== null) {
       const location = gl.getAttribLocation(program, match[2]);
       if (location === -1) {
         console.error(`Attribute ${match[2]} not found in shader program.`);
@@ -76,7 +78,15 @@ export class Shader {
     }
 
     // Extract uniforms
-    while ((match = uniformPattern.exec(shaderCode)) !== null) {
+    while ((match = uniformPattern.exec(vertexShaderCode)) !== null) {
+      const location = gl.getUniformLocation(program, match[2]);
+      if (location === null) {
+        console.error(`Uniform ${match[2]} not found in shader program.`);
+        continue;
+      }
+      uniforms[match[2]] = { type: match[1], location: location };
+    }
+    while ((match = uniformPattern.exec(fragmentShaderCode)) !== null) {
       const location = gl.getUniformLocation(program, match[2]);
       if (location === null) {
         console.error(`Uniform ${match[2]} not found in shader program.`);
