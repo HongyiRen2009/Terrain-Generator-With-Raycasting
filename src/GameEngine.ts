@@ -69,6 +69,34 @@ export class GameEngine {
       this.debug,
       this.world
     );
+    const radiusSlider = document.getElementById(
+      "radius-slider"
+    ) as HTMLInputElement;
+    const radiusValue = document.getElementById("radius-value")!;
+    radiusSlider.value = this.renderer.radius.toString();
+    radiusValue.textContent = this.renderer.radius.toString();
+    radiusSlider.addEventListener("input", () => {
+      this.renderer.radius = parseFloat(radiusSlider.value);
+      radiusValue.textContent = radiusSlider.value;
+    });
+
+    const biasSlider = document.getElementById(
+      "bias-slider"
+    ) as HTMLInputElement;
+    const biasValue = document.getElementById("bias-value")!;
+    biasSlider.value = this.renderer.bias.toString();
+    biasValue.textContent = this.renderer.bias.toString();
+    biasSlider.addEventListener("input", () => {
+      this.renderer.bias = parseFloat(biasSlider.value);
+      biasValue.textContent = biasSlider.value;
+    });
+    const blurCheckbox = document.getElementById(
+      "blur-checkbox"
+    ) as HTMLInputElement;
+    blurCheckbox.checked = this.renderer.enableSSAOBlur;
+    blurCheckbox.addEventListener("change", () => {
+      this.renderer.enableSSAOBlur = blurCheckbox.checked;
+    });
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,

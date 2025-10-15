@@ -97,7 +97,8 @@ uniform float uNoiseSize;
 uniform vec3 uSamples[64];
 uniform mat4 uProj;
 uniform mat4 uProjInverse;
-
+uniform float radius;
+uniform float bias;
 // Improved depth reconstruction function
 vec3 getViewPosition(vec2 texCoord) {
     float depth = texture(uDepthTex, texCoord).r;
@@ -128,8 +129,6 @@ void main() {
     mat3 TBN = mat3(tangent, bitangent, normal);
     
     float occlusion = 0.0;
-    float radius = 0.5; // Reduced radius for better alignment
-    float bias = 0.025;
     
     for(int i = 0; i < NUM_SAMPLES; i++) {
         // Get sample position in hemisphere around surface normal
@@ -151,7 +150,7 @@ void main() {
         if(texture(uDepthTex, offset.xy).r>=1.0) continue; // Ignore far plane samples
         // Range check to avoid artifacts from distant geometry
         float rangeCheck= abs(fragPos.z - sampleDepth) < radius ? 1.0 : 0.0;
-        occlusion += (sampleDepth >= samplePos.z ? 1.0 : 0.0) * rangeCheck;
+        occlusion += (sampleDepth >= samplePos.z+bias ? 1.0 : 0.0) * rangeCheck;
     }
     
     occlusion = 1.0 - (occlusion / float(NUM_SAMPLES));
@@ -168,35 +167,47 @@ void main() {
     gl_Position = vec4(VertexPosition, 1.0);
 }
 `;
-//ps. I'm so happy that I get to use convolutions besides AI :D
-// I love you 3Blue1Brown
 export const MeshSSAOBlurFragmentShaderCode = /* glsl */ `#version 300 es
 precision highp float;
 in vec2 vUV;
 out float ssaoBlur;
 uniform sampler2D ssaoInput;
+uniform sampler2D depthInput; // Add this uniform for depth-based bilateral filtering
+uniform bool enableBlur;
+
+const int KERNEL_RADIUS = 2; // 5x5 kernel
+const float sigma_spatial = 2.0;
+const float sigma_depth = 0.1;
+
 void main() {
-    float result = 0.0;
-    float[9] kernel = float[](
-        1.0, 2.0, 1.0,
-        2.0, 4.0, 2.0,
-        1.0, 2.0, 1.0
-    );
+    if (!enableBlur) {
+        ssaoBlur = texture(ssaoInput, vUV).r;
+        return;
+    }
+
+    float centerSSAO = texture(ssaoInput, vUV).r;
+    float centerDepth = texture(depthInput, vUV).r;
     vec2 texelSize = 1.0 / vec2(textureSize(ssaoInput, 0));
-    int index = 0;
-    for(int y = -1; y <= 1; y++) {
-        for(int x = -1; x <= 1; x++) {
+
+    float sum = 0.0;
+    float weightSum = 0.0;
+
+    for (int y = -KERNEL_RADIUS; y <= KERNEL_RADIUS; ++y) {
+        for (int x = -KERNEL_RADIUS; x <= KERNEL_RADIUS; ++x) {
             vec2 offset = vec2(float(x), float(y)) * texelSize;
-            result += texture(ssaoInput, vUV + offset).r * kernel[index];
-            index++;
+            float sampleSSAO = texture(ssaoInput, vUV + offset).r;
+            float sampleDepth = texture(depthInput, vUV + offset).r;
+
+            float spatialWeight = exp(-float(x * x + y * y) / (2.0 * sigma_spatial * sigma_spatial));
+            float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0) / (2.0 * sigma_depth * sigma_depth));
+            float weight = spatialWeight * depthWeight;
+
+            sum += sampleSSAO * weight;
+            weightSum += weight;
         }
     }
-    //NOTE: The blur currently causes weird dark triangle artifacts
-    //Somebody please fix this
-    ssaoBlur=texture(ssaoInput, vUV).r;
-    //ssaoBlur = result / 16.0;
-}
-`;
+    ssaoBlur = sum / weightSum;
+}`;
 export const MeshLightingVertexShaderCode = /* glsl */ `#version 300 es
 precision highp float;
 layout(location = 0) in vec3 VertexPosition;

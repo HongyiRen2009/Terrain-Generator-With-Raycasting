@@ -89,6 +89,10 @@ export class GLRenderer {
   // Add VAO property for geometry pass
   geometryVAO: WebGLVertexArrayObject | null = null;
 
+  // Settings
+  radius: number = 5.0;
+  bias: number = 0.025;
+  enableSSAOBlur: boolean = true;
   constructor(
     gl: WebGL2RenderingContext,
     canvas: HTMLCanvasElement,
@@ -714,13 +718,19 @@ export class GLRenderer {
       this.gl.getUniformLocation(this.ssaoPassShader.Program!, "uNoiseTex"),
       2
     );
-
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.ssaoPassShader.Program!, "radius"),
+      this.radius
+    );
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.ssaoPassShader.Program!, "bias"),
+      this.bias
+    );
     this.gl.uniformMatrix4fv(
       this.ssaoPassShader.Uniforms["uProj"].location,
       false,
       this.matProj
     );
-    console.log("MatProjInverse SSAO:", this.matProjInverse);
     this.gl.uniformMatrix4fv(
       this.gl.getUniformLocation(this.ssaoPassShader.Program!, "uProjInverse"),
       false,
@@ -766,6 +776,22 @@ export class GLRenderer {
     this.gl.uniform1i(
       this.gl.getUniformLocation(this.ssaoBlurPassShader.Program!, "ssaoInput"),
       0
+    );
+    this.gl.activeTexture(this.gl.TEXTURE1);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, this.gBuffer?.depthTexture!);
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(
+        this.ssaoBlurPassShader.Program!,
+        "depthInput"
+      ),
+      1
+    );
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(
+        this.ssaoBlurPassShader.Program!,
+        "enableBlur"
+      ),
+      this.enableSSAOBlur ? 1 : 0
     );
 
     this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
@@ -821,7 +847,6 @@ export class GLRenderer {
       false,
       this.matViewInverse
     );
-    console.log("MatProjInverse:", this.matProjInverse);
     this.gl.uniformMatrix4fv(
       this.gl.getUniformLocation(
         this.lightingPassShader.Program!,
