@@ -151,45 +151,22 @@ export class GLRenderer {
         const index = (i * this.noiseSize + j) * 3;
         noiseData[index] = Math.random() * 2.0 - 1.0;
         noiseData[index + 1] = Math.random() * 2.0 - 1.0;
-        noiseData[index + 2] = 0.0; // Z component is zero
+        noiseData[index + 2] = 0.0;
       }
     }
-    this.noiseTexture = this.gl.createTexture();
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.noiseTexture);
-
-    // Add the missing texture setup
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D,
-      0,
+    this.noiseTexture = GlUtils.createTexture(
+      this.gl,
+      this.noiseSize,
+      this.noiseSize,
       this.gl.RGB32F,
-      this.noiseSize,
-      this.noiseSize,
-      0,
       this.gl.RGB,
       this.gl.FLOAT,
-      noiseData
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MIN_FILTER,
-      this.gl.NEAREST
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MAG_FILTER,
-      this.gl.NEAREST
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_S,
+      noiseData,
+      this.gl.NEAREST,
+      this.gl.NEAREST,
+      this.gl.REPEAT,
       this.gl.REPEAT
     );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_T,
-      this.gl.REPEAT
-    );
-    this.gl.bindTexture(this.gl.TEXTURE_2D, null);
   }
 
   private initializeGBuffer() {
@@ -200,71 +177,34 @@ export class GLRenderer {
         "EXT_color_buffer_float is not supported on this device."
       );
     }
-    // Create normal texture (RGB: world space normals)
-    const normalTexture = gl.createTexture();
-    if (!normalTexture) {
-      throw new Error("Failed to create normal texture");
-    }
-    gl.bindTexture(gl.TEXTURE_2D, normalTexture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA16F, // High precision for normals
+
+    // Create textures using GlUtils.createTexture
+    const normalTexture = GlUtils.createTexture(
+      gl,
       this.canvas.width,
       this.canvas.height,
-      0,
+      gl.RGBA16F,
       gl.RGBA,
-      gl.FLOAT,
-      null
+      gl.FLOAT
     );
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-    // Create albedo texture (RGB: albedo color)
-    const albedoTexture = gl.createTexture();
-    if (!albedoTexture) {
-      throw new Error("Failed to create albedo texture");
-    }
-    gl.bindTexture(gl.TEXTURE_2D, albedoTexture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA8, // 8-bit precision for colors
+    const albedoTexture = GlUtils.createTexture(
+      gl,
       this.canvas.width,
       this.canvas.height,
-      0,
+      gl.RGBA8,
       gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      null
+      gl.UNSIGNED_BYTE
     );
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-    // Create depth texture (stores depth information)
-    const depthTexture = gl.createTexture();
-    if (!depthTexture) {
-      throw new Error("Failed to create depth texture");
-    }
-    gl.bindTexture(gl.TEXTURE_2D, depthTexture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
+    const depthTexture = GlUtils.createTexture(
+      gl,
+      this.canvas.width,
+      this.canvas.height,
       gl.DEPTH_COMPONENT32F,
-      this.canvas.width,
-      this.canvas.height,
-      0,
       gl.DEPTH_COMPONENT,
-      gl.FLOAT,
-      null
+      gl.FLOAT
     );
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     // Create framebuffer and attach textures
     const framebuffer = gl.createFramebuffer();
@@ -272,7 +212,7 @@ export class GLRenderer {
       throw new Error("Failed to create framebuffer");
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    // Attach normal texture to framebuffer
+
     gl.framebufferTexture2D(
       gl.FRAMEBUFFER,
       gl.COLOR_ATTACHMENT0,
@@ -281,7 +221,6 @@ export class GLRenderer {
       0
     );
 
-    // Attach albedo texture to framebuffer
     gl.framebufferTexture2D(
       gl.FRAMEBUFFER,
       gl.COLOR_ATTACHMENT1,
@@ -290,7 +229,6 @@ export class GLRenderer {
       0
     );
 
-    // Attach depth texture to framebuffer
     gl.framebufferTexture2D(
       gl.FRAMEBUFFER,
       gl.DEPTH_ATTACHMENT,
@@ -299,22 +237,15 @@ export class GLRenderer {
       0
     );
 
-    // Set draw buffers for multiple render targets
-    gl.drawBuffers([
-      gl.COLOR_ATTACHMENT0, // Normal texture
-      gl.COLOR_ATTACHMENT1 // Albedo texture
-    ]);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
 
-    // Check framebuffer completeness
     const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
     if (status !== gl.FRAMEBUFFER_COMPLETE) {
       throw new Error("Framebuffer is not complete: " + status.toString());
     }
 
-    // Unbind framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-    // Store G-Buffer textures and framebuffer
     this.gBuffer = {
       framebuffer: framebuffer,
       normalTexture: normalTexture,
@@ -322,49 +253,23 @@ export class GLRenderer {
       depthTexture: depthTexture
     };
   }
-  // Initialize SSAO framebuffer and textures
+
   private initializeSSAOFrameBuffer() {
     const framebuffer = this.gl.createFramebuffer();
     if (!framebuffer) {
       throw new Error("Failed to create SSAO framebuffer");
     }
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-    const ssaoTexture = this.gl.createTexture();
-    if (!ssaoTexture) {
-      throw new Error("Failed to create SSAO texture");
-    }
-    this.gl.bindTexture(this.gl.TEXTURE_2D, ssaoTexture);
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D,
-      0,
-      this.gl.R8,
+
+    const ssaoTexture = GlUtils.createTexture(
+      this.gl,
       this.canvas.width,
       this.canvas.height,
-      0,
+      this.gl.R8,
       this.gl.RED,
-      this.gl.UNSIGNED_BYTE,
-      null
+      this.gl.UNSIGNED_BYTE
     );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MIN_FILTER,
-      this.gl.NEAREST
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MAG_FILTER,
-      this.gl.NEAREST
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_S,
-      this.gl.CLAMP_TO_EDGE
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_T,
-      this.gl.CLAMP_TO_EDGE
-    );
+
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
@@ -374,53 +279,29 @@ export class GLRenderer {
     );
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+
     this.ssaoFrameBuffer = {
       framebuffer: framebuffer,
       ssaoTexture: ssaoTexture
     };
   }
+
   private initializeSSAOBlurFrameBuffer() {
     const framebuffer = this.gl.createFramebuffer();
     if (!framebuffer) {
       throw new Error("Failed to create SSAO Blur framebuffer");
     }
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-    const ssaoBlurTexture = this.gl.createTexture();
-    if (!ssaoBlurTexture) {
-      throw new Error("Failed to create SSAO Blur texture");
-    }
-    this.gl.bindTexture(this.gl.TEXTURE_2D, ssaoBlurTexture);
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D,
-      0,
-      this.gl.R8,
+
+    const ssaoBlurTexture = GlUtils.createTexture(
+      this.gl,
       this.canvas.width,
       this.canvas.height,
-      0,
+      this.gl.R8,
       this.gl.RED,
-      this.gl.UNSIGNED_BYTE,
-      null
+      this.gl.UNSIGNED_BYTE
     );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MIN_FILTER,
-      this.gl.NEAREST
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MAG_FILTER,
-      this.gl.NEAREST
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_S,
-      this.gl.CLAMP_TO_EDGE
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_T,
-      this.gl.CLAMP_TO_EDGE
-    );
+
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
@@ -430,11 +311,13 @@ export class GLRenderer {
     );
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+
     this.ssaoBlurFrameBuffer = {
       framebuffer: framebuffer,
       ssaoBlurTexture: ssaoBlurTexture
     };
   }
+
   // Initialize screen-space quad for fullscreen passes
   private initializeScreenQuad() {
     const quadVertices = new Float32Array([
@@ -612,15 +495,15 @@ export class GLRenderer {
     this.geometryVAO = GlUtils.createNonInterleavedVao(
       this.gl,
       {
-        VertexPosition: {
+        position: {
           buffer: this.TriangleBuffer.vertex.position,
           size: 3
         },
-        VertexNormal: {
+        normal: {
           buffer: this.TriangleBuffer.vertex.normal,
           size: 3
         },
-        VertexColor: {
+        color: {
           buffer: this.TriangleBuffer.vertex.color,
           size: 3
         }
@@ -647,17 +530,17 @@ export class GLRenderer {
 
     // Set uniforms
     this.gl.uniformMatrix4fv(
-      this.geometryPassShader.Uniforms["uModel"].location,
+      this.geometryPassShader.Uniforms["model"].location,
       false,
       uModel
     );
     this.gl.uniformMatrix4fv(
-      this.geometryPassShader.Uniforms["uView"].location,
+      this.geometryPassShader.Uniforms["view"].location,
       false,
       this.matView
     );
     this.gl.uniformMatrix4fv(
-      this.geometryPassShader.Uniforms["uProj"].location,
+      this.geometryPassShader.Uniforms["proj"].location,
       false,
       this.matProj
     );
@@ -697,27 +580,28 @@ export class GLRenderer {
     this.gl.useProgram(this.ssaoPassShader.Program!);
     this.gl.bindVertexArray(this.screenQuadVAO);
 
-    // Bind textures with proper active texture units
-    this.gl.activeTexture(this.gl.TEXTURE0);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.gBuffer?.normalTexture!);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.ssaoPassShader.Program!, "uNormalTex"),
+    GlUtils.bindTex(
+      this.gl,
+      this.ssaoPassShader.Program!,
+      this.gBuffer?.normalTexture!,
+      "normalTexture",
       0
     );
-
-    this.gl.activeTexture(this.gl.TEXTURE1);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.gBuffer?.depthTexture!);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.ssaoPassShader.Program!, "uDepthTex"),
+    GlUtils.bindTex(
+      this.gl,
+      this.ssaoPassShader.Program!,
+      this.gBuffer?.depthTexture!,
+      "depthTexture",
       1
     );
-
-    this.gl.activeTexture(this.gl.TEXTURE2);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.noiseTexture!);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.ssaoPassShader.Program!, "uNoiseTex"),
+    GlUtils.bindTex(
+      this.gl,
+      this.ssaoPassShader.Program!,
+      this.noiseTexture!,
+      "noiseTexture",
       2
     );
+
     this.gl.uniform1f(
       this.gl.getUniformLocation(this.ssaoPassShader.Program!, "radius"),
       this.radius
@@ -727,26 +611,25 @@ export class GLRenderer {
       this.bias
     );
     this.gl.uniformMatrix4fv(
-      this.ssaoPassShader.Uniforms["uProj"].location,
+      this.ssaoPassShader.Uniforms["proj"].location,
       false,
       this.matProj
     );
     this.gl.uniformMatrix4fv(
-      this.gl.getUniformLocation(this.ssaoPassShader.Program!, "uProjInverse"),
+      this.gl.getUniformLocation(this.ssaoPassShader.Program!, "projInverse"),
       false,
       this.matProjInverse
     );
     this.gl.uniform1f(
-      this.ssaoPassShader.Uniforms["uNoiseSize"].location,
+      this.ssaoPassShader.Uniforms["noiseSize"].location,
       this.noiseSize
     );
 
-    // Send over kernels
     for (let i = 0; i < this.kernelSize; i++) {
       this.gl.uniform3fv(
         this.gl.getUniformLocation(
           this.ssaoPassShader.Program!,
-          `uSamples[${i}]`
+          `samples[${i}]`
         ),
         this.kernels[i]
       );
@@ -771,21 +654,22 @@ export class GLRenderer {
     this.gl.useProgram(this.ssaoBlurPassShader.Program!);
     this.gl.bindVertexArray(this.screenQuadVAO);
 
-    this.gl.activeTexture(this.gl.TEXTURE0);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.ssaoFrameBuffer?.ssaoTexture!);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.ssaoBlurPassShader.Program!, "ssaoInput"),
+    // Use GlUtils.bindTex for texture binding
+    GlUtils.bindTex(
+      this.gl,
+      this.ssaoBlurPassShader.Program!,
+      this.ssaoFrameBuffer?.ssaoTexture!,
+      "ssaoTexture",
       0
     );
-    this.gl.activeTexture(this.gl.TEXTURE1);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.gBuffer?.depthTexture!);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(
-        this.ssaoBlurPassShader.Program!,
-        "depthInput"
-      ),
+    GlUtils.bindTex(
+      this.gl,
+      this.ssaoBlurPassShader.Program!,
+      this.gBuffer?.depthTexture!,
+      "depthTexture",
       1
     );
+
     this.gl.uniform1i(
       this.gl.getUniformLocation(
         this.ssaoBlurPassShader.Program!,
@@ -810,53 +694,51 @@ export class GLRenderer {
     this.gl.useProgram(this.lightingPassShader.Program!);
     this.gl.bindVertexArray(this.screenQuadVAO);
 
-    // Bind all G-Buffer textures
-    this.gl.activeTexture(this.gl.TEXTURE0);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.gBuffer?.normalTexture!);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.lightingPassShader.Program!, "gNormal"),
+    // Use GlUtils.bindTex for all texture bindings
+    GlUtils.bindTex(
+      this.gl,
+      this.lightingPassShader.Program!,
+      this.gBuffer?.normalTexture!,
+      "normalTexture",
       0
     );
-
-    this.gl.activeTexture(this.gl.TEXTURE1);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.gBuffer?.albedoTexture!);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.lightingPassShader.Program!, "gAlbedo"),
+    GlUtils.bindTex(
+      this.gl,
+      this.lightingPassShader.Program!,
+      this.gBuffer?.albedoTexture!,
+      "albedoTexture",
       1
     );
-
-    this.gl.activeTexture(this.gl.TEXTURE2);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.gBuffer?.depthTexture!);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.lightingPassShader.Program!, "gDepth"),
+    GlUtils.bindTex(
+      this.gl,
+      this.lightingPassShader.Program!,
+      this.gBuffer?.depthTexture!,
+      "depthTexture",
       2
     );
-
-    this.gl.activeTexture(this.gl.TEXTURE3);
-    this.gl.bindTexture(
-      this.gl.TEXTURE_2D,
-      this.ssaoBlurFrameBuffer?.ssaoBlurTexture!
-    );
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.lightingPassShader.Program!, "ssao"),
+    GlUtils.bindTex(
+      this.gl,
+      this.lightingPassShader.Program!,
+      this.ssaoBlurFrameBuffer?.ssaoBlurTexture!,
+      "ssaoTexture",
       3
     );
 
     this.gl.uniformMatrix4fv(
-      this.lightingPassShader.Uniforms["uViewInverse"].location,
+      this.lightingPassShader.Uniforms["viewInverse"].location,
       false,
       this.matViewInverse
     );
     this.gl.uniformMatrix4fv(
       this.gl.getUniformLocation(
         this.lightingPassShader.Program!,
-        "uProjInverse"
+        "projInverse"
       ),
       false,
       this.matProjInverse
     );
     this.gl.uniform3fv(
-      this.lightingPassShader.Uniforms["viewPos"].location,
+      this.lightingPassShader.Uniforms["cameraPosition"].location,
       this.camera.position
     );
 
@@ -881,12 +763,12 @@ export class GLRenderer {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.CubeShader.Program!);
     this.gl.uniformMatrix4fv(
-      this.CubeShader.Uniforms["MatrixTransform"].location,
+      this.CubeShader.Uniforms["transform"].location,
       false,
       TransformationMatrix
     );
     this.gl.uniformMatrix4fv(
-      this.CubeShader.Uniforms["matViewProj"].location,
+      this.CubeShader.Uniforms["viewProj"].location,
       false,
       this.matViewProj
     );
@@ -899,8 +781,8 @@ export class GLRenderer {
       this.CubeBuffer.indices,
       this.CubeShader,
       {
-        VertexPosition: { offset: 0, stride: 24, sizeOverride: 3 },
-        VertexColor: { offset: 12, stride: 24 }
+        position: { offset: 0, stride: 24, sizeOverride: 3 },
+        color: { offset: 12, stride: 24 }
       }
     );
     this.gl.bindVertexArray(cubeVao);
