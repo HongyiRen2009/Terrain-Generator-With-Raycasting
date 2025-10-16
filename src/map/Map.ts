@@ -6,7 +6,7 @@ import { Light } from "./Light";
 
 import { Color, Terrain, Terrains } from "./terrains";
 import { Mesh, Triangle } from "./Mesh";
-import { GlUtils } from "../render/GlUtils";
+import { GlUtils } from "../render/utils/GlUtils";
 import { WorldObject } from "./WorldObject";
 import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { ObjectUI } from "./ObjectUI";
