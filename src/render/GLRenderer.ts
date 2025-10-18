@@ -1,83 +1,34 @@
 import { mat4, vec3 } from "gl-matrix";
 import { GlUtils } from "./GlUtils";
-import {
-  CubeFragmentShaderCode,
-  CubeVertexShaderCode,
-  MeshGeometryFragmentShaderCode,
-  MeshGeometryVertexShaderCode,
-  MeshLightingFragmentShaderCode,
-  MeshLightingVertexShaderCode,
-  MeshSSAOBlurVertexShaderCode,
-  MeshSSAOBlurFragmentShaderCode,
-  MeshSSAOFragmentShaderCode,
-  MeshSSAOVertexShaderCode
-  // TODO: Add deferred rendering shaders
-  // GeometryPassVertexShaderCode,
-  // GeometryPassFragmentShaderCode,
-  // LightingPassVertexShaderCode,
-  // LightingPassFragmentShaderCode
-} from "./glsl";
-import { Shader } from "./Shader";
 import { Camera } from "./Camera";
-import { meshToNonInterleavedVerticesAndIndices } from "../map/cubes_utils";
 import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
-import {
-  cubeVertices,
-  cubeWireframeIndices,
-  quadVertices,
-  quadIndices
-} from "../map/geometry";
 import { Mesh } from "../map/Mesh";
+import { VaoInfo, VAOManager } from "./VaoManager";
+import { DeferredRenderer } from "./DeferredRenderer";
+interface Matrices {
+  matView: mat4;
+  matProj: mat4;
+  matViewProj: mat4;
+  matViewInverse: mat4;
+  matProjInverse: mat4;
+}
 
+// GLRenderer: Main rendering orchestrator
 export class GLRenderer {
   gl: WebGL2RenderingContext;
   canvas: HTMLCanvasElement;
   camera: Camera;
-
-  // Geometry buffers
-  TerrainTriangleBuffer: {
-    vertex: { position: WebGLBuffer; normal: WebGLBuffer; color: WebGLBuffer };
-    indices: WebGLBuffer;
-  } | null = null;
-  CubeBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
-  QuadBuffer: { vertex: WebGLBuffer; indices: WebGLBuffer } | null = null;
-  TerrainMeshSize: number = 0;
-
-  // G-Buffer for deferred rendering with depth reconstruction
-  gBuffer: {
-    framebuffer: WebGLFramebuffer;
-    normalTexture: WebGLTexture; // RGB: world space normals
-    albedoTexture: WebGLTexture; // RGB: albedo
-    depthTexture: WebGLTexture; // Depth buffer
-  } | null = null;
-  ssaoFrameBuffer: {
-    framebuffer: WebGLFramebuffer;
-    ssaoTexture: WebGLTexture; // SSAO result
-  } | null = null;
-  ssaoBlurFrameBuffer: {
-    framebuffer: WebGLFramebuffer;
-    ssaoBlurTexture: WebGLTexture; // Blurred SSAO result
-  } | null = null;
-  // Screen-space quad for fullscreen passes
-  screenQuadVAO: WebGLVertexArrayObject | null = null;
-
+  debug: DebugMenu;
+  world: WorldMap;
   // Matrices
   matView: mat4;
   matProj: mat4;
   matViewProj: mat4;
-  matProjInverse: mat4;
-  matViewInverse: mat4;
-  debug: DebugMenu;
-  world: WorldMap;
 
-  // Shaders
-  CubeShader!: Shader;
-  // Deferred rendering shaders
-  geometryPassShader!: Shader; // Renders to G-Buffer
-  ssaoPassShader!: Shader; // SSAO effect
-  ssaoBlurPassShader!: Shader; // Blurs SSAO texture
-  lightingPassShader!: Shader; // Combines G-Buffer data for final image
+  // Managers
+  private vaoManager: VAOManager;
+  deferredRenderer: DeferredRenderer;
 
   //SSAO stuff
   kernelSize: number = 64;
@@ -97,6 +48,25 @@ export class GLRenderer {
   // Cache VAOs
   wireframeCubeVAO: WebGLVertexArrayObject | null = null;
   worldObjectVAOs: Map<number, WebGLVertexArrayObject> = new Map();
+  // SSAO controls
+  get radius() {
+    return this.deferredRenderer.radius;
+  }
+  set radius(val: number) {
+    this.deferredRenderer.radius = val;
+  }
+  get bias() {
+    return this.deferredRenderer.bias;
+  }
+  set bias(val: number) {
+    this.deferredRenderer.bias = val;
+  }
+  get enableSSAOBlur() {
+    return this.deferredRenderer.enableSSAOBlur;
+  }
+  set enableSSAOBlur(val: boolean) {
+    this.deferredRenderer.enableSSAOBlur = val;
+  }
 
   constructor(
     gl: WebGL2RenderingContext,
@@ -117,267 +87,24 @@ export class GLRenderer {
     this.matView = mat4.create();
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
-    this.matProjInverse = mat4.create();
-    this.matViewInverse = mat4.create();
 
-    // Initialize deferred rendering components
-    this.initShaders();
-    this.initializeGBuffer();
-    this.initializeSSAOFrameBuffer();
-    this.initializeSSAOBlurFrameBuffer();
-    this.initializeScreenQuad();
-    this.generateKernels();
-    this.generateNoiseTexture();
-  }
-  private generateKernels() {
-    this.kernels = [];
-    for (let i = 0; i < this.kernelSize; i++) {
-      // Generate random point in hemisphere
-      let sample = vec3.fromValues(
-        Math.random() * 2.0 - 1.0,
-        Math.random() * 2.0 - 1.0,
-        Math.random() // Only positive Z for hemisphere
-      );
-
-      // Normalize to unit sphere
-      vec3.normalize(sample, sample);
-
-      // Scale samples to be closer to the origin (more samples near surface)
-      let scale = i / this.kernelSize;
-      scale = 0.1 + scale * scale * 0.9; // Lerp between 0.1 and 1.0
-      vec3.scale(sample, sample, scale);
-
-      this.kernels.push(sample);
-    }
-  }
-  private generateNoiseTexture() {
-    const noiseData = new Float32Array(this.noiseSize * this.noiseSize * 3);
-    for (let i = 0; i < this.noiseSize; i++) {
-      for (let j = 0; j < this.noiseSize; j++) {
-        const index = (i * this.noiseSize + j) * 3;
-        noiseData[index] = Math.random() * 2.0 - 1.0;
-        noiseData[index + 1] = Math.random() * 2.0 - 1.0;
-        noiseData[index + 2] = 0.0;
-      }
-    }
-    this.noiseTexture = GlUtils.createTexture(
-      this.gl,
-      this.noiseSize,
-      this.noiseSize,
-      this.gl.RGB32F,
-      this.gl.RGB,
-      this.gl.FLOAT,
-      noiseData,
-      this.gl.NEAREST,
-      this.gl.NEAREST,
-      this.gl.REPEAT,
-      this.gl.REPEAT
-    );
-  }
-
-  private initializeGBuffer() {
-    const gl = this.gl;
-    const ext = this.gl.getExtension("EXT_color_buffer_float");
-    if (!ext) {
-      throw new Error(
-        "EXT_color_buffer_float is not supported on this device."
-      );
-    }
-
-    // Create textures using GlUtils.createTexture
-    const normalTexture = GlUtils.createTexture(
+    this.deferredRenderer = new DeferredRenderer(gl, canvas);
+    this.vaoManager = new VAOManager(
       gl,
-      this.canvas.width,
-      this.canvas.height,
-      gl.RGBA16F,
-      gl.RGBA,
-      gl.FLOAT
+      this.deferredRenderer.getGeometryPassProgram()
     );
-
-    const albedoTexture = GlUtils.createTexture(
-      gl,
-      this.canvas.width,
-      this.canvas.height,
-      gl.RGBA8,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE
-    );
-
-    const depthTexture = GlUtils.createTexture(
-      gl,
-      this.canvas.width,
-      this.canvas.height,
-      gl.DEPTH_COMPONENT32F,
-      gl.DEPTH_COMPONENT,
-      gl.FLOAT
-    );
-
-    // Create framebuffer and attach textures
-    const framebuffer = gl.createFramebuffer();
-    if (!framebuffer) {
-      throw new Error("Failed to create framebuffer");
-    }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      gl.COLOR_ATTACHMENT0,
-      gl.TEXTURE_2D,
-      normalTexture,
-      0
-    );
-
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      gl.COLOR_ATTACHMENT1,
-      gl.TEXTURE_2D,
-      albedoTexture,
-      0
-    );
-
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER,
-      gl.DEPTH_ATTACHMENT,
-      gl.TEXTURE_2D,
-      depthTexture,
-      0
-    );
-
-    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
-
-    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-    if (status !== gl.FRAMEBUFFER_COMPLETE) {
-      throw new Error("Framebuffer is not complete: " + status.toString());
-    }
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-    this.gBuffer = {
-      framebuffer: framebuffer,
-      normalTexture: normalTexture,
-      albedoTexture: albedoTexture,
-      depthTexture: depthTexture
-    };
   }
 
-  private initializeSSAOFrameBuffer() {
-    const framebuffer = this.gl.createFramebuffer();
-    if (!framebuffer) {
-      throw new Error("Failed to create SSAO framebuffer");
-    }
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-
-    const ssaoTexture = GlUtils.createTexture(
-      this.gl,
-      this.canvas.width,
-      this.canvas.height,
-      this.gl.R8,
-      this.gl.RED,
-      this.gl.UNSIGNED_BYTE
-    );
-
-    this.gl.framebufferTexture2D(
-      this.gl.FRAMEBUFFER,
-      this.gl.COLOR_ATTACHMENT0,
-      this.gl.TEXTURE_2D,
-      ssaoTexture,
-      0
-    );
-    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-
-    this.ssaoFrameBuffer = {
-      framebuffer: framebuffer,
-      ssaoTexture: ssaoTexture
-    };
+  GenerateTerrainBuffers(triangleMeshes: Mesh[]): void {
+    this.vaoManager.createTerrainVAO(triangleMeshes);
   }
-
-  private initializeSSAOBlurFrameBuffer() {
-    const framebuffer = this.gl.createFramebuffer();
-    if (!framebuffer) {
-      throw new Error("Failed to create SSAO Blur framebuffer");
-    }
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-
-    const ssaoBlurTexture = GlUtils.createTexture(
-      this.gl,
-      this.canvas.width,
-      this.canvas.height,
-      this.gl.R8,
-      this.gl.RED,
-      this.gl.UNSIGNED_BYTE
-    );
-
-    this.gl.framebufferTexture2D(
-      this.gl.FRAMEBUFFER,
-      this.gl.COLOR_ATTACHMENT0,
-      this.gl.TEXTURE_2D,
-      ssaoBlurTexture,
-      0
-    );
-    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-
-    this.ssaoBlurFrameBuffer = {
-      framebuffer: framebuffer,
-      ssaoBlurTexture: ssaoBlurTexture
-    };
+  GenerateWorldObjectVAOs(): void {
+    this.vaoManager.createWorldObjectVAOs(this.world.worldObjects);
   }
-
-  // Initialize screen-space quad for fullscreen passes
-  private initializeScreenQuad() {
-    const vao = this.gl.createVertexArray();
-    this.gl.bindVertexArray(vao);
-
-    const vbo = this.gl.createBuffer();
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
-    this.gl.bufferData(this.gl.ARRAY_BUFFER, quadVertices, this.gl.STATIC_DRAW);
-
-    const ebo = this.gl.createBuffer();
-    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
-    this.gl.bufferData(
-      this.gl.ELEMENT_ARRAY_BUFFER,
-      quadIndices,
-      this.gl.STATIC_DRAW
-    );
-
-    // Position attribute (location 0)
-    this.gl.enableVertexAttribArray(0);
-    this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 20, 0);
-    // TexCoord attribute (location 1)
-    this.gl.enableVertexAttribArray(1);
-    this.gl.vertexAttribPointer(1, 2, this.gl.FLOAT, false, 20, 12);
-
-    this.gl.bindVertexArray(null);
-    this.screenQuadVAO = vao;
-  }
-  resizeGBuffer(width: number, height: number) {
-    // Delete old G-Buffer textures and framebuffer
-    if (this.gBuffer) {
-      this.gl.deleteTexture(this.gBuffer.normalTexture);
-      this.gl.deleteTexture(this.gBuffer.albedoTexture);
-      this.gl.deleteTexture(this.gBuffer.depthTexture);
-      this.gl.deleteFramebuffer(this.gBuffer.framebuffer);
-      this.gBuffer = null;
-    }
-    // Delete SSAO and blur textures/framebuffers
-    if (this.ssaoFrameBuffer) {
-      this.gl.deleteTexture(this.ssaoFrameBuffer.ssaoTexture);
-      this.gl.deleteFramebuffer(this.ssaoFrameBuffer.framebuffer);
-      this.ssaoFrameBuffer = null;
-    }
-    if (this.ssaoBlurFrameBuffer) {
-      this.gl.deleteTexture(this.ssaoBlurFrameBuffer.ssaoBlurTexture);
-      this.gl.deleteFramebuffer(this.ssaoBlurFrameBuffer.framebuffer);
-      this.ssaoBlurFrameBuffer = null;
-    }
-    // Resize canvas
+  resizeGBuffer(width: number, height: number): void {
     this.canvas.width = width;
     this.canvas.height = height;
-    // Recreate G-Buffer and SSAO framebuffers/textures
-    this.initializeGBuffer();
-    this.initializeSSAOFrameBuffer();
-    this.initializeSSAOBlurFrameBuffer();
+    this.deferredRenderer.resize(width, height);
   }
 
   GenerateTriangleBuffer(triangleMeshes: Mesh[]) {
@@ -794,14 +521,11 @@ export class GLRenderer {
     );
     this.matView = matViewAndProj.matView;
     this.matProj = matViewAndProj.matProj;
-    mat4.invert(this.matProjInverse, this.matProj);
-    mat4.invert(this.matViewInverse, this.matView);
     mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
-    // Single geometry pass for all objects
-    this.geometryPass();
+    const vaosToRender = this.vaoManager.getVaosToRender();
 
     // Post-processing passes
     if (this.enableSSAO) {
@@ -826,20 +550,23 @@ export class GLRenderer {
         );
       }
     }
+    this.deferredRenderer.renderGeometryPass(
+      vaosToRender,
+      this.matView,
+      this.matProj
+    );
+    this.deferredRenderer.renderSSAOPass(this.matProj);
+    this.deferredRenderer.renderBlurPass();
+    this.deferredRenderer.renderLightingPass(
+      this.camera.position,
+      this.world.lights,
+      this.matView,
+      this.matProj
+    );
   }
-  dispose() {
-    if (this.TerrainVAO) {
-      this.gl.deleteVertexArray(this.TerrainVAO);
-    }
 
-    // Delete world object VAOs
-    for (const vao of Array.from(this.worldObjectVAOs.values())) {
-      this.gl.deleteVertexArray(vao);
-    }
-    this.worldObjectVAOs.clear();
-
-    // TODO: Delete G-Buffer textures and framebuffer
-    // TODO: Delete other VAOs
-    // TODO: Delete shaders
+  dispose(): void {
+    this.vaoManager.dispose();
+    this.deferredRenderer.dispose();
   }
 }

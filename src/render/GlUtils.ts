@@ -1,5 +1,4 @@
 import { mat4, vec3 } from "gl-matrix";
-import { Shader } from "./Shader";
 import { Mesh } from "../map/Mesh";
 import { WorldMap } from "../map/Map";
 import { Light } from "../map/Light";
@@ -19,7 +18,7 @@ export class GlUtils {
     gl: WebGL2RenderingContext,
     VertexShaderCode: string,
     FragmentShaderCode: string
-  ) {
+  ): WebGLProgram | null {
     const VertexShader = this.CreateShader(
       gl,
       gl.VERTEX_SHADER,
@@ -38,7 +37,7 @@ export class GlUtils {
     if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
       const errorMessage = gl.getProgramInfoLog(Program);
       console.error(`Failed to link GPU program: ${errorMessage}`);
-      return;
+      return null;
     }
     return Program;
   }
@@ -139,46 +138,47 @@ export class GlUtils {
 
     return indexBuffer;
   }
-
   /**
    * Creates a Vertex Array Object (VAO) for interleaved vertex attributes.
    * @param gl The WebGL2RenderingContext to use for creating the VAO.
    * @param vertexBuffer The WebGLBuffer containing vertex data.
    * @param indexBuffer The WebGLBuffer containing index data.
-   * @param shader The Shader object containing vertex attribute locations.
    * @param layout An object defining the layout of vertex attributes.
+   * @param locations Optional object mapping attribute names to their locations.
    * @returns The created VAO.
    */
   static createInterleavedVao(
     gl: WebGL2RenderingContext,
     vertexBuffer: WebGLBuffer,
     indexBuffer: WebGLBuffer,
-    shader: Shader,
     layout: {
       [attribName: string]: {
         offset: number;
         stride: number;
+        size: number;
         sizeOverride?: number; //For example, positions are vec4 but only use 3 components
+        location?: number; // Optional location override
       };
-    }
+    },
+    program: WebGLProgram
   ) {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-    for (const [name, attrib] of Object.entries(shader.VertexInputs)) {
-      const layoutInfo = layout[name];
-      if (!layoutInfo) {
-        console.warn(`No layout info for attribute ${name}, skipping.`);
+    for (const [name, layoutInfo] of Object.entries(layout)) {
+      const location =
+        layoutInfo.location ?? gl.getAttribLocation(program, name);
+      if (location === -1) {
+        console.warn(`Attribute ${name} not found in shader program.`);
         continue;
       }
+      const size = layoutInfo.sizeOverride ?? layoutInfo.size;
 
-      const size = layoutInfo.sizeOverride ?? attrib.size;
-
-      gl.enableVertexAttribArray(attrib.location);
+      gl.enableVertexAttribArray(location);
       gl.vertexAttribPointer(
-        attrib.location,
+        location,
         size,
         gl.FLOAT,
         false,
@@ -190,7 +190,6 @@ export class GlUtils {
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     return vao;
   }
-
   /**
    * Creates a Vertex Array Object (VAO) for non-interleaved vertex attributes.
    * @param gl WebGL2RenderingContext
@@ -209,7 +208,7 @@ export class GlUtils {
       };
     },
     indexBuffer: WebGLBuffer,
-    shader: Shader
+    program: WebGLProgram
   ): WebGLVertexArrayObject {
     const vao = gl.createVertexArray();
     if (!vao) throw new Error("Failed to create VAO");
@@ -218,17 +217,17 @@ export class GlUtils {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
     for (const [attribName, bufferInfo] of Object.entries(attributeBuffers)) {
-      const attrib = shader.VertexInputs[attribName];
-      if (!attrib) {
-        console.warn(`Attribute '${attribName}' not found in shader.`);
+      const attribLocation = gl.getAttribLocation(program, attribName);
+      if (attribLocation === -1) {
+        console.warn(`Attribute ${attribName} not found in shader program.`);
         continue;
       }
 
       const { buffer, size, type = gl.FLOAT } = bufferInfo;
 
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.enableVertexAttribArray(attrib.location);
-      gl.vertexAttribPointer(attrib.location, size, type, false, 0, 0);
+      gl.enableVertexAttribArray(attribLocation);
+      gl.vertexAttribPointer(attribLocation, size, type, false, 0, 0);
     }
 
     gl.bindVertexArray(null);

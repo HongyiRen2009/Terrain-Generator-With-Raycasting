@@ -1,6 +1,5 @@
 import { mat4 } from "gl-matrix";
 import { GlUtils } from "../render/GlUtils";
-import { Shader } from "../render/Shader";
 import { Mesh } from "./Mesh";
 
 export type WorldObject = {
