@@ -186,7 +186,7 @@ export class GameEngine {
       this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
     );
 
-    this.renderer.GenerateTriangleBuffer(
+    this.renderer.GenerateTerrainBuffers(
       GlUtils.genTerrainVertices(this.world)
     );
     this.world.onObjectAdded = (obj: WorldObject) => {
@@ -196,6 +196,7 @@ export class GameEngine {
         document.getElementById("world-objects")!,
         this.world.objectUI
       );
+      this.renderer.GenerateWorldObjectVAOs();
     };
 
     // Add a gear object
