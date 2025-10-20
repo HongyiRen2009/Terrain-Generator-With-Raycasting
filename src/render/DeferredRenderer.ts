@@ -1,5 +1,7 @@
 import { vec3, mat4 } from "gl-matrix";
-import { GlUtils } from "./GlUtils";
+import { RenderUtils } from "../utils/RenderUtils";
+import { TextureUtils } from "../utils/TextureUtils";
+import { WorldUtils } from "../utils/WorldUtils";
 import { VaoInfo } from "./VaoManager";
 import geometryVertexShaderSource from "./glsl/DeferredRendering/Geometry.vert";
 import geometryFragmentShaderSource from "./glsl/DeferredRendering/Geometry.frag";
@@ -90,22 +92,22 @@ export class DeferredRenderer {
   }
 
   private initPrograms(): void {
-    this.geometryPassProgram = GlUtils.CreateProgram(
+    this.geometryPassProgram = RenderUtils.CreateProgram(
       this.gl,
       geometryVertexShaderSource,
       geometryFragmentShaderSource
     );
-    this.ssaoPassProgram = GlUtils.CreateProgram(
+    this.ssaoPassProgram = RenderUtils.CreateProgram(
       this.gl,
       ssaoVertexShaderSource,
       ssaoFragmentShaderSource
     );
-    this.ssaoBlurPassProgram = GlUtils.CreateProgram(
+    this.ssaoBlurPassProgram = RenderUtils.CreateProgram(
       this.gl,
       ssaoBlurVertexShaderSource,
       ssaoBlurFragmentShaderSource
     );
-    this.lightingPassProgram = GlUtils.CreateProgram(
+    this.lightingPassProgram = RenderUtils.CreateProgram(
       this.gl,
       lightingVertexShaderSource,
       lightingFragmentShaderSource
@@ -143,7 +145,7 @@ export class DeferredRenderer {
       );
     }
 
-    const normalTexture = GlUtils.createTexture(
+    const normalTexture = TextureUtils.createTexture(
       gl,
       this.canvas.width,
       this.canvas.height,
@@ -152,7 +154,7 @@ export class DeferredRenderer {
       gl.FLOAT
     );
 
-    const albedoTexture = GlUtils.createTexture(
+    const albedoTexture = TextureUtils.createTexture(
       gl,
       this.canvas.width,
       this.canvas.height,
@@ -161,7 +163,7 @@ export class DeferredRenderer {
       gl.UNSIGNED_BYTE
     );
 
-    const depthTexture = GlUtils.createTexture(
+    const depthTexture = TextureUtils.createTexture(
       gl,
       this.canvas.width,
       this.canvas.height,
@@ -216,7 +218,7 @@ export class DeferredRenderer {
     }
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
 
-    const ssaoTexture = GlUtils.createTexture(
+    const ssaoTexture = TextureUtils.createTexture(
       this.gl,
       this.canvas.width,
       this.canvas.height,
@@ -245,7 +247,7 @@ export class DeferredRenderer {
     }
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
 
-    const ssaoBlurTexture = GlUtils.createTexture(
+    const ssaoBlurTexture = TextureUtils.createTexture(
       this.gl,
       this.canvas.width,
       this.canvas.height,
@@ -323,7 +325,7 @@ export class DeferredRenderer {
         noiseData[index + 2] = 0.0;
       }
     }
-    this.noiseTexture = GlUtils.createTexture(
+    this.noiseTexture = TextureUtils.createTexture(
       this.gl,
       this.noiseSize,
       this.noiseSize,
@@ -420,21 +422,21 @@ export class DeferredRenderer {
     this.gl.useProgram(this.ssaoPassProgram);
     this.gl.bindVertexArray(this.screenQuadVAO);
 
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.ssaoPassProgram!,
       this.gBuffer?.normalTexture!,
       "normalTexture",
       0
     );
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.ssaoPassProgram!,
       this.gBuffer?.depthTexture!,
       "depthTexture",
       1
     );
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.ssaoPassProgram!,
       this.noiseTexture!,
@@ -479,14 +481,14 @@ export class DeferredRenderer {
     this.gl.useProgram(this.ssaoBlurPassProgram);
     this.gl.bindVertexArray(this.screenQuadVAO);
 
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.ssaoBlurPassProgram!,
       this.ssaoFrameBuffer?.ssaoTexture!,
       "ssaoTexture",
       0
     );
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.ssaoBlurPassProgram!,
       this.gBuffer?.depthTexture!,
@@ -519,28 +521,28 @@ export class DeferredRenderer {
     this.gl.useProgram(this.lightingPassProgram);
     this.gl.bindVertexArray(this.screenQuadVAO);
 
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.lightingPassProgram!,
       this.gBuffer?.normalTexture!,
       "normalTexture",
       0
     );
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.lightingPassProgram!,
       this.gBuffer?.albedoTexture!,
       "albedoTexture",
       1
     );
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.lightingPassProgram!,
       this.gBuffer?.depthTexture!,
       "depthTexture",
       2
     );
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.lightingPassProgram!,
       this.ssaoBlurFrameBuffer?.ssaoBlurTexture!,
@@ -563,7 +565,7 @@ export class DeferredRenderer {
     );
     this.gl.uniform3fv(this.lightingUniforms["cameraPosition"], cameraPosition);
 
-    GlUtils.updateLights(this.gl, this.lightingPassProgram!, lights);
+    WorldUtils.updateLights(this.gl, this.lightingPassProgram!, lights);
 
     this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     this.gl.bindVertexArray(null);

@@ -6,7 +6,7 @@ import { Light } from "./Light";
 
 import { Color, Terrain, Terrains } from "./terrains";
 import { Mesh, Triangle } from "./Mesh";
-import { GlUtils } from "../render/GlUtils";
+import { RenderUtils } from "../utils/RenderUtils";
 import { WorldObject } from "./WorldObject";
 import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { ObjectUI } from "./ObjectUI";
@@ -199,7 +199,7 @@ export class WorldMap {
       meshToInterleavedVerticesAndIndices(objectData);
     const meshSize = indices.length;
 
-    let objectBuffer = GlUtils.CreateStaticBuffer(
+    let objectBuffer = RenderUtils.CreateStaticBuffer(
       this.gl,
       vertices,
       Array.from(indices)

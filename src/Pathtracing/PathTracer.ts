@@ -4,7 +4,9 @@ import { mat4, vec2, vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
-import { GlUtils } from "../render/GlUtils";
+import { RenderUtils } from "../utils/RenderUtils";
+import { TextureUtils } from "../utils/TextureUtils";
+import { WorldUtils } from "../utils/WorldUtils";
 import { DebugMenu } from "../DebugMenu";
 import {
   pathTracingFragmentShaderCode,
@@ -67,12 +69,12 @@ export class PathTracer {
     }
 
     //Shaders
-    this.meshProgram = GlUtils.CreateProgram(
+    this.meshProgram = RenderUtils.CreateProgram(
       this.gl,
       pathTracingVertexShaderCode,
       pathTracingFragmentShaderCode
     )!;
-    this.copyProgram = GlUtils.CreateProgram(
+    this.copyProgram = RenderUtils.CreateProgram(
       this.gl,
       copyVertexShader,
       copyFragmentShader
@@ -161,7 +163,7 @@ export class PathTracer {
     );
 
     //put lights in the shader
-    GlUtils.updateLights(this.gl, this.meshProgram, this.world.lights);
+    WorldUtils.updateLights(this.gl, this.meshProgram, this.world.lights);
 
     //Bind Previous Frame
     const lastFrameIndex = this.currentFrame;
@@ -204,7 +206,7 @@ export class PathTracer {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.copyProgram);
 
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.copyProgram,
       this.accumulationTextures[nextFrameIndex],
@@ -254,42 +256,42 @@ export class PathTracer {
   private initPathtracing() {
     this.gl.useProgram(this.meshProgram);
     //Textures
-    let verticeTex = GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
-    let terrainTex = GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
-    let boundingBoxesTex = GlUtils.packFloatArrayToTexture(
+    let verticeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+    let terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    let boundingBoxesTex = TextureUtils.packFloatArrayToTexture(
       this.gl,
       this.boundingBoxes
     );
-    let nodesTex = GlUtils.packFloatArrayToTexture(this.gl, this.nodes);
-    let leafsTex = GlUtils.packFloatArrayToTexture(this.gl, this.leafs);
-    let terrainTypeTex = GlUtils.packFloatArrayToTexture(
+    let nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+    let leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+    let terrainTypeTex = TextureUtils.packFloatArrayToTexture(
       this.gl,
       this.terrainTypes
     );
-    let vertexNormalsTex = GlUtils.packFloatArrayToTexture(
+    let vertexNormalsTex = TextureUtils.packFloatArrayToTexture(
       this.gl,
       this.vertexNormals
     );
 
-    GlUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
-    GlUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
-    GlUtils.bindTex(
+    TextureUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
+    TextureUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
+    TextureUtils.bindTex(
       this.gl,
       this.meshProgram,
       boundingBoxesTex,
       "u_boundingBox",
       2
     );
-    GlUtils.bindTex(this.gl, this.meshProgram, nodesTex, "u_nodesTex", 3);
-    GlUtils.bindTex(this.gl, this.meshProgram, leafsTex, "u_leafsTex", 4);
-    GlUtils.bindTex(
+    TextureUtils.bindTex(this.gl, this.meshProgram, nodesTex, "u_nodesTex", 3);
+    TextureUtils.bindTex(this.gl, this.meshProgram, leafsTex, "u_leafsTex", 4);
+    TextureUtils.bindTex(
       this.gl,
       this.meshProgram,
       terrainTypeTex,
       "u_terrainTypes",
       5
     );
-    GlUtils.bindTex(
+    TextureUtils.bindTex(
       this.gl,
       this.meshProgram,
       vertexNormalsTex,

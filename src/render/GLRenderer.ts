@@ -1,5 +1,5 @@
 import { mat4, vec3 } from "gl-matrix";
-import { GlUtils } from "./GlUtils";
+import { RenderUtils } from "../utils/RenderUtils";
 import { Camera } from "./Camera";
 import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";

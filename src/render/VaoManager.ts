@@ -1,7 +1,7 @@
 import { mat4 } from "gl-matrix";
 import { Mesh } from "../map/Mesh";
 import { WorldObject } from "../map/WorldObject";
-import { GlUtils } from "./GlUtils";
+import { RenderUtils } from "../utils/RenderUtils";
 import { meshToNonInterleavedVerticesAndIndices } from "../map/cubes_utils";
 export interface VaoInfo {
   vao: WebGLVertexArrayObject;
@@ -48,22 +48,22 @@ export class VAOManager {
 
     const TerrainTriangleBuffer = {
       vertex: {
-        position: GlUtils.CreateAttributeBuffer(
+        position: RenderUtils.CreateAttributeBuffer(
           this.gl,
           new Float32Array(trianglePositions)
         ),
-        normal: GlUtils.CreateAttributeBuffer(
+        normal: RenderUtils.CreateAttributeBuffer(
           this.gl,
           new Float32Array(triangleNormals)
         ),
-        color: GlUtils.CreateAttributeBuffer(
+        color: RenderUtils.CreateAttributeBuffer(
           this.gl,
           new Float32Array(triangleColors)
         )
       },
-      indices: GlUtils.CreateIndexBuffer(this.gl, triangleIndices)
+      indices: RenderUtils.CreateIndexBuffer(this.gl, triangleIndices)
     };
-    const terrainVAO = GlUtils.createNonInterleavedVao(
+    const terrainVAO = RenderUtils.createNonInterleavedVao(
       this.gl,
       {
         position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
@@ -91,7 +91,7 @@ export class VAOManager {
   }
   createWorldObjectVAOs(worldObjects: WorldObject[]): void {
     for (const worldObject of worldObjects) {
-      const vao = GlUtils.createInterleavedVao(
+      const vao = RenderUtils.createInterleavedVao(
         this.gl,
         worldObject.buffer.vertex,
         worldObject.buffer.indices,

@@ -4,7 +4,8 @@ import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
-import { GlUtils } from "./render/GlUtils";
+import { RenderUtils } from "./utils/RenderUtils";
+import { WorldUtils } from "./utils/WorldUtils";
 
 import gearModelUrl from "../models/stand.3mf";
 
@@ -195,7 +196,7 @@ export class GameEngine {
     );
 
     this.renderer.GenerateTerrainBuffers(
-      GlUtils.genTerrainVertices(this.world)
+      WorldUtils.genTerrainVertices(this.world)
     );
     this.world.onObjectAdded = (obj: WorldObject) => {
       this.world.objectUI.setupObjectUI(
