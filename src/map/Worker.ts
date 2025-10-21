@@ -4,7 +4,6 @@ import alea from "alea";
 import { vertexKey } from "./cubes_utils";
 import { Mesh, Triangle } from "./Mesh";
 import { CASES, EDGES, VERTICES } from "./geometry";
-import { Utilities } from "./Utilities";
 
 export type WorkerConstructor = new (
   stringUrl: string | URL,
@@ -30,16 +29,47 @@ function chunkCoordinateToIndex(c: vec3, gridSize: vec3): number {
 }
 
 function noiseFunction(c: vec3, simplex: NoiseFunction3D): number {
-  const frequency = 0.07;
-  const noiseValue = simplex(
-    c[0] * frequency,
-    c[1] * frequency,
-    c[2] * frequency
-  );
-  const normalizedNoise = (noiseValue + 1) / 2;
-  const heightParameter = 1 / 1.07 ** c[1];
-  const floor = +(c[1] === 0);
-  return Math.max(normalizedNoise * heightParameter, floor);
+  const hillFreq = 0.02;
+  const mountainFreq = 0.005;
+  const caveFreq = 0.05;
+  const waterLevel = 30;
+  const hillWeight = 0.6;
+  const mountainWeight = 0.4;
+
+  function fractalNoise(c: vec3, octaves: number, freq: number, amp: number) {
+    let total = 0;
+    let max = 0;
+    let f = freq;
+    let a = amp;
+    for (let i = 0; i < octaves; i++) {
+      total += simplex(c[0] * f, c[1] * f, c[2] * f) * a;
+      max += a;
+      f *= 2;
+      a /= 2;
+    }
+    return total / max;
+  }
+
+  const hillNoise = fractalNoise(c, 4, hillFreq, 1);
+  const hillHeight = hillNoise * 40 + 50;
+
+  const ridgeVal = 1 - Math.abs(fractalNoise(c, 3, mountainFreq, 1));
+  const mountainHeight = Math.pow(ridgeVal, 2) * 120;
+
+  let terrainHeight = hillHeight * hillWeight + mountainHeight * mountainWeight;
+  terrainHeight = Math.floor(terrainHeight / 5) * 5;
+
+  let density = terrainHeight - c[1];
+
+  const caveNoise = fractalNoise(c, 3, caveFreq, 1);
+  density -= Math.max(0, (caveNoise - 0.5) * 60 * Math.max(0, 1 - c[1] / 100));
+
+  if (c[1] < waterLevel) {
+    density = Math.min(density, waterLevel - c[1]);
+  }
+
+  const normalized = (density + 100) / 200;
+  return Math.max(0, Math.min(1, normalized));
 }
 
 function GenerateCase(cubeCoordinates: vec3): number {
