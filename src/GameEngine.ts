@@ -11,6 +11,7 @@ import gearModelUrl from "../models/stand.3mf";
 import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
 import { threemfToMesh } from "./modelLoader/3fmreader";
 import { Color, Terrains } from "./map/terrains";
+import { WorldObject } from "./map/WorldObject";
 
 /**
  * Our holding class for all game mechanics
@@ -35,7 +36,7 @@ export class GameEngine {
   private mode: number = 0; // 0 for hybrid, 1 for pathtracer
 
   //
-  private frameCounter: number = 0;
+  private frameCounter: number = 0; // In the current FPS
   private lastFPSCheck: number = 0;
   private currentFPS: number = 0;
 
@@ -73,7 +74,7 @@ export class GameEngine {
     );
 
     //Initialize Camera
-    this.mainCamera = new Camera(vec3.fromValues(0, 0, 3));
+    this.mainCamera = new Camera(vec3.fromValues(-22, 20, 33));
 
     //Initialize Renderer
     this.renderer = new GLRenderer(
@@ -83,6 +84,34 @@ export class GameEngine {
       this.debug,
       this.world
     );
+    const radiusSlider = document.getElementById(
+      "radius-slider"
+    ) as HTMLInputElement;
+    const radiusValue = document.getElementById("radius-value")!;
+    radiusSlider.value = this.renderer.radius.toString();
+    radiusValue.textContent = this.renderer.radius.toString();
+    radiusSlider.addEventListener("input", () => {
+      this.renderer.radius = parseFloat(radiusSlider.value);
+      radiusValue.textContent = radiusSlider.value;
+    });
+
+    const biasSlider = document.getElementById(
+      "bias-slider"
+    ) as HTMLInputElement;
+    const biasValue = document.getElementById("bias-value")!;
+    biasSlider.value = this.renderer.bias.toString();
+    biasValue.textContent = this.renderer.bias.toString();
+    biasSlider.addEventListener("input", () => {
+      this.renderer.bias = parseFloat(biasSlider.value);
+      biasValue.textContent = biasSlider.value;
+    });
+    const blurCheckbox = document.getElementById(
+      "blur-checkbox"
+    ) as HTMLInputElement;
+    blurCheckbox.checked = this.renderer.enableSSAOBlur;
+    blurCheckbox.addEventListener("change", () => {
+      this.renderer.enableSSAOBlur = blurCheckbox.checked;
+    });
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,
@@ -160,7 +189,16 @@ export class GameEngine {
     this.renderer.GenerateTriangleBuffer(
       GlUtils.genTerrainVertices(this.world)
     );
+    this.world.onObjectAdded = (obj: WorldObject) => {
+      this.world.objectUI.setupObjectUI(
+        obj,
+        this.world,
+        document.getElementById("world-objects")!,
+        this.world.objectUI
+      );
+    };
 
+    // Add a gear object
     const mesh = await threemfToMesh(gearModelUrl);
     const identity2 = mat4.create();
     mat4.identity(identity2);
@@ -273,6 +311,7 @@ export class GameEngine {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    this.renderer.resizeGBuffer(this.canvas.width, this.canvas.height);
     this.pathTracer.resetAccumulation();
   }
 

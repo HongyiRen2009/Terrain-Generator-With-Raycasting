@@ -6,6 +6,7 @@ import { Light } from "../map/Light";
 import { Camera } from "./Camera";
 
 export class GlUtils {
+  ///////////////////////Rendering Utilities/////////////////////
   /**
    * Creates a WebGL program with the given vertex and fragment shader code.
    * @param gl The WebGL2RenderingContext to use for creating the program.
@@ -99,33 +100,21 @@ export class GlUtils {
     };
   }
   /**
-   * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
-   * @param translation A vec3 representing the translation (x, y, z).
-   * @param rotation A vec3 representing the rotation in radians (x, y, z).
-   * @param scale A vec3 representing the scale (x, y, z).
-   * @returns A mat4 transformation matrix.
+   * Creates a buffer for vertex attributes.
+   * @param gl The WebGL2RenderingContext to use for creating the buffer.
+   * @param data The Float32Array containing attribute data.
+   * @returns WebGLBuffer containing the attribute data.
    */
-  static CreateTransformations(
-    translation?: vec3,
-    rotation?: vec3,
-    scale?: vec3
-  ) {
-    let transformMatrix = mat4.create();
-
-    if (translation) {
-      mat4.translate(transformMatrix, transformMatrix, translation);
-    }
-    if (rotation) {
-      mat4.rotateX(transformMatrix, transformMatrix, rotation[0]);
-      mat4.rotateY(transformMatrix, transformMatrix, rotation[1]);
-      mat4.rotateZ(transformMatrix, transformMatrix, rotation[2]);
-    }
-    if (scale) {
-      mat4.scale(transformMatrix, transformMatrix, scale);
-    }
-    return transformMatrix;
+  static CreateAttributeBuffer(
+    gl: WebGL2RenderingContext,
+    data: Float32Array
+  ): WebGLBuffer {
+    const buffer = gl.createBuffer();
+    if (!buffer) throw new Error("Failed to create attribute buffer");
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    return buffer;
   }
-
   /**
    * Creates an index buffer for the given indices.
    * @param gl The WebGL2RenderingContext to use for creating the buffer.
@@ -202,6 +191,82 @@ export class GlUtils {
     return vao;
   }
 
+  /**
+   * Creates a Vertex Array Object (VAO) for non-interleaved vertex attributes.
+   * @param gl WebGL2RenderingContext
+   * @param attributeBuffers WebGLBuffers for each attribute
+   * @param indexBuffer Index buffer for the mesh
+   * @param shader Shader containing attribute locations
+   * @returns WebGLVertexArrayObject
+   */
+  static createNonInterleavedVao(
+    gl: WebGL2RenderingContext,
+    attributeBuffers: {
+      [attribName: string]: {
+        buffer: WebGLBuffer;
+        size: number; // components per attribute (e.g., 3 for vec3)
+        type?: GLenum; // gl.FLOAT (default)
+      };
+    },
+    indexBuffer: WebGLBuffer,
+    shader: Shader
+  ): WebGLVertexArrayObject {
+    const vao = gl.createVertexArray();
+    if (!vao) throw new Error("Failed to create VAO");
+
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+    for (const [attribName, bufferInfo] of Object.entries(attributeBuffers)) {
+      const attrib = shader.VertexInputs[attribName];
+      if (!attrib) {
+        console.warn(`Attribute '${attribName}' not found in shader.`);
+        continue;
+      }
+
+      const { buffer, size, type = gl.FLOAT } = bufferInfo;
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.enableVertexAttribArray(attrib.location);
+      gl.vertexAttribPointer(attrib.location, size, type, false, 0, 0);
+    }
+
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+    return vao;
+  }
+  ///////////////////////Matrix Utilities/////////////////////
+  /**
+   * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
+   * @param translation A vec3 representing the translation (x, y, z).
+   * @param rotation A vec3 representing the rotation in radians (x, y, z).
+   * @param scale A vec3 representing the scale (x, y, z).
+   * @returns A mat4 transformation matrix.
+   */
+  static CreateTransformations(
+    translation?: vec3,
+    rotation?: vec3,
+    scale?: vec3
+  ) {
+    let transformMatrix = mat4.create();
+
+    if (translation) {
+      mat4.translate(transformMatrix, transformMatrix, translation);
+    }
+    if (rotation) {
+      mat4.rotateX(transformMatrix, transformMatrix, rotation[0]);
+      mat4.rotateY(transformMatrix, transformMatrix, rotation[1]);
+      mat4.rotateZ(transformMatrix, transformMatrix, rotation[2]);
+    }
+    if (scale) {
+      mat4.scale(transformMatrix, transformMatrix, scale);
+    }
+    return transformMatrix;
+  }
+
+  ///////////////////////World Utilities/////////////////////
   /**
    * Calculates the necessary vertices, normals, and wireframes for cubes for our world
    * @param world The world we are rendering
@@ -357,5 +422,49 @@ export class GlUtils {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
     return {texture, texWidth: width, texHeight: height};
+  }
+  /**
+   * Creates and initializes a WebGL 2D texture with the specified parameters.
+   *
+   * @param gl - The WebGL2 rendering context.
+   * @param width - The width of the texture in pixels.
+   * @param height - The height of the texture in pixels.
+   * @param internalFormat - The internal format of the texture (e.g., `gl.RGBA8`).
+   * @param format - The format of the pixel data (e.g., `gl.RGBA`).
+   * @param type - The data type of the pixel data (e.g., `gl.UNSIGNED_BYTE`).
+   * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
+   * @returns The created WebGLTexture object.
+   */
+  static createTexture(
+    gl: WebGL2RenderingContext,
+    width: number,
+    height: number,
+    internalFormat: number,
+    format: number,
+    type: number,
+    data: ArrayBufferView | null = null,
+    minFilter: number = gl.NEAREST,
+    magFilter: number = gl.NEAREST,
+    wrapS: number = gl.CLAMP_TO_EDGE,
+    wrapT: number = gl.CLAMP_TO_EDGE
+  ) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      internalFormat,
+      width,
+      height,
+      0,
+      format,
+      type,
+      data
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
+    return texture;
   }
 }
