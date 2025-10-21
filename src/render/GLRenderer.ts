@@ -92,6 +92,7 @@ export class GLRenderer {
   radius: number = 5.0;
   bias: number = 0.025;
   enableSSAOBlur: boolean = true;
+  enableSSAO: boolean = true;
 
   // Cache VAOs
   wireframeCubeVAO: WebGLVertexArrayObject | null = null;
@@ -749,6 +750,10 @@ export class GLRenderer {
       this.lightingPassShader.Uniforms["cameraPosition"].location,
       this.camera.position
     );
+    this.gl.uniform1i(
+      this.lightingPassShader.Uniforms["enableSSAO"].location,
+      this.enableSSAO ? 1 : 0
+    );
 
     GlUtils.updateLights(
       this.gl,
@@ -799,8 +804,10 @@ export class GLRenderer {
     this.geometryPass();
 
     // Post-processing passes
-    this.ssaoPass();
-    this.blurPass();
+    if (this.enableSSAO) {
+      this.ssaoPass();
+      this.blurPass();
+    }
     this.lightingPass();
 
     // Draw debug wireframes

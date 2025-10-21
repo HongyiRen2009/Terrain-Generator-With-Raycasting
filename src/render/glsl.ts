@@ -222,7 +222,7 @@ struct Light {
 uniform Light lights[MAX_LIGHTS];
 uniform int numActiveLights;
 uniform vec3 cameraPosition;
-
+uniform bool enableSSAO;
 vec3 getViewPosition(vec2 texCoord) {
     float depth = texture(depthTexture, texCoord).r;
     vec2 ndc = texCoord * 2.0 - 1.0;
@@ -246,7 +246,9 @@ void main() {
     
     vec3 albedo = texture(albedoTexture, fragUV).rgb;
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
-    
+    if(!enableSSAO) {
+        ambientOcclusion = 1.0;
+    }
     vec3 ambient = (vec3(0.3) * albedo) * ambientOcclusion;
     vec3 lighting = ambient;
     
