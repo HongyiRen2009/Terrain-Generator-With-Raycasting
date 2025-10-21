@@ -47,6 +47,17 @@
         </label>
 
       </div>
+      <div id="cloud-controls" style="margin: 16px 0;">
+        <label for="density-slider">Cloud Density Threshold: <span id="density-value">0.5</span></label>
+        <input type="range" id="density-slider" min="-2.0" max="1.0" step="0.01" value="0.5">
+        <br>
+        <label for="absorption-slider">Cloud Absorption: <span id="absorption-value">1.0</span></label>
+        <input type="range" id="absorption-slider" min="0" max="2.0" step="0.01" value="1.0">
+        <br>
+        <label for="frequency-slider">Cloud Noise Frequency: <span id="frequency-value">0.2</span></label>
+        <input type="range" id="frequency-slider" min="0.1" max="5.0" step="0.1" value="0.2">
+
+      </div>
       <h3>World Objects</h3>
       <button id="open-popup-btn">Add World Object</button>
       <div id = "world-objects">

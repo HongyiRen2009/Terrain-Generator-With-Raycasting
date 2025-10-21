@@ -6,6 +6,7 @@ import { DebugMenu } from "../DebugMenu";
 import { Mesh } from "../map/Mesh";
 import { VaoInfo, VAOManager } from "./VaoManager";
 import { DeferredRenderer } from "./DeferredRenderer";
+import { CloudRenderer } from "./CloudRenderer";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -25,11 +26,13 @@ export class GLRenderer {
   matView: mat4;
   matProj: mat4;
   matViewProj: mat4;
+  private matProjInverse: mat4;
+  private matViewInverse: mat4;
 
   // Managers
   private vaoManager: VAOManager;
   deferredRenderer: DeferredRenderer;
-
+  cloudRenderer: CloudRenderer;
   // SSAO controls
   get radius() {
     return this.deferredRenderer.radius;
@@ -69,11 +72,17 @@ export class GLRenderer {
     this.matView = mat4.create();
     this.matProj = mat4.create();
     this.matViewProj = mat4.create();
+    this.matProjInverse = mat4.create();
+    this.matViewInverse = mat4.create();
 
     this.deferredRenderer = new DeferredRenderer(gl, canvas);
     this.vaoManager = new VAOManager(
       gl,
       this.deferredRenderer.getGeometryPassProgram()
+    );
+    this.cloudRenderer = new CloudRenderer(
+      gl,
+      this.deferredRenderer.getScreenQuadVao()
     );
   }
 
@@ -90,7 +99,7 @@ export class GLRenderer {
   }
 
   render(): void {
-    this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+    this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
 
     const matViewAndProj = this.camera.calculateProjectionMatrices(
       this.canvas.width,
@@ -98,11 +107,13 @@ export class GLRenderer {
     );
     this.matView = matViewAndProj.matView;
     this.matProj = matViewAndProj.matProj;
+    mat4.invert(this.matViewInverse, this.matView);
+    mat4.invert(this.matProjInverse, this.matProj);
     mat4.multiply(this.matViewProj, this.matProj, this.matView);
 
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
-    const vaosToRender = this.vaoManager.getVaosToRender();
+    /*     const vaosToRender = this.vaoManager.getVaosToRender();
 
     this.deferredRenderer.renderGeometryPass(
       vaosToRender,
@@ -116,6 +127,12 @@ export class GLRenderer {
       this.world.lights,
       this.matView,
       this.matProj
+    ); */
+    this.cloudRenderer.render(
+      this.camera.position,
+      this.world.lights,
+      this.matViewInverse,
+      this.matProjInverse
     );
   }
 

@@ -73,8 +73,6 @@ export class DeferredRenderer {
   enableSSAOBlur: boolean = true;
 
   // Cached matrices
-  private matProjInverse: mat4 = mat4.create();
-  private matViewInverse: mat4 = mat4.create();
 
   constructor(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement) {
     this.gl = gl;
@@ -407,7 +405,7 @@ export class DeferredRenderer {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
 
-  renderSSAOPass(matProj: mat4): void {
+  renderSSAOPass(matProj: mat4, matProjInverse: mat4): void {
     this.gl.bindFramebuffer(
       this.gl.FRAMEBUFFER,
       this.ssaoFrameBuffer?.framebuffer || null
@@ -442,15 +440,13 @@ export class DeferredRenderer {
       2
     );
 
-    mat4.invert(this.matProjInverse, matProj);
-
     this.gl.uniform1f(this.ssaoUniforms["radius"], this.radius);
     this.gl.uniform1f(this.ssaoUniforms["bias"], this.bias);
     this.gl.uniformMatrix4fv(this.ssaoUniforms["proj"], false, matProj);
     this.gl.uniformMatrix4fv(
       this.ssaoUniforms["projInverse"],
       false,
-      this.matProjInverse
+      matProjInverse
     );
     this.gl.uniform1f(this.ssaoUniforms["noiseSize"], this.noiseSize);
 
@@ -508,7 +504,9 @@ export class DeferredRenderer {
     cameraPosition: vec3,
     lights: any[],
     matView: mat4,
-    matProj: mat4
+    matProj: mat4,
+    matViewInverse: mat4,
+    matProjInverse: mat4
   ): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -548,18 +546,18 @@ export class DeferredRenderer {
       3
     );
 
-    mat4.invert(this.matViewInverse, matView);
-    mat4.invert(this.matProjInverse, matProj);
+    mat4.invert(matViewInverse, matView);
+    mat4.invert(matProjInverse, matProj);
 
     this.gl.uniformMatrix4fv(
       this.lightingUniforms["viewInverse"],
       false,
-      this.matViewInverse
+      matViewInverse
     );
     this.gl.uniformMatrix4fv(
       this.lightingUniforms["projInverse"],
       false,
-      this.matProjInverse
+      matProjInverse
     );
     this.gl.uniform3fv(this.lightingUniforms["cameraPosition"], cameraPosition);
 
@@ -568,7 +566,9 @@ export class DeferredRenderer {
     this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     this.gl.bindVertexArray(null);
   }
-
+  getScreenQuadVao(): WebGLVertexArrayObject {
+    return this.screenQuadVAO!;
+  }
   dispose(): void {
     if (this.gBuffer) {
       this.gl.deleteTexture(this.gBuffer.normalTexture);

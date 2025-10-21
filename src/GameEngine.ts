@@ -112,6 +112,44 @@ export class GameEngine {
     blurCheckbox.addEventListener("change", () => {
       this.renderer.enableSSAOBlur = blurCheckbox.checked;
     });
+    const absorbtionSlider = document.getElementById(
+      "absorption-slider"
+    ) as HTMLInputElement;
+    const absorbtionValue = document.getElementById("absorption-value")!;
+    absorbtionSlider.value = this.renderer.cloudRenderer.absorption.toString();
+    absorbtionValue.textContent =
+      this.renderer.cloudRenderer.absorption.toString();
+    absorbtionSlider.addEventListener("input", () => {
+      this.renderer.cloudRenderer.absorption = parseFloat(
+        absorbtionSlider.value
+      );
+      absorbtionValue.textContent = absorbtionSlider.value;
+    });
+    const densitySlider = document.getElementById(
+      "density-slider"
+    ) as HTMLInputElement;
+    const densityValue = document.getElementById("density-value")!;
+    densitySlider.value =
+      this.renderer.cloudRenderer.densityThreshold.toString();
+    densityValue.textContent =
+      this.renderer.cloudRenderer.densityThreshold.toString();
+    densitySlider.addEventListener("input", () => {
+      this.renderer.cloudRenderer.densityThreshold = parseFloat(
+        densitySlider.value
+      );
+      densityValue.textContent = densitySlider.value;
+    });
+    const frequencySlider = document.getElementById(
+      "frequency-slider"
+    ) as HTMLInputElement;
+    const frequencyValue = document.getElementById("frequency-value")!;
+    frequencySlider.value = this.renderer.cloudRenderer.frequency.toString();
+    frequencyValue.textContent =
+      this.renderer.cloudRenderer.frequency.toString();
+    frequencySlider.addEventListener("input", () => {
+      this.renderer.cloudRenderer.frequency = parseFloat(frequencySlider.value);
+      frequencyValue.textContent = frequencySlider.value;
+    });
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,

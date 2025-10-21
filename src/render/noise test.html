@@ -1,0 +1,172 @@
+<canvas></canvas>
+<script>
+  const canvas = document.querySelector("canvas");
+  const ctx = canvas.getContext("2d");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  function worleyNoise3D(width, height, depth, gridSize, pointsPerCell = 1) {
+    const gridCols = Math.ceil(width / gridSize);
+    const gridRows = Math.ceil(height / gridSize);
+    const gridDepts = Math.ceil(depth / gridSize);
+
+    // Store feature points by grid cell for fast lookup
+    const grid = Array.from({ length: gridCols }, () =>
+      Array.from({ length: gridRows }, () =>
+        Array.from({ length: gridDepts }, () => [])
+      )
+    );
+
+    // Generate random feature points for each grid cell
+    for (let gx = 0; gx < gridCols; gx++) {
+      for (let gy = 0; gy < gridRows; gy++) {
+        for (let gz = 0; gz < gridDepts; gz++) {
+          for (let i = 0; i < pointsPerCell; i++) {
+            grid[gx][gy][gz].push({
+              x: gx * gridSize + Math.random() * gridSize,
+              y: gy * gridSize + Math.random() * gridSize,
+              z: gz * gridSize + Math.random() * gridSize
+            });
+          }
+        }
+      }
+    }
+
+    // Create 3D array
+    const data = Array.from({ length: depth }, () =>
+      Array.from({ length: height }, () => new Float32Array(width))
+    );
+    let maxDist = 0;
+
+    // For each voxel, only consider feature points from neighboring cells
+    for (let z = 0; z < depth; z++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          let minDist = Infinity;
+          const gx = Math.floor(x / gridSize);
+          const gy = Math.floor(y / gridSize);
+          const gz = Math.floor(z / gridSize);
+
+          // Check current cell and 26 neighbors (3x3x3 cube, with wrapping)
+          for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dz = -1; dz <= 1; dz++) {
+                const ngx = (gx + dx + gridCols) % gridCols;
+                const ngy = (gy + dy + gridRows) % gridRows;
+                const ngz = (gz + dz + gridDepts) % gridDepts;
+                for (const p of grid[ngx][ngy][ngz]) {
+                  let dxp = Math.abs(p.x - x);
+                  dxp = Math.min(dxp, width - dxp);
+                  let dyp = Math.abs(p.y - y);
+                  dyp = Math.min(dyp, height - dyp);
+                  let dzp = Math.abs(p.z - z);
+                  dzp = Math.min(dzp, depth - dzp);
+                  const dist = dxp * dxp + dyp * dyp + dzp * dzp;
+                  if (dist < minDist) minDist = dist;
+                }
+              }
+            }
+          }
+          data[z][y][x] = minDist;
+          if (minDist > maxDist) maxDist = minDist;
+        }
+      }
+    }
+
+    // Normalize distances
+    for (let z = 0; z < depth; z++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          data[z][y][x] = Math.sqrt(data[z][y][x]) / Math.sqrt(maxDist);
+        }
+      }
+    }
+    return data;
+  }
+  function fractalWorleyNoise3D(
+    width,
+    height,
+    depth,
+    baseGridSize,
+    octaves,
+    persistence = 0.5
+  ) {
+    const data = Array.from({ length: depth }, () =>
+      Array.from({ length: height }, () => new Float32Array(width).fill(0))
+    );
+
+    let amplitude = 1;
+    let totalAmplitude = 0;
+
+    for (let o = 0; o < octaves; o++) {
+      const gridSize = baseGridSize / Math.pow(2, o);
+      const octaveData = worleyNoise3D(width, height, depth, gridSize, 1);
+
+      for (let z = 0; z < depth; z++) {
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            // Invert Worley
+            let v = 1.0 - octaveData[z][y][x];
+            // Carve detail instead of add
+            data[z][y][x] =
+              o === 0
+                ? v * amplitude
+                : Math.max(0.0, data[z][y][x] - v * amplitude);
+          }
+        }
+      }
+
+      totalAmplitude += amplitude;
+      amplitude *= persistence;
+    }
+
+    // Normalize final data
+    for (let z = 0; z < depth; z++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          data[z][y][x] /= totalAmplitude;
+        }
+      }
+    }
+
+    return data;
+  }
+  const noiseWidth = 256;
+  const noiseHeight = 256;
+  const noiseDepth = 1;
+  const gridSize = 64;
+  const octaves = 4;
+  const noiseData3D = fractalWorleyNoise3D(
+    noiseWidth,
+    noiseHeight,
+    noiseDepth,
+    gridSize,
+    octaves
+  );
+  const scale = 4; // Increase for more zoom-in, decrease for zoom-out
+
+  // Flatten 3D data to 2D for rendering
+  const noiseData = new Float32Array(noiseWidth * noiseHeight);
+  for (let y = 0; y < noiseHeight; y++) {
+    for (let x = 0; x < noiseWidth; x++) {
+      noiseData[y * noiseWidth + x] =
+        noiseData3D[Math.floor(noiseDepth / 2)][y][x];
+    }
+  }
+  const imageData = ctx.createImageData(canvas.width, canvas.height);
+
+  // Usage: render a slice at z = depth / 2
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      // Sample at scaled coordinates
+      const nx = Math.floor((x / scale) % noiseWidth);
+      const ny = Math.floor((y / scale) % noiseHeight);
+      const value = Math.floor(noiseData[ny * noiseWidth + nx] * 255);
+      const idx = (y * canvas.width + x) * 4;
+      imageData.data[idx + 0] = 255 - value;
+      imageData.data[idx + 1] = 255 - value;
+      imageData.data[idx + 2] = 255 - value;
+      imageData.data[idx + 3] = 255;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+</script>
