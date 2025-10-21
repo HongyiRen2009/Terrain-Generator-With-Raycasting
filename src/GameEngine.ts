@@ -84,6 +84,14 @@ export class GameEngine {
       this.debug,
       this.world
     );
+    const ssaoCheckbox = document.getElementById(
+      "ssao-checkbox"
+    ) as HTMLInputElement;
+    ssaoCheckbox.checked = this.renderer.enableSSAO;
+    ssaoCheckbox.addEventListener("change", () => {
+      this.renderer.enableSSAO = ssaoCheckbox.checked;
+    });
+
     const radiusSlider = document.getElementById(
       "radius-slider"
     ) as HTMLInputElement;
