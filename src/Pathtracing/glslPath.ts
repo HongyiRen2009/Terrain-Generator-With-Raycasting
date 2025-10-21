@@ -497,38 +497,10 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         
         // Direct Lighting (Next Event Estimation)
         //for now let's do one light sample per bounce
+        //Ended up deleting it due to instability issues
         //https://www.youtube.com/watch?v=FU1dbi827LY
         //https://www.cg.tuwien.ac.at/sites/default/files/course/4411/attachments/08_next%20event%20estimation.pdf
-        if(type == 1){ //Diffuse only
-            //int lightToSample = int(floor(rand(rng_state) * float(numActiveLights)));
-            //lightToSample = clamp(lightToSample, 0, numActiveLights - 1);
-            Light light = lights[0];
-            
-            vec3 toLight = light.position - hitPoint;
-            float distToLight = length(toLight);
-            toLight = normalize(toLight);
-            // Shadow ray
-            vec3 shadowRayOrigin = hitPoint + geometricNormal * 0.01;
-            vec3 shadowRayDir = toLight;
-            
-            vec3 shadowBarycentric;
-            float shadowHitDistance;
-            int shadowTriIndex = traverseBVH(shadowRayOrigin, shadowRayDir, 0, shadowBarycentric, shadowHitDistance, 1.0 / shadowRayDir);
-            
-            vec3 lightHitNormal;
-            float lightHitDistance = intersectLight(shadowRayOrigin, shadowRayDir, light, lightHitNormal);
-            
-            if ((shadowTriIndex == -1 || shadowHitDistance >= lightHitDistance) && lightHitDistance > 0.0 && lightHitDistance <= distToLight) {
-                // No occlusion
-                float P = dot(smoothNormal,-toLight)/dot(light.position - hitPoint,light.position - hitPoint);
-                vec3 thingy = BRDF * light.color * light.intensity * P * dot(smoothNormal, toLight);
-                if(length(thingy) == 0.0 || !isValidVec3(thingy)){
-                    thingy = vec3(1.0,0,0);
-                }
-                directLight = thingy;
-            }
-        }
-
+        
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
         if(type != 4) //Transmission goes through
