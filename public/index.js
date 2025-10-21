@@ -1,17 +1,6 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
-/***/ "./models/stand.3mf":
-/*!**************************!*\
-  !*** ./models/stand.3mf ***!
-  \**************************/
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-"use strict";
-module.exports = __webpack_require__.p + "3c4995c18eac9a702c1f.3mf";
-
-/***/ }),
-
 /***/ "./node_modules/gl-matrix/esm/common.js":
 /*!**********************************************!*\
   !*** ./node_modules/gl-matrix/esm/common.js ***!
@@ -4424,17 +4413,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   GameEngine: () => (/* binding */ GameEngine)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 /* harmony import */ var _DebugMenu__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
 /* harmony import */ var _map_Map__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./map/Map */ "./src/map/Map.ts");
 /* harmony import */ var _render_Camera__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
 /* harmony import */ var _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
 /* harmony import */ var _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./Pathtracing/PathTracer */ "./src/Pathtracing/PathTracer.ts");
 /* harmony import */ var _render_GlUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./render/GlUtils */ "./src/render/GlUtils.ts");
-/* harmony import */ var _models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../models/stand.3mf */ "./models/stand.3mf");
-/* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
-/* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./map/terrains */ "./src/map/terrains.ts");
+/* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./map/terrains */ "./src/map/terrains.ts");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -4479,8 +4465,6 @@ var __generator = (undefined && undefined.__generator) || function (thisArg, bod
 
 
 
-
-
 /**
  * Our holding class for all game mechanics
  * Generally doing something like this is better programming practice & may avoid bugs and merge conflicts in the future
@@ -4500,7 +4484,7 @@ var GameEngine = /** @class */ (function () {
         this.lastRenderTime = 0;
         this.mode = 0; // 0 for hybrid, 1 for pathtracer
         //
-        this.frameCounter = 0;
+        this.frameCounter = 0; // In the current FPS
         this.lastFPSCheck = 0;
         this.currentFPS = 0;
         this.worldInitialized = false;
@@ -4516,11 +4500,37 @@ var GameEngine = /** @class */ (function () {
         this.addKeys();
         this.updatePathracing = function () { };
         //Initialize world
-        this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 64, 1000, this.gl, function () { return _this.updatePathracing; });
+        this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 200, 1000, this.gl, function () { return _this.updatePathracing; });
         //Initialize Camera
-        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(0, 0, 3));
+        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(-22, 20, 33));
         //Initialize Renderer
         this.renderer = new _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
+        var ssaoCheckbox = document.getElementById("ssao-checkbox");
+        ssaoCheckbox.checked = this.renderer.enableSSAO;
+        ssaoCheckbox.addEventListener("change", function () {
+            _this.renderer.enableSSAO = ssaoCheckbox.checked;
+        });
+        var radiusSlider = document.getElementById("radius-slider");
+        var radiusValue = document.getElementById("radius-value");
+        radiusSlider.value = this.renderer.radius.toString();
+        radiusValue.textContent = this.renderer.radius.toString();
+        radiusSlider.addEventListener("input", function () {
+            _this.renderer.radius = parseFloat(radiusSlider.value);
+            radiusValue.textContent = radiusSlider.value;
+        });
+        var biasSlider = document.getElementById("bias-slider");
+        var biasValue = document.getElementById("bias-value");
+        biasSlider.value = this.renderer.bias.toString();
+        biasValue.textContent = this.renderer.bias.toString();
+        biasSlider.addEventListener("input", function () {
+            _this.renderer.bias = parseFloat(biasSlider.value);
+            biasValue.textContent = biasSlider.value;
+        });
+        var blurCheckbox = document.getElementById("blur-checkbox");
+        blurCheckbox.checked = this.renderer.enableSSAOBlur;
+        blurCheckbox.addEventListener("change", function () {
+            _this.renderer.enableSSAOBlur = blurCheckbox.checked;
+        });
         //Initial pathTracer
         this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.debug);
         this.updatePathracing = function () {
@@ -4535,7 +4545,7 @@ var GameEngine = /** @class */ (function () {
         window.addEventListener("resize", function () { return _this.resizeCanvas(); });
         //Debugging
         this.debug.addElement("FPS", function () { return Math.round(_this.currentFPS); });
-        this.debug.addElement("#Types", function () { return Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_8__.Terrains).length; });
+        this.debug.addElement("#Types", function () { return Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_6__.Terrains).length; });
         //Initialize switcher
         var rayBtn = document.getElementById("raytracing");
         var pathBtn = document.getElementById("pathtracing");
@@ -4570,7 +4580,7 @@ var GameEngine = /** @class */ (function () {
     }
     GameEngine.prototype.initialize = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var mesh, identity2;
+            var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateTerrain(); }))];
@@ -4581,12 +4591,14 @@ var GameEngine = /** @class */ (function () {
                     case 2:
                         _a.sent();
                         this.renderer.GenerateTriangleBuffer(_render_GlUtils__WEBPACK_IMPORTED_MODULE_5__.GlUtils.genTerrainVertices(this.world));
-                        return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__)];
-                    case 3:
-                        mesh = _a.sent();
-                        identity2 = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
-                        gl_matrix__WEBPACK_IMPORTED_MODULE_10__.identity(identity2);
-                        this.world.addObject(mesh, identity2, "Gear");
+                        this.world.onObjectAdded = function (obj) {
+                            _this.world.objectUI.setupObjectUI(obj, _this.world, document.getElementById("world-objects"), _this.world.objectUI);
+                        };
+                        // Add a gear object
+                        // const mesh = await threemfToMesh(gearModelUrl);
+                        // const identity2 = mat4.create();
+                        // mat4.identity(identity2);
+                        // this.world.addObject(mesh, identity2, "Gear");
                         this.pathTracer.initBVH(this.world.combinedMesh());
                         this.pathTracer.init(false);
                         this.worldInitialized = true;
@@ -4631,24 +4643,24 @@ var GameEngine = /** @class */ (function () {
      */
     GameEngine.prototype.updateCamera = function (time) {
         var velocity = this.mainCamera.speed * time;
-        var movement = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
-        var oldCamPos = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
-        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.copy(oldCamPos, this.mainCamera.position);
+        var movement = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+        var oldCamPos = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_7__.copy(oldCamPos, this.mainCamera.position);
         //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
         if (this.keys["KeyW"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
+            gl_matrix__WEBPACK_IMPORTED_MODULE_7__.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
         if (this.keys["KeyS"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.front, -velocity); // Backward
+            gl_matrix__WEBPACK_IMPORTED_MODULE_7__.scaleAndAdd(movement, movement, this.mainCamera.front, -velocity); // Backward
         if (this.keys["KeyA"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.right, -velocity); // Left
+            gl_matrix__WEBPACK_IMPORTED_MODULE_7__.scaleAndAdd(movement, movement, this.mainCamera.right, -velocity); // Left
         if (this.keys["KeyD"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.right, velocity); // Right
+            gl_matrix__WEBPACK_IMPORTED_MODULE_7__.scaleAndAdd(movement, movement, this.mainCamera.right, velocity); // Right
         if (this.keys["Space"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
+            gl_matrix__WEBPACK_IMPORTED_MODULE_7__.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
         if (this.keys["ShiftLeft"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
-        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.add(this.mainCamera.position, this.mainCamera.position, movement);
-        if (!gl_matrix__WEBPACK_IMPORTED_MODULE_9__.equals(this.mainCamera.position, oldCamPos)) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_7__.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
+        gl_matrix__WEBPACK_IMPORTED_MODULE_7__.add(this.mainCamera.position, this.mainCamera.position, movement);
+        if (!gl_matrix__WEBPACK_IMPORTED_MODULE_7__.equals(this.mainCamera.position, oldCamPos)) {
             this.pathTracer.resetAccumulation();
         }
     };
@@ -4694,6 +4706,7 @@ var GameEngine = /** @class */ (function () {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.renderer.resizeGBuffer(this.canvas.width, this.canvas.height);
         this.pathTracer.resetAccumulation();
     };
     /**
@@ -5213,13 +5226,12 @@ var WorldMap = /** @class */ (function () {
     };
     //Generates map
     WorldMap.prototype.generate = function () {
-        this.chunks = [
-            // Row 1
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[0]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[1]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(2 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[2]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(3 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[3])
-        ];
+        this.chunks = [];
+        var worker = 0;
+        for (var i = 0; i < 3; i++)
+            for (var j = 0; j < 3; j++) {
+                this.chunks.push(new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(i * this.resolution, j * this.resolution), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[worker++]));
+            }
     };
     WorldMap.prototype.combinedMesh = function () {
         var CombinedMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
@@ -5274,7 +5286,7 @@ var WorldMap = /** @class */ (function () {
      * Add an object to the game world
      */
     WorldMap.prototype.addObject = function (objectData, objectLocation, name) {
-        var _a = (0,_cubes_utils__WEBPACK_IMPORTED_MODULE_5__.meshToVerticesAndIndices)(objectData), vertices = _a.vertices, indices = _a.indices;
+        var _a = (0,_cubes_utils__WEBPACK_IMPORTED_MODULE_5__.meshToInterleavedVerticesAndIndices)(objectData), vertices = _a.vertices, indices = _a.indices;
         var meshSize = indices.length;
         var objectBuffer = _render_GlUtils__WEBPACK_IMPORTED_MODULE_4__.GlUtils.CreateStaticBuffer(this.gl, vertices, Array.from(indices));
         var worldObject = {
@@ -5696,102 +5708,95 @@ var ObjectUI = /** @class */ (function () {
             });
         }); });
         var container = document.getElementById("world-objects");
-        this.setupObjectUI(map, container, this);
     }
-    ObjectUI.prototype.setupObjectUI = function (world, container, UI) {
-        world.onObjectAdded = function (obj) {
-            var wrapper = document.createElement("div");
-            wrapper.className = "world-object";
-            // Name
-            var nameEl = document.createElement("h3");
-            nameEl.textContent = obj.name;
-            wrapper.appendChild(nameEl);
-            // Vertex count
-            var vertsEl = document.createElement("p");
-            vertsEl.textContent = "Vertices: ".concat(obj.mesh.mesh.length * 3);
-            wrapper.appendChild(vertsEl);
-            // Delete button
-            var deleteBtn = document.createElement("button");
-            deleteBtn.textContent = "Delete Object";
-            deleteBtn.style.marginBottom = "10px";
-            deleteBtn.addEventListener("click", function () {
-                // Remove from world
-                world.worldObjects = world.worldObjects.filter(function (o) { return o.id !== obj.id; });
-                // Remove UI
-                wrapper.remove();
-                // Trigger re-trace/update if needed
-                if (UI.tracerUpdateSupplier)
-                    UI.tracerUpdateSupplier()();
+    ObjectUI.prototype.setupObjectUI = function (obj, world, container, UI) {
+        var wrapper = document.createElement("div");
+        wrapper.className = "world-object";
+        // Name
+        var nameEl = document.createElement("h3");
+        nameEl.textContent = obj.name;
+        wrapper.appendChild(nameEl);
+        // Vertex count
+        var vertsEl = document.createElement("p");
+        vertsEl.textContent = "Vertices: ".concat(obj.mesh.mesh.length * 3);
+        wrapper.appendChild(vertsEl);
+        // Delete button
+        var deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete Object";
+        deleteBtn.style.marginBottom = "10px";
+        deleteBtn.addEventListener("click", function () {
+            // Remove from world
+            world.worldObjects = world.worldObjects.filter(function (o) { return o.id !== obj.id; });
+            // Remove UI
+            wrapper.remove();
+            // Trigger re-trace/update if needed
+            if (UI.tracerUpdateSupplier)
+                UI.tracerUpdateSupplier()();
+        });
+        wrapper.appendChild(deleteBtn);
+        // Helper to create labeled number input
+        function createInput(labelText, value, onChange) {
+            var label = document.createElement("label");
+            label.innerHTML = "<br>".concat(labelText, ": ");
+            var input = document.createElement("input");
+            input.type = "number";
+            input.value = value.toString();
+            input.step = "0.1";
+            input.addEventListener("input", function () {
+                var val = input.value === "" ? 0 : parseFloat(input.value);
+                onChange(val);
             });
-            wrapper.appendChild(deleteBtn);
-            // Helper to create labeled number input
-            function createInput(labelText, value, onChange) {
-                var label = document.createElement("label");
-                label.innerHTML = "<br>".concat(labelText, ": ");
-                var input = document.createElement("input");
-                input.type = "number";
-                input.value = value.toString();
-                input.step = "0.1";
-                input.addEventListener("input", function () {
-                    var val = input.value === "" ? 0 : parseFloat(input.value);
-                    onChange(val);
-                });
-                label.appendChild(input);
-                wrapper.appendChild(label);
-            }
-            // Extract current transform components
-            var translation = [
-                obj.position[12],
-                obj.position[13],
-                obj.position[14]
-            ];
-            var rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
-            var scale = [1, 1, 1]; // default 1 or store separately
-            // Function to rebuild mat4 from translation, rotation, scale
-            function rebuildMatrix() {
-                var rad = rotationDegrees.map(function (d) { return (d * Math.PI) / 180; });
-                var newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.translate(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(translation[0], translation[1], translation[2]));
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateX(newMat, newMat, rad[0]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateY(newMat, newMat, rad[1]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateZ(newMat, newMat, rad[2]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.scale(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(scale[0], scale[1], scale[2]));
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.copy(obj.position, newMat);
-                if (UI.tracerUpdateSupplier)
-                    UI.tracerUpdateSupplier()();
-            }
-            // Translation inputs
-            var tHeader = document.createElement("h4");
-            tHeader.textContent = "Translation:";
-            wrapper.appendChild(tHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, translation[i], function (v) {
-                    translation[i] = v;
-                    rebuildMatrix();
-                });
+            label.appendChild(input);
+            wrapper.appendChild(label);
+        }
+        // Extract current transform components
+        var translation = [obj.position[12], obj.position[13], obj.position[14]];
+        var rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
+        var scale = [1, 1, 1]; // default 1 or store separately
+        // Function to rebuild mat4 from translation, rotation, scale
+        function rebuildMatrix() {
+            var rad = rotationDegrees.map(function (d) { return (d * Math.PI) / 180; });
+            var newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.translate(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(translation[0], translation[1], translation[2]));
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateX(newMat, newMat, rad[0]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateY(newMat, newMat, rad[1]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateZ(newMat, newMat, rad[2]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.scale(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(scale[0], scale[1], scale[2]));
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.copy(obj.position, newMat);
+            if (UI.tracerUpdateSupplier)
+                UI.tracerUpdateSupplier()();
+        }
+        // Translation inputs
+        var tHeader = document.createElement("h4");
+        tHeader.textContent = "Translation:";
+        wrapper.appendChild(tHeader);
+        ["X", "Y", "Z"].forEach(function (axis, i) {
+            return createInput(axis, translation[i], function (v) {
+                translation[i] = v;
+                rebuildMatrix();
             });
-            // Rotation inputs (degrees)
-            var rHeader = document.createElement("h4");
-            rHeader.textContent = "Rotation (degrees):";
-            wrapper.appendChild(rHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, rotationDegrees[i], function (v) {
-                    rotationDegrees[i] = v;
-                    rebuildMatrix();
-                });
+        });
+        // Rotation inputs (degrees)
+        var rHeader = document.createElement("h4");
+        rHeader.textContent = "Rotation (degrees):";
+        wrapper.appendChild(rHeader);
+        ["X", "Y", "Z"].forEach(function (axis, i) {
+            return createInput(axis, rotationDegrees[i], function (v) {
+                rotationDegrees[i] = v;
+                rebuildMatrix();
             });
-            // Scale inputs
-            var sHeader = document.createElement("h4");
-            sHeader.textContent = "Scale:";
-            wrapper.appendChild(sHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, scale[i], function (v) {
-                    scale[i] = v;
-                    rebuildMatrix();
-                });
+        });
+        // Scale inputs
+        var sHeader = document.createElement("h4");
+        sHeader.textContent = "Scale:";
+        wrapper.appendChild(sHeader);
+        ["X", "Y", "Z"].forEach(function (axis, i) {
+            return createInput(axis, scale[i], function (v) {
+                scale[i] = v;
+                rebuildMatrix();
             });
-            container.appendChild(wrapper);
-        };
+        });
+        container.appendChild(wrapper);
     };
     return ObjectUI;
 }());
@@ -5833,7 +5838,8 @@ var Utilities = /** @class */ (function () {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   meshToVerticesAndIndices: () => (/* binding */ meshToVerticesAndIndices),
+/* harmony export */   meshToInterleavedVerticesAndIndices: () => (/* binding */ meshToInterleavedVerticesAndIndices),
+/* harmony export */   meshToNonInterleavedVerticesAndIndices: () => (/* binding */ meshToNonInterleavedVerticesAndIndices),
 /* harmony export */   vertexKey: () => (/* binding */ vertexKey)
 /* harmony export */ });
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
@@ -5844,7 +5850,7 @@ var roundToPrecision = function (value, precision) {
 var vertexKey = function (vertex) {
     return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
 };
-var meshToVerticesAndIndices = function (mesh) {
+var meshToInterleavedVerticesAndIndices = function (mesh) {
     // For each vertex: x, y, z, r, g, b
     var vertexMap = new Map();
     var vertices = [];
@@ -5872,6 +5878,38 @@ var meshToVerticesAndIndices = function (mesh) {
         indices: new Uint32Array(indices)
     };
 };
+var meshToNonInterleavedVerticesAndIndices = function (mesh) {
+    var vertexMap = new Map();
+    var positions = [];
+    var normals = [];
+    var colors = [];
+    var indices = [];
+    var vertexIndex = 0;
+    for (var i = 0; i < mesh.mesh.length; i++) {
+        var triangle = mesh.mesh[i];
+        var types = mesh.type[i];
+        for (var j = 0; j < 3; j++) {
+            var vertex = triangle[j];
+            var normal = mesh.normals[i][j];
+            var key = vertexKey(vertex);
+            if (!vertexMap.has(key)) {
+                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                var color = type.color;
+                positions.push(vertex[0], vertex[1], vertex[2]);
+                normals.push(normal[0], normal[1], normal[2]);
+                colors.push(color.r / 255, color.g / 255, color.b / 255);
+                vertexMap.set(key, vertexIndex++);
+            }
+            indices.push(vertexMap.get(key));
+        }
+    }
+    return {
+        positions: new Float32Array(positions),
+        normals: new Float32Array(normals),
+        colors: new Float32Array(colors),
+        indices: new Uint32Array(indices)
+    };
+};
 
 
 /***/ }),
@@ -5889,7 +5927,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   EDGES: () => (/* binding */ EDGES),
 /* harmony export */   VERTICES: () => (/* binding */ VERTICES),
 /* harmony export */   cubeVertices: () => (/* binding */ cubeVertices),
-/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices)
+/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices),
+/* harmony export */   quadIndices: () => (/* binding */ quadIndices),
+/* harmony export */   quadVertices: () => (/* binding */ quadVertices)
 /* harmony export */ });
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 var VERTICES = [
@@ -6182,6 +6222,29 @@ var cubeWireframeIndices = [
     // 12 edges × 2 vertices = 24 indices
     0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
 ];
+var quadVertices = new Float32Array([
+    -1.0,
+    -1.0,
+    0.0,
+    0.0,
+    0.0, // Bottom-left
+    1.0,
+    -1.0,
+    0.0,
+    1.0,
+    0.0, // Bottom-right
+    1.0,
+    1.0,
+    0.0,
+    1.0,
+    1.0, // Top-right
+    -1.0,
+    1.0,
+    0.0,
+    0.0,
+    1.0 // Top-left
+]);
+var quadIndices = new Uint16Array([0, 1, 2, 2, 3, 0]);
 
 
 /***/ }),
@@ -7098,7 +7161,7 @@ __webpack_require__.r(__webpack_exports__);
 var Camera = /** @class */ (function () {
     function Camera(position) {
         this.sensitivity = 0.1;
-        this.yaw = -90; // Left right rotation in degrees
+        this.yaw = 0; // Left right rotation in degrees
         this.pitch = 0; // Up down rotation in degrees
         //Computed Dynamically
         this.front = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 0, -1);
@@ -7150,15 +7213,24 @@ var Camera = /** @class */ (function () {
         return viewMatrix;
     };
     Camera.prototype.calculateProjectionMatrix = function (canvasWidth, canvasHeight) {
-        var matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
         var matView = this.getViewMatrix();
         var matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+        var matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.perspective(matProj, 
         /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(90), 
         /* aspectRatio= */ canvasWidth / canvasHeight, 
         /* near, far= */ 0.1, 100.0);
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.multiply(matViewProj, matProj, matView);
         return matViewProj;
+    };
+    Camera.prototype.calculateProjectionMatrices = function (canvasWidth, canvasHeight) {
+        var matView = this.getViewMatrix();
+        var matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_2__.perspective(matProj, 
+        /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(90), 
+        /* aspectRatio= */ canvasWidth / canvasHeight, 
+        /* near, far= */ 0.1, 100.0);
+        return { matView: matView, matProj: matProj };
     };
     Camera.prototype.UpdateCameraVectors = function () {
         var front = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
@@ -7206,10 +7278,30 @@ __webpack_require__.r(__webpack_exports__);
 
 var GLRenderer = /** @class */ (function () {
     function GLRenderer(gl, canvas, camera, debug, world) {
+        // Geometry buffers
         this.TerrainTriangleBuffer = null;
         this.CubeBuffer = null;
+        this.QuadBuffer = null;
         this.TerrainMeshSize = 0;
-        this.terrainVAO = null;
+        // G-Buffer for deferred rendering with depth reconstruction
+        this.gBuffer = null;
+        this.ssaoFrameBuffer = null;
+        this.ssaoBlurFrameBuffer = null;
+        // Screen-space quad for fullscreen passes
+        this.screenQuadVAO = null;
+        //SSAO stuff
+        this.kernelSize = 64;
+        this.kernels = [];
+        this.noiseTexture = null;
+        this.noiseSize = 64;
+        // Add VAO property for geometry pass
+        this.TerrainVAO = null;
+        // SSAO Settings
+        this.radius = 5.0;
+        this.bias = 0.025;
+        this.enableSSAOBlur = true;
+        this.enableSSAO = true;
+        // Cache VAOs
         this.wireframeCubeVAO = null;
         this.worldObjectVAOs = new Map();
         this.gl = gl;
@@ -7218,122 +7310,371 @@ var GLRenderer = /** @class */ (function () {
         this.debug = debug;
         this.world = world;
         gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
-        this.WireframeCubeShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeFragmentShaderCode);
-        this.TerrainMeshShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshFragmentShaderCode);
+        gl.depthFunc(gl.LEQUAL);
+        this.matView = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        this.matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
         this.matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        this.matProjInverse = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        this.matViewInverse = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        // Initialize deferred rendering components
+        this.initShaders();
+        this.initializeGBuffer();
+        this.initializeSSAOFrameBuffer();
+        this.initializeSSAOBlurFrameBuffer();
+        this.initializeScreenQuad();
+        this.generateKernels();
+        this.generateNoiseTexture();
     }
+    GLRenderer.prototype.generateKernels = function () {
+        this.kernels = [];
+        for (var i = 0; i < this.kernelSize; i++) {
+            // Generate random point in hemisphere
+            var sample = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(Math.random() * 2.0 - 1.0, Math.random() * 2.0 - 1.0, Math.random() // Only positive Z for hemisphere
+            );
+            // Normalize to unit sphere
+            gl_matrix__WEBPACK_IMPORTED_MODULE_6__.normalize(sample, sample);
+            // Scale samples to be closer to the origin (more samples near surface)
+            var scale = i / this.kernelSize;
+            scale = 0.1 + scale * scale * 0.9; // Lerp between 0.1 and 1.0
+            gl_matrix__WEBPACK_IMPORTED_MODULE_6__.scale(sample, sample, scale);
+            this.kernels.push(sample);
+        }
+    };
+    GLRenderer.prototype.generateNoiseTexture = function () {
+        var noiseData = new Float32Array(this.noiseSize * this.noiseSize * 3);
+        for (var i = 0; i < this.noiseSize; i++) {
+            for (var j = 0; j < this.noiseSize; j++) {
+                var index = (i * this.noiseSize + j) * 3;
+                noiseData[index] = Math.random() * 2.0 - 1.0;
+                noiseData[index + 1] = Math.random() * 2.0 - 1.0;
+                noiseData[index + 2] = 0.0;
+            }
+        }
+        this.noiseTexture = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createTexture(this.gl, this.noiseSize, this.noiseSize, this.gl.RGB32F, this.gl.RGB, this.gl.FLOAT, noiseData, this.gl.NEAREST, this.gl.NEAREST, this.gl.REPEAT, this.gl.REPEAT);
+    };
+    GLRenderer.prototype.initializeGBuffer = function () {
+        var gl = this.gl;
+        var ext = this.gl.getExtension("EXT_color_buffer_float");
+        if (!ext) {
+            throw new Error("EXT_color_buffer_float is not supported on this device.");
+        }
+        // Create textures using GlUtils.createTexture
+        var normalTexture = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createTexture(gl, this.canvas.width, this.canvas.height, gl.RGBA16F, gl.RGBA, gl.FLOAT);
+        var albedoTexture = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createTexture(gl, this.canvas.width, this.canvas.height, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+        var depthTexture = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createTexture(gl, this.canvas.width, this.canvas.height, gl.DEPTH_COMPONENT32F, gl.DEPTH_COMPONENT, gl.FLOAT);
+        // Create framebuffer and attach textures
+        var framebuffer = gl.createFramebuffer();
+        if (!framebuffer) {
+            throw new Error("Failed to create framebuffer");
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, normalTexture, 0);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, albedoTexture, 0);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+        var status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (status !== gl.FRAMEBUFFER_COMPLETE) {
+            throw new Error("Framebuffer is not complete: " + status.toString());
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        this.gBuffer = {
+            framebuffer: framebuffer,
+            normalTexture: normalTexture,
+            albedoTexture: albedoTexture,
+            depthTexture: depthTexture
+        };
+    };
+    GLRenderer.prototype.initializeSSAOFrameBuffer = function () {
+        var framebuffer = this.gl.createFramebuffer();
+        if (!framebuffer) {
+            throw new Error("Failed to create SSAO framebuffer");
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
+        var ssaoTexture = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createTexture(this.gl, this.canvas.width, this.canvas.height, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, ssaoTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.ssaoFrameBuffer = {
+            framebuffer: framebuffer,
+            ssaoTexture: ssaoTexture
+        };
+    };
+    GLRenderer.prototype.initializeSSAOBlurFrameBuffer = function () {
+        var framebuffer = this.gl.createFramebuffer();
+        if (!framebuffer) {
+            throw new Error("Failed to create SSAO Blur framebuffer");
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
+        var ssaoBlurTexture = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createTexture(this.gl, this.canvas.width, this.canvas.height, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, ssaoBlurTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.ssaoBlurFrameBuffer = {
+            framebuffer: framebuffer,
+            ssaoBlurTexture: ssaoBlurTexture
+        };
+    };
+    // Initialize screen-space quad for fullscreen passes
+    GLRenderer.prototype.initializeScreenQuad = function () {
+        var vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        var vbo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, _map_geometry__WEBPACK_IMPORTED_MODULE_4__.quadVertices, this.gl.STATIC_DRAW);
+        var ebo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
+        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, _map_geometry__WEBPACK_IMPORTED_MODULE_4__.quadIndices, this.gl.STATIC_DRAW);
+        // Position attribute (location 0)
+        this.gl.enableVertexAttribArray(0);
+        this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 20, 0);
+        // TexCoord attribute (location 1)
+        this.gl.enableVertexAttribArray(1);
+        this.gl.vertexAttribPointer(1, 2, this.gl.FLOAT, false, 20, 12);
+        this.gl.bindVertexArray(null);
+        this.screenQuadVAO = vao;
+    };
+    GLRenderer.prototype.resizeGBuffer = function (width, height) {
+        // Delete old G-Buffer textures and framebuffer
+        if (this.gBuffer) {
+            this.gl.deleteTexture(this.gBuffer.normalTexture);
+            this.gl.deleteTexture(this.gBuffer.albedoTexture);
+            this.gl.deleteTexture(this.gBuffer.depthTexture);
+            this.gl.deleteFramebuffer(this.gBuffer.framebuffer);
+            this.gBuffer = null;
+        }
+        // Delete SSAO and blur textures/framebuffers
+        if (this.ssaoFrameBuffer) {
+            this.gl.deleteTexture(this.ssaoFrameBuffer.ssaoTexture);
+            this.gl.deleteFramebuffer(this.ssaoFrameBuffer.framebuffer);
+            this.ssaoFrameBuffer = null;
+        }
+        if (this.ssaoBlurFrameBuffer) {
+            this.gl.deleteTexture(this.ssaoBlurFrameBuffer.ssaoBlurTexture);
+            this.gl.deleteFramebuffer(this.ssaoBlurFrameBuffer.framebuffer);
+            this.ssaoBlurFrameBuffer = null;
+        }
+        // Resize canvas
+        this.canvas.width = width;
+        this.canvas.height = height;
+        // Recreate G-Buffer and SSAO framebuffers/textures
+        this.initializeGBuffer();
+        this.initializeSSAOFrameBuffer();
+        this.initializeSSAOBlurFrameBuffer();
+    };
     GLRenderer.prototype.GenerateTriangleBuffer = function (triangleMeshes) {
-        // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
-        var triangleVertices = [];
+        var trianglePositions = [];
+        var triangleNormals = [];
+        var triangleColors = [];
         var triangleIndices = [];
         var indexOffset = 0;
         for (var i = 0; i < triangleMeshes.length; i++) {
             var Mesh_1 = triangleMeshes[i];
-            var vertexData = (0,_map_cubes_utils__WEBPACK_IMPORTED_MODULE_3__.meshToVerticesAndIndices)(Mesh_1);
-            // Add vertices
-            triangleVertices = triangleVertices.concat(Array.from(vertexData.vertices));
-            // Add indices with offset
+            var vertexData = (0,_map_cubes_utils__WEBPACK_IMPORTED_MODULE_3__.meshToNonInterleavedVerticesAndIndices)(Mesh_1);
+            trianglePositions = trianglePositions.concat(Array.from(vertexData.positions));
+            triangleNormals = triangleNormals.concat(Array.from(vertexData.normals));
+            triangleColors = triangleColors.concat(Array.from(vertexData.colors));
             var adjustedIndices = Array.from(vertexData.indices).map(function (index) { return index + indexOffset; });
             triangleIndices = triangleIndices.concat(adjustedIndices);
-            // Update offset for next chunk
-            indexOffset += vertexData.vertices.length / 9; // 9 components per vertex
+            indexOffset += vertexData.positions.length / 3;
         }
         this.TerrainMeshSize = triangleIndices.length;
-        this.TerrainTriangleBuffer = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateStaticBuffer(this.gl, new Float32Array(triangleVertices), triangleIndices);
+        this.TerrainTriangleBuffer = {
+            vertex: {
+                position: _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateAttributeBuffer(this.gl, new Float32Array(trianglePositions)),
+                normal: _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleNormals)),
+                color: _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleColors))
+            },
+            indices: _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateIndexBuffer(this.gl, triangleIndices)
+        };
         this.CubeBuffer = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateStaticBuffer(this.gl, new Float32Array(_map_geometry__WEBPACK_IMPORTED_MODULE_4__.cubeVertices), _map_geometry__WEBPACK_IMPORTED_MODULE_4__.cubeWireframeIndices);
-        this.WireframeCubeShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeFragmentShaderCode);
-        this.TerrainMeshShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshFragmentShaderCode);
-        this.matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        this.wireframeCubeVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.CubeBuffer.vertex, this.CubeBuffer.indices, this.CubeShader, {
+            position: { offset: 0, stride: 24, sizeOverride: 3 },
+            color: { offset: 12, stride: 24 }
+        });
+        // Create VAO for geometry pass after shaders are initialized
+        this.TerrainVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createNonInterleavedVao(this.gl, {
+            position: {
+                buffer: this.TerrainTriangleBuffer.vertex.position,
+                size: 3
+            },
+            normal: {
+                buffer: this.TerrainTriangleBuffer.vertex.normal,
+                size: 3
+            },
+            color: {
+                buffer: this.TerrainTriangleBuffer.vertex.color,
+                size: 3
+            }
+        }, this.TerrainTriangleBuffer.indices, this.geometryPassShader);
     };
-    GLRenderer.prototype.drawTerrain = function (TransformationMatrix) {
-        this.gl.useProgram(this.TerrainMeshShader.Program);
-        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.updateLights(this.gl, this.TerrainMeshShader.Program, this.world.lights, this.camera);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        //Create vertice array object
-        if (!this.TerrainTriangleBuffer) {
-            console.error("TriangleBuffer not initialized.");
-            return;
+    GLRenderer.prototype.initShaders = function () {
+        this.CubeShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeFragmentShaderCode);
+        this.geometryPassShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshGeometryVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshGeometryFragmentShaderCode);
+        this.ssaoPassShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshSSAOVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshSSAOFragmentShaderCode);
+        this.ssaoBlurPassShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshSSAOBlurVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshSSAOBlurFragmentShaderCode);
+        this.lightingPassShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshLightingVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshLightingFragmentShaderCode);
+    };
+    GLRenderer.prototype.geometryPass = function () {
+        var _a;
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, ((_a = this.gBuffer) === null || _a === void 0 ? void 0 : _a.framebuffer) || null);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.depthMask(true);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.useProgram(this.geometryPassShader.Program);
+        // Set view and projection matrices (shared by terrain and objects)
+        this.gl.uniformMatrix4fv(this.geometryPassShader.Uniforms["view"].location, false, this.matView);
+        this.gl.uniformMatrix4fv(this.geometryPassShader.Uniforms["proj"].location, false, this.matProj);
+        // Render terrain with identity matrix
+        var identityMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        this.gl.uniformMatrix4fv(this.geometryPassShader.Uniforms["model"].location, false, identityMatrix);
+        if (!this.TerrainVAO) {
+            throw new Error("VAO not initialized");
         }
-        if (!this.terrainVAO) {
-            this.terrainVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.TerrainTriangleBuffer.vertex, this.TerrainTriangleBuffer.indices, this.TerrainMeshShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 36,
-                    sizeOverride: 3
-                },
-                VertexNormal: { offset: 12, stride: 36 },
-                VertexColor: { offset: 24, stride: 36 }
-            });
-        }
-        this.gl.bindVertexArray(this.terrainVAO);
+        this.gl.bindVertexArray(this.TerrainVAO);
         this.gl.drawElements(this.gl.TRIANGLES, this.TerrainMeshSize, this.gl.UNSIGNED_INT, 0);
+        // Render world objects
+        for (var _i = 0, _b = this.world.worldObjects; _i < _b.length; _i++) {
+            var worldObject = _b[_i];
+            // Set model matrix for this object
+            this.gl.uniformMatrix4fv(this.geometryPassShader.Uniforms["model"].location, false, worldObject.position);
+            // Get or create VAO for this object
+            var vao = this.worldObjectVAOs.get(worldObject.id);
+            if (!vao) {
+                vao = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, worldObject.buffer.vertex, worldObject.buffer.indices, this.geometryPassShader, {
+                    position: {
+                        offset: 0,
+                        stride: 36,
+                        sizeOverride: 3
+                    },
+                    normal: { offset: 12, stride: 36 },
+                    color: { offset: 24, stride: 36 }
+                });
+                this.worldObjectVAOs.set(worldObject.id, vao);
+            }
+            this.gl.bindVertexArray(vao);
+            this.gl.drawElements(this.gl.TRIANGLES, worldObject.meshSize, this.gl.UNSIGNED_INT, 0);
+        }
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    };
+    // SSAO Pass: Apply screen-space ambient occlusion
+    GLRenderer.prototype.ssaoPass = function () {
+        var _a, _b, _c;
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, ((_a = this.ssaoFrameBuffer) === null || _a === void 0 ? void 0 : _a.framebuffer) || null);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.ssaoPassShader.Program);
+        this.gl.bindVertexArray(this.screenQuadVAO);
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.ssaoPassShader.Program, (_b = this.gBuffer) === null || _b === void 0 ? void 0 : _b.normalTexture, "normalTexture", 0);
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.ssaoPassShader.Program, (_c = this.gBuffer) === null || _c === void 0 ? void 0 : _c.depthTexture, "depthTexture", 1);
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.ssaoPassShader.Program, this.noiseTexture, "noiseTexture", 2);
+        this.gl.uniform1f(this.gl.getUniformLocation(this.ssaoPassShader.Program, "radius"), this.radius);
+        this.gl.uniform1f(this.gl.getUniformLocation(this.ssaoPassShader.Program, "bias"), this.bias);
+        this.gl.uniformMatrix4fv(this.ssaoPassShader.Uniforms["proj"].location, false, this.matProj);
+        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.ssaoPassShader.Program, "projInverse"), false, this.matProjInverse);
+        this.gl.uniform1f(this.ssaoPassShader.Uniforms["noiseSize"].location, this.noiseSize);
+        for (var i = 0; i < this.kernelSize; i++) {
+            this.gl.uniform3fv(this.gl.getUniformLocation(this.ssaoPassShader.Program, "samples[".concat(i, "]")), this.kernels[i]);
+        }
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    };
+    // Blur Pass: Blur SSAO texture to reduce noise
+    GLRenderer.prototype.blurPass = function () {
+        var _a, _b, _c;
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, ((_a = this.ssaoBlurFrameBuffer) === null || _a === void 0 ? void 0 : _a.framebuffer) || null);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.ssaoBlurPassShader.Program);
+        this.gl.bindVertexArray(this.screenQuadVAO);
+        // Use GlUtils.bindTex for texture binding
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.ssaoBlurPassShader.Program, (_b = this.ssaoFrameBuffer) === null || _b === void 0 ? void 0 : _b.ssaoTexture, "ssaoTexture", 0);
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.ssaoBlurPassShader.Program, (_c = this.gBuffer) === null || _c === void 0 ? void 0 : _c.depthTexture, "depthTexture", 1);
+        this.gl.uniform1i(this.gl.getUniformLocation(this.ssaoBlurPassShader.Program, "enableBlur"), this.enableSSAOBlur ? 1 : 0);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    };
+    // Lighting Pass: Combine G-Buffer data to produce final image
+    GLRenderer.prototype.lightingPass = function () {
+        var _a, _b, _c, _d;
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.lightingPassShader.Program);
+        this.gl.bindVertexArray(this.screenQuadVAO);
+        // Use GlUtils.bindTex for all texture bindings
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.lightingPassShader.Program, (_a = this.gBuffer) === null || _a === void 0 ? void 0 : _a.normalTexture, "normalTexture", 0);
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.lightingPassShader.Program, (_b = this.gBuffer) === null || _b === void 0 ? void 0 : _b.albedoTexture, "albedoTexture", 1);
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.lightingPassShader.Program, (_c = this.gBuffer) === null || _c === void 0 ? void 0 : _c.depthTexture, "depthTexture", 2);
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.bindTex(this.gl, this.lightingPassShader.Program, (_d = this.ssaoBlurFrameBuffer) === null || _d === void 0 ? void 0 : _d.ssaoBlurTexture, "ssaoTexture", 3);
+        this.gl.uniformMatrix4fv(this.lightingPassShader.Uniforms["viewInverse"].location, false, this.matViewInverse);
+        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.lightingPassShader.Program, "projInverse"), false, this.matProjInverse);
+        this.gl.uniform3fv(this.lightingPassShader.Uniforms["cameraPosition"].location, this.camera.position);
+        this.gl.uniform1i(this.lightingPassShader.Uniforms["enableSSAO"].location, this.enableSSAO ? 1 : 0);
+        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.updateLights(this.gl, this.lightingPassShader.Program, this.world.lights);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
         this.gl.bindVertexArray(null);
     };
     GLRenderer.prototype.DrawWireFrameCube = function (TransformationMatrix) {
-        this.gl.useProgram(this.WireframeCubeShader.Program);
-        this.gl.uniformMatrix4fv(this.WireframeCubeShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
-        this.gl.uniformMatrix4fv(this.WireframeCubeShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.useProgram(this.CubeShader.Program);
+        this.gl.uniformMatrix4fv(this.CubeShader.Uniforms["transform"].location, false, TransformationMatrix);
+        this.gl.uniformMatrix4fv(this.CubeShader.Uniforms["viewProj"].location, false, this.matViewProj);
         if (!this.CubeBuffer)
             throw new Error("CubeBuffer not initialized.");
-        if (!this.wireframeCubeVAO) {
-            this.wireframeCubeVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.CubeBuffer.vertex, this.CubeBuffer.indices, this.WireframeCubeShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 24,
-                    sizeOverride: 3
-                },
-                VertexColor: { offset: 12, stride: 24 }
-            });
-        }
         this.gl.bindVertexArray(this.wireframeCubeVAO);
         this.gl.drawElements(this.gl.LINES, 24, this.gl.UNSIGNED_INT, 0);
         this.gl.bindVertexArray(null);
     };
-    GLRenderer.prototype.drawWorldObject = function (obj) {
-        // for now, just use the terrain mesh
-        this.gl.useProgram(this.TerrainMeshShader.Program);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location, false, obj.position);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        // TODO: vao should be per mesh, not per object
-        // Do we need to have some sort of meshid instead of objectid?
-        if (!this.worldObjectVAOs.has(obj.id)) {
-            var vao = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, obj.buffer.vertex, obj.buffer.indices, this.TerrainMeshShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 36,
-                    sizeOverride: 3
-                },
-                VertexNormal: { offset: 12, stride: 36 },
-                VertexColor: { offset: 24, stride: 36 }
-            });
-            this.worldObjectVAOs.set(obj.id, vao);
-        }
-        this.gl.bindVertexArray(this.worldObjectVAOs.get(obj.id));
-        this.gl.drawElements(this.gl.TRIANGLES, obj.meshSize, this.gl.UNSIGNED_INT, 0);
-        this.gl.bindVertexArray(null);
-    };
     GLRenderer.prototype.render = function () {
-        // Set clear color to black, fully opaque
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        // Clear the color buffer with specified clear color
+        this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+        var matViewAndProj = this.camera.calculateProjectionMatrices(this.canvas.width, this.canvas.height);
+        this.matView = matViewAndProj.matView;
+        this.matProj = matViewAndProj.matProj;
+        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.invert(this.matProjInverse, this.matProj);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.invert(this.matViewInverse, this.matView);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.multiply(this.matViewProj, this.matProj, this.matView);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-        // Calculate view and projection matrices once per frame
-        this.matViewProj = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var resScaleFactor = 1;
+        // Single geometry pass for all objects
+        this.geometryPass();
+        // Post-processing passes
+        if (this.enableSSAO) {
+            this.ssaoPass();
+            this.blurPass();
+        }
+        this.lightingPass();
+        // Draw debug wireframes
         if (this.debug.debugMode) {
             for (var _i = 0, _a = this.world.chunks; _i < _a.length; _i++) {
                 var chunk = _a[_i];
                 this.DrawWireFrameCube(_GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), undefined, gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(this.world.resolution, this.world.height, this.world.resolution)));
             }
         }
-        this.drawTerrain(_GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)));
-        for (var _b = 0, _c = this.world.worldObjects; _b < _c.length; _b++) {
-            var object = _c[_b];
-            this.drawWorldObject(object);
+    };
+    GLRenderer.prototype.dispose = function () {
+        if (this.TerrainVAO) {
+            this.gl.deleteVertexArray(this.TerrainVAO);
         }
+        // Delete world object VAOs
+        for (var _i = 0, _a = Array.from(this.worldObjectVAOs.values()); _i < _a.length; _i++) {
+            var vao = _a[_i];
+            this.gl.deleteVertexArray(vao);
+        }
+        this.worldObjectVAOs.clear();
+        // TODO: Delete G-Buffer textures and framebuffer
+        // TODO: Delete other VAOs
+        // TODO: Delete shaders
     };
     return GLRenderer;
 }());
@@ -7361,6 +7702,7 @@ __webpack_require__.r(__webpack_exports__);
 var GlUtils = /** @class */ (function () {
     function GlUtils() {
     }
+    ///////////////////////Rendering Utilities/////////////////////
     /**
      * Creates a WebGL program with the given vertex and fragment shader code.
      * @param gl The WebGL2RenderingContext to use for creating the program.
@@ -7428,26 +7770,18 @@ var GlUtils = /** @class */ (function () {
         };
     };
     /**
-     * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
-     * @param translation A vec3 representing the translation (x, y, z).
-     * @param rotation A vec3 representing the rotation in radians (x, y, z).
-     * @param scale A vec3 representing the scale (x, y, z).
-     * @returns A mat4 transformation matrix.
+     * Creates a buffer for vertex attributes.
+     * @param gl The WebGL2RenderingContext to use for creating the buffer.
+     * @param data The Float32Array containing attribute data.
+     * @returns WebGLBuffer containing the attribute data.
      */
-    GlUtils.CreateTransformations = function (translation, rotation, scale) {
-        var transformMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
-        if (translation) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.translate(transformMatrix, transformMatrix, translation);
-        }
-        if (rotation) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateX(transformMatrix, transformMatrix, rotation[0]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateY(transformMatrix, transformMatrix, rotation[1]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateZ(transformMatrix, transformMatrix, rotation[2]);
-        }
-        if (scale) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.scale(transformMatrix, transformMatrix, scale);
-        }
-        return transformMatrix;
+    GlUtils.CreateAttributeBuffer = function (gl, data) {
+        var buffer = gl.createBuffer();
+        if (!buffer)
+            throw new Error("Failed to create attribute buffer");
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+        return buffer;
     };
     /**
      * Creates an index buffer for the given indices.
@@ -7494,6 +7828,61 @@ var GlUtils = /** @class */ (function () {
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         return vao;
     };
+    /**
+     * Creates a Vertex Array Object (VAO) for non-interleaved vertex attributes.
+     * @param gl WebGL2RenderingContext
+     * @param attributeBuffers WebGLBuffers for each attribute
+     * @param indexBuffer Index buffer for the mesh
+     * @param shader Shader containing attribute locations
+     * @returns WebGLVertexArrayObject
+     */
+    GlUtils.createNonInterleavedVao = function (gl, attributeBuffers, indexBuffer, shader) {
+        var vao = gl.createVertexArray();
+        if (!vao)
+            throw new Error("Failed to create VAO");
+        gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        for (var _i = 0, _a = Object.entries(attributeBuffers); _i < _a.length; _i++) {
+            var _b = _a[_i], attribName = _b[0], bufferInfo = _b[1];
+            var attrib = shader.VertexInputs[attribName];
+            if (!attrib) {
+                console.warn("Attribute '".concat(attribName, "' not found in shader."));
+                continue;
+            }
+            var buffer = bufferInfo.buffer, size = bufferInfo.size, _c = bufferInfo.type, type = _c === void 0 ? gl.FLOAT : _c;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.enableVertexAttribArray(attrib.location);
+            gl.vertexAttribPointer(attrib.location, size, type, false, 0, 0);
+        }
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        return vao;
+    };
+    ///////////////////////Matrix Utilities/////////////////////
+    /**
+     * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
+     * @param translation A vec3 representing the translation (x, y, z).
+     * @param rotation A vec3 representing the rotation in radians (x, y, z).
+     * @param scale A vec3 representing the scale (x, y, z).
+     * @returns A mat4 transformation matrix.
+     */
+    GlUtils.CreateTransformations = function (translation, rotation, scale) {
+        var transformMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
+        if (translation) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.translate(transformMatrix, transformMatrix, translation);
+        }
+        if (rotation) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateX(transformMatrix, transformMatrix, rotation[0]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateY(transformMatrix, transformMatrix, rotation[1]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateZ(transformMatrix, transformMatrix, rotation[2]);
+        }
+        if (scale) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.scale(transformMatrix, transformMatrix, scale);
+        }
+        return transformMatrix;
+    };
+    ///////////////////////World Utilities/////////////////////
     /**
      * Calculates the necessary vertices, normals, and wireframes for cubes for our world
      * @param world The world we are rendering
@@ -7591,6 +7980,33 @@ var GlUtils = /** @class */ (function () {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         return texture;
     };
+    /**
+     * Creates and initializes a WebGL 2D texture with the specified parameters.
+     *
+     * @param gl - The WebGL2 rendering context.
+     * @param width - The width of the texture in pixels.
+     * @param height - The height of the texture in pixels.
+     * @param internalFormat - The internal format of the texture (e.g., `gl.RGBA8`).
+     * @param format - The format of the pixel data (e.g., `gl.RGBA`).
+     * @param type - The data type of the pixel data (e.g., `gl.UNSIGNED_BYTE`).
+     * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
+     * @returns The created WebGLTexture object.
+     */
+    GlUtils.createTexture = function (gl, width, height, internalFormat, format, type, data, minFilter, magFilter, wrapS, wrapT) {
+        if (data === void 0) { data = null; }
+        if (minFilter === void 0) { minFilter = gl.NEAREST; }
+        if (magFilter === void 0) { magFilter = gl.NEAREST; }
+        if (wrapS === void 0) { wrapS = gl.CLAMP_TO_EDGE; }
+        if (wrapT === void 0) { wrapT = gl.CLAMP_TO_EDGE; }
+        var texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, data);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
+        return texture;
+    };
     return GlUtils;
 }());
 
@@ -7619,18 +8035,18 @@ var Shader = /** @class */ (function () {
         if (!this.Program) {
             throw new Error("Error creating shader program");
         }
-        var VertexVariables = this.extractShaderVariables(gl, VertexShaderCode, this.Program);
+        var VertexVariables = this.extractShaderVariables(gl, VertexShaderCode, FragmentShaderCode, this.Program);
         this.VertexInputs = VertexVariables[0];
-        this.VertexUniforms = VertexVariables[1];
+        this.Uniforms = VertexVariables[1];
     }
-    Shader.prototype.extractShaderVariables = function (gl, shaderCode, program) {
+    Shader.prototype.extractShaderVariables = function (gl, vertexShaderCode, fragmentShaderCode, program) {
         var inputPattern = /in\s+(\w+)\s+(\w+);/g;
         var uniformPattern = /uniform\s+(\w+)\s+(\w+);/g;
         var inputs = {};
         var uniforms = {};
         var match;
         // Extract inputs
-        while ((match = inputPattern.exec(shaderCode)) !== null) {
+        while ((match = inputPattern.exec(vertexShaderCode)) !== null) {
             var location_1 = gl.getAttribLocation(program, match[2]);
             if (location_1 === -1) {
                 console.error("Attribute ".concat(match[2], " not found in shader program."));
@@ -7643,13 +8059,21 @@ var Shader = /** @class */ (function () {
             };
         }
         // Extract uniforms
-        while ((match = uniformPattern.exec(shaderCode)) !== null) {
+        while ((match = uniformPattern.exec(vertexShaderCode)) !== null) {
             var location_2 = gl.getUniformLocation(program, match[2]);
             if (location_2 === null) {
                 console.error("Uniform ".concat(match[2], " not found in shader program."));
                 continue;
             }
             uniforms[match[2]] = { type: match[1], location: location_2 };
+        }
+        while ((match = uniformPattern.exec(fragmentShaderCode)) !== null) {
+            var location_3 = gl.getUniformLocation(program, match[2]);
+            if (location_3 === null) {
+                console.error("Uniform ".concat(match[2], " not found in shader program."));
+                continue;
+            }
+            uniforms[match[2]] = { type: match[1], location: location_3 };
         }
         return [inputs, uniforms];
     };
@@ -7686,14 +8110,25 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   CubeFragmentShaderCode: () => (/* binding */ CubeFragmentShaderCode),
 /* harmony export */   CubeVertexShaderCode: () => (/* binding */ CubeVertexShaderCode),
-/* harmony export */   MeshFragmentShaderCode: () => (/* binding */ MeshFragmentShaderCode),
-/* harmony export */   MeshVertexShaderCode: () => (/* binding */ MeshVertexShaderCode)
+/* harmony export */   MeshGeometryFragmentShaderCode: () => (/* binding */ MeshGeometryFragmentShaderCode),
+/* harmony export */   MeshGeometryVertexShaderCode: () => (/* binding */ MeshGeometryVertexShaderCode),
+/* harmony export */   MeshLightingFragmentShaderCode: () => (/* binding */ MeshLightingFragmentShaderCode),
+/* harmony export */   MeshLightingVertexShaderCode: () => (/* binding */ MeshLightingVertexShaderCode),
+/* harmony export */   MeshSSAOBlurFragmentShaderCode: () => (/* binding */ MeshSSAOBlurFragmentShaderCode),
+/* harmony export */   MeshSSAOBlurVertexShaderCode: () => (/* binding */ MeshSSAOBlurVertexShaderCode),
+/* harmony export */   MeshSSAOFragmentShaderCode: () => (/* binding */ MeshSSAOFragmentShaderCode),
+/* harmony export */   MeshSSAOVertexShaderCode: () => (/* binding */ MeshSSAOVertexShaderCode)
 /* harmony export */ });
-var CubeVertexShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
+var CubeVertexShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\nin vec4 position;\nin vec3 color;\nout vec3 fragmentColor;\nuniform mat4 transform;\nuniform mat4 viewProj;\n\nvoid main() {  \n  fragmentColor = color;\n  gl_Position = viewProj * transform * position;\n}\n";
 var CubeFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1);\n}";
-//
-var MeshVertexShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nstruct Light {\n  vec3 position;\n  vec3 color;\n  vec3 showColor;\n  float intensity;\n  float radius;\n};\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nin vec4 VertexPosition;\nin vec3 VertexNormal;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nout vec3 fragmentNormal;\nout vec3 fragmentPosition;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  fragmentNormal = VertexNormal;\n  fragmentPosition = VertexPosition.xyz;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n\nstruct Light {\n  vec3 position;\n  vec3 color;\n  vec3 showColor;\n  float intensity;\n  float radius;\n};\n\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 viewPosition;\n\nin vec3 fragmentColor;\nin vec3 fragmentNormal;\nin vec3 fragmentPosition;\nout vec4 outputColor;\n\nvoid main() {\n    vec3 normal = normalize(fragmentNormal);\n    vec3 specular = vec3(0.0);\n    vec3 totalDiffuse = vec3(0.0);\n    \n    float ambientStrength = 0.15;\n    vec3 ambientLight = vec3(0.4, 0.45, 0.5);\n    \n    float metallic = 0.1;\n    float roughness = 0.7;\n    float specularStrength = mix(0.04, 0.9, metallic);\n    int shininess = int(mix(2.0, 32.0, 1.0 - roughness));\n    \n    for(int i = 0; i < MAX_LIGHTS; i++) {\n        if(i >= numActiveLights) break;\n        \n        vec3 lightDir = normalize(lights[i].position - fragmentPosition);\n        float distance = length(lights[i].position - fragmentPosition);\n        \n        \n        // Diffuse lighting\n        float diffuseStrength = max(dot(normal, lightDir), 0.1);\n        vec3 diffuse = diffuseStrength * lights[i].color * lights[i].intensity;\n        totalDiffuse += diffuse;\n        \n        // Specular lighting (Blinn-Phong)\n        vec3 viewDir = normalize(viewPosition - fragmentPosition);\n        vec3 halfwayDir = normalize(lightDir + viewDir);\n        float spec = pow(max(dot(normal, halfwayDir), 0.0), float(shininess));\n        specular += spec * lights[i].color * lights[i].intensity * specularStrength;\n    }\n    \n    // Combine lighting components\n    vec3 ambient = ambientLight * ambientStrength;\n    vec3 lighting = ambient + totalDiffuse + specular;\n    \n    // Apply lighting to material color\n    vec3 finalColor = fragmentColor * lighting;\n    \n    // Gamma correction\n    finalColor = pow(finalColor, vec3(1.0 / 2.2));\n    \n    outputColor = vec4(finalColor, 1.0);\n}";
+var MeshGeometryVertexShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\n\nin vec3 position;\nin vec3 normal;\nin vec3 color;\n\nuniform mat4 model;\nuniform mat4 view;\nuniform mat4 proj;\n\nout vec3 viewNormal;\nout vec3 albedo;\nout vec4 viewPos;\n\nvoid main() {\n    vec4 worldPos = model * vec4(position, 1.0);\n    viewPos = view * worldPos;\n    \n    mat3 normalMatrix = mat3(transpose(inverse(view * model)));\n    viewNormal = normalize(normalMatrix * normal);\n    \n    albedo = color;\n    \n    gl_Position = proj * viewPos;\n}\n";
+var MeshGeometryFragmentShaderCode = /* glsl */ "#version 300 es \nprecision highp float;\n\nin vec3 viewNormal;\nin vec3 albedo;\nin vec4 viewPos;\n\nlayout(location = 0) out vec4 outNormal;\nlayout(location = 1) out vec4 outAlbedo;\n\nvoid main() {\n    outNormal = vec4(normalize(viewNormal), 1.0);\n    outAlbedo = vec4(albedo, 1.0);\n}\n";
+var MeshSSAOVertexShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0);\n}\n";
+var MeshSSAOFragmentShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\n#define NUM_SAMPLES 64\nin vec2 fragUV;\nout float ssao;\nuniform sampler2D normalTexture;\nuniform sampler2D depthTexture;\nuniform sampler2D noiseTexture;\nuniform float noiseSize;\nuniform vec3 samples[64];\nuniform mat4 proj;\nuniform mat4 projInverse;\nuniform float radius;\nuniform float bias;\n\nvec3 getViewPosition(vec2 texCoord) {\n    float depth = texture(depthTexture, texCoord).r;\n    vec2 ndc = texCoord * 2.0 - 1.0;\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0 - 1.0, 1.0);\n    vec4 viewSpacePos = projInverse * clipSpacePos;\n    return viewSpacePos.xyz / viewSpacePos.w;\n}\n\nvoid main() {\n    vec2 noiseScale = vec2(textureSize(depthTexture, 0)) / noiseSize;\n    \n    vec3 fragPos = getViewPosition(fragUV);\n    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);\n    vec3 randomVec = normalize(texture(noiseTexture, fragUV * noiseScale).xyz);\n\n    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\n    vec3 bitangent = cross(normal, tangent);\n    mat3 TBN = mat3(tangent, bitangent, normal);\n    \n    float occlusion = 0.0;\n    \n    for(int i = 0; i < NUM_SAMPLES; i++) {\n        vec3 samplePos = TBN * samples[i];\n        samplePos = fragPos + samplePos * radius;\n\n        vec4 offset = proj * vec4(samplePos, 1.0);\n        offset.xyz /= offset.w;\n        offset.xyz = offset.xyz * 0.5 + 0.5;\n\n        if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) {\n            continue;\n        }\n\n        float sampleDepth = getViewPosition(offset.xy).z;\n        if(texture(depthTexture, offset.xy).r>=1.0) continue;\n        float rangeCheck= abs(fragPos.z - sampleDepth) < radius ? 1.0 : 0.0;\n        occlusion += (sampleDepth >= samplePos.z+bias ? 1.0 : 0.0) * rangeCheck;\n    }\n    \n    occlusion = 1.0 - (occlusion / float(NUM_SAMPLES));\n    ssao = occlusion;\n}\n";
+var MeshSSAOBlurVertexShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0);\n}\n";
+var MeshSSAOBlurFragmentShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout float ssaoBlur;\nuniform sampler2D ssaoTexture;\nuniform sampler2D depthTexture;\nuniform bool enableBlur;\n\nconst int KERNEL_RADIUS = 2;\nconst float sigma_spatial = 2.0;\nconst float sigma_depth = 0.1;\n\nvoid main() {\n    if (!enableBlur) {\n        ssaoBlur = texture(ssaoTexture, fragUV).r;\n        return;\n    }\n\n    float centerSSAO = texture(ssaoTexture, fragUV).r;\n    float centerDepth = texture(depthTexture, fragUV).r;\n    vec2 texelSize = 1.0 / vec2(textureSize(ssaoTexture, 0));\n\n    float sum = 0.0;\n    float weightSum = 0.0;\n\n    for (int y = -KERNEL_RADIUS; y <= KERNEL_RADIUS; ++y) {\n        for (int x = -KERNEL_RADIUS; x <= KERNEL_RADIUS; ++x) {\n            vec2 offset = vec2(float(x), float(y)) * texelSize;\n            float sampleSSAO = texture(ssaoTexture, fragUV + offset).r;\n            float sampleDepth = texture(depthTexture, fragUV + offset).r;\n\n            float spatialWeight = exp(-float(x * x + y * y) / (2.0 * sigma_spatial * sigma_spatial));\n            float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0) / (2.0 * sigma_depth * sigma_depth));\n            float weight = spatialWeight * depthWeight;\n\n            sum += sampleSSAO * weight;\n            weightSum += weight;\n        }\n    }\n    ssaoBlur = sum / weightSum;\n}";
+var MeshLightingVertexShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0);\n}\n";
+var MeshLightingFragmentShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout vec4 outputColor;\nuniform sampler2D normalTexture;\nuniform sampler2D albedoTexture;\nuniform sampler2D depthTexture;\nuniform sampler2D ssaoTexture;\nuniform mat4 viewInverse;\nuniform mat4 projInverse;\nstruct Light {\n  vec3 position;\n  vec3 color;\n  vec3 showColor;\n  float intensity;\n  float radius;\n};\n#define MAX_LIGHTS 100\n\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 cameraPosition;\nuniform bool enableSSAO;\nvec3 getViewPosition(vec2 texCoord) {\n    float depth = texture(depthTexture, texCoord).r;\n    vec2 ndc = texCoord * 2.0 - 1.0;\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0 - 1.0, 1.0);\n    vec4 viewSpacePos = projInverse * clipSpacePos;\n    return viewSpacePos.xyz / viewSpacePos.w;\n}\n\nvec3 getWorldPosition(vec3 viewPos) {\n    vec4 worldPos = viewInverse * vec4(viewPos, 1.0);\n    return worldPos.xyz;\n}\n\nvoid main() {\n    vec3 fragViewPos = getViewPosition(fragUV);\n    vec3 fragWorldPos = getWorldPosition(fragViewPos);\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\n    vec3 skyColor = vec3(0.5, 0.7, 1.0);\n    \n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\n    \n    vec3 albedo = texture(albedoTexture, fragUV).rgb;\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\n    if(!enableSSAO) {\n        ambientOcclusion = 1.0;\n    }\n    vec3 ambient = (vec3(0.3) * albedo) * ambientOcclusion;\n    vec3 lighting = ambient;\n    \n    for(int i = 0; i < numActiveLights; i++) {\n        vec3 lightDir = normalize(lights[i].position - fragWorldPos);\n        float diff = max(dot(lightDir, worldNormal), 0.0);\n        vec3 diffuse = diff * lights[i].color * lights[i].intensity;\n\n        vec3 viewDir = normalize(cameraPosition - fragWorldPos);\n        vec3 reflectDir = reflect(-lightDir, worldNormal);\n        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);\n        vec3 specular = spec * lights[i].color * lights[i].intensity;\n        \n        float distance = length(lights[i].position - fragWorldPos);\n        float attenuation = 1.0 / (1.0 + (distance / lights[i].radius) * (distance / lights[i].radius));\n        diffuse *= attenuation;\n        specular *= attenuation;\n\n        lighting += (diffuse + specular) * ambient;\n    }\n\n    if(texture(depthTexture, fragUV).r>=1.0) {\n        outputColor = vec4(skyColor,1.0);\n    }\n    else{\n        outputColor = vec4(lighting, 1.0);\n    }\n}\n";
 
 
 /***/ })
@@ -7792,7 +8227,7 @@ var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("c2e95382f2e49bf54fd0")
+/******/ 		__webpack_require__.h = () => ("4f830681bf73cbf40bb4")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */

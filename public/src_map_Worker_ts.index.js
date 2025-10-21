@@ -264,12 +264,38 @@ function chunkCoordinateToIndex(c, gridSize) {
         c[2] * (gridSize[0] + 1) * (gridSize[1] + 1));
 }
 function noiseFunction(c, simplex) {
-    var frequency = 0.07;
-    var noiseValue = simplex(c[0] * frequency, c[1] * frequency, c[2] * frequency);
-    var normalizedNoise = (noiseValue + 1) / 2;
-    var heightParameter = 1 / Math.pow(1.07, c[1]);
-    var floor = +(c[1] === 0);
-    return Math.max(normalizedNoise * heightParameter, floor);
+    var hillFreq = 0.02;
+    var mountainFreq = 0.005;
+    var caveFreq = 0.05;
+    var waterLevel = 30;
+    var hillWeight = 0.6;
+    var mountainWeight = 0.4;
+    function fractalNoise(c, octaves, freq, amp) {
+        var total = 0;
+        var max = 0;
+        var f = freq;
+        var a = amp;
+        for (var i = 0; i < octaves; i++) {
+            total += simplex(c[0] * f, c[1] * f, c[2] * f) * a;
+            max += a;
+            f *= 2;
+            a /= 2;
+        }
+        return total / max;
+    }
+    var hillNoise = fractalNoise(c, 4, hillFreq, 1);
+    var hillHeight = hillNoise * 40 + 50;
+    var ridgeVal = 1 - Math.abs(fractalNoise(c, 3, mountainFreq, 1));
+    var mountainHeight = Math.pow(ridgeVal, 2) * 200;
+    var terrainHeight = hillHeight * hillWeight + mountainHeight * mountainWeight;
+    terrainHeight = Math.floor(terrainHeight / 5) * 5;
+    var density = terrainHeight - c[1];
+    var caveNoise = fractalNoise(c, 3, caveFreq, 1);
+    density -= Math.max(0, (caveNoise - 0.5) * 60 * Math.max(0, 1 - c[1] / 100));
+    if (c[1] < waterLevel)
+        density = Math.min(density, waterLevel - c[1]);
+    var normalized = (density + 100) / 200;
+    return Math.max(0, Math.min(1, normalized));
 }
 function GenerateCase(cubeCoordinates) {
     /*
@@ -415,7 +441,8 @@ self.onmessage = function (event) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   meshToVerticesAndIndices: () => (/* binding */ meshToVerticesAndIndices),
+/* harmony export */   meshToInterleavedVerticesAndIndices: () => (/* binding */ meshToInterleavedVerticesAndIndices),
+/* harmony export */   meshToNonInterleavedVerticesAndIndices: () => (/* binding */ meshToNonInterleavedVerticesAndIndices),
 /* harmony export */   vertexKey: () => (/* binding */ vertexKey)
 /* harmony export */ });
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
@@ -426,7 +453,7 @@ var roundToPrecision = function (value, precision) {
 var vertexKey = function (vertex) {
     return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
 };
-var meshToVerticesAndIndices = function (mesh) {
+var meshToInterleavedVerticesAndIndices = function (mesh) {
     // For each vertex: x, y, z, r, g, b
     var vertexMap = new Map();
     var vertices = [];
@@ -454,6 +481,38 @@ var meshToVerticesAndIndices = function (mesh) {
         indices: new Uint32Array(indices)
     };
 };
+var meshToNonInterleavedVerticesAndIndices = function (mesh) {
+    var vertexMap = new Map();
+    var positions = [];
+    var normals = [];
+    var colors = [];
+    var indices = [];
+    var vertexIndex = 0;
+    for (var i = 0; i < mesh.mesh.length; i++) {
+        var triangle = mesh.mesh[i];
+        var types = mesh.type[i];
+        for (var j = 0; j < 3; j++) {
+            var vertex = triangle[j];
+            var normal = mesh.normals[i][j];
+            var key = vertexKey(vertex);
+            if (!vertexMap.has(key)) {
+                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                var color = type.color;
+                positions.push(vertex[0], vertex[1], vertex[2]);
+                normals.push(normal[0], normal[1], normal[2]);
+                colors.push(color.r / 255, color.g / 255, color.b / 255);
+                vertexMap.set(key, vertexIndex++);
+            }
+            indices.push(vertexMap.get(key));
+        }
+    }
+    return {
+        positions: new Float32Array(positions),
+        normals: new Float32Array(normals),
+        colors: new Float32Array(colors),
+        indices: new Uint32Array(indices)
+    };
+};
 
 
 /***/ }),
@@ -470,7 +529,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   EDGES: () => (/* binding */ EDGES),
 /* harmony export */   VERTICES: () => (/* binding */ VERTICES),
 /* harmony export */   cubeVertices: () => (/* binding */ cubeVertices),
-/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices)
+/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices),
+/* harmony export */   quadIndices: () => (/* binding */ quadIndices),
+/* harmony export */   quadVertices: () => (/* binding */ quadVertices)
 /* harmony export */ });
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 var VERTICES = [
@@ -763,6 +824,29 @@ var cubeWireframeIndices = [
     // 12 edges × 2 vertices = 24 indices
     0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
 ];
+var quadVertices = new Float32Array([
+    -1.0,
+    -1.0,
+    0.0,
+    0.0,
+    0.0, // Bottom-left
+    1.0,
+    -1.0,
+    0.0,
+    1.0,
+    0.0, // Bottom-right
+    1.0,
+    1.0,
+    0.0,
+    1.0,
+    1.0, // Top-right
+    -1.0,
+    1.0,
+    0.0,
+    0.0,
+    1.0 // Top-left
+]);
+var quadIndices = new Uint16Array([0, 1, 2, 2, 3, 0]);
 
 
 /***/ }),
@@ -1030,7 +1114,7 @@ var Terrains = {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("c2e95382f2e49bf54fd0")
+/******/ 		__webpack_require__.h = () => ("4f830681bf73cbf40bb4")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

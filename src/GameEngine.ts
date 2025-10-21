@@ -67,7 +67,7 @@ export class GameEngine {
     //Initialize world
     this.world = new WorldMap(
       1000,
-      64,
+      200,
       1000,
       this.gl,
       () => this.updatePathracing
