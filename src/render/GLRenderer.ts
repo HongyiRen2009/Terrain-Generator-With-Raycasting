@@ -66,7 +66,6 @@ export class GLRenderer {
     this.debug = debug;
     this.world = world;
 
-    gl.viewport(0, 0, canvas.width, canvas.height);
     gl.depthFunc(gl.LEQUAL);
 
     this.matView = mat4.create();
@@ -100,7 +99,7 @@ export class GLRenderer {
 
   render(): void {
     this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
-
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     const matViewAndProj = this.camera.calculateProjectionMatrices(
       this.canvas.width,
       this.canvas.height

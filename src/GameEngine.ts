@@ -12,6 +12,7 @@ import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
 import { threemfToMesh } from "./modelLoader/3fmreader";
 import { Color, Terrains } from "./map/terrains";
 import { WorldObject } from "./map/WorldObject";
+import { SettingsManager } from "./Settings";
 
 /**
  * Our holding class for all game mechanics
@@ -27,6 +28,7 @@ export class GameEngine {
   private mainCamera: Camera;
   private renderer: GLRenderer;
   private pathTracer: PathTracer;
+  public static settingsManager: SettingsManager;
 
   //
   private keys: { [key: string]: boolean } = {};
@@ -84,72 +86,6 @@ export class GameEngine {
       this.debug,
       this.world
     );
-    const radiusSlider = document.getElementById(
-      "radius-slider"
-    ) as HTMLInputElement;
-    const radiusValue = document.getElementById("radius-value")!;
-    radiusSlider.value = this.renderer.radius.toString();
-    radiusValue.textContent = this.renderer.radius.toString();
-    radiusSlider.addEventListener("input", () => {
-      this.renderer.radius = parseFloat(radiusSlider.value);
-      radiusValue.textContent = radiusSlider.value;
-    });
-
-    const biasSlider = document.getElementById(
-      "bias-slider"
-    ) as HTMLInputElement;
-    const biasValue = document.getElementById("bias-value")!;
-    biasSlider.value = this.renderer.bias.toString();
-    biasValue.textContent = this.renderer.bias.toString();
-    biasSlider.addEventListener("input", () => {
-      this.renderer.bias = parseFloat(biasSlider.value);
-      biasValue.textContent = biasSlider.value;
-    });
-    const blurCheckbox = document.getElementById(
-      "blur-checkbox"
-    ) as HTMLInputElement;
-    blurCheckbox.checked = this.renderer.enableSSAOBlur;
-    blurCheckbox.addEventListener("change", () => {
-      this.renderer.enableSSAOBlur = blurCheckbox.checked;
-    });
-    const absorbtionSlider = document.getElementById(
-      "absorption-slider"
-    ) as HTMLInputElement;
-    const absorbtionValue = document.getElementById("absorption-value")!;
-    absorbtionSlider.value = this.renderer.cloudRenderer.absorption.toString();
-    absorbtionValue.textContent =
-      this.renderer.cloudRenderer.absorption.toString();
-    absorbtionSlider.addEventListener("input", () => {
-      this.renderer.cloudRenderer.absorption = parseFloat(
-        absorbtionSlider.value
-      );
-      absorbtionValue.textContent = absorbtionSlider.value;
-    });
-    const densitySlider = document.getElementById(
-      "density-slider"
-    ) as HTMLInputElement;
-    const densityValue = document.getElementById("density-value")!;
-    densitySlider.value =
-      this.renderer.cloudRenderer.densityThreshold.toString();
-    densityValue.textContent =
-      this.renderer.cloudRenderer.densityThreshold.toString();
-    densitySlider.addEventListener("input", () => {
-      this.renderer.cloudRenderer.densityThreshold = parseFloat(
-        densitySlider.value
-      );
-      densityValue.textContent = densitySlider.value;
-    });
-    const frequencySlider = document.getElementById(
-      "frequency-slider"
-    ) as HTMLInputElement;
-    const frequencyValue = document.getElementById("frequency-value")!;
-    frequencySlider.value = this.renderer.cloudRenderer.frequency.toString();
-    frequencyValue.textContent =
-      this.renderer.cloudRenderer.frequency.toString();
-    frequencySlider.addEventListener("input", () => {
-      this.renderer.cloudRenderer.frequency = parseFloat(frequencySlider.value);
-      frequencyValue.textContent = frequencySlider.value;
-    });
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,
@@ -162,6 +98,9 @@ export class GameEngine {
       this.pathTracer.initBVH(this.world.combinedMesh());
       this.pathTracer.init(false);
     };
+    // Initialize settings manager
+    GameEngine.settingsManager = new SettingsManager("settings-section");
+    this.initializeSettings();
 
     //Events
     this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
@@ -363,5 +302,78 @@ export class GameEngine {
   }
   static toRadians(degrees: number) {
     return degrees * (Math.PI / 180);
+  }
+
+  private initializeSettings(): void {
+    // SSAO Settings Section
+    const ssaoSection = GameEngine.settingsManager.createSection(
+      "ssao",
+      "SSAO Settings"
+    );
+
+    ssaoSection.addSlider({
+      id: "ssao-radius",
+      label: "SSAO Radius",
+      min: 0.1,
+      max: 10.0,
+      step: 0.01,
+      defaultValue: 5.0
+    });
+
+    ssaoSection.addSlider({
+      id: "ssao-bias",
+      label: "SSAO Bias",
+      min: 0.0,
+      max: 11,
+      step: 0.001,
+      defaultValue: 0.025
+    });
+
+    ssaoSection.addCheckbox({
+      id: "ssao-blur",
+      label: "Enable SSAO Blur",
+      defaultValue: true
+    });
+
+    // Cloud Settings Section
+    const cloudSection = GameEngine.settingsManager.createSection(
+      "clouds",
+      "Cloud Settings"
+    );
+
+    cloudSection.addSlider({
+      id: "absorption",
+      label: "Cloud Absorption",
+      min: 0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 1.0
+    });
+
+    cloudSection.addSlider({
+      id: "density-threshold",
+      label: "Cloud Density Threshold",
+      min: -2.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.5
+    });
+
+    cloudSection.addSlider({
+      id: "frequency",
+      label: "Cloud Noise Frequency",
+      min: 0.1,
+      max: 5.0,
+      step: 0.1,
+      defaultValue: 0.2
+    });
+    cloudSection.addSlider({
+      id: "light-absorption",
+      label: "Cloud Light Absorption",
+      min: 0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 1.0
+    });
   }
 }

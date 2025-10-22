@@ -16,9 +16,10 @@ uniform vec3 sunColor;
 uniform float absorption;
 uniform float densityThreshold;
 uniform float frequency;
+uniform float lightAbsorption;
 out vec4 fragColor;
-const int MAX_STEPS = 16;
-
+const int MAX_STEPS = 64;
+const int MAX_STEPS_LIGHT = 8;
 bool intersectBox(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tNear, out float tFar) {
     vec3 tMin = (boxMin - rayOrigin) / rayDir;
     vec3 tMax = (boxMax - rayOrigin) / rayDir;
@@ -28,42 +29,32 @@ bool intersectBox(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out flo
     tFar = min(min(t2.x, t2.y), t2.z);
     return tNear <= tFar && tFar >= 0.0f;
 }
-
-float phaseHG(float cosTheta, float g) {
-    // cosTheta = dot(lightDir, viewDir)
-    float denom = 1.0f + g * g - 2.0f * g * cosTheta;
-    return (1.0f - g * g) / (4.0f * 3.14159f * pow(denom, 1.5f));
-}
 float sampleDensity(vec3 pos) {
-    int octaves = 5;
-    float persistence = 0.707f;
-    float lacunarity = 2.5789f;
-    vec3 samplePos = (pos - cubeMin) / (cubeMax - cubeMin);
-    vec3 UVW = samplePos * frequency;
-    float amplitude = 1.0f;
-    float value = 0.0f;
-    for(int i = 0; i < octaves; i++) {
-        value += amplitude * texture(noiseTexture, UVW).r;
-        UVW *= lacunarity;
-        amplitude *= persistence;
-    }
-    // Correct thresholding
-    return max(0.0f, value - densityThreshold) * absorption;
+    vec3 localPos = (pos - cubeMin) / (cubeMax - cubeMin);
+    float noiseValue = texture(noiseTexture, localPos * frequency).r;
+    return max(0.0f, noiseValue - densityThreshold);
 }
-vec3 computeSunColor(vec3 samplePos) {
-    vec3 lightDir = normalize(sunPos - samplePos);
+float sampleLight(vec3 pos) {
+    vec3 lightDir = normalize(sunPos - pos);
     float tNear, tFar;
-    if(!intersectBox(samplePos, lightDir, cubeMin, cubeMax, tNear, tFar)) {
-        return sunColor;
+    if(!intersectBox(pos, lightDir, cubeMin, cubeMax, tNear, tFar)) {
+        return 1.0f;
     }
-    float stepSize = (tFar - tNear) / float(MAX_STEPS);
-    float totalDensity = 0.0f;
-    for(int i = 0; i < MAX_STEPS; i++) {
-        vec3 samplePoint = samplePos + lightDir * (tNear + stepSize * (float(i) + 0.5f));
-        totalDensity += max(0.0f, sampleDensity(samplePoint) * stepSize);
+    float tStep = (tFar - tNear) / float(MAX_STEPS_LIGHT);
+    float lightTransmittance = 1.0f;
+    for(int i = 0; i < MAX_STEPS_LIGHT; i++) {
+        float tCurrent = tNear + tStep * (float(i) + 0.5f);
+        vec3 samplePos = pos + lightDir * tCurrent;
+        float rawDensity = sampleDensity(samplePos);
+        float density = smoothstep(0.2f, 0.8f, rawDensity); // Gentler remapping
+        lightTransmittance *= exp(-lightAbsorption * density * tStep);
     }
-    float transmittance = exp(-totalDensity);
-    return sunColor * transmittance;
+    return lightTransmittance;
+}
+vec3 getNormal(vec3 pos) {
+    float delta = 0.02f;
+    vec3 normal = vec3(sampleDensity(pos)) - vec3(sampleDensity(pos + vec3(delta, 0.0f, 0.0f)), sampleDensity(pos + vec3(0.0f, delta, 0.0f)), sampleDensity(pos + vec3(0.0f, 0.0f, delta)));
+    return normalize(normal);
 }
 void main() {
     vec2 uv = fragUV * 2.0f - 1.0f;
@@ -78,22 +69,48 @@ void main() {
         discard;
     }
     float tStep = (tFar - tNear) / float(MAX_STEPS);
-    float transmittance = 1.0f;
-    vec3 color = vec3(0.0f);
+    vec4 accumulatedColor = vec4(0.0f);
+
     for(int i = 0; i < MAX_STEPS; i++) {
-        vec3 samplePos = rayOriginWorld + (rayDirWorld * (tNear + tStep * (float(i) + 0.5f)));
-        float density = sampleDensity(samplePos);
-        fragColor = vec4(vec3(density), 1.0f); // For debugging density
-        return;
-        if(density > 0.01f) {
-            vec3 sunCol = computeSunColor(samplePos);
-            float phase = phaseHG(dot(normalize(sunPos - samplePos), -rayDirWorld), 0.76f);
-            float deltaTransmittance = exp(-density * tStep);
-            color += sunCol * density * phase * tStep * transmittance;
-            transmittance *= deltaTransmittance;
-        }
+        float t = tNear + tStep * (float(i) + 0.5f);
+        vec3 samplePos = rayOriginWorld + rayDirWorld * t;
+
+    // 1. Sample base density
+        float rawDensity = sampleDensity(samplePos);
+        float density = smoothstep(0.2f, 0.8f, rawDensity); // soften range
+
+        if(density < 0.01f)
+            continue;
+
+    // 2. Light attenuation along light direction
+        float lightTransmittance = sampleLight(samplePos);
+
+    // 3. Compute lighting — sun + ambient
+        vec3 normal = getNormal(samplePos);
+        float diffuse = max(dot(normal, normalize(sunPos - samplePos)), 0.0f);
+        vec3 lightColor = sunColor * lightTransmittance * diffuse + vec3(0.6f, 0.7f, 1.0f) * 0.2f; // ambient sky blue
+
+    // 4. Density → brightness mapping (mimic self-shadow)
+        vec3 albedo = mix(vec3(1.0f), vec3(0.3f), density); // white to grey
+
+    // 5. Energy-conserving shading
+        vec3 lighting = albedo * lightColor;
+
+    // 6. Opacity from density and absorbtion (Beer’s law but bounded)
+        float stepOpacity = 1.0f - exp(-density * tStep * absorption);
+        stepOpacity = clamp(stepOpacity, 0.0f, 1.0f);
+
+    // 7. Premultiply alpha
+        vec4 color = vec4(lighting * stepOpacity, stepOpacity);
+
+    // 8. Front-to-back compositing (bounded accumulation)
+        accumulatedColor += color * (1.0f - accumulatedColor.a);
+
+    // 9. Stop if almost opaque
+        if(accumulatedColor.a > 0.99f)
+            break;
     }
-    float alpha = 1.0f - transmittance;
-    fragColor = vec4(color, alpha);
+
+    fragColor = accumulatedColor;
 
 }

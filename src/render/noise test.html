@@ -1,4 +1,16 @@
 <canvas></canvas>
+<style>
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: #000;
+  }
+  canvas {
+    display: block;
+  }
+</style>
 <script>
   const canvas = document.querySelector("canvas");
   const ctx = canvas.getContext("2d");
@@ -107,10 +119,7 @@
             // Invert Worley
             let v = 1.0 - octaveData[z][y][x];
             // Carve detail instead of add
-            data[z][y][x] =
-              o === 0
-                ? v * amplitude
-                : Math.max(0.0, data[z][y][x] - v * amplitude);
+            data[z][y][x] += v * amplitude;
           }
         }
       }
@@ -130,43 +139,70 @@
 
     return data;
   }
-  const noiseWidth = 256;
-  const noiseHeight = 256;
-  const noiseDepth = 1;
-  const gridSize = 64;
-  const octaves = 4;
-  const noiseData3D = fractalWorleyNoise3D(
-    noiseWidth,
-    noiseHeight,
-    noiseDepth,
-    gridSize,
-    octaves
-  );
-  const scale = 4; // Increase for more zoom-in, decrease for zoom-out
-
-  // Flatten 3D data to 2D for rendering
-  const noiseData = new Float32Array(noiseWidth * noiseHeight);
-  for (let y = 0; y < noiseHeight; y++) {
-    for (let x = 0; x < noiseWidth; x++) {
-      noiseData[y * noiseWidth + x] =
-        noiseData3D[Math.floor(noiseDepth / 2)][y][x];
+  const size = 64;
+  const data = fractalWorleyNoise3D(size, size, size, 32, 4, 0.5);
+  const noiseData = new Uint8ClampedArray(size * size * size * 4);
+  let idx = 0;
+  for (let z = 0; z < size; z++) {
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const v = Math.floor(data[z][y][x] * 255);
+        noiseData[idx++] = v;
+        noiseData[idx++] = v;
+        noiseData[idx++] = v;
+        noiseData[idx++] = 255;
+      }
     }
   }
-  const imageData = ctx.createImageData(canvas.width, canvas.height);
 
-  // Usage: render a slice at z = depth / 2
-  for (let y = 0; y < canvas.height; y++) {
-    for (let x = 0; x < canvas.width; x++) {
-      // Sample at scaled coordinates
-      const nx = Math.floor((x / scale) % noiseWidth);
-      const ny = Math.floor((y / scale) % noiseHeight);
-      const value = Math.floor(noiseData[ny * noiseWidth + nx] * 255);
-      const idx = (y * canvas.width + x) * 4;
-      imageData.data[idx + 0] = 255 - value;
-      imageData.data[idx + 1] = 255 - value;
-      imageData.data[idx + 2] = 255 - value;
-      imageData.data[idx + 3] = 255;
+  let currentZ = 0;
+  let renderRes = 32; // initial render resolution
+
+  function drawSlice(z) {
+    // Create a tileable pattern from the noiseData for the current Z slice
+    const tileCanvas = document.createElement("canvas");
+    tileCanvas.width = size;
+    tileCanvas.height = size;
+    const tileCtx = tileCanvas.getContext("2d");
+    const imageData = tileCtx.createImageData(size, size);
+    let idx = z * size * size * 4;
+    for (let i = 0; i < size * size * 4; i++) {
+      imageData.data[i] = noiseData[idx + i];
+    }
+    tileCtx.putImageData(imageData, 0, 0);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+
+    // Repeat the tile to fill the canvas at the desired renderRes
+    for (let y = 0; y < canvas.height; y += renderRes) {
+      for (let x = 0; x < canvas.width; x += renderRes) {
+        ctx.drawImage(tileCanvas, 0, 0, size, size, x, y, renderRes, renderRes);
+      }
     }
   }
-  ctx.putImageData(imageData, 0, 0);
+
+  drawSlice(currentZ);
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp") {
+      currentZ = (currentZ + 1) % size;
+      drawSlice(currentZ);
+    } else if (e.key === "ArrowDown") {
+      currentZ = (currentZ - 1 + size) % size;
+      drawSlice(currentZ);
+    }
+  });
+
+  // Scroll wheel to change render resolution (zoom in/out)
+  window.addEventListener("wheel", (e) => {
+    if (e.deltaY < 0) {
+      // Zoom in (higher resolution)
+      renderRes = Math.min(renderRes * 2, canvas.height, canvas.width);
+    } else {
+      // Zoom out (lower resolution)
+      renderRes = Math.max(Math.floor(renderRes / 2), 4);
+    }
+    drawSlice(currentZ);
+  });
 </script>
