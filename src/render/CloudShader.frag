@@ -17,9 +17,13 @@ uniform float absorption;
 uniform float densityThreshold;
 uniform float frequency;
 uniform float lightAbsorption;
+uniform float lightIntensity;
+uniform float ambientIntensityTop;
+uniform float ambientIntensityBottom;
 out vec4 fragColor;
 const int MAX_STEPS = 64;
 const int MAX_STEPS_LIGHT = 8;
+vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);
 bool intersectBox(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tNear, out float tFar) {
     vec3 tMin = (boxMin - rayOrigin) / rayDir;
     vec3 tMax = (boxMax - rayOrigin) / rayDir;
@@ -40,22 +44,43 @@ float sampleLight(vec3 pos) {
     if(!intersectBox(pos, lightDir, cubeMin, cubeMax, tNear, tFar)) {
         return 1.0f;
     }
-    float tStep = (tFar - tNear) / float(MAX_STEPS_LIGHT);
+
+    float tStart = max(0.0f, tNear);
+    float tStep = (tFar - tStart) / float(MAX_STEPS_LIGHT);
     float lightTransmittance = 1.0f;
+
     for(int i = 0; i < MAX_STEPS_LIGHT; i++) {
-        float tCurrent = tNear + tStep * (float(i) + 0.5f);
+        float tCurrent = tStart + tStep * (float(i) + 0.5f);
         vec3 samplePos = pos + lightDir * tCurrent;
         float rawDensity = sampleDensity(samplePos);
-        float density = smoothstep(0.2f, 0.8f, rawDensity); // Gentler remapping
+        float density = smoothstep(0.2f, 0.8f, rawDensity);
         lightTransmittance *= exp(-lightAbsorption * density * tStep);
     }
     return lightTransmittance;
 }
-vec3 getNormal(vec3 pos) {
-    float delta = 0.02f;
-    vec3 normal = vec3(sampleDensity(pos)) - vec3(sampleDensity(pos + vec3(delta, 0.0f, 0.0f)), sampleDensity(pos + vec3(0.0f, delta, 0.0f)), sampleDensity(pos + vec3(0.0f, 0.0f, delta)));
-    return normalize(normal);
+vec3 ComputeAmbient(vec3 pos) {
+    const int NUM_DIRS = 4;
+    vec3 dirs[NUM_DIRS] = vec3[](vec3(0, 1, 0),  // up
+    vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 0, 1));
+
+    float ambient = 0.0f;
+    for(int i = 0; i < NUM_DIRS; i++) {
+        vec3 dir = dirs[i];
+        float tMax = 0.2f; // small local radius
+        float tStep = 0.05f;
+        float transmittance = 1.0f;
+        for(float t = tStep * 0.5f; t < tMax; t += tStep) {
+            vec3 samplePos = pos + dir * t;
+            float density = sampleDensity(samplePos);
+            transmittance *= exp(-density * absorption * tStep);
+        }
+        ambient += transmittance;
+    }
+    ambient /= float(NUM_DIRS);
+
+    return mix(vec3(1.0f), skyColor, 0.3f) * ambient * ambientIntensityTop;
 }
+
 void main() {
     vec2 uv = fragUV * 2.0f - 1.0f;
     vec4 rayClip = vec4(uv, -1.0f, 1.0f);
@@ -75,42 +100,44 @@ void main() {
         float t = tNear + tStep * (float(i) + 0.5f);
         vec3 samplePos = rayOriginWorld + rayDirWorld * t;
 
-    // 1. Sample base density
+    // Sample density
         float rawDensity = sampleDensity(samplePos);
-        float density = smoothstep(0.2f, 0.8f, rawDensity); // soften range
+        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
 
         if(density < 0.01f)
             continue;
 
-    // 2. Light attenuation along light direction
+    // Sample light transmittance
         float lightTransmittance = sampleLight(samplePos);
 
-    // 3. Compute lighting — sun + ambient
-        vec3 normal = getNormal(samplePos);
-        float diffuse = max(dot(normal, normalize(sunPos - samplePos)), 0.0f);
-        vec3 lightColor = sunColor * lightTransmittance * diffuse + vec3(0.6f, 0.7f, 1.0f) * 0.2f; // ambient sky blue
+    // Compute lighting — sun + ambient
+        vec3 sunLight = sunColor * lightTransmittance * lightIntensity;
+        vec3 ambientLight = ComputeAmbient(samplePos);
+        ambientLight = mix(vec3(1.0f), skyColor, 0.3f) * ambientLight;
 
-    // 4. Density → brightness mapping (mimic self-shadow)
-        vec3 albedo = mix(vec3(1.0f), vec3(0.3f), density); // white to grey
+    // Add powder effect (Beer's powder approximation)
+        float powderEffect = 1.0f - exp(-density * 2.0f);
+        sunLight *= mix(1.0f, powderEffect, 0.5f);
 
-    // 5. Energy-conserving shading
-        vec3 lighting = albedo * lightColor;
-
-    // 6. Opacity from density and absorbtion (Beer’s law but bounded)
+        vec3 lightColor = sunLight + ambientLight;
+    //  Opacity from density and absorbtion (Beer’s law but bounded)
         float stepOpacity = 1.0f - exp(-density * tStep * absorption);
         stepOpacity = clamp(stepOpacity, 0.0f, 1.0f);
 
-    // 7. Premultiply alpha
-        vec4 color = vec4(lighting * stepOpacity, stepOpacity);
+    // Premultiply alpha
 
-    // 8. Front-to-back compositing (bounded accumulation)
+        vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
+
+    //Front-to-back compositing (bounded accumulation)
         accumulatedColor += color * (1.0f - accumulatedColor.a);
 
-    // 9. Stop if almost opaque
         if(accumulatedColor.a > 0.99f)
             break;
     }
+    vec3 finalColor = accumulatedColor.rgb;
+    float grey = dot(finalColor, vec3(0.333f));
+    finalColor = mix(finalColor, vec3(grey), 0.1f);
 
-    fragColor = accumulatedColor;
+    fragColor = vec4(finalColor, accumulatedColor.a);
 
 }

@@ -375,5 +375,29 @@ export class GameEngine {
       step: 0.01,
       defaultValue: 1.0
     });
+    cloudSection.addSlider({
+      id: "light-intensity",
+      label: "Cloud Light Intensity",
+      min: 0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 0.8
+    });
+    cloudSection.addSlider({
+      id: "ambient-intensity-top",
+      label: "Cloud Ambient Intensity Top",
+      min: 0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 0.6
+    });
+    cloudSection.addSlider({
+      id: "ambient-intensity-bottom",
+      label: "Cloud Ambient Intensity Bottom",
+      min: 0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 0.4
+    });
   }
 }
