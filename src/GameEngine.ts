@@ -2,7 +2,7 @@ import { mat3, mat4, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
-import { GLRenderer } from "./render/GLRenderer";
+import { GLRenderer } from "./render/GlRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { RenderUtils } from "./utils/RenderUtils";
 import { WorldUtils } from "./utils/WorldUtils";
@@ -97,10 +97,11 @@ export class GameEngine {
       "radius-slider"
     ) as HTMLInputElement;
     const radiusValue = document.getElementById("radius-value")!;
-    radiusSlider.value = this.renderer.radius.toString();
-    radiusValue.textContent = this.renderer.radius.toString();
+    radiusSlider.value = this.renderer.uniformsManager.getSSAOInfo().radius.toString();
+    radiusValue.textContent = this.renderer.uniformsManager.getSSAOInfo().radius.toString();
     radiusSlider.addEventListener("input", () => {
-      this.renderer.radius = parseFloat(radiusSlider.value);
+      const ssaoInfo = this.renderer.uniformsManager.getSSAOInfo();
+      this.renderer.uniformsManager.setSSAOParameters(parseFloat(radiusSlider.value), ssaoInfo.bias, ssaoInfo.SSAOBlur);
       radiusValue.textContent = radiusSlider.value;
     });
 
@@ -108,18 +109,20 @@ export class GameEngine {
       "bias-slider"
     ) as HTMLInputElement;
     const biasValue = document.getElementById("bias-value")!;
-    biasSlider.value = this.renderer.bias.toString();
-    biasValue.textContent = this.renderer.bias.toString();
+    biasSlider.value = this.renderer.uniformsManager.getSSAOInfo().bias.toString();
+    biasValue.textContent = this.renderer.uniformsManager.getSSAOInfo().bias.toString();
     biasSlider.addEventListener("input", () => {
-      this.renderer.bias = parseFloat(biasSlider.value);
+      const ssaoInfo = this.renderer.uniformsManager.getSSAOInfo();
+      this.renderer.uniformsManager.setSSAOParameters(ssaoInfo.radius, parseFloat(biasSlider.value), ssaoInfo.SSAOBlur);
       biasValue.textContent = biasSlider.value;
     });
     const blurCheckbox = document.getElementById(
       "blur-checkbox"
     ) as HTMLInputElement;
-    blurCheckbox.checked = this.renderer.enableSSAOBlur;
+    blurCheckbox.checked = this.renderer.uniformsManager.getSSAOInfo().SSAOBlur;
     blurCheckbox.addEventListener("change", () => {
-      this.renderer.enableSSAOBlur = blurCheckbox.checked;
+      const ssaoInfo = this.renderer.uniformsManager.getSSAOInfo();
+      this.renderer.uniformsManager.setSSAOParameters(ssaoInfo.radius, ssaoInfo.bias, blurCheckbox.checked);
     });
     //Initial pathTracer
     this.pathTracer = new PathTracer(
@@ -195,7 +198,7 @@ export class GameEngine {
       this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
     );
 
-    this.renderer.GenerateTerrainBuffers(
+    this.renderer.vaoManager.createTerrainVAO(
       WorldUtils.genTerrainVertices(this.world)
     );
     this.world.onObjectAdded = (obj: WorldObject) => {
@@ -205,7 +208,7 @@ export class GameEngine {
         document.getElementById("world-objects")!,
         this.world.objectUI
       );
-      this.renderer.GenerateWorldObjectVAOs();
+      this.renderer.vaoManager.createWorldObjectVAOs(this.world.worldObjects);
     };
 
     // Add a gear object

@@ -1,34 +1,28 @@
-import { mat4, vec3 } from "gl-matrix";
-import { RenderUtils } from "../utils/RenderUtils";
 import { Camera } from "./Camera";
-import { WorldMap } from "../map/Map";
 import { DebugMenu } from "../DebugMenu";
-import { Mesh } from "../map/Mesh";
-import { VaoInfo, VAOManager } from "./VaoManager";
-import { DeferredRenderer } from "./DeferredRenderer";
-interface Matrices {
-  matView: mat4;
-  matProj: mat4;
-  matViewProj: mat4;
-  matViewInverse: mat4;
-  matProjInverse: mat4;
-}
+import { WorldMap } from "../map/Map";
+import { ResourceCache } from "./renderSystem/managers/UniformsManager";
+import { RenderGraph } from "./renderSystem/RenderGraph";
+import { RenderPass } from "./renderSystem/RenderPass";
+import { VAOManager } from "./renderSystem/managers/VaoManager";
+import { UniformsManager } from "./renderSystem/managers/UniformsManager";
+import { GeometryPass } from "./passes/GeometryPass";
+import { SSAOPass } from "./passes/SSAOPass";
+import { SSAOBlurPass } from "./passes/SSAOBlurPass";
+import { LightingPass } from "./passes/LightingPass";
 
-// GLRenderer: Main rendering orchestrator
 export class GLRenderer {
-  gl: WebGL2RenderingContext;
-  canvas: HTMLCanvasElement;
-  camera: Camera;
-  debug: DebugMenu;
-  world: WorldMap;
-  // Matrices
-  matView: mat4;
-  matProj: mat4;
-  matViewProj: mat4;
+    private gl: WebGL2RenderingContext;
+    private canvas: HTMLCanvasElement;
+    private camera: Camera;
+    private debug: DebugMenu;
+    private world: WorldMap;
+    private resourceCache: ResourceCache;
+    private renderGraph: RenderGraph;
+    private passes: RenderPass[];
 
-  // Managers
-  private vaoManager: VAOManager;
-  deferredRenderer: DeferredRenderer;
+    private _vaoManager: VAOManager;
+    private _uniformsManager: UniformsManager;
 
   //SSAO stuff
   kernelSize: number = 64;
@@ -67,45 +61,69 @@ export class GLRenderer {
   set enableSSAOBlur(val: boolean) {
     this.deferredRenderer.enableSSAOBlur = val;
   }
+    // Expose managers for external access
+    public get vaoManager(): VAOManager {
+        return this._vaoManager;
+    }
 
-  constructor(
-    gl: WebGL2RenderingContext,
-    canvas: HTMLCanvasElement,
-    camera: Camera,
-    debug: DebugMenu,
-    world: WorldMap
-  ) {
-    this.gl = gl;
-    this.canvas = canvas;
-    this.camera = camera;
-    this.debug = debug;
-    this.world = world;
+    public get uniformsManager(): UniformsManager {
+        return this._uniformsManager;
+    }
 
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.depthFunc(gl.LEQUAL);
+    constructor(gl: WebGL2RenderingContext, canvas: HTMLCanvasElement, camera: Camera, debug: DebugMenu, world: WorldMap){
+        this.gl = gl;
+        this.canvas = canvas;
+        this.camera = camera;
+        this.debug = debug;
+        this.world = world;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.depthFunc(gl.LEQUAL);
+        this.resourceCache = new ResourceCache(gl);
+        this.renderGraph = new RenderGraph();
+        this.passes = [];
+        this._vaoManager = new VAOManager(gl);
+        this._uniformsManager = new UniformsManager(gl, canvas, this.resourceCache, this.camera);
+        this.init();
+    }
 
-    this.matView = mat4.create();
-    this.matProj = mat4.create();
-    this.matViewProj = mat4.create();
+    private init(): void {
+        const geometryPass = new GeometryPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const ssaoPass = new SSAOPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const ssaoBlurPass = new SSAOBlurPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const lightingPass = new LightingPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        this.passes.push(geometryPass);
+        this.passes.push(ssaoPass);
+        this.passes.push(ssaoBlurPass);
+        this.passes.push(lightingPass);
 
-    this.deferredRenderer = new DeferredRenderer(gl, canvas);
-    this.vaoManager = new VAOManager(
-      gl,
-      this.deferredRenderer.getGeometryPassProgram()
-    );
-  }
+        // Set up render graph dependencies
+        this.renderGraph.add(geometryPass, ssaoPass);
+        this.renderGraph.add(ssaoPass, ssaoBlurPass);
+        this.renderGraph.add(geometryPass, ssaoBlurPass);
+        this.renderGraph.add(geometryPass, lightingPass);
+        this.renderGraph.add(ssaoBlurPass, lightingPass);
+    }
+    
+    public render(): void {
+        this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+        this._uniformsManager.calculateCameraInfo();
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        
+        const vaosToRender = this._vaoManager.getVaosToRender();
+        const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
 
-  GenerateTerrainBuffers(triangleMeshes: Mesh[]): void {
-    this.vaoManager.createTerrainVAO(triangleMeshes);
-  }
-  GenerateWorldObjectVAOs(): void {
-    this.vaoManager.createWorldObjectVAOs(this.world.worldObjects);
-  }
-  resizeGBuffer(width: number, height: number): void {
-    this.canvas.width = width;
-    this.canvas.height = height;
-    this.deferredRenderer.resize(width, height);
-  }
+        this.resourceCache.setUniformData("lights", this.world.lights);
+        
+        // Render geometry pass with all VAOs
+        this.passes[0].render(vaosToRender);
+        
+        // Render post-processing passes with screen quad
+        for (let i = 1; i < this.passes.length; i++) {
+            if (screenQuadVAO) {
+                this.passes[i].render(screenQuadVAO);
+            }
+        }
+    }
 
   GenerateTriangleBuffer(triangleMeshes: Mesh[]) {
     let trianglePositions: number[] = [];
@@ -515,13 +533,16 @@ export class GLRenderer {
   render() {
     this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
 
-    const matViewAndProj = this.camera.calculateProjectionMatrices(
-      this.canvas.width,
-      this.canvas.height
-    );
-    this.matView = matViewAndProj.matView;
-    this.matProj = matViewAndProj.matProj;
-    mat4.multiply(this.matViewProj, this.matProj, this.matView);
+    public resizeGBuffer(width: number, height: number): void {
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.gl.viewport(0, 0, width, height);
+        
+        // Resize all render passes
+        for (const pass of this.passes) {
+            pass.resize(width, height);
+        }
+    }
 
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
@@ -569,4 +590,11 @@ export class GLRenderer {
     this.vaoManager.dispose();
     this.deferredRenderer.dispose();
   }
+}
+    public dispose(): void {
+        this._vaoManager.dispose();
+        for (const pass of this.passes) {
+            pass.dispose();
+        }
+    }
 }

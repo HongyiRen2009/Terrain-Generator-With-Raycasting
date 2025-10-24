@@ -1,8 +1,10 @@
 import { mat4 } from "gl-matrix";
-import { Mesh } from "../map/Mesh";
-import { WorldObject } from "../map/WorldObject";
-import { RenderUtils } from "../utils/RenderUtils";
-import { meshToNonInterleavedVerticesAndIndices } from "../map/cubes_utils";
+import { Mesh } from "../../../map/Mesh";
+import { WorldObject } from "../../../map/WorldObject";
+import { RenderUtils } from "../../../utils/RenderUtils";
+import { meshToNonInterleavedVerticesAndIndices } from "../../../map/cubes_utils";
+import GeometryVertexShaderSource from "../../glsl/DeferredRendering/Geometry.vert";
+import GeometryFragmentShaderSource from "../../glsl/DeferredRendering/Geometry.frag";
 export interface VaoInfo {
   vao: WebGLVertexArrayObject;
   indexCount: number;
@@ -12,11 +14,14 @@ export class VAOManager {
   private gl: WebGL2RenderingContext;
   private vaoCache: Map<number, VaoInfo>;
   private terrainVAOInfo: VaoInfo | null = null;
-  private program: WebGLProgram | null = null;
-  constructor(gl: WebGL2RenderingContext, program: WebGLProgram) {
+  private screenQuadVAOInfo: VaoInfo | null = null;
+  private geometryProgram: WebGLProgram | null = null;
+
+  constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
-    this.program = program;
     this.vaoCache = new Map();
+    this.geometryProgram = RenderUtils.CreateProgram(this.gl, GeometryVertexShaderSource, GeometryFragmentShaderSource)!;
+    this.initializeScreenQuad();
   }
 
   createTerrainVAO(triangleMeshes: Mesh[]): void {
@@ -71,7 +76,7 @@ export class VAOManager {
         color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 }
       },
       TerrainTriangleBuffer.indices,
-      this.program!
+      this.geometryProgram!
     );
     this.terrainVAOInfo = {
       vao: terrainVAO,
@@ -79,16 +84,7 @@ export class VAOManager {
       modelMatrix: mat4.create()
     };
   }
-  getVaosToRender(): VaoInfo[] {
-    const vaosToRender: VaoInfo[] = [];
-    if (this.terrainVAOInfo) {
-      vaosToRender.push(this.terrainVAOInfo);
-    }
-    this.vaoCache.forEach((vao) => {
-      vaosToRender.push(vao);
-    });
-    return vaosToRender;
-  }
+
   createWorldObjectVAOs(worldObjects: WorldObject[]): void {
     for (const worldObject of worldObjects) {
       const vao = RenderUtils.createInterleavedVao(
@@ -100,7 +96,7 @@ export class VAOManager {
           normal: { offset: 12, size: 3, stride: 36 },
           color: { offset: 24, size: 3, stride: 36 }
         },
-        this.program!
+        this.geometryProgram!
       );
       this.vaoCache.set(worldObject.id, {
         vao,
@@ -108,6 +104,52 @@ export class VAOManager {
         modelMatrix: worldObject.position
       });
     }
+  }
+
+  private initializeScreenQuad(): void {
+    const { quadVertices, quadIndices } = require("../../../map/geometry");
+
+    const vao = this.gl.createVertexArray();
+    this.gl.bindVertexArray(vao);
+
+    const vbo = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, quadVertices, this.gl.STATIC_DRAW);
+
+    const ebo = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
+    this.gl.bufferData(
+      this.gl.ELEMENT_ARRAY_BUFFER,
+      quadIndices,
+      this.gl.STATIC_DRAW
+    );
+
+    this.gl.enableVertexAttribArray(0);
+    this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 20, 0);
+    this.gl.enableVertexAttribArray(1);
+    this.gl.vertexAttribPointer(1, 2, this.gl.FLOAT, false, 20, 12);
+
+    this.gl.bindVertexArray(null);
+    this.screenQuadVAOInfo = {
+      vao,
+      indexCount: quadIndices.length,
+      modelMatrix: mat4.create()
+    };
+  }
+
+  getVaosToRender(): VaoInfo[] {
+    const vaosToRender: VaoInfo[] = [];
+    if (this.terrainVAOInfo) {
+      vaosToRender.push(this.terrainVAOInfo);
+    }
+    this.vaoCache.forEach((vao) => {
+      vaosToRender.push(vao);
+    });
+    return vaosToRender;
+  }
+
+  getScreenQuadVAO(): VaoInfo | null {
+    return this.screenQuadVAOInfo;
   }
 
   dispose(): void {

@@ -415,7 +415,8 @@ self.onmessage = function (event) {
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   meshToVerticesAndIndices: () => (/* binding */ meshToVerticesAndIndices),
+/* harmony export */   meshToInterleavedVerticesAndIndices: () => (/* binding */ meshToInterleavedVerticesAndIndices),
+/* harmony export */   meshToNonInterleavedVerticesAndIndices: () => (/* binding */ meshToNonInterleavedVerticesAndIndices),
 /* harmony export */   vertexKey: () => (/* binding */ vertexKey)
 /* harmony export */ });
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
@@ -426,7 +427,7 @@ var roundToPrecision = function (value, precision) {
 var vertexKey = function (vertex) {
     return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
 };
-var meshToVerticesAndIndices = function (mesh) {
+var meshToInterleavedVerticesAndIndices = function (mesh) {
     // For each vertex: x, y, z, r, g, b
     var vertexMap = new Map();
     var vertices = [];
@@ -454,6 +455,38 @@ var meshToVerticesAndIndices = function (mesh) {
         indices: new Uint32Array(indices)
     };
 };
+var meshToNonInterleavedVerticesAndIndices = function (mesh) {
+    var vertexMap = new Map();
+    var positions = [];
+    var normals = [];
+    var colors = [];
+    var indices = [];
+    var vertexIndex = 0;
+    for (var i = 0; i < mesh.mesh.length; i++) {
+        var triangle = mesh.mesh[i];
+        var types = mesh.type[i];
+        for (var j = 0; j < 3; j++) {
+            var vertex = triangle[j];
+            var normal = mesh.normals[i][j];
+            var key = vertexKey(vertex);
+            if (!vertexMap.has(key)) {
+                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                var color = type.color;
+                positions.push(vertex[0], vertex[1], vertex[2]);
+                normals.push(normal[0], normal[1], normal[2]);
+                colors.push(color.r / 255, color.g / 255, color.b / 255);
+                vertexMap.set(key, vertexIndex++);
+            }
+            indices.push(vertexMap.get(key));
+        }
+    }
+    return {
+        positions: new Float32Array(positions),
+        normals: new Float32Array(normals),
+        colors: new Float32Array(colors),
+        indices: new Uint32Array(indices)
+    };
+};
 
 
 /***/ }),
@@ -470,7 +503,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   EDGES: () => (/* binding */ EDGES),
 /* harmony export */   VERTICES: () => (/* binding */ VERTICES),
 /* harmony export */   cubeVertices: () => (/* binding */ cubeVertices),
-/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices)
+/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices),
+/* harmony export */   quadIndices: () => (/* binding */ quadIndices),
+/* harmony export */   quadVertices: () => (/* binding */ quadVertices)
 /* harmony export */ });
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 var VERTICES = [
@@ -763,6 +798,29 @@ var cubeWireframeIndices = [
     // 12 edges × 2 vertices = 24 indices
     0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
 ];
+var quadVertices = new Float32Array([
+    -1.0,
+    -1.0,
+    0.0,
+    0.0,
+    0.0, // Bottom-left
+    1.0,
+    -1.0,
+    0.0,
+    1.0,
+    0.0, // Bottom-right
+    1.0,
+    1.0,
+    0.0,
+    1.0,
+    1.0, // Top-right
+    -1.0,
+    1.0,
+    0.0,
+    0.0,
+    1.0 // Top-left
+]);
+var quadIndices = new Uint16Array([0, 1, 2, 2, 3, 0]);
 
 
 /***/ }),
@@ -1030,7 +1088,7 @@ var Terrains = {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("c2e95382f2e49bf54fd0")
+/******/ 		__webpack_require__.h = () => ("87ec9602bc74b36e5f92")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */
