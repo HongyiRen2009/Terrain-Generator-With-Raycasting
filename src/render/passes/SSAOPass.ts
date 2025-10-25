@@ -14,7 +14,7 @@ export class SSAOPass extends RenderPass {
         super(gl, resourceCache, canvas, renderGraph);
         this.program = RenderUtils.CreateProgram(gl, SSAOVertexShaderSource, SSAOFragmentShaderSource)!;
         this.renderTarget = this.initRenderTarget();
-        this.uniforms = getUniformLocations(gl, this.program!, ["radius", "bias", "proj", "projInverse", "noiseSize"]);
+        this.uniforms = getUniformLocations(gl, this.program!, ["radius", "bias", "proj", "projInverse", "noiseSize", "enableSSAO"]);
     }
 
     protected initRenderTarget(width?: number, height?: number): RenderTarget {

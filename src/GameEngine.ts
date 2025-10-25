@@ -2,7 +2,7 @@ import { mat3, mat4, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
-import { GLRenderer } from "./render/GlRenderer";
+import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { RenderUtils } from "./utils/RenderUtils";
 import { WorldUtils } from "./utils/WorldUtils";
@@ -88,10 +88,10 @@ export class GameEngine {
     const ssaoCheckbox = document.getElementById(
       "ssao-checkbox"
     ) as HTMLInputElement;
-    ssaoCheckbox.checked = this.renderer.enableSSAO;
-    ssaoCheckbox.addEventListener("change", () => {
-      this.renderer.enableSSAO = ssaoCheckbox.checked;
-    });
+    // ssaoCheckbox.checked = this.renderer.enableSSAO;
+    // ssaoCheckbox.addEventListener("change", () => {
+    //   this.renderer.enableSSAO = ssaoCheckbox.checked;
+    // });
 
     const radiusSlider = document.getElementById(
       "radius-slider"
