@@ -18,12 +18,12 @@ uniform float densityThreshold;
 uniform float frequency;
 uniform float lightAbsorption;
 uniform float lightIntensity;
-uniform float ambientIntensityTop;
-uniform float ambientIntensityBottom;
+uniform float darknessThreshold;
+uniform float ambientIntensity;
 out vec4 fragColor;
 const int MAX_STEPS = 64;
 const int MAX_STEPS_LIGHT = 8;
-vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);
+vec3 skyColor = vec3(1.0f);
 bool intersectBox(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tNear, out float tFar) {
     vec3 tMin = (boxMin - rayOrigin) / rayDir;
     vec3 tMax = (boxMax - rayOrigin) / rayDir;
@@ -56,29 +56,7 @@ float sampleLight(vec3 pos) {
         float density = smoothstep(0.2f, 0.8f, rawDensity);
         lightTransmittance *= exp(-lightAbsorption * density * tStep);
     }
-    return lightTransmittance;
-}
-vec3 ComputeAmbient(vec3 pos) {
-    const int NUM_DIRS = 4;
-    vec3 dirs[NUM_DIRS] = vec3[](vec3(0, 1, 0),  // up
-    vec3(1, 0, 0), vec3(-1, 0, 0), vec3(0, 0, 1));
-
-    float ambient = 0.0f;
-    for(int i = 0; i < NUM_DIRS; i++) {
-        vec3 dir = dirs[i];
-        float tMax = 0.2f; // small local radius
-        float tStep = 0.05f;
-        float transmittance = 1.0f;
-        for(float t = tStep * 0.5f; t < tMax; t += tStep) {
-            vec3 samplePos = pos + dir * t;
-            float density = sampleDensity(samplePos);
-            transmittance *= exp(-density * absorption * tStep);
-        }
-        ambient += transmittance;
-    }
-    ambient /= float(NUM_DIRS);
-
-    return mix(vec3(1.0f), skyColor, 0.3f) * ambient * ambientIntensityTop;
+    return darknessThreshold + (1.0f - darknessThreshold) * lightTransmittance;
 }
 
 void main() {
@@ -95,7 +73,7 @@ void main() {
     }
     float tStep = (tFar - tNear) / float(MAX_STEPS);
     vec4 accumulatedColor = vec4(0.0f);
-
+    float lightEnergy = 0.0f;
     for(int i = 0; i < MAX_STEPS; i++) {
         float t = tNear + tStep * (float(i) + 0.5f);
         vec3 samplePos = rayOriginWorld + rayDirWorld * t;
@@ -112,17 +90,11 @@ void main() {
 
     // Compute lighting — sun + ambient
         vec3 sunLight = sunColor * lightTransmittance * lightIntensity;
-        vec3 ambientLight = ComputeAmbient(samplePos);
-        ambientLight = mix(vec3(1.0f), skyColor, 0.3f) * ambientLight;
-
-    // Add powder effect (Beer's powder approximation)
-        float powderEffect = 1.0f - exp(-density * 2.0f);
-        sunLight *= mix(1.0f, powderEffect, 0.5f);
+        vec3 ambientLight = skyColor * ambientIntensity;
 
         vec3 lightColor = sunLight + ambientLight;
     //  Opacity from density and absorbtion (Beer’s law but bounded)
         float stepOpacity = 1.0f - exp(-density * tStep * absorption);
-        stepOpacity = clamp(stepOpacity, 0.0f, 1.0f);
 
     // Premultiply alpha
 

@@ -92,14 +92,13 @@ export class CloudRenderer {
       cloudSection?.getSliderValue("light-intensity") || 1.0
     );
     this.gl.uniform1f(
-      this.gl.getUniformLocation(this.shaderProgram, "ambientIntensityTop"),
-      cloudSection?.getSliderValue("ambient-intensity-top") || 0.5
+      this.gl.getUniformLocation(this.shaderProgram, "darknessThreshold"),
+      cloudSection?.getSliderValue("darkness-threshold") || 0.2
     );
     this.gl.uniform1f(
-      this.gl.getUniformLocation(this.shaderProgram, "ambientIntensityBottom"),
-      cloudSection?.getSliderValue("ambient-intensity-bottom") || 0.5
+      this.gl.getUniformLocation(this.shaderProgram, "ambientIntensity"),
+      cloudSection?.getSliderValue("ambient-intensity") || 0.8
     );
-
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.shaderProgram, "sunPos"),
       lights[0].position
