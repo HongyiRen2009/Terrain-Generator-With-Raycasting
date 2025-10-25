@@ -9,6 +9,7 @@ uniform vec3 cubeMax;
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
 uniform sampler3D noiseTexture;
+uniform sampler2D weatherMap;
 uniform vec3 sunPos;
 uniform vec3 sunColor;
 
@@ -63,6 +64,18 @@ float sampleBaseNoise(vec3 pos) {
     float noise = texture(noiseTexture, pos).r;
     return noise;
 }
+float fbm(vec3 pos, int octaves, float persistence, float lacunarity) {
+    float total = 0.0f;
+    float amplitude = 1.0f;
+    float maxValue = 0.0f;
+    for(int i = 0; i < octaves; i++) {
+        total += sampleBaseNoise(pos) * amplitude;
+        maxValue += amplitude;
+        amplitude *= persistence;
+        pos *= lacunarity;
+    }
+    return total / maxValue;
+}
 float sampleDetailNoise(vec3 p) {
     vec3 worley = texture(noiseTexture, p * 2.0f).gba;
     return (worley.r * 0.625f + worley.g * 0.25f + worley.b * 0.125f);
@@ -70,20 +83,36 @@ float sampleDetailNoise(vec3 p) {
 
 float sampleDensity(vec3 pos) {
     vec3 localPos = (pos - cubeMin) / (cubeMax - cubeMin);
-
     // --- 1. Base structure (Perlin–Worley) ---
-    float base = sampleBaseNoise(localPos * baseFrequency);
+    float base = fbm(localPos * baseFrequency, 5, 0.5f, 2.0f);
 
     // --- 2. Detail noise (multi-octave Worley) ---
     float detail = sampleDetailNoise(localPos * detailFrequency);
 
     // --- 3. Height shaping ---
-    float height = clamp(localPos.y, 0.0f, 1.0f);
-    float heightShape = smoothstep(0.0f, 0.25f, height) * (1.0f - smoothstep(0.7f, 1.0f, height));
+    float height01 = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
+    float heightWeight = smoothstep(0.1f, 0.5f, height01) * (1.0f - smoothstep(0.6f, 1.0f, height01));
 
+                    // Calculate falloff at along x/z edges of the cloud container
+    float containerEdgeFadeDst = 50.0f;
+    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - cubeMin.x, cubeMax.x - pos.x));
+    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - cubeMin.z, cubeMax.z - pos.z));
+    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
+    heightWeight *= edgeWeight;
+    //Weather map
+    vec2 weatherUV = (pos.xz - cubeMin.xz) / (cubeMax.xz - cubeMin.xz);
+    vec4 weather = texture(weatherMap, weatherUV);
+    float coverage = weather.r;
+    float densityMultiplier = weather.g;
     // --- 4. Final erosion and remap ---
-    float density = mix(base, detail, 0.5f);
-    density = (density - densityThreshold) * heightShape;
+    float density = base;
+
+    if(density > 0.0f) {
+        density *= mix(0.5f, 1.0f, detail);
+    }
+
+    density = (density - densityThreshold) * heightWeight;
+
     density = clamp(density, 0.0f, 1.0f);
 
     return density;
