@@ -4429,9 +4429,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _DebugMenu__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
 /* harmony import */ var _map_Map__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./map/Map */ "./src/map/Map.ts");
 /* harmony import */ var _render_Camera__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
-/* harmony import */ var _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
+/* harmony import */ var _render_GlRenderer__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./render/GlRenderer */ "./src/render/GlRenderer.ts");
 /* harmony import */ var _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./Pathtracing/PathTracer */ "./src/Pathtracing/PathTracer.ts");
-/* harmony import */ var _render_GlUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./render/GlUtils */ "./src/render/GlUtils.ts");
+/* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./utils/WorldUtils */ "./src/utils/WorldUtils.ts");
 /* harmony import */ var _models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../models/stand.3mf */ "./models/stand.3mf");
 /* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
 /* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./map/terrains */ "./src/map/terrains.ts");
@@ -4500,7 +4500,7 @@ var GameEngine = /** @class */ (function () {
         this.lastRenderTime = 0;
         this.mode = 0; // 0 for hybrid, 1 for pathtracer
         //
-        this.frameCounter = 0;
+        this.frameCounter = 0; // In the current FPS
         this.lastFPSCheck = 0;
         this.currentFPS = 0;
         this.worldInitialized = false;
@@ -4518,9 +4518,30 @@ var GameEngine = /** @class */ (function () {
         //Initialize world
         this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 64, 1000, this.gl, function () { return _this.updatePathracing; });
         //Initialize Camera
-        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(0, 0, 3));
+        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(-22, 20, 33));
         //Initialize Renderer
-        this.renderer = new _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
+        this.renderer = new _render_GlRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
+        var radiusSlider = document.getElementById("radius-slider");
+        var radiusValue = document.getElementById("radius-value");
+        radiusSlider.value = this.renderer.radius.toString();
+        radiusValue.textContent = this.renderer.radius.toString();
+        radiusSlider.addEventListener("input", function () {
+            _this.renderer.radius = parseFloat(radiusSlider.value);
+            radiusValue.textContent = radiusSlider.value;
+        });
+        var biasSlider = document.getElementById("bias-slider");
+        var biasValue = document.getElementById("bias-value");
+        biasSlider.value = this.renderer.bias.toString();
+        biasValue.textContent = this.renderer.bias.toString();
+        biasSlider.addEventListener("input", function () {
+            _this.renderer.bias = parseFloat(biasSlider.value);
+            biasValue.textContent = biasSlider.value;
+        });
+        var blurCheckbox = document.getElementById("blur-checkbox");
+        blurCheckbox.checked = this.renderer.enableSSAOBlur;
+        blurCheckbox.addEventListener("change", function () {
+            _this.renderer.enableSSAOBlur = blurCheckbox.checked;
+        });
         //Initial pathTracer
         this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.debug);
         this.updatePathracing = function () {
@@ -4571,6 +4592,7 @@ var GameEngine = /** @class */ (function () {
     GameEngine.prototype.initialize = function () {
         return __awaiter(this, void 0, void 0, function () {
             var mesh, identity2;
+            var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0: return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateTerrain(); }))];
@@ -4580,7 +4602,11 @@ var GameEngine = /** @class */ (function () {
                         return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateMarchingCubes(); }))];
                     case 2:
                         _a.sent();
-                        this.renderer.GenerateTriangleBuffer(_render_GlUtils__WEBPACK_IMPORTED_MODULE_5__.GlUtils.genTerrainVertices(this.world));
+                        this.renderer.GenerateTerrainBuffers(_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.genTerrainVertices(this.world));
+                        this.world.onObjectAdded = function (obj) {
+                            _this.world.objectUI.setupObjectUI(obj, _this.world, document.getElementById("world-objects"), _this.world.objectUI);
+                            _this.renderer.GenerateWorldObjectVAOs();
+                        };
                         return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__)];
                     case 3:
                         mesh = _a.sent();
@@ -4694,6 +4720,7 @@ var GameEngine = /** @class */ (function () {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.renderer.resizeGBuffer(this.canvas.width, this.canvas.height);
         this.pathTracer.resetAccumulation();
     };
     /**
@@ -4724,15 +4751,17 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   PathTracer: () => (/* binding */ PathTracer)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
 /* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
-/* harmony import */ var _render_Shader__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../render/Shader */ "./src/render/Shader.ts");
-/* harmony import */ var _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
-/* harmony import */ var _glslPath__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./glslPath */ "./src/Pathtracing/glslPath.ts");
-/* harmony import */ var _map_BVHUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
-/* harmony import */ var _copyShader__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./copyShader */ "./src/Pathtracing/copyShader.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/WorldUtils */ "./src/utils/WorldUtils.ts");
+/* harmony import */ var _glslPath__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./glslPath */ "./src/Pathtracing/glslPath.ts");
+/* harmony import */ var _map_BVHUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
+/* harmony import */ var _copyShader__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./copyShader */ "./src/Pathtracing/copyShader.ts");
 // Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
+
 
 
 
@@ -4770,9 +4799,9 @@ var PathTracer = /** @class */ (function () {
             alert("Error: Floating point render targets are not supported on this browser/GPU.");
             throw new Error("EXT_color_buffer_float not supported");
         }
-        //shader
-        this.meshShader = new _render_Shader__WEBPACK_IMPORTED_MODULE_1__.Shader(this.gl, _glslPath__WEBPACK_IMPORTED_MODULE_3__.pathTracingVertexShaderCode, _glslPath__WEBPACK_IMPORTED_MODULE_3__.pathTracingFragmentShaderCode);
-        this.copyShader = new _render_Shader__WEBPACK_IMPORTED_MODULE_1__.Shader(this.gl, _copyShader__WEBPACK_IMPORTED_MODULE_5__.copyVertexShader, _copyShader__WEBPACK_IMPORTED_MODULE_5__.copyFragmentShader);
+        //Shaders
+        this.meshProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _glslPath__WEBPACK_IMPORTED_MODULE_4__.pathTracingVertexShaderCode, _glslPath__WEBPACK_IMPORTED_MODULE_4__.pathTracingFragmentShaderCode);
+        this.copyProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _copyShader__WEBPACK_IMPORTED_MODULE_6__.copyVertexShader, _copyShader__WEBPACK_IMPORTED_MODULE_6__.copyFragmentShader);
         //Slider
         var slider = document.getElementById("bounceSlider");
         slider.addEventListener("input", this.handleBounceInput.bind(this));
@@ -4795,11 +4824,11 @@ var PathTracer = /** @class */ (function () {
         var flatBVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.flattenBVH(BVHtree);
         ////////////// Pack everything float format to send to glsl
         //Pack triangles
-        var _a = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_4__.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals), vertices = _a.vertices, terrains = _a.terrains, normals = _a.normals;
+        var _a = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_5__.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals), vertices = _a.vertices, terrains = _a.terrains, normals = _a.normals;
         //Pack BVH
-        var _b = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_4__.BVHUtils.packBVH(flatBVHtree), boundingBoxes = _b.boundingBoxes, nodes = _b.nodes, leafs = _b.leafs;
+        var _b = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_5__.BVHUtils.packBVH(flatBVHtree), boundingBoxes = _b.boundingBoxes, nodes = _b.nodes, leafs = _b.leafs;
         //Pack terrain Types
-        var terrainTypes = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_4__.BVHUtils.packTerrainTypes();
+        var terrainTypes = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_5__.BVHUtils.packTerrainTypes();
         //save
         this.vertices = vertices;
         this.terrains = terrains;
@@ -4819,28 +4848,28 @@ var PathTracer = /** @class */ (function () {
     PathTracer.prototype.drawMesh = function () {
         this.initPathtracing();
         //Put camera position, direction in shader
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.meshShader.Program, "u_cameraPos"), this.camera.position);
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.meshProgram, "u_cameraPos"), this.camera.position);
         var viewProjMatrix = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
-        gl_matrix__WEBPACK_IMPORTED_MODULE_6__.invert(invViewProjMatrix, viewProjMatrix);
-        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.meshShader.Program, "u_invViewProjMatrix"), false, invViewProjMatrix);
-        var resolution = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+        var invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_7__.invert(invViewProjMatrix, viewProjMatrix);
+        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.meshProgram, "u_invViewProjMatrix"), false, invViewProjMatrix);
+        var resolution = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
         resolution[0] = this.canvas.width;
         resolution[1] = this.canvas.height;
-        this.gl.uniform2fv(this.gl.getUniformLocation(this.meshShader.Program, "u_resolution"), resolution);
+        this.gl.uniform2fv(this.gl.getUniformLocation(this.meshProgram, "u_resolution"), resolution);
         //put lights in the shader
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.updateLights(this.gl, this.meshShader.Program, this.world.lights);
+        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_3__.WorldUtils.updateLights(this.gl, this.meshProgram, this.world.lights);
         //Bind Previous Frame
         var lastFrameIndex = this.currentFrame;
         var nextFrameIndex = (this.currentFrame + 1) % 2;
         this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.accumulationTextures[lastFrameIndex]);
-        var lastFrameLoc = this.gl.getUniformLocation(this.meshShader.Program, "u_lastFrame");
+        var lastFrameLoc = this.gl.getUniformLocation(this.meshProgram, "u_lastFrame");
         this.gl.uniform1i(lastFrameLoc, 8);
         //put samples, bounce in shader
         this.frameNumber++;
-        this.gl.uniform1i(this.gl.getUniformLocation(this.meshShader.Program, "numBounces"), this.numBounces);
-        this.gl.uniform1f(this.gl.getUniformLocation(this.meshShader.Program, "u_frameNumber"), this.frameNumber); // Send as a float for seeding
+        this.gl.uniform1i(this.gl.getUniformLocation(this.meshProgram, "numBounces"), this.numBounces);
+        this.gl.uniform1f(this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"), this.frameNumber); // Send as a float for seeding
         // Draw
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffers[nextFrameIndex]);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -4849,9 +4878,9 @@ var PathTracer = /** @class */ (function () {
         this.currentFrame = nextFrameIndex;
         //Draw to canvas using copy shader
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-        this.gl.useProgram(this.copyShader.Program);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.copyShader.Program, this.accumulationTextures[nextFrameIndex], "u_sourceTexture", 0);
-        var frameLoc = this.gl.getUniformLocation(this.copyShader.Program, "u_frameNumber");
+        this.gl.useProgram(this.copyProgram);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.copyProgram, this.accumulationTextures[nextFrameIndex], "u_sourceTexture", 0);
+        var frameLoc = this.gl.getUniformLocation(this.copyProgram, "u_frameNumber");
         this.gl.uniform1f(frameLoc, this.frameNumber);
         // We can reuse the same fullscreen triangle VAO
         this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
@@ -4881,22 +4910,22 @@ var PathTracer = /** @class */ (function () {
         this.debug.removeElement("Accumulation Frame");
     };
     PathTracer.prototype.initPathtracing = function () {
-        this.gl.useProgram(this.meshShader.Program);
+        this.gl.useProgram(this.meshProgram);
         //Textures
-        var verticeTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.vertices);
-        var terrainTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.terrains);
-        var boundingBoxesTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
-        var nodesTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.nodes);
-        var leafsTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.leafs);
-        var terrainTypeTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
-        var vertexNormalsTex = _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, verticeTex, "u_vertices", 0);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, terrainTex, "u_terrains", 1);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, boundingBoxesTex, "u_boundingBox", 2);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, nodesTex, "u_nodesTex", 3);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, leafsTex, "u_leafsTex", 4);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, terrainTypeTex, "u_terrainTypes", 5);
-        _render_GlUtils__WEBPACK_IMPORTED_MODULE_2__.GlUtils.bindTex(this.gl, this.meshShader.Program, vertexNormalsTex, "u_normals", 6);
+        var verticeTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+        var terrainTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+        var boundingBoxesTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+        var nodesTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+        var leafsTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+        var terrainTypeTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+        var vertexNormalsTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, boundingBoxesTex, "u_boundingBox", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, nodesTex, "u_nodesTex", 3);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, leafsTex, "u_leafsTex", 4);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, terrainTypeTex, "u_terrainTypes", 5);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, vertexNormalsTex, "u_normals", 6);
     };
     PathTracer.prototype.initBuffers = function () {
         this.accumulationTextures = [];
@@ -5153,7 +5182,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Light__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Light */ "./src/map/Light.ts");
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
 /* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
-/* harmony import */ var _render_GlUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../render/GlUtils */ "./src/render/GlUtils.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
 /* harmony import */ var _cubes_utils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_utils.ts");
 /* harmony import */ var _ObjectUI__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./ObjectUI */ "./src/map/ObjectUI.ts");
 //Wrapper classes (will write stuff later)
@@ -5274,9 +5303,9 @@ var WorldMap = /** @class */ (function () {
      * Add an object to the game world
      */
     WorldMap.prototype.addObject = function (objectData, objectLocation, name) {
-        var _a = (0,_cubes_utils__WEBPACK_IMPORTED_MODULE_5__.meshToVerticesAndIndices)(objectData), vertices = _a.vertices, indices = _a.indices;
+        var _a = (0,_cubes_utils__WEBPACK_IMPORTED_MODULE_5__.meshToInterleavedVerticesAndIndices)(objectData), vertices = _a.vertices, indices = _a.indices;
         var meshSize = indices.length;
-        var objectBuffer = _render_GlUtils__WEBPACK_IMPORTED_MODULE_4__.GlUtils.CreateStaticBuffer(this.gl, vertices, Array.from(indices));
+        var objectBuffer = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_4__.RenderUtils.CreateStaticBuffer(this.gl, vertices, Array.from(indices));
         var worldObject = {
             buffer: objectBuffer,
             position: objectLocation,
@@ -5696,102 +5725,95 @@ var ObjectUI = /** @class */ (function () {
             });
         }); });
         var container = document.getElementById("world-objects");
-        this.setupObjectUI(map, container, this);
     }
-    ObjectUI.prototype.setupObjectUI = function (world, container, UI) {
-        world.onObjectAdded = function (obj) {
-            var wrapper = document.createElement("div");
-            wrapper.className = "world-object";
-            // Name
-            var nameEl = document.createElement("h3");
-            nameEl.textContent = obj.name;
-            wrapper.appendChild(nameEl);
-            // Vertex count
-            var vertsEl = document.createElement("p");
-            vertsEl.textContent = "Vertices: ".concat(obj.mesh.mesh.length * 3);
-            wrapper.appendChild(vertsEl);
-            // Delete button
-            var deleteBtn = document.createElement("button");
-            deleteBtn.textContent = "Delete Object";
-            deleteBtn.style.marginBottom = "10px";
-            deleteBtn.addEventListener("click", function () {
-                // Remove from world
-                world.worldObjects = world.worldObjects.filter(function (o) { return o.id !== obj.id; });
-                // Remove UI
-                wrapper.remove();
-                // Trigger re-trace/update if needed
-                if (UI.tracerUpdateSupplier)
-                    UI.tracerUpdateSupplier()();
+    ObjectUI.prototype.setupObjectUI = function (obj, world, container, UI) {
+        var wrapper = document.createElement("div");
+        wrapper.className = "world-object";
+        // Name
+        var nameEl = document.createElement("h3");
+        nameEl.textContent = obj.name;
+        wrapper.appendChild(nameEl);
+        // Vertex count
+        var vertsEl = document.createElement("p");
+        vertsEl.textContent = "Vertices: ".concat(obj.mesh.mesh.length * 3);
+        wrapper.appendChild(vertsEl);
+        // Delete button
+        var deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Delete Object";
+        deleteBtn.style.marginBottom = "10px";
+        deleteBtn.addEventListener("click", function () {
+            // Remove from world
+            world.worldObjects = world.worldObjects.filter(function (o) { return o.id !== obj.id; });
+            // Remove UI
+            wrapper.remove();
+            // Trigger re-trace/update if needed
+            if (UI.tracerUpdateSupplier)
+                UI.tracerUpdateSupplier()();
+        });
+        wrapper.appendChild(deleteBtn);
+        // Helper to create labeled number input
+        function createInput(labelText, value, onChange) {
+            var label = document.createElement("label");
+            label.innerHTML = "<br>".concat(labelText, ": ");
+            var input = document.createElement("input");
+            input.type = "number";
+            input.value = value.toString();
+            input.step = "0.1";
+            input.addEventListener("input", function () {
+                var val = input.value === "" ? 0 : parseFloat(input.value);
+                onChange(val);
             });
-            wrapper.appendChild(deleteBtn);
-            // Helper to create labeled number input
-            function createInput(labelText, value, onChange) {
-                var label = document.createElement("label");
-                label.innerHTML = "<br>".concat(labelText, ": ");
-                var input = document.createElement("input");
-                input.type = "number";
-                input.value = value.toString();
-                input.step = "0.1";
-                input.addEventListener("input", function () {
-                    var val = input.value === "" ? 0 : parseFloat(input.value);
-                    onChange(val);
-                });
-                label.appendChild(input);
-                wrapper.appendChild(label);
-            }
-            // Extract current transform components
-            var translation = [
-                obj.position[12],
-                obj.position[13],
-                obj.position[14]
-            ];
-            var rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
-            var scale = [1, 1, 1]; // default 1 or store separately
-            // Function to rebuild mat4 from translation, rotation, scale
-            function rebuildMatrix() {
-                var rad = rotationDegrees.map(function (d) { return (d * Math.PI) / 180; });
-                var newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.translate(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(translation[0], translation[1], translation[2]));
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateX(newMat, newMat, rad[0]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateY(newMat, newMat, rad[1]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateZ(newMat, newMat, rad[2]);
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.scale(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(scale[0], scale[1], scale[2]));
-                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.copy(obj.position, newMat);
-                if (UI.tracerUpdateSupplier)
-                    UI.tracerUpdateSupplier()();
-            }
-            // Translation inputs
-            var tHeader = document.createElement("h4");
-            tHeader.textContent = "Translation:";
-            wrapper.appendChild(tHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, translation[i], function (v) {
-                    translation[i] = v;
-                    rebuildMatrix();
-                });
+            label.appendChild(input);
+            wrapper.appendChild(label);
+        }
+        // Extract current transform components
+        var translation = [obj.position[12], obj.position[13], obj.position[14]];
+        var rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
+        var scale = [1, 1, 1]; // default 1 or store separately
+        // Function to rebuild mat4 from translation, rotation, scale
+        function rebuildMatrix() {
+            var rad = rotationDegrees.map(function (d) { return (d * Math.PI) / 180; });
+            var newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.translate(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(translation[0], translation[1], translation[2]));
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateX(newMat, newMat, rad[0]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateY(newMat, newMat, rad[1]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateZ(newMat, newMat, rad[2]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.scale(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(scale[0], scale[1], scale[2]));
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.copy(obj.position, newMat);
+            if (UI.tracerUpdateSupplier)
+                UI.tracerUpdateSupplier()();
+        }
+        // Translation inputs
+        var tHeader = document.createElement("h4");
+        tHeader.textContent = "Translation:";
+        wrapper.appendChild(tHeader);
+        ["X", "Y", "Z"].forEach(function (axis, i) {
+            return createInput(axis, translation[i], function (v) {
+                translation[i] = v;
+                rebuildMatrix();
             });
-            // Rotation inputs (degrees)
-            var rHeader = document.createElement("h4");
-            rHeader.textContent = "Rotation (degrees):";
-            wrapper.appendChild(rHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, rotationDegrees[i], function (v) {
-                    rotationDegrees[i] = v;
-                    rebuildMatrix();
-                });
+        });
+        // Rotation inputs (degrees)
+        var rHeader = document.createElement("h4");
+        rHeader.textContent = "Rotation (degrees):";
+        wrapper.appendChild(rHeader);
+        ["X", "Y", "Z"].forEach(function (axis, i) {
+            return createInput(axis, rotationDegrees[i], function (v) {
+                rotationDegrees[i] = v;
+                rebuildMatrix();
             });
-            // Scale inputs
-            var sHeader = document.createElement("h4");
-            sHeader.textContent = "Scale:";
-            wrapper.appendChild(sHeader);
-            ["X", "Y", "Z"].forEach(function (axis, i) {
-                return createInput(axis, scale[i], function (v) {
-                    scale[i] = v;
-                    rebuildMatrix();
-                });
+        });
+        // Scale inputs
+        var sHeader = document.createElement("h4");
+        sHeader.textContent = "Scale:";
+        wrapper.appendChild(sHeader);
+        ["X", "Y", "Z"].forEach(function (axis, i) {
+            return createInput(axis, scale[i], function (v) {
+                scale[i] = v;
+                rebuildMatrix();
             });
-            container.appendChild(wrapper);
-        };
+        });
+        container.appendChild(wrapper);
     };
     return ObjectUI;
 }());
@@ -5833,7 +5855,8 @@ var Utilities = /** @class */ (function () {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   meshToVerticesAndIndices: () => (/* binding */ meshToVerticesAndIndices),
+/* harmony export */   meshToInterleavedVerticesAndIndices: () => (/* binding */ meshToInterleavedVerticesAndIndices),
+/* harmony export */   meshToNonInterleavedVerticesAndIndices: () => (/* binding */ meshToNonInterleavedVerticesAndIndices),
 /* harmony export */   vertexKey: () => (/* binding */ vertexKey)
 /* harmony export */ });
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
@@ -5844,7 +5867,7 @@ var roundToPrecision = function (value, precision) {
 var vertexKey = function (vertex) {
     return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
 };
-var meshToVerticesAndIndices = function (mesh) {
+var meshToInterleavedVerticesAndIndices = function (mesh) {
     // For each vertex: x, y, z, r, g, b
     var vertexMap = new Map();
     var vertices = [];
@@ -5872,6 +5895,38 @@ var meshToVerticesAndIndices = function (mesh) {
         indices: new Uint32Array(indices)
     };
 };
+var meshToNonInterleavedVerticesAndIndices = function (mesh) {
+    var vertexMap = new Map();
+    var positions = [];
+    var normals = [];
+    var colors = [];
+    var indices = [];
+    var vertexIndex = 0;
+    for (var i = 0; i < mesh.mesh.length; i++) {
+        var triangle = mesh.mesh[i];
+        var types = mesh.type[i];
+        for (var j = 0; j < 3; j++) {
+            var vertex = triangle[j];
+            var normal = mesh.normals[i][j];
+            var key = vertexKey(vertex);
+            if (!vertexMap.has(key)) {
+                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                var color = type.color;
+                positions.push(vertex[0], vertex[1], vertex[2]);
+                normals.push(normal[0], normal[1], normal[2]);
+                colors.push(color.r / 255, color.g / 255, color.b / 255);
+                vertexMap.set(key, vertexIndex++);
+            }
+            indices.push(vertexMap.get(key));
+        }
+    }
+    return {
+        positions: new Float32Array(positions),
+        normals: new Float32Array(normals),
+        colors: new Float32Array(colors),
+        indices: new Uint32Array(indices)
+    };
+};
 
 
 /***/ }),
@@ -5889,7 +5944,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   EDGES: () => (/* binding */ EDGES),
 /* harmony export */   VERTICES: () => (/* binding */ VERTICES),
 /* harmony export */   cubeVertices: () => (/* binding */ cubeVertices),
-/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices)
+/* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices),
+/* harmony export */   quadIndices: () => (/* binding */ quadIndices),
+/* harmony export */   quadVertices: () => (/* binding */ quadVertices)
 /* harmony export */ });
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
 var VERTICES = [
@@ -6182,6 +6239,29 @@ var cubeWireframeIndices = [
     // 12 edges × 2 vertices = 24 indices
     0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
 ];
+var quadVertices = new Float32Array([
+    -1.0,
+    -1.0,
+    0.0,
+    0.0,
+    0.0, // Bottom-left
+    1.0,
+    -1.0,
+    0.0,
+    1.0,
+    0.0, // Bottom-right
+    1.0,
+    1.0,
+    0.0,
+    1.0,
+    1.0, // Top-right
+    -1.0,
+    1.0,
+    0.0,
+    0.0,
+    1.0 // Top-left
+]);
+var quadIndices = new Uint16Array([0, 1, 2, 2, 3, 0]);
 
 
 /***/ }),
@@ -7098,7 +7178,7 @@ __webpack_require__.r(__webpack_exports__);
 var Camera = /** @class */ (function () {
     function Camera(position) {
         this.sensitivity = 0.1;
-        this.yaw = -90; // Left right rotation in degrees
+        this.yaw = 0; // Left right rotation in degrees
         this.pitch = 0; // Up down rotation in degrees
         //Computed Dynamically
         this.front = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 0, -1);
@@ -7150,15 +7230,24 @@ var Camera = /** @class */ (function () {
         return viewMatrix;
     };
     Camera.prototype.calculateProjectionMatrix = function (canvasWidth, canvasHeight) {
-        var matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
         var matView = this.getViewMatrix();
         var matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+        var matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.perspective(matProj, 
         /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(90), 
         /* aspectRatio= */ canvasWidth / canvasHeight, 
         /* near, far= */ 0.1, 100.0);
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.multiply(matViewProj, matProj, matView);
         return matViewProj;
+    };
+    Camera.prototype.calculateProjectionMatrices = function (canvasWidth, canvasHeight) {
+        var matView = this.getViewMatrix();
+        var matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_2__.perspective(matProj, 
+        /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(90), 
+        /* aspectRatio= */ canvasWidth / canvasHeight, 
+        /* near, far= */ 0.1, 100.0);
+        return { matView: matView, matProj: matProj };
     };
     Camera.prototype.UpdateCameraVectors = function () {
         var front = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
@@ -7180,9 +7269,9 @@ var Camera = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/render/GLRenderer.ts":
+/***/ "./src/render/GlRenderer.ts":
 /*!**********************************!*\
-  !*** ./src/render/GLRenderer.ts ***!
+  !*** ./src/render/GlRenderer.ts ***!
   \**********************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
@@ -7191,13 +7280,15 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   GLRenderer: () => (/* binding */ GLRenderer)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var _GlUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./GlUtils */ "./src/render/GlUtils.ts");
-/* harmony import */ var _glsl__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./glsl */ "./src/render/glsl.ts");
-/* harmony import */ var _Shader__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./Shader */ "./src/render/Shader.ts");
-/* harmony import */ var _map_cubes_utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../map/cubes_utils */ "./src/map/cubes_utils.ts");
-/* harmony import */ var _map_geometry__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../map/geometry */ "./src/map/geometry.ts");
+/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+/* harmony import */ var _renderSystem_RenderGraph__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./renderSystem/RenderGraph */ "./src/render/renderSystem/RenderGraph.ts");
+/* harmony import */ var _renderSystem_managers_VaoManager__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./renderSystem/managers/VaoManager */ "./src/render/renderSystem/managers/VaoManager.ts");
+/* harmony import */ var _passes_GeometryPass__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./passes/GeometryPass */ "./src/render/passes/GeometryPass.ts");
+/* harmony import */ var _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./passes/SSAOPass */ "./src/render/passes/SSAOPass.ts");
+/* harmony import */ var _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./passes/SSAOBlurPass */ "./src/render/passes/SSAOBlurPass.ts");
+/* harmony import */ var _passes_LightingPass__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./passes/LightingPass */ "./src/render/passes/LightingPass.ts");
+
+
 
 
 
@@ -7206,133 +7297,131 @@ __webpack_require__.r(__webpack_exports__);
 
 var GLRenderer = /** @class */ (function () {
     function GLRenderer(gl, canvas, camera, debug, world) {
-        this.TerrainTriangleBuffer = null;
-        this.CubeBuffer = null;
-        this.TerrainMeshSize = 0;
-        this.terrainVAO = null;
-        this.wireframeCubeVAO = null;
-        this.worldObjectVAOs = new Map();
         this.gl = gl;
         this.canvas = canvas;
         this.camera = camera;
         this.debug = debug;
         this.world = world;
         gl.viewport(0, 0, canvas.width, canvas.height);
-        gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LEQUAL); // Ensures closer objects are drawn in front
-        this.WireframeCubeShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeFragmentShaderCode);
-        this.TerrainMeshShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshFragmentShaderCode);
-        this.matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+        gl.depthFunc(gl.LEQUAL);
+        this.resourceCache = new _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_0__.ResourceCache(gl);
+        this.renderGraph = new _renderSystem_RenderGraph__WEBPACK_IMPORTED_MODULE_1__.RenderGraph();
+        this.passes = [];
+        this._vaoManager = new _renderSystem_managers_VaoManager__WEBPACK_IMPORTED_MODULE_2__.VAOManager(gl);
+        this._uniformsManager = new _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_0__.UniformsManager(gl, canvas, this.resourceCache, this.camera);
+        this.init();
     }
-    GLRenderer.prototype.GenerateTriangleBuffer = function (triangleMeshes) {
-        // These coordinates are in clip space, to see a visualization, go to https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_model_view_projection
-        var triangleVertices = [];
-        var triangleIndices = [];
-        var indexOffset = 0;
-        for (var i = 0; i < triangleMeshes.length; i++) {
-            var Mesh_1 = triangleMeshes[i];
-            var vertexData = (0,_map_cubes_utils__WEBPACK_IMPORTED_MODULE_3__.meshToVerticesAndIndices)(Mesh_1);
-            // Add vertices
-            triangleVertices = triangleVertices.concat(Array.from(vertexData.vertices));
-            // Add indices with offset
-            var adjustedIndices = Array.from(vertexData.indices).map(function (index) { return index + indexOffset; });
-            triangleIndices = triangleIndices.concat(adjustedIndices);
-            // Update offset for next chunk
-            indexOffset += vertexData.vertices.length / 9; // 9 components per vertex
-        }
-        this.TerrainMeshSize = triangleIndices.length;
-        this.TerrainTriangleBuffer = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateStaticBuffer(this.gl, new Float32Array(triangleVertices), triangleIndices);
-        this.CubeBuffer = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateStaticBuffer(this.gl, new Float32Array(_map_geometry__WEBPACK_IMPORTED_MODULE_4__.cubeVertices), _map_geometry__WEBPACK_IMPORTED_MODULE_4__.cubeWireframeIndices);
-        this.WireframeCubeShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.CubeFragmentShaderCode);
-        this.TerrainMeshShader = new _Shader__WEBPACK_IMPORTED_MODULE_2__.Shader(this.gl, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshVertexShaderCode, _glsl__WEBPACK_IMPORTED_MODULE_1__.MeshFragmentShaderCode);
-        this.matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
-    };
-    GLRenderer.prototype.drawTerrain = function (TransformationMatrix) {
-        this.gl.useProgram(this.TerrainMeshShader.Program);
-        _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.updateLights(this.gl, this.TerrainMeshShader.Program, this.world.lights, this.camera);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        //Create vertice array object
-        if (!this.TerrainTriangleBuffer) {
-            console.error("TriangleBuffer not initialized.");
-            return;
-        }
-        if (!this.terrainVAO) {
-            this.terrainVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.TerrainTriangleBuffer.vertex, this.TerrainTriangleBuffer.indices, this.TerrainMeshShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 36,
-                    sizeOverride: 3
-                },
-                VertexNormal: { offset: 12, stride: 36 },
-                VertexColor: { offset: 24, stride: 36 }
-            });
-        }
-        this.gl.bindVertexArray(this.terrainVAO);
-        this.gl.drawElements(this.gl.TRIANGLES, this.TerrainMeshSize, this.gl.UNSIGNED_INT, 0);
-        this.gl.bindVertexArray(null);
-    };
-    GLRenderer.prototype.DrawWireFrameCube = function (TransformationMatrix) {
-        this.gl.useProgram(this.WireframeCubeShader.Program);
-        this.gl.uniformMatrix4fv(this.WireframeCubeShader.VertexUniforms["MatrixTransform"].location, false, TransformationMatrix);
-        this.gl.uniformMatrix4fv(this.WireframeCubeShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        if (!this.CubeBuffer)
-            throw new Error("CubeBuffer not initialized.");
-        if (!this.wireframeCubeVAO) {
-            this.wireframeCubeVAO = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, this.CubeBuffer.vertex, this.CubeBuffer.indices, this.WireframeCubeShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 24,
-                    sizeOverride: 3
-                },
-                VertexColor: { offset: 12, stride: 24 }
-            });
-        }
-        this.gl.bindVertexArray(this.wireframeCubeVAO);
-        this.gl.drawElements(this.gl.LINES, 24, this.gl.UNSIGNED_INT, 0);
-        this.gl.bindVertexArray(null);
-    };
-    GLRenderer.prototype.drawWorldObject = function (obj) {
-        // for now, just use the terrain mesh
-        this.gl.useProgram(this.TerrainMeshShader.Program);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["MatrixTransform"].location, false, obj.position);
-        this.gl.uniformMatrix4fv(this.TerrainMeshShader.VertexUniforms["matViewProj"].location, false, this.matViewProj);
-        // TODO: vao should be per mesh, not per object
-        // Do we need to have some sort of meshid instead of objectid?
-        if (!this.worldObjectVAOs.has(obj.id)) {
-            var vao = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.createInterleavedVao(this.gl, obj.buffer.vertex, obj.buffer.indices, this.TerrainMeshShader, {
-                VertexPosition: {
-                    offset: 0,
-                    stride: 36,
-                    sizeOverride: 3
-                },
-                VertexNormal: { offset: 12, stride: 36 },
-                VertexColor: { offset: 24, stride: 36 }
-            });
-            this.worldObjectVAOs.set(obj.id, vao);
-        }
-        this.gl.bindVertexArray(this.worldObjectVAOs.get(obj.id));
-        this.gl.drawElements(this.gl.TRIANGLES, obj.meshSize, this.gl.UNSIGNED_INT, 0);
-        this.gl.bindVertexArray(null);
+    Object.defineProperty(GLRenderer.prototype, "vaoManager", {
+        // Expose managers for external access
+        get: function () {
+            return this._vaoManager;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(GLRenderer.prototype, "uniformsManager", {
+        get: function () {
+            return this._uniformsManager;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(GLRenderer.prototype, "radius", {
+        // SSAO controls - expose through resource cache
+        get: function () {
+            var _a;
+            return ((_a = this.resourceCache.getUniformData("SSAOInfo")) === null || _a === void 0 ? void 0 : _a.radius) || 5.0;
+        },
+        set: function (val) {
+            var ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
+            if (ssaoInfo) {
+                ssaoInfo.radius = val;
+            }
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(GLRenderer.prototype, "bias", {
+        get: function () {
+            var _a;
+            return ((_a = this.resourceCache.getUniformData("SSAOInfo")) === null || _a === void 0 ? void 0 : _a.bias) || 0.025;
+        },
+        set: function (val) {
+            var ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
+            if (ssaoInfo) {
+                ssaoInfo.bias = val;
+            }
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Object.defineProperty(GLRenderer.prototype, "enableSSAOBlur", {
+        get: function () {
+            var _a;
+            return ((_a = this.resourceCache.getUniformData("SSAOInfo")) === null || _a === void 0 ? void 0 : _a.SSAOBlur) || true;
+        },
+        set: function (val) {
+            var ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
+            if (ssaoInfo) {
+                ssaoInfo.SSAOBlur = val;
+            }
+        },
+        enumerable: false,
+        configurable: true
+    });
+    GLRenderer.prototype.init = function () {
+        var geometryPass = new _passes_GeometryPass__WEBPACK_IMPORTED_MODULE_3__.GeometryPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        var ssaoPass = new _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_4__.SSAOPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        var ssaoBlurPass = new _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_5__.SSAOBlurPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        var lightingPass = new _passes_LightingPass__WEBPACK_IMPORTED_MODULE_6__.LightingPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        this.passes.push(geometryPass);
+        this.passes.push(ssaoPass);
+        this.passes.push(ssaoBlurPass);
+        this.passes.push(lightingPass);
+        // Set up render graph dependencies
+        this.renderGraph.add(geometryPass, ssaoPass);
+        this.renderGraph.add(ssaoPass, ssaoBlurPass);
+        this.renderGraph.add(geometryPass, ssaoBlurPass);
+        this.renderGraph.add(geometryPass, lightingPass);
+        this.renderGraph.add(ssaoBlurPass, lightingPass);
     };
     GLRenderer.prototype.render = function () {
-        // Set clear color to black, fully opaque
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        // Clear the color buffer with specified clear color
+        this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+        this._uniformsManager.calculateCameraInfo();
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-        // Calculate view and projection matrices once per frame
-        this.matViewProj = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var resScaleFactor = 1;
-        if (this.debug.debugMode) {
-            for (var _i = 0, _a = this.world.chunks; _i < _a.length; _i++) {
-                var chunk = _a[_i];
-                this.DrawWireFrameCube(_GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]), undefined, gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(this.world.resolution, this.world.height, this.world.resolution)));
+        var vaosToRender = this._vaoManager.getVaosToRender();
+        var screenQuadVAO = this._vaoManager.getScreenQuadVAO();
+        this.resourceCache.setUniformData("lights", this.world.lights);
+        // Render geometry pass with all VAOs
+        this.passes[0].render(vaosToRender);
+        // Render post-processing passes with screen quad
+        for (var i = 1; i < this.passes.length; i++) {
+            if (screenQuadVAO) {
+                this.passes[i].render(screenQuadVAO);
             }
         }
-        this.drawTerrain(_GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_6__.fromValues(resScaleFactor, resScaleFactor, resScaleFactor)));
-        for (var _b = 0, _c = this.world.worldObjects; _b < _c.length; _b++) {
-            var object = _c[_b];
-            this.drawWorldObject(object);
+    };
+    GLRenderer.prototype.resizeGBuffer = function (width, height) {
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.gl.viewport(0, 0, width, height);
+        // Resize all render passes
+        for (var _i = 0, _a = this.passes; _i < _a.length; _i++) {
+            var pass = _a[_i];
+            pass.resize(width, height);
+        }
+    };
+    GLRenderer.prototype.GenerateTerrainBuffers = function (triangleMeshes) {
+        this._vaoManager.createTerrainVAO(triangleMeshes);
+    };
+    GLRenderer.prototype.GenerateWorldObjectVAOs = function () {
+        this._vaoManager.createWorldObjectVAOs(this.world.worldObjects);
+    };
+    GLRenderer.prototype.dispose = function () {
+        this._vaoManager.dispose();
+        for (var _i = 0, _a = this.passes; _i < _a.length; _i++) {
+            var pass = _a[_i];
+            pass.dispose();
         }
     };
     return GLRenderer;
@@ -7342,25 +7431,906 @@ var GLRenderer = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/render/GlUtils.ts":
-/*!*******************************!*\
-  !*** ./src/render/GlUtils.ts ***!
-  \*******************************/
+/***/ "./src/render/glsl/DeferredRendering/Geometry.frag":
+/*!*********************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Geometry.frag ***!
+  \*********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es \r\nprecision highp float;\r\n\r\nin vec3 viewNormal;\r\nin vec3 albedo;\r\nin vec4 viewPos;\r\n\r\nlayout(location = 0) out vec4 outNormal;\r\nlayout(location = 1) out vec4 outAlbedo;\r\n\r\nvoid main() {\r\n    outNormal = vec4(normalize(viewNormal), 1.0);\r\n    outAlbedo = vec4(albedo, 1.0);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Geometry.vert":
+/*!*********************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Geometry.vert ***!
+  \*********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nin vec3 position;\r\nin vec3 normal;\r\nin vec3 color;\r\n\r\nuniform mat4 model;\r\nuniform mat4 view;\r\nuniform mat4 proj;\r\n\r\nout vec3 viewNormal;\r\nout vec3 albedo;\r\nout vec4 viewPos;\r\n\r\nvoid main() {\r\n    vec4 worldPos = model * vec4(position, 1.0f);\r\n    viewPos = view * worldPos;\r\n\r\n    mat3 normalMatrix = mat3(transpose(inverse(view * model)));\r\n    viewNormal = normalize(normalMatrix * normal);\r\n\r\n    albedo = color;\r\n\r\n    gl_Position = proj * viewPos;\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Lighting.frag":
+/*!*********************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Lighting.frag ***!
+  \*********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r\nout vec4 outputColor;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D albedoTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D ssaoTexture;\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\nstruct Light {\r\n  vec3 position;\r\n  vec3 color;\r\n  vec3 showColor;\r\n  float intensity;\r\n  float radius;\r\n};\r\n#define MAX_LIGHTS 100\r\n\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\nuniform vec3 cameraPosition;\r\n\r\nvec3 getViewPosition(vec2 texCoord) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0 - 1.0;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0 - 1.0, 1.0);\r\n    vec4 viewSpacePos = projInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos) {\r\n    vec4 worldPos = viewInverse * vec4(viewPos, 1.0);\r\n    return worldPos.xyz;\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos);\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 skyColor = vec3(0.5, 0.7, 1.0);\r\n    \r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n    \r\n    vec3 albedo = texture(albedoTexture, fragUV).rgb;\r\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\r\n    \r\n    vec3 ambient = (vec3(0.3) * albedo) * ambientOcclusion;\r\n    vec3 lighting = ambient;\r\n    \r\n    for(int i = 0; i < numActiveLights; i++) {\r\n        vec3 lightDir = normalize(lights[i].position - fragWorldPos);\r\n        float diff = max(dot(lightDir, worldNormal), 0.0);\r\n        vec3 diffuse = diff * lights[i].color * lights[i].intensity;\r\n\r\n        vec3 viewDir = normalize(cameraPosition - fragWorldPos);\r\n        vec3 reflectDir = reflect(-lightDir, worldNormal);\r\n        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);\r\n        vec3 specular = spec * lights[i].color * lights[i].intensity;\r\n        \r\n        float distance = length(lights[i].position - fragWorldPos);\r\n        float attenuation = 1.0 / (1.0 + (distance / lights[i].radius) * (distance / lights[i].radius));\r\n        diffuse *= attenuation;\r\n        specular *= attenuation;\r\n\r\n        lighting += (diffuse + specular) * ambient;\r\n    }\r\n\r\n    if(texture(depthTexture, fragUV).r>=1.0) {\r\n        outputColor = vec4(skyColor,1.0);\r\n    }\r\n    else{\r\n        outputColor = vec4(lighting, 1.0);\r\n    }\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Lighting.vert":
+/*!*********************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Lighting.vert ***!
+  \*********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/SSAO.frag":
+/*!*****************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/SSAO.frag ***!
+  \*****************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n#define NUM_SAMPLES 64\r\nin vec2 fragUV;\r\nout float ssao;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D noiseTexture;\r\nuniform float noiseSize;\r\nuniform vec3 samples[64];\r\nuniform mat4 proj;\r\nuniform mat4 projInverse;\r\nuniform float radius;\r\nuniform float bias;\r\n\r\nvec3 getViewPosition(vec2 texCoord) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0 - 1.0;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0 - 1.0, 1.0);\r\n    vec4 viewSpacePos = projInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvoid main() {\r\n    vec2 noiseScale = vec2(textureSize(depthTexture, 0)) / noiseSize;\r\n    \r\n    vec3 fragPos = getViewPosition(fragUV);\r\n    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 randomVec = normalize(texture(noiseTexture, fragUV * noiseScale).xyz);\r\n\r\n    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\r\n    vec3 bitangent = cross(normal, tangent);\r\n    mat3 TBN = mat3(tangent, bitangent, normal);\r\n    \r\n    float occlusion = 0.0;\r\n    \r\n    for(int i = 0; i < NUM_SAMPLES; i++) {\r\n        vec3 samplePos = TBN * samples[i];\r\n        samplePos = fragPos + samplePos * radius;\r\n\r\n        vec4 offset = proj * vec4(samplePos, 1.0);\r\n        offset.xyz /= offset.w;\r\n        offset.xyz = offset.xyz * 0.5 + 0.5;\r\n\r\n        if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) {\r\n            continue;\r\n        }\r\n\r\n        float sampleDepth = getViewPosition(offset.xy).z;\r\n        if(texture(depthTexture, offset.xy).r>=1.0) continue;\r\n        float rangeCheck= abs(fragPos.z - sampleDepth) < radius ? 1.0 : 0.0;\r\n        occlusion += (sampleDepth >= samplePos.z+bias ? 1.0 : 0.0) * rangeCheck;\r\n    }\r\n    \r\n    occlusion = 1.0 - (occlusion / float(NUM_SAMPLES));\r\n    ssao = occlusion;\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/SSAO.vert":
+/*!*****************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/SSAO.vert ***!
+  \*****************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/SSAOBlur.frag":
+/*!*********************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/SSAOBlur.frag ***!
+  \*********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r\nout float ssaoBlur;\r\nuniform sampler2D ssaoTexture;\r\nuniform sampler2D depthTexture;\r\nuniform bool enableBlur;\r\n\r\nconst int KERNEL_RADIUS = 2;\r\nconst float sigma_spatial = 2.0;\r\nconst float sigma_depth = 0.1;\r\n\r\nvoid main() {\r\n    if (!enableBlur) {\r\n        ssaoBlur = texture(ssaoTexture, fragUV).r;\r\n        return;\r\n    }\r\n\r\n    float centerSSAO = texture(ssaoTexture, fragUV).r;\r\n    float centerDepth = texture(depthTexture, fragUV).r;\r\n    vec2 texelSize = 1.0 / vec2(textureSize(ssaoTexture, 0));\r\n\r\n    float sum = 0.0;\r\n    float weightSum = 0.0;\r\n\r\n    for (int y = -KERNEL_RADIUS; y <= KERNEL_RADIUS; ++y) {\r\n        for (int x = -KERNEL_RADIUS; x <= KERNEL_RADIUS; ++x) {\r\n            vec2 offset = vec2(float(x), float(y)) * texelSize;\r\n            float sampleSSAO = texture(ssaoTexture, fragUV + offset).r;\r\n            float sampleDepth = texture(depthTexture, fragUV + offset).r;\r\n\r\n            float spatialWeight = exp(-float(x * x + y * y) / (2.0 * sigma_spatial * sigma_spatial));\r\n            float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0) / (2.0 * sigma_depth * sigma_depth));\r\n            float weight = spatialWeight * depthWeight;\r\n\r\n            sum += sampleSSAO * weight;\r\n            weightSum += weight;\r\n        }\r\n    }\r\n    ssaoBlur = sum / weightSum;\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/SSAOBlur.vert":
+/*!*********************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/SSAOBlur.vert ***!
+  \*********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/passes/GeometryPass.ts":
+/*!*******************************************!*\
+  !*** ./src/render/passes/GeometryPass.ts ***!
+  \*******************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   GlUtils: () => (/* binding */ GlUtils)
+/* harmony export */   GeometryPass: () => (/* binding */ GeometryPass)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/Geometry.vert */ "./src/render/glsl/DeferredRendering/Geometry.vert");
+/* harmony import */ var _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/Geometry.frag */ "./src/render/glsl/DeferredRendering/Geometry.frag");
+/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+var __extends = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 
 
-var GlUtils = /** @class */ (function () {
-    function GlUtils() {
+
+
+
+
+var GeometryPass = /** @class */ (function (_super) {
+    __extends(GeometryPass, _super);
+    function GeometryPass(gl, resourceCache, canvas, renderGraph) {
+        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.canvas = canvas;
+        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__);
+        _this.renderTarget = _this.initRenderTarget();
+        _this.uniforms = (0,_renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["view", "proj", "model"]);
+        return _this;
     }
+    GeometryPass.prototype.initRenderTarget = function (width, height) {
+        var ext = this.gl.getExtension("EXT_color_buffer_float");
+        if (!ext) {
+            throw new Error("EXT_color_buffer_float is not supported on this device.");
+        }
+        var w = width || this.canvas.width;
+        var h = height || this.canvas.height;
+        var normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture(this.gl, w, h, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        var albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        var depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture(this.gl, w, h, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
+        var fbo = this.gl.createFramebuffer();
+        if (!fbo) {
+            throw new Error("Failed to create framebuffer");
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, normalTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, albedoTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depthTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
+        var status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+        if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+            throw new Error("Framebuffer is not complete: " + status.toString());
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return {
+            fbo: fbo,
+            textures: {
+                normal: normalTexture,
+                albedo: albedoTexture,
+                depth: depthTexture
+            }
+        };
+    };
+    GeometryPass.prototype.render = function (vaosToRender) {
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.depthMask(true);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.program);
+        var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+        this.gl.uniformMatrix4fv(this.uniforms["view"], false, cameraInfo.matView);
+        this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
+        for (var _i = 0, vaosToRender_1 = vaosToRender; _i < vaosToRender_1.length; _i++) {
+            var vaoInfo = vaosToRender_1[_i];
+            this.gl.bindVertexArray(vaoInfo.vao);
+            this.gl.uniformMatrix4fv(this.uniforms["model"], false, vaoInfo.modelMatrix);
+            this.gl.drawElements(this.gl.TRIANGLES, vaoInfo.indexCount, this.gl.UNSIGNED_INT, 0);
+        }
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    };
+    GeometryPass.prototype.resize = function (width, height) {
+        // Delete old resources
+        if (this.renderTarget) {
+            if (this.renderTarget.fbo) {
+                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+            }
+            if (this.renderTarget.textures) {
+                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
+                    var texture = _a[_i];
+                    this.gl.deleteTexture(texture);
+                }
+            }
+        }
+        // Recreate render target with new dimensions
+        this.renderTarget = this.initRenderTarget(width, height);
+    };
+    return GeometryPass;
+}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass));
+
+
+
+/***/ }),
+
+/***/ "./src/render/passes/LightingPass.ts":
+/*!*******************************************!*\
+  !*** ./src/render/passes/LightingPass.ts ***!
+  \*******************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   LightingPass: () => (/* binding */ LightingPass)
+/* harmony export */ });
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _glsl_DeferredRendering_Lighting_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/Lighting.vert */ "./src/render/glsl/DeferredRendering/Lighting.vert");
+/* harmony import */ var _glsl_DeferredRendering_Lighting_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/Lighting.frag */ "./src/render/glsl/DeferredRendering/Lighting.frag");
+/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+/* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../utils/WorldUtils */ "./src/utils/WorldUtils.ts");
+var __extends = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+
+
+
+
+
+
+
+var LightingPass = /** @class */ (function (_super) {
+    __extends(LightingPass, _super);
+    function LightingPass(gl, resourceCache, canvas, renderGraph) {
+        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Lighting_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Lighting_frag__WEBPACK_IMPORTED_MODULE_4__);
+        _this.renderTarget = _this.initRenderTarget();
+        _this.uniforms = (0,_renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["viewInverse", "projInverse", "cameraPosition"]);
+        return _this;
+    }
+    LightingPass.prototype.initRenderTarget = function () {
+        return { fbo: null, textures: {} };
+    };
+    LightingPass.prototype.render = function (vao_info) {
+        var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        var textures = this.renderGraph.getOutputs(this);
+        var normalTexture = textures["normal"];
+        var albedoTexture = textures["albedo"];
+        var depthTexture = textures["depth"];
+        var ssaoTexture = textures["ssaoBlur"];
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.program);
+        this.gl.bindVertexArray(vao.vao);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, normalTexture, "normalTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, albedoTexture, "albedoTexture", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, ssaoTexture, "ssaoTexture", 3);
+        var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+        this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
+        this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
+        this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getUniformData("cameraPosition"));
+        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__.WorldUtils.updateLights(this.gl, this.program, this.resourceCache.getUniformData("lights"));
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+    };
+    LightingPass.prototype.resize = function (width, height) {
+        // LightingPass renders to default framebuffer, no resize needed
+        // But we need to update viewport
+        this.gl.viewport(0, 0, width, height);
+    };
+    return LightingPass;
+}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass));
+
+
+
+/***/ }),
+
+/***/ "./src/render/passes/SSAOBlurPass.ts":
+/*!*******************************************!*\
+  !*** ./src/render/passes/SSAOBlurPass.ts ***!
+  \*******************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   SSAOBlurPass: () => (/* binding */ SSAOBlurPass)
+/* harmony export */ });
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _glsl_DeferredRendering_SSAOBlur_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/SSAOBlur.vert */ "./src/render/glsl/DeferredRendering/SSAOBlur.vert");
+/* harmony import */ var _glsl_DeferredRendering_SSAOBlur_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/SSAOBlur.frag */ "./src/render/glsl/DeferredRendering/SSAOBlur.frag");
+/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+var __extends = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+
+
+
+
+
+
+var SSAOBlurPass = /** @class */ (function (_super) {
+    __extends(SSAOBlurPass, _super);
+    function SSAOBlurPass(gl, resourceCache, canvas, renderGraph) {
+        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_SSAOBlur_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_SSAOBlur_frag__WEBPACK_IMPORTED_MODULE_4__);
+        _this.renderTarget = _this.initRenderTarget();
+        _this.uniforms = (0,_renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["enableBlur"]);
+        return _this;
+    }
+    SSAOBlurPass.prototype.initRenderTarget = function (width, height) {
+        var w = width || this.canvas.width;
+        var h = height || this.canvas.height;
+        var framebuffer = this.gl.createFramebuffer();
+        if (!framebuffer) {
+            throw new Error("Failed to create SSAO Blur framebuffer");
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
+        var ssaoBlurTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, ssaoBlurTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return { fbo: framebuffer, textures: { ssaoBlur: ssaoBlurTexture } };
+    };
+    SSAOBlurPass.prototype.render = function (vao_info) {
+        var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        // Get textures from render graph
+        var textures = this.renderGraph.getOutputs(this);
+        // SSAO texture is from SSAO pass, depth is from geometry pass
+        var ssaoTexture = textures["ssao"];
+        var depthTexture = textures["depth"];
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.program);
+        this.gl.bindVertexArray(vao.vao);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, ssaoTexture, "ssaoTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 1);
+        this.gl.uniform1i(this.uniforms["enableBlur"], this.resourceCache.getUniformData("SSAOInfo").SSAOBlur ? 1 : 0);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    };
+    SSAOBlurPass.prototype.resize = function (width, height) {
+        // Delete old resources
+        if (this.renderTarget) {
+            if (this.renderTarget.fbo) {
+                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+            }
+            if (this.renderTarget.textures) {
+                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
+                    var texture = _a[_i];
+                    this.gl.deleteTexture(texture);
+                }
+            }
+        }
+        // Recreate render target with new dimensions
+        this.renderTarget = this.initRenderTarget(width, height);
+    };
+    return SSAOBlurPass;
+}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass));
+
+
+
+/***/ }),
+
+/***/ "./src/render/passes/SSAOPass.ts":
+/*!***************************************!*\
+  !*** ./src/render/passes/SSAOPass.ts ***!
+  \***************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   SSAOPass: () => (/* binding */ SSAOPass)
+/* harmony export */ });
+/* harmony import */ var _glsl_DeferredRendering_SSAO_vert__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../glsl/DeferredRendering/SSAO.vert */ "./src/render/glsl/DeferredRendering/SSAO.vert");
+/* harmony import */ var _glsl_DeferredRendering_SSAO_frag__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../glsl/DeferredRendering/SSAO.frag */ "./src/render/glsl/DeferredRendering/SSAO.frag");
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+var __extends = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+
+
+
+
+
+
+var SSAOPass = /** @class */ (function (_super) {
+    __extends(SSAOPass, _super);
+    function SSAOPass(gl, resourceCache, canvas, renderGraph) {
+        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_SSAO_vert__WEBPACK_IMPORTED_MODULE_0__, _glsl_DeferredRendering_SSAO_frag__WEBPACK_IMPORTED_MODULE_1__);
+        _this.renderTarget = _this.initRenderTarget();
+        _this.uniforms = (0,_renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["radius", "bias", "proj", "projInverse", "noiseSize"]);
+        return _this;
+    }
+    SSAOPass.prototype.initRenderTarget = function (width, height) {
+        var w = width || this.canvas.width;
+        var h = height || this.canvas.height;
+        var ssaoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        var fbo = this.gl.createFramebuffer();
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, ssaoTexture, 0);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return {
+            fbo: fbo,
+            textures: { ssao: ssaoTexture }
+        };
+    };
+    SSAOPass.prototype.render = function (vao_info) {
+        var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        var gBuffer = this.renderGraph.getOutputs(this);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.program);
+        this.gl.bindVertexArray(vao.vao);
+        // Get textures from geometry pass using named keys
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, gBuffer["normal"], "normalTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, gBuffer["depth"], "depthTexture", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, this.resourceCache.getUniformData("SSAOInfo").NoiseTexture, "noiseTexture", 2);
+        var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+        this.gl.uniform1f(this.uniforms["radius"], this.resourceCache.getUniformData("SSAOInfo").radius);
+        this.gl.uniform1f(this.uniforms["bias"], this.resourceCache.getUniformData("SSAOInfo").bias);
+        this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
+        this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
+        this.gl.uniform1f(this.uniforms["noiseSize"], this.resourceCache.getUniformData("SSAOInfo").NoiseSize);
+        // Upload kernel samples
+        var ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
+        for (var i = 0; i < ssaoInfo.KernelSize; i++) {
+            this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "samples[".concat(i, "]")), ssaoInfo.Kernels[i]);
+        }
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    };
+    SSAOPass.prototype.resize = function (width, height) {
+        // Delete old resources
+        if (this.renderTarget) {
+            if (this.renderTarget.fbo) {
+                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+            }
+            if (this.renderTarget.textures) {
+                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
+                    var texture = _a[_i];
+                    this.gl.deleteTexture(texture);
+                }
+            }
+        }
+        // Recreate render target with new dimensions
+        this.renderTarget = this.initRenderTarget(width, height);
+    };
+    return SSAOPass;
+}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.RenderPass));
+
+
+
+/***/ }),
+
+/***/ "./src/render/renderSystem/RenderGraph.ts":
+/*!************************************************!*\
+  !*** ./src/render/renderSystem/RenderGraph.ts ***!
+  \************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   RenderGraph: () => (/* binding */ RenderGraph)
+/* harmony export */ });
+var RenderGraph = /** @class */ (function () {
+    function RenderGraph() {
+        this.passes = new Map();
+    }
+    RenderGraph.prototype.add = function (prevPass, nextPass) {
+        if (!this.passes.has(nextPass)) {
+            this.passes.set(nextPass, []);
+        }
+        this.passes.get(nextPass).push(prevPass);
+    };
+    RenderGraph.prototype.getOutputs = function (renderPass) {
+        var prevPasses = this.passes.get(renderPass);
+        if (!prevPasses) {
+            throw new Error("No outputs found for render pass");
+        }
+        // Merge texture dictionaries from all previous passes
+        var mergedTextures = {};
+        for (var _i = 0, prevPasses_1 = prevPasses; _i < prevPasses_1.length; _i++) {
+            var pass = prevPasses_1[_i];
+            var passTextures = pass.getRenderTarget().textures;
+            Object.assign(mergedTextures, passTextures);
+        }
+        return mergedTextures;
+    };
+    return RenderGraph;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/renderSystem/RenderPass.ts":
+/*!***********************************************!*\
+  !*** ./src/render/renderSystem/RenderPass.ts ***!
+  \***********************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   RenderPass: () => (/* binding */ RenderPass)
+/* harmony export */ });
+var RenderPass = /** @class */ (function () {
+    function RenderPass(gl, resourceCache, canvas, renderGraph) {
+        this.uniforms = {};
+        this.gl = gl;
+        this.canvas = canvas;
+        this.program = null;
+        this.renderTarget = null;
+        this.uniforms = {};
+        this.resourceCache = resourceCache;
+        this.renderGraph = renderGraph;
+    }
+    RenderPass.prototype.getRenderTarget = function () {
+        return this.renderTarget;
+    };
+    RenderPass.prototype.resize = function (width, height) {
+        // Delete old resources
+        if (this.renderTarget) {
+            if (this.renderTarget.fbo) {
+                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+            }
+            if (this.renderTarget.textures) {
+                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
+                    var texture = _a[_i];
+                    this.gl.deleteTexture(texture);
+                }
+            }
+        }
+        // Recreate render target with new dimensions
+        this.renderTarget = this.initRenderTarget();
+    };
+    RenderPass.prototype.dispose = function () {
+        if (this.renderTarget) {
+            if (this.renderTarget.fbo) {
+                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+            }
+            if (this.renderTarget.textures) {
+                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
+                    var texture = _a[_i];
+                    this.gl.deleteTexture(texture);
+                }
+            }
+        }
+        if (this.program) {
+            this.gl.deleteProgram(this.program);
+        }
+    };
+    return RenderPass;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/renderSystem/managers/UniformsManager.ts":
+/*!*************************************************************!*\
+  !*** ./src/render/renderSystem/managers/UniformsManager.ts ***!
+  \*************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   ResourceCache: () => (/* binding */ ResourceCache),
+/* harmony export */   UniformsManager: () => (/* binding */ UniformsManager),
+/* harmony export */   getUniformLocations: () => (/* binding */ getUniformLocations)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+var __assign = (undefined && undefined.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
+
+
+var ResourceCache = /** @class */ (function () {
+    function ResourceCache(gl) {
+        this.uniformsCache = new Map();
+    }
+    ResourceCache.prototype.getUniformData = function (key) {
+        return this.uniformsCache.get(key);
+    };
+    ResourceCache.prototype.setUniformData = function (key, value) {
+        this.uniformsCache.set(key, value);
+    };
+    return ResourceCache;
+}());
+
+function getUniformLocations(gl, program, names) {
+    var locations = {};
+    for (var _i = 0, names_1 = names; _i < names_1.length; _i++) {
+        var name_1 = names_1[_i];
+        var loc = gl.getUniformLocation(program, name_1);
+        if (loc)
+            locations[name_1] = loc;
+    }
+    return locations;
+}
+var UniformsManager = /** @class */ (function () {
+    function UniformsManager(gl, canvas, resourceCache, camera) {
+        this.kernelSize = 64;
+        this.kernels = [];
+        this.noiseTexture = null;
+        this.noiseSize = 64;
+        this.gl = gl;
+        this.SSAOParameters = {
+            radius: 5.0,
+            bias: 0.025,
+            SSAOBlur: true,
+        };
+        this.generateKernels();
+        this.generateNoiseTexture();
+        this.resourceCache = resourceCache;
+        this.canvas = canvas;
+        this.camera = camera;
+        this.resourceCache.setUniformData("SSAOInfo", this.getSSAOInfo());
+    }
+    UniformsManager.prototype.getSSAOInfo = function () {
+        return __assign(__assign({}, this.SSAOParameters), { KernelSize: this.kernelSize, Kernels: this.kernels, NoiseTexture: this.noiseTexture, NoiseSize: this.noiseSize });
+    };
+    UniformsManager.prototype.setSSAOParameters = function (radius, bias, SSAOBlur) {
+        this.SSAOParameters.radius = radius;
+        this.SSAOParameters.bias = bias;
+        this.SSAOParameters.SSAOBlur = SSAOBlur;
+        this.resourceCache.setUniformData("SSAOInfo", this.getSSAOInfo());
+    };
+    UniformsManager.prototype.generateKernels = function () {
+        this.kernels = [];
+        for (var i = 0; i < this.kernelSize; i++) {
+            var sample = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(Math.random() * 2.0 - 1.0, Math.random() * 2.0 - 1.0, Math.random());
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.normalize(sample, sample);
+            var scale = i / this.kernelSize;
+            scale = 0.1 + scale * scale * 0.9;
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.scale(sample, sample, scale);
+            this.kernels.push(sample);
+        }
+    };
+    UniformsManager.prototype.generateNoiseTexture = function () {
+        var noiseData = new Float32Array(this.noiseSize * this.noiseSize * 3);
+        for (var i = 0; i < this.noiseSize; i++) {
+            for (var j = 0; j < this.noiseSize; j++) {
+                var index = (i * this.noiseSize + j) * 3;
+                noiseData[index] = Math.random() * 2.0 - 1.0;
+                noiseData[index + 1] = Math.random() * 2.0 - 1.0;
+                noiseData[index + 2] = 0.0;
+            }
+        }
+        this.noiseTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture(this.gl, this.noiseSize, this.noiseSize, this.gl.RGB32F, this.gl.RGB, this.gl.FLOAT, noiseData, this.gl.NEAREST, this.gl.NEAREST, this.gl.REPEAT, this.gl.REPEAT);
+    };
+    UniformsManager.prototype.calculateCameraInfo = function () {
+        var matViewAndProj = this.camera.calculateProjectionMatrices(this.canvas.width, this.canvas.height);
+        var cameraInfo = {
+            matView: matViewAndProj.matView,
+            matProj: matViewAndProj.matProj,
+            matViewProj: gl_matrix__WEBPACK_IMPORTED_MODULE_2__.multiply(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), matViewAndProj.matProj, matViewAndProj.matView),
+            matViewInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_2__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), matViewAndProj.matView),
+            matProjInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_2__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), matViewAndProj.matProj),
+        };
+        this.resourceCache.setUniformData("CameraInfo", cameraInfo);
+        this.resourceCache.setUniformData("cameraPosition", this.camera.position);
+    };
+    return UniformsManager;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/render/renderSystem/managers/VaoManager.ts":
+/*!********************************************************!*\
+  !*** ./src/render/renderSystem/managers/VaoManager.ts ***!
+  \********************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   VAOManager: () => (/* binding */ VAOManager)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _map_cubes_utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../map/cubes_utils */ "./src/map/cubes_utils.ts");
+/* harmony import */ var _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../glsl/DeferredRendering/Geometry.vert */ "./src/render/glsl/DeferredRendering/Geometry.vert");
+/* harmony import */ var _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../glsl/DeferredRendering/Geometry.frag */ "./src/render/glsl/DeferredRendering/Geometry.frag");
+
+
+
+
+
+var VAOManager = /** @class */ (function () {
+    function VAOManager(gl) {
+        this.terrainVAOInfo = null;
+        this.screenQuadVAOInfo = null;
+        this.geometryProgram = null;
+        this.gl = gl;
+        this.vaoCache = new Map();
+        this.geometryProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateProgram(this.gl, _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_2__, _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_3__);
+        this.initializeScreenQuad();
+    }
+    VAOManager.prototype.createTerrainVAO = function (triangleMeshes) {
+        var trianglePositions = [];
+        var triangleNormals = [];
+        var triangleColors = [];
+        var triangleIndices = [];
+        var indexOffset = 0;
+        for (var i = 0; i < triangleMeshes.length; i++) {
+            var mesh = triangleMeshes[i];
+            var vertexData = (0,_map_cubes_utils__WEBPACK_IMPORTED_MODULE_1__.meshToNonInterleavedVerticesAndIndices)(mesh);
+            trianglePositions = trianglePositions.concat(Array.from(vertexData.positions));
+            triangleNormals = triangleNormals.concat(Array.from(vertexData.normals));
+            triangleColors = triangleColors.concat(Array.from(vertexData.colors));
+            var adjustedIndices = Array.from(vertexData.indices).map(function (index) { return index + indexOffset; });
+            triangleIndices = triangleIndices.concat(adjustedIndices);
+            indexOffset += vertexData.positions.length / 3;
+        }
+        var TerrainMeshSize = triangleIndices.length;
+        var TerrainTriangleBuffer = {
+            vertex: {
+                position: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateAttributeBuffer(this.gl, new Float32Array(trianglePositions)),
+                normal: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleNormals)),
+                color: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleColors))
+            },
+            indices: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateIndexBuffer(this.gl, triangleIndices)
+        };
+        var terrainVAO = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.createNonInterleavedVao(this.gl, {
+            position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
+            normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
+            color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 }
+        }, TerrainTriangleBuffer.indices, this.geometryProgram);
+        this.terrainVAOInfo = {
+            vao: terrainVAO,
+            indexCount: TerrainMeshSize,
+            modelMatrix: gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create()
+        };
+    };
+    VAOManager.prototype.createWorldObjectVAOs = function (worldObjects) {
+        for (var _i = 0, worldObjects_1 = worldObjects; _i < worldObjects_1.length; _i++) {
+            var worldObject = worldObjects_1[_i];
+            var vao = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.createInterleavedVao(this.gl, worldObject.buffer.vertex, worldObject.buffer.indices, {
+                position: { offset: 0, size: 3, stride: 36 },
+                normal: { offset: 12, size: 3, stride: 36 },
+                color: { offset: 24, size: 3, stride: 36 }
+            }, this.geometryProgram);
+            this.vaoCache.set(worldObject.id, {
+                vao: vao,
+                indexCount: worldObject.meshSize,
+                modelMatrix: worldObject.position
+            });
+        }
+    };
+    VAOManager.prototype.initializeScreenQuad = function () {
+        var _a = __webpack_require__(/*! ../../../map/geometry */ "./src/map/geometry.ts"), quadVertices = _a.quadVertices, quadIndices = _a.quadIndices;
+        var vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        var vbo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, quadVertices, this.gl.STATIC_DRAW);
+        var ebo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
+        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, quadIndices, this.gl.STATIC_DRAW);
+        this.gl.enableVertexAttribArray(0);
+        this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 20, 0);
+        this.gl.enableVertexAttribArray(1);
+        this.gl.vertexAttribPointer(1, 2, this.gl.FLOAT, false, 20, 12);
+        this.gl.bindVertexArray(null);
+        this.screenQuadVAOInfo = {
+            vao: vao,
+            indexCount: quadIndices.length,
+            modelMatrix: gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create()
+        };
+    };
+    VAOManager.prototype.getVaosToRender = function () {
+        var vaosToRender = [];
+        if (this.terrainVAOInfo) {
+            vaosToRender.push(this.terrainVAOInfo);
+        }
+        this.vaoCache.forEach(function (vao) {
+            vaosToRender.push(vao);
+        });
+        return vaosToRender;
+    };
+    VAOManager.prototype.getScreenQuadVAO = function () {
+        return this.screenQuadVAOInfo;
+    };
+    VAOManager.prototype.dispose = function () {
+        var _this = this;
+        if (this.terrainVAOInfo) {
+            this.gl.deleteVertexArray(this.terrainVAOInfo.vao);
+            this.terrainVAOInfo = null;
+        }
+        this.vaoCache.forEach(function (vao) {
+            _this.gl.deleteVertexArray(vao);
+        });
+        this.vaoCache.clear();
+    };
+    return VAOManager;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/utils/RenderUtils.ts":
+/*!**********************************!*\
+  !*** ./src/utils/RenderUtils.ts ***!
+  \**********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   RenderUtils: () => (/* binding */ RenderUtils)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+
+var RenderUtils = /** @class */ (function () {
+    function RenderUtils() {
+    }
+    ///////////////////////Rendering Utilities/////////////////////
     /**
      * Creates a WebGL program with the given vertex and fragment shader code.
      * @param gl The WebGL2RenderingContext to use for creating the program.
@@ -7369,7 +8339,7 @@ var GlUtils = /** @class */ (function () {
      * @returns The created WebGLProgram or undefined if linking failed.
      * @throws Error if shader compilation fails.
      */
-    GlUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
+    RenderUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
         var VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
         var FragmentShader = this.CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
         var Program = gl.createProgram();
@@ -7379,7 +8349,7 @@ var GlUtils = /** @class */ (function () {
         if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
             var errorMessage = gl.getProgramInfoLog(Program);
             console.error("Failed to link GPU program: ".concat(errorMessage));
-            return;
+            return null;
         }
         return Program;
     };
@@ -7391,7 +8361,7 @@ var GlUtils = /** @class */ (function () {
      * @returns The created WebGLShader.
      * @throws Error if shader compilation fails.
      */
-    GlUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
+    RenderUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
         var Shader = gl.createShader(ShaderType);
         if (!Shader) {
             throw new Error("Failed to create WebGL shader.");
@@ -7413,7 +8383,7 @@ var GlUtils = /** @class */ (function () {
      * @returns An object containing the vertex buffer and index buffer.
      * @throws Error if buffer creation fails.
      */
-    GlUtils.CreateStaticBuffer = function (gl, CPUVertexBuffer, CPUIndexBuffer) {
+    RenderUtils.CreateStaticBuffer = function (gl, CPUVertexBuffer, CPUIndexBuffer) {
         var buffer = gl.createBuffer();
         if (!buffer) {
             throw new Error("Failed to create buffer");
@@ -7428,26 +8398,18 @@ var GlUtils = /** @class */ (function () {
         };
     };
     /**
-     * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
-     * @param translation A vec3 representing the translation (x, y, z).
-     * @param rotation A vec3 representing the rotation in radians (x, y, z).
-     * @param scale A vec3 representing the scale (x, y, z).
-     * @returns A mat4 transformation matrix.
+     * Creates a buffer for vertex attributes.
+     * @param gl The WebGL2RenderingContext to use for creating the buffer.
+     * @param data The Float32Array containing attribute data.
+     * @returns WebGLBuffer containing the attribute data.
      */
-    GlUtils.CreateTransformations = function (translation, rotation, scale) {
-        var transformMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
-        if (translation) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.translate(transformMatrix, transformMatrix, translation);
-        }
-        if (rotation) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateX(transformMatrix, transformMatrix, rotation[0]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateY(transformMatrix, transformMatrix, rotation[1]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.rotateZ(transformMatrix, transformMatrix, rotation[2]);
-        }
-        if (scale) {
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.scale(transformMatrix, transformMatrix, scale);
-        }
-        return transformMatrix;
+    RenderUtils.CreateAttributeBuffer = function (gl, data) {
+        var buffer = gl.createBuffer();
+        if (!buffer)
+            throw new Error("Failed to create attribute buffer");
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+        return buffer;
     };
     /**
      * Creates an index buffer for the given indices.
@@ -7455,7 +8417,7 @@ var GlUtils = /** @class */ (function () {
      * @param indices The array of indices to be stored in the buffer.
      * @returns The created WebGLBuffer containing the indices.
      */
-    GlUtils.CreateIndexBuffer = function (gl, indices) {
+    RenderUtils.CreateIndexBuffer = function (gl, indices) {
         var indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         // This array defines each face as two triangles, using the
@@ -7470,71 +8432,105 @@ var GlUtils = /** @class */ (function () {
      * @param gl The WebGL2RenderingContext to use for creating the VAO.
      * @param vertexBuffer The WebGLBuffer containing vertex data.
      * @param indexBuffer The WebGLBuffer containing index data.
-     * @param shader The Shader object containing vertex attribute locations.
      * @param layout An object defining the layout of vertex attributes.
+     * @param locations Optional object mapping attribute names to their locations.
      * @returns The created VAO.
      */
-    GlUtils.createInterleavedVao = function (gl, vertexBuffer, indexBuffer, shader, layout) {
-        var _a;
+    RenderUtils.createInterleavedVao = function (gl, vertexBuffer, indexBuffer, layout, program) {
+        var _a, _b;
         var vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        for (var _i = 0, _b = Object.entries(shader.VertexInputs); _i < _b.length; _i++) {
-            var _c = _b[_i], name_1 = _c[0], attrib = _c[1];
-            var layoutInfo = layout[name_1];
-            if (!layoutInfo) {
-                console.warn("No layout info for attribute ".concat(name_1, ", skipping."));
+        for (var _i = 0, _c = Object.entries(layout); _i < _c.length; _i++) {
+            var _d = _c[_i], name_1 = _d[0], layoutInfo = _d[1];
+            var location_1 = (_a = layoutInfo.location) !== null && _a !== void 0 ? _a : gl.getAttribLocation(program, name_1);
+            if (location_1 === -1) {
+                console.warn("Attribute ".concat(name_1, " not found in shader program."));
                 continue;
             }
-            var size = (_a = layoutInfo.sizeOverride) !== null && _a !== void 0 ? _a : attrib.size;
-            gl.enableVertexAttribArray(attrib.location);
-            gl.vertexAttribPointer(attrib.location, size, gl.FLOAT, false, layoutInfo.stride, layoutInfo.offset);
+            var size = (_b = layoutInfo.sizeOverride) !== null && _b !== void 0 ? _b : layoutInfo.size;
+            gl.enableVertexAttribArray(location_1);
+            gl.vertexAttribPointer(location_1, size, gl.FLOAT, false, layoutInfo.stride, layoutInfo.offset);
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         return vao;
     };
     /**
-     * Calculates the necessary vertices, normals, and wireframes for cubes for our world
-     * @param world The world we are rendering
-     * @returns { List of triangle meshes }
+     * Creates a Vertex Array Object (VAO) for non-interleaved vertex attributes.
+     * @param gl WebGL2RenderingContext
+     * @param attributeBuffers WebGLBuffers for each attribute
+     * @param indexBuffer Index buffer for the mesh
+     * @param shader Shader containing attribute locations
+     * @returns WebGLVertexArrayObject
      */
-    GlUtils.genTerrainVertices = function (world) {
-        var triangleMeshes = []; // Store all chunks' meshes
-        var mainMesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
-        for (var _i = 0, _a = world.chunks; _i < _a.length; _i++) {
-            var chunk = _a[_i];
-            var triangleMesh = chunk.Mesh;
-            triangleMesh.translate(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]));
-            mainMesh.merge(triangleMesh);
-            triangleMeshes.push(triangleMesh); // Store the chunk's mesh
+    RenderUtils.createNonInterleavedVao = function (gl, attributeBuffers, indexBuffer, program) {
+        var vao = gl.createVertexArray();
+        if (!vao)
+            throw new Error("Failed to create VAO");
+        gl.bindVertexArray(vao);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        for (var _i = 0, _a = Object.entries(attributeBuffers); _i < _a.length; _i++) {
+            var _b = _a[_i], attribName = _b[0], bufferInfo = _b[1];
+            var attribLocation = gl.getAttribLocation(program, attribName);
+            if (attribLocation === -1) {
+                console.warn("Attribute ".concat(attribName, " not found in shader program."));
+                continue;
+            }
+            var buffer = bufferInfo.buffer, size = bufferInfo.size, _c = bufferInfo.type, type = _c === void 0 ? gl.FLOAT : _c;
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.enableVertexAttribArray(attribLocation);
+            gl.vertexAttribPointer(attribLocation, size, type, false, 0, 0);
         }
-        return triangleMeshes;
+        gl.bindVertexArray(null);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        return vao;
     };
-    GlUtils.updateLights = function (gl, program, lights, camera) {
-        // Set number of active lights
-        var numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
-        gl.uniform1i(numLightsLocation, lights.length);
-        // Update each light's data
-        lights.forEach(function (light, index) {
-            var baseUniform = "lights[".concat(index, "]");
-            var posLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".position"));
-            var colorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".color"));
-            var intensityLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".intensity"));
-            var radiusLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".radius"));
-            var showColorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".showColor"));
-            gl.uniform3fv(posLocation, light.position);
-            gl.uniform3fv(colorLocation, light.color.createVec3());
-            gl.uniform3fv(showColorLocation, light.showColor.createVec3());
-            gl.uniform1f(intensityLocation, light.intensity);
-            gl.uniform1f(radiusLocation, light.radius);
-        });
-        if (camera) {
-            var viewPositionLocation = gl.getUniformLocation(program, "viewPosition");
-            gl.uniform3fv(viewPositionLocation, camera.getPosition());
+    ///////////////////////Matrix Utilities/////////////////////
+    /**
+     * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
+     * @param translation A vec3 representing the translation (x, y, z).
+     * @param rotation A vec3 representing the rotation in radians (x, y, z).
+     * @param scale A vec3 representing the scale (x, y, z).
+     * @returns A mat4 transformation matrix.
+     */
+    RenderUtils.CreateTransformations = function (translation, rotation, scale) {
+        var transformMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_0__.create();
+        if (translation) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.translate(transformMatrix, transformMatrix, translation);
         }
+        if (rotation) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.rotateX(transformMatrix, transformMatrix, rotation[0]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.rotateY(transformMatrix, transformMatrix, rotation[1]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.rotateZ(transformMatrix, transformMatrix, rotation[2]);
+        }
+        if (scale) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_0__.scale(transformMatrix, transformMatrix, scale);
+        }
+        return transformMatrix;
     };
-    ///////////////////////Texture Utilities/////////////////////
+    return RenderUtils;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/utils/TextureUtils.ts":
+/*!***********************************!*\
+  !*** ./src/utils/TextureUtils.ts ***!
+  \***********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   TextureUtils: () => (/* binding */ TextureUtils)
+/* harmony export */ });
+var TextureUtils = /** @class */ (function () {
+    function TextureUtils() {
+    }
     /**
      * Binds a given WebGL texture to texture unit 0 and sets the corresponding sampler uniform in the shader program.
      *
@@ -7547,7 +8543,7 @@ var GlUtils = /** @class */ (function () {
      * @remarks
      * If the specified uniform cannot be found in the shader program, a warning is logged to the console.
      */
-    GlUtils.bindTex = function (gl, program, tex, key, unit) {
+    TextureUtils.bindTex = function (gl, program, tex, key, unit) {
         var loc = gl.getUniformLocation(program, key);
         if (loc === null) {
             console.warn("Cannot find ".concat(key, " in fragmentShader"));
@@ -7568,7 +8564,7 @@ var GlUtils = /** @class */ (function () {
      * @param widthHint  - Optional: manual texture width (default auto-calculated)
      * @returns texture: WebGLTexture
      */
-    GlUtils.packFloatArrayToTexture = function (gl, data, widthHint) {
+    TextureUtils.packFloatArrayToTexture = function (gl, data, widthHint) {
         if (data.length % 4 !== 0) {
             console.warn("[packFloatArrayToTexture] Padding input from ".concat(data.length, " to multiple of 4"));
             var padded = new Float32Array(Math.ceil(data.length / 4) * 4);
@@ -7591,109 +8587,101 @@ var GlUtils = /** @class */ (function () {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         return texture;
     };
-    return GlUtils;
+    /**
+     * Creates and initializes a WebGL 2D texture with the specified parameters.
+     *
+     * @param gl - The WebGL2 rendering context.
+     * @param width - The width of the texture in pixels.
+     * @param height - The height of the texture in pixels.
+     * @param internalFormat - The internal format of the texture (e.g., `gl.RGBA8`).
+     * @param format - The format of the pixel data (e.g., `gl.RGBA`).
+     * @param type - The data type of the pixel data (e.g., `gl.UNSIGNED_BYTE`).
+     * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
+     * @returns The created WebGLTexture object.
+     */
+    TextureUtils.createTexture = function (gl, width, height, internalFormat, format, type, data, minFilter, magFilter, wrapS, wrapT) {
+        if (data === void 0) { data = null; }
+        if (minFilter === void 0) { minFilter = gl.NEAREST; }
+        if (magFilter === void 0) { magFilter = gl.NEAREST; }
+        if (wrapS === void 0) { wrapS = gl.CLAMP_TO_EDGE; }
+        if (wrapT === void 0) { wrapT = gl.CLAMP_TO_EDGE; }
+        var texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, data);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
+        return texture;
+    };
+    return TextureUtils;
 }());
 
 
 
 /***/ }),
 
-/***/ "./src/render/Shader.ts":
-/*!******************************!*\
-  !*** ./src/render/Shader.ts ***!
-  \******************************/
+/***/ "./src/utils/WorldUtils.ts":
+/*!*********************************!*\
+  !*** ./src/utils/WorldUtils.ts ***!
+  \*********************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   Shader: () => (/* binding */ Shader)
+/* harmony export */   WorldUtils: () => (/* binding */ WorldUtils)
 /* harmony export */ });
-/* harmony import */ var _GlUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./GlUtils */ "./src/render/GlUtils.ts");
+/* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 
-var Shader = /** @class */ (function () {
-    function Shader(gl, VertexShaderCode, FragmentShaderCode) {
-        this.VertexShaderCode = VertexShaderCode;
-        this.FragmentShaderCode = FragmentShaderCode;
-        this.Program = _GlUtils__WEBPACK_IMPORTED_MODULE_0__.GlUtils.CreateProgram(gl, VertexShaderCode, FragmentShaderCode);
-        if (!this.Program) {
-            throw new Error("Error creating shader program");
-        }
-        var VertexVariables = this.extractShaderVariables(gl, VertexShaderCode, this.Program);
-        this.VertexInputs = VertexVariables[0];
-        this.VertexUniforms = VertexVariables[1];
+
+var WorldUtils = /** @class */ (function () {
+    function WorldUtils() {
     }
-    Shader.prototype.extractShaderVariables = function (gl, shaderCode, program) {
-        var inputPattern = /in\s+(\w+)\s+(\w+);/g;
-        var uniformPattern = /uniform\s+(\w+)\s+(\w+);/g;
-        var inputs = {};
-        var uniforms = {};
-        var match;
-        // Extract inputs
-        while ((match = inputPattern.exec(shaderCode)) !== null) {
-            var location_1 = gl.getAttribLocation(program, match[2]);
-            if (location_1 === -1) {
-                console.error("Attribute ".concat(match[2], " not found in shader program."));
-                continue;
-            }
-            inputs[match[2]] = {
-                type: match[1],
-                size: this.glslTypeToSize(match[1]),
-                location: location_1
-            };
+    /**
+     * Calculates the necessary vertices, normals, and wireframes for cubes for our world
+     * @param world The world we are rendering
+     * @returns { List of triangle meshes }
+     */
+    WorldUtils.genTerrainVertices = function (world) {
+        var triangleMeshes = []; // Store all chunks' meshes
+        var mainMesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+        for (var _i = 0, _a = world.chunks; _i < _a.length; _i++) {
+            var chunk = _a[_i];
+            var triangleMesh = chunk.Mesh;
+            triangleMesh.translate(gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]));
+            mainMesh.merge(triangleMesh);
+            triangleMeshes.push(triangleMesh); // Store the chunk's mesh
         }
-        // Extract uniforms
-        while ((match = uniformPattern.exec(shaderCode)) !== null) {
-            var location_2 = gl.getUniformLocation(program, match[2]);
-            if (location_2 === null) {
-                console.error("Uniform ".concat(match[2], " not found in shader program."));
-                continue;
-            }
-            uniforms[match[2]] = { type: match[1], location: location_2 };
-        }
-        return [inputs, uniforms];
+        return triangleMeshes;
     };
-    // Method to get the size of a GLSL type
-    Shader.prototype.glslTypeToSize = function (type) {
-        switch (type) {
-            case "float":
-                return 1;
-            case "vec2":
-                return 2;
-            case "vec3":
-                return 3;
-            case "vec4":
-                return 4;
-            default:
-                throw new Error("Unsupported GLSL type: ".concat(type));
+    WorldUtils.updateLights = function (gl, program, lights, camera) {
+        // Set number of active lights
+        var numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
+        gl.uniform1i(numLightsLocation, lights.length);
+        // Update each light's data
+        lights.forEach(function (light, index) {
+            var baseUniform = "lights[".concat(index, "]");
+            var posLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".position"));
+            var colorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".color"));
+            var intensityLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".intensity"));
+            var radiusLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".radius"));
+            var showColorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".showColor"));
+            gl.uniform3fv(posLocation, light.position);
+            gl.uniform3fv(colorLocation, light.color.createVec3());
+            gl.uniform3fv(showColorLocation, light.showColor.createVec3());
+            gl.uniform1f(intensityLocation, light.intensity);
+            gl.uniform1f(radiusLocation, light.radius);
+        });
+        if (camera) {
+            var viewPositionLocation = gl.getUniformLocation(program, "viewPosition");
+            gl.uniform3fv(viewPositionLocation, camera.getPosition());
         }
     };
-    return Shader;
+    return WorldUtils;
 }());
 
-
-
-/***/ }),
-
-/***/ "./src/render/glsl.ts":
-/*!****************************!*\
-  !*** ./src/render/glsl.ts ***!
-  \****************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   CubeFragmentShaderCode: () => (/* binding */ CubeFragmentShaderCode),
-/* harmony export */   CubeVertexShaderCode: () => (/* binding */ CubeVertexShaderCode),
-/* harmony export */   MeshFragmentShaderCode: () => (/* binding */ MeshFragmentShaderCode),
-/* harmony export */   MeshVertexShaderCode: () => (/* binding */ MeshVertexShaderCode)
-/* harmony export */ });
-var CubeVertexShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nin vec4 VertexPosition;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-var CubeFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n\nin vec3 fragmentColor;\nout vec4 outputColor;\n\nvoid main() {\n  outputColor = vec4(fragmentColor, 1);\n}";
-//
-var MeshVertexShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n//If you see lessons that use attribute, that's an old version of Webgl\nstruct Light {\n  vec3 position;\n  vec3 color;\n  vec3 showColor;\n  float intensity;\n  float radius;\n};\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nin vec4 VertexPosition;\nin vec3 VertexNormal;\nin vec3 VertexColor;\nout vec3 fragmentColor;\nout vec3 fragmentNormal;\nout vec3 fragmentPosition;\nuniform mat4 MatrixTransform;\nuniform mat4 matViewProj;\n\nvoid main() {  \n  fragmentColor = VertexColor;\n  fragmentNormal = VertexNormal;\n  fragmentPosition = VertexPosition.xyz;\n  gl_Position = matViewProj*MatrixTransform*VertexPosition;\n}\n";
-var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;\n\nstruct Light {\n  vec3 position;\n  vec3 color;\n  vec3 showColor;\n  float intensity;\n  float radius;\n};\n\n#define MAX_LIGHTS 100\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 viewPosition;\n\nin vec3 fragmentColor;\nin vec3 fragmentNormal;\nin vec3 fragmentPosition;\nout vec4 outputColor;\n\nvoid main() {\n    vec3 normal = normalize(fragmentNormal);\n    vec3 specular = vec3(0.0);\n    vec3 totalDiffuse = vec3(0.0);\n    \n    float ambientStrength = 0.15;\n    vec3 ambientLight = vec3(0.4, 0.45, 0.5);\n    \n    float metallic = 0.1;\n    float roughness = 0.7;\n    float specularStrength = mix(0.04, 0.9, metallic);\n    int shininess = int(mix(2.0, 32.0, 1.0 - roughness));\n    \n    for(int i = 0; i < MAX_LIGHTS; i++) {\n        if(i >= numActiveLights) break;\n        \n        vec3 lightDir = normalize(lights[i].position - fragmentPosition);\n        float distance = length(lights[i].position - fragmentPosition);\n        \n        \n        // Diffuse lighting\n        float diffuseStrength = max(dot(normal, lightDir), 0.1);\n        vec3 diffuse = diffuseStrength * lights[i].color * lights[i].intensity;\n        totalDiffuse += diffuse;\n        \n        // Specular lighting (Blinn-Phong)\n        vec3 viewDir = normalize(viewPosition - fragmentPosition);\n        vec3 halfwayDir = normalize(lightDir + viewDir);\n        float spec = pow(max(dot(normal, halfwayDir), 0.0), float(shininess));\n        specular += spec * lights[i].color * lights[i].intensity * specularStrength;\n    }\n    \n    // Combine lighting components\n    vec3 ambient = ambientLight * ambientStrength;\n    vec3 lighting = ambient + totalDiffuse + specular;\n    \n    // Apply lighting to material color\n    vec3 finalColor = fragmentColor * lighting;\n    \n    // Gamma correction\n    finalColor = pow(finalColor, vec3(1.0 / 2.2));\n    \n    outputColor = vec4(finalColor, 1.0);\n}";
 
 
 /***/ })
@@ -7792,7 +8780,7 @@ var MeshFragmentShaderCode = /*glsl*/ "#version 300 es\nprecision mediump float;
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("c2e95382f2e49bf54fd0")
+/******/ 		__webpack_require__.h = () => ("87ec9602bc74b36e5f92")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */

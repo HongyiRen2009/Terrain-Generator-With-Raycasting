@@ -1,11 +1,6 @@
 import { mat4, vec3 } from "gl-matrix";
-import { Shader } from "./Shader";
-import { Mesh } from "../map/Mesh";
-import { WorldMap } from "../map/Map";
-import { Light } from "../map/Light";
-import { Camera } from "./Camera";
 
-export class GlUtils {
+export class RenderUtils {
   ///////////////////////Rendering Utilities/////////////////////
   /**
    * Creates a WebGL program with the given vertex and fragment shader code.
@@ -19,7 +14,7 @@ export class GlUtils {
     gl: WebGL2RenderingContext,
     VertexShaderCode: string,
     FragmentShaderCode: string
-  ) {
+  ): WebGLProgram | null {
     const VertexShader = this.CreateShader(
       gl,
       gl.VERTEX_SHADER,
@@ -38,7 +33,7 @@ export class GlUtils {
     if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
       const errorMessage = gl.getProgramInfoLog(Program);
       console.error(`Failed to link GPU program: ${errorMessage}`);
-      return;
+      return null;
     }
     return Program;
   }
@@ -139,46 +134,47 @@ export class GlUtils {
 
     return indexBuffer;
   }
-
   /**
    * Creates a Vertex Array Object (VAO) for interleaved vertex attributes.
    * @param gl The WebGL2RenderingContext to use for creating the VAO.
    * @param vertexBuffer The WebGLBuffer containing vertex data.
    * @param indexBuffer The WebGLBuffer containing index data.
-   * @param shader The Shader object containing vertex attribute locations.
    * @param layout An object defining the layout of vertex attributes.
+   * @param locations Optional object mapping attribute names to their locations.
    * @returns The created VAO.
    */
   static createInterleavedVao(
     gl: WebGL2RenderingContext,
     vertexBuffer: WebGLBuffer,
     indexBuffer: WebGLBuffer,
-    shader: Shader,
     layout: {
       [attribName: string]: {
         offset: number;
         stride: number;
+        size: number;
         sizeOverride?: number; //For example, positions are vec4 but only use 3 components
+        location?: number; // Optional location override
       };
-    }
+    },
+    program: WebGLProgram
   ) {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-    for (const [name, attrib] of Object.entries(shader.VertexInputs)) {
-      const layoutInfo = layout[name];
-      if (!layoutInfo) {
-        console.warn(`No layout info for attribute ${name}, skipping.`);
+    for (const [name, layoutInfo] of Object.entries(layout)) {
+      const location =
+        layoutInfo.location ?? gl.getAttribLocation(program, name);
+      if (location === -1) {
+        console.warn(`Attribute ${name} not found in shader program.`);
         continue;
       }
+      const size = layoutInfo.sizeOverride ?? layoutInfo.size;
 
-      const size = layoutInfo.sizeOverride ?? attrib.size;
-
-      gl.enableVertexAttribArray(attrib.location);
+      gl.enableVertexAttribArray(location);
       gl.vertexAttribPointer(
-        attrib.location,
+        location,
         size,
         gl.FLOAT,
         false,
@@ -190,7 +186,6 @@ export class GlUtils {
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
     return vao;
   }
-
   /**
    * Creates a Vertex Array Object (VAO) for non-interleaved vertex attributes.
    * @param gl WebGL2RenderingContext
@@ -209,7 +204,7 @@ export class GlUtils {
       };
     },
     indexBuffer: WebGLBuffer,
-    shader: Shader
+    program: WebGLProgram
   ): WebGLVertexArrayObject {
     const vao = gl.createVertexArray();
     if (!vao) throw new Error("Failed to create VAO");
@@ -218,17 +213,17 @@ export class GlUtils {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
     for (const [attribName, bufferInfo] of Object.entries(attributeBuffers)) {
-      const attrib = shader.VertexInputs[attribName];
-      if (!attrib) {
-        console.warn(`Attribute '${attribName}' not found in shader.`);
+      const attribLocation = gl.getAttribLocation(program, attribName);
+      if (attribLocation === -1) {
+        console.warn(`Attribute ${attribName} not found in shader program.`);
         continue;
       }
 
       const { buffer, size, type = gl.FLOAT } = bufferInfo;
 
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      gl.enableVertexAttribArray(attrib.location);
-      gl.vertexAttribPointer(attrib.location, size, type, false, 0, 0);
+      gl.enableVertexAttribArray(attribLocation);
+      gl.vertexAttribPointer(attribLocation, size, type, false, 0, 0);
     }
 
     gl.bindVertexArray(null);
@@ -265,206 +260,7 @@ export class GlUtils {
     }
     return transformMatrix;
   }
-
-  ///////////////////////World Utilities/////////////////////
-  /**
-   * Calculates the necessary vertices, normals, and wireframes for cubes for our world
-   * @param world The world we are rendering
-   * @returns { List of triangle meshes }
-   */
-  static genTerrainVertices(world: WorldMap) {
-    const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
-    let mainMesh = new Mesh();
-
-    for (const chunk of world.chunks) {
-      const triangleMesh = chunk.Mesh;
-      triangleMesh.translate(
-        vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
-      );
-      mainMesh.merge(triangleMesh);
-      triangleMeshes.push(triangleMesh); // Store the chunk's mesh
-    }
-
-    return triangleMeshes;
-  }
-
-  static updateLights(
-    gl: WebGL2RenderingContext,
-    program: WebGLProgram,
-    lights: Array<Light>,
-    camera?: Camera
-  ) {
-    // Set number of active lights
-    const numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
-    gl.uniform1i(numLightsLocation, lights.length);
-
-    // Update each light's data
-    lights.forEach((light, index) => {
-      const baseUniform = `lights[${index}]`;
-
-      const posLocation = gl.getUniformLocation(
-        program,
-        `${baseUniform}.position`
-      );
-      const colorLocation = gl.getUniformLocation(
-        program,
-        `${baseUniform}.color`
-      );
-      const intensityLocation = gl.getUniformLocation(
-        program,
-        `${baseUniform}.intensity`
-      );
-      const radiusLocation = gl.getUniformLocation(
-        program,
-        `${baseUniform}.radius`
-      );
-      const showColorLocation = gl.getUniformLocation(
-        program,
-        `${baseUniform}.showColor`
-      );
-
-      gl.uniform3fv(posLocation, light.position);
-      gl.uniform3fv(colorLocation, light.color.createVec3());
-      gl.uniform3fv(showColorLocation, light.showColor.createVec3());
-      gl.uniform1f(intensityLocation, light.intensity);
-      gl.uniform1f(radiusLocation, light.radius);
-    });
-
-    if (camera) {
-      const viewPositionLocation = gl.getUniformLocation(
-        program,
-        "viewPosition"
-      );
-      gl.uniform3fv(viewPositionLocation, camera.getPosition());
-    }
-  }
-
-  ///////////////////////Texture Utilities/////////////////////
-
-  /**
-   * Binds a given WebGL texture to texture unit 0 and sets the corresponding sampler uniform in the shader program.
-   *
-   * @param gl - The WebGL2RenderingContext to use for binding.
-   * @param program - The WebGLProgram to bind the texture to.
-   * @param tex - The WebGLTexture to bind.
-   * @param key - The name of the sampler uniform in the shader program to associate with the texture.
-   * @param unit - The texture unit to bind the texture to (0-15 for WebGL2).
-   *
-   * @remarks
-   * If the specified uniform cannot be found in the shader program, a warning is logged to the console.
-   */
-  static bindTex(
-    gl: WebGL2RenderingContext,
-    program: WebGLProgram,
-    tex: WebGLTexture,
-    key: string,
-    unit: number
-  ) {
-    const loc = gl.getUniformLocation(program, key);
-    if (loc === null) {
-      console.warn(`Cannot find ${key} in fragmentShader`);
-      return;
-    }
-    // Bind to the specified texture unit
-    gl.activeTexture(gl.TEXTURE0 + unit);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    // Tell the shader's sampler to use this texture unit
-    gl.uniform1i(loc, unit);
-  }
-
-  /**
-   * Uploads a Float32Array to GPU as a 2D RGBA32F texture.
-   * Each texel stores 4 floats (R, G, B, A).
-   * (totally not vibecoded)
-   * @param gl         - WebGL2RenderingContext
-   * @param data       - Float32Array containing your raw float data
-   * @param widthHint  - Optional: manual texture width (default auto-calculated)
-   * @returns texture: WebGLTexture
-   */
-  static packFloatArrayToTexture(
-    gl: WebGL2RenderingContext,
-    data: Float32Array,
-    widthHint?: number
-  ) {
-    if (data.length % 4 !== 0) {
-      console.warn(
-        `[packFloatArrayToTexture] Padding input from ${data.length} to multiple of 4`
-      );
-      const padded = new Float32Array(Math.ceil(data.length / 4) * 4);
-      padded.set(data);
-      data = padded;
-    }
-
-    const totalTexels = data.length / 4;
-
-    const width = widthHint || Math.ceil(Math.sqrt(totalTexels));
-    const height = Math.ceil(totalTexels / width);
-
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA32F, // Internal format
-      width,
-      height,
-      0,
-      gl.RGBA, // Format of incoming data
-      gl.FLOAT,
-      new Float32Array(width * height * 4).fill(0).map((_, i) => data[i] ?? 0) // Fill/pad if needed
-    );
-
-    // NEAREST = no filtering/interpolation
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-    return texture;
-  }
-  /**
-   * Creates and initializes a WebGL 2D texture with the specified parameters.
-   *
-   * @param gl - The WebGL2 rendering context.
-   * @param width - The width of the texture in pixels.
-   * @param height - The height of the texture in pixels.
-   * @param internalFormat - The internal format of the texture (e.g., `gl.RGBA8`).
-   * @param format - The format of the pixel data (e.g., `gl.RGBA`).
-   * @param type - The data type of the pixel data (e.g., `gl.UNSIGNED_BYTE`).
-   * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
-   * @returns The created WebGLTexture object.
-   */
-  static createTexture(
-    gl: WebGL2RenderingContext,
-    width: number,
-    height: number,
-    internalFormat: number,
-    format: number,
-    type: number,
-    data: ArrayBufferView | null = null,
-    minFilter: number = gl.NEAREST,
-    magFilter: number = gl.NEAREST,
-    wrapS: number = gl.CLAMP_TO_EDGE,
-    wrapT: number = gl.CLAMP_TO_EDGE
-  ) {
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      internalFormat,
-      width,
-      height,
-      0,
-      format,
-      type,
-      data
-    );
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
-    return texture;
-  }
 }
+  
+
+  

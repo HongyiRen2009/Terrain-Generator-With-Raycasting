@@ -29,7 +29,7 @@ const config: webpack.Configuration = {
       {
         test: /\.ts$/,
         use: "ts-loader",
-        exclude: /node_modules/
+        exclude: [/node_modules/, /OldGLRenderer\.ts$/, /DeferredRenderer \(old\)\.ts$/]
       },
       {
         test: /\.obj$/,
@@ -42,6 +42,14 @@ const config: webpack.Configuration = {
       {
         test: /\.3mf$/,
         type: "asset/resource"
+      },
+      {
+        test: /\.vert$/,
+        type: "asset/source"
+      },
+      {
+        test: /\.frag$/,
+        type: "asset/source"
       }
     ]
   },
