@@ -79,9 +79,14 @@ export class CloudRenderer {
       this.gl.getUniformLocation(this.shaderProgram, "densityThreshold"),
       cloudSection?.getSliderValue("density-threshold") || 0.5
     );
+    debugger;
     this.gl.uniform1f(
-      this.gl.getUniformLocation(this.shaderProgram, "frequency"),
-      cloudSection?.getSliderValue("frequency") || 1.0
+      this.gl.getUniformLocation(this.shaderProgram, "baseFrequency"),
+      cloudSection?.getSliderValue("base-frequency") || 0.05
+    );
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.shaderProgram, "detailFrequency"),
+      cloudSection?.getSliderValue("detail-frequency") || 0.2
     );
     this.gl.uniform1f(
       this.gl.getUniformLocation(this.shaderProgram, "lightAbsorption"),
@@ -98,6 +103,14 @@ export class CloudRenderer {
     this.gl.uniform1f(
       this.gl.getUniformLocation(this.shaderProgram, "ambientIntensity"),
       cloudSection?.getSliderValue("ambient-intensity") || 0.8
+    );
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.shaderProgram, "phaseG"),
+      cloudSection?.getSliderValue("phase-g") || 0.5
+    );
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.shaderProgram, "phaseMultiplier"),
+      0.5
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.shaderProgram, "sunPos"),
@@ -200,78 +213,87 @@ class NoiseGenerator {
         for (let x = 0; x < width; x++) {
           const idx = x + y * width + z * width * height;
           const norm = Math.sqrt(distArr[idx]) / Math.sqrt(maxDist);
-          data[idx] = Math.floor(norm * 255);
+          data[idx] = Math.floor(norm);
         }
       }
     }
     return data;
   }
-  fractalWorleyNoise3D(
+  simplexNoise3D(
     width: number,
     height: number,
     depth: number,
-    baseGridSize: number,
-    octaves: number,
-    persistence = 0.5
+    frequency: number
   ): Uint8Array {
-    const data = new Float32Array(width * height * depth);
-
-    let amplitude = 1;
-    let totalAmplitude = 0;
-
-    for (let o = 0; o < octaves; o++) {
-      const gridSize = baseGridSize / Math.pow(2, o);
-      const octaveData = this.worleyNoise3D(width, height, depth, gridSize, 1);
-
-      for (let z = 0; z < depth; z++) {
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            const idx = x + y * width + z * width * height;
-            // Invert Worley
-            let v = 1.0 - octaveData[idx] / 255.0;
-            // Carve detail instead of add
-            data[idx] += v * amplitude;
-          }
-        }
-      }
-
-      totalAmplitude += amplitude;
-      amplitude *= persistence;
-    }
-
-    // Normalize final data and convert to Uint8
-    const out = new Uint8Array(width * height * depth * 4);
+    const data = new Uint8Array(width * height * depth);
     for (let z = 0; z < depth; z++) {
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-          const idx = x + y * width + z * width * height;
-          const v = Math.floor((data[idx] / totalAmplitude) * 255);
-          const outIdx = idx * 4;
-          out[outIdx] = v;
-          out[outIdx + 1] = v;
-          out[outIdx + 2] = v;
-          out[outIdx + 3] = 255;
+          const value = this.simplex(
+            x * frequency,
+            y * frequency,
+            z * frequency
+          );
+          const normalized = Math.floor((value + 1) / 2);
+          data[x + y * width + z * width * height] = normalized;
         }
       }
     }
-    return out;
+    return data;
+  }
+  simplexWorleyNoise3D(
+    width: number,
+    height: number,
+    depth: number,
+    frequency: number
+  ): Uint8Array {
+    const worelyData = this.worleyNoise3D(
+      width,
+      height,
+      depth,
+      Math.min(width, height, depth) / frequency
+    );
+    const simplexData = this.simplexNoise3D(width, height, depth, frequency);
+    const data = new Uint8Array(width * height * depth);
+    debugger;
+    for (let i = 0; i < data.length; i++) {
+      const hybrid = 1.0 - Math.pow(1.0 - worelyData[i], simplexData[i]);
+      data[i] = hybrid;
+    }
+    return data;
   }
   generateCloudNoiseTex(size: number): WebGLTexture {
-    const data = this.fractalWorleyNoise3D(size, size, size, 16, 4);
-    const tex = this.gl.createTexture();
-    this.gl.bindTexture(this.gl.TEXTURE_3D, tex);
+    const frequency = 8;
+    const dataR = this.simplexWorleyNoise3D(size, size, size, frequency);
+    const dataG = this.worleyNoise3D(size, size, size, size / (frequency * 2));
+    const dataB = this.worleyNoise3D(size, size, size, (frequency * 4) / 2);
+    const dataA = this.worleyNoise3D(size, size, size, size / (frequency * 8));
+    const texture = this.gl.createTexture();
+    this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
+
+    // Interleave RGBA channels
+    const data = new Uint8Array(size * size * size * 4);
+    for (let i = 0; i < size * size * size; i++) {
+      data[i * 4 + 0] = dataR[i];
+      data[i * 4 + 1] = dataG[i];
+      data[i * 4 + 2] = dataB[i];
+      data[i * 4 + 3] = dataA[i];
+    }
+
     this.gl.texImage3D(
       this.gl.TEXTURE_3D,
-      0,
+      0, // mip level
       this.gl.RGBA8,
       size,
       size,
       size,
-      0,
+      0, // border
       this.gl.RGBA,
       this.gl.UNSIGNED_BYTE,
       data
     );
+
+    // Set texture parameters for mipmapping and filtering
     this.gl.texParameteri(
       this.gl.TEXTURE_3D,
       this.gl.TEXTURE_MIN_FILTER,
@@ -297,7 +319,11 @@ class NoiseGenerator {
       this.gl.TEXTURE_WRAP_R,
       this.gl.REPEAT
     );
+
+    // Generate mipmaps
     this.gl.generateMipmap(this.gl.TEXTURE_3D);
-    return tex;
+
+    this.gl.bindTexture(this.gl.TEXTURE_3D, null);
+    return texture!;
   }
 }

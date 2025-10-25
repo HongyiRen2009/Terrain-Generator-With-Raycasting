@@ -360,11 +360,19 @@ export class GameEngine {
     });
 
     cloudSection.addSlider({
-      id: "frequency",
-      label: "Cloud Noise Frequency",
+      id: "base-frequency",
+      label: "Cloud Base Frequency",
+      min: 0.01,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.05
+    });
+    cloudSection.addSlider({
+      id: "detail-frequency",
+      label: "Cloud Detail Frequency",
       min: 0.1,
-      max: 5.0,
-      step: 0.1,
+      max: 0.5,
+      step: 0.001,
       defaultValue: 0.2
     });
     cloudSection.addSlider({
@@ -398,6 +406,22 @@ export class GameEngine {
       max: 1.0,
       step: 0.01,
       defaultValue: 0.2
+    });
+    cloudSection.addSlider({
+      id: "phase-g",
+      label: "Cloud Phase Function g",
+      min: -1.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.5
+    });
+    cloudSection.addSlider({
+      id: "phase-multiplier",
+      label: "Cloud Phase Function Multiplier",
+      min: 0.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.5
     });
   }
 }
