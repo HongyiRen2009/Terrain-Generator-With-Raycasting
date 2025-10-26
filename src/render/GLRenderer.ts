@@ -87,8 +87,8 @@ export class GLRenderer {
     );
     this.passes.push(geometryPass);
     this.passes.push(ssaoPass);
-    this.passes.push(ssaoBlurPass);
-    this.passes.push(lightingPass);
+    //this.passes.push(ssaoBlurPass);
+    //this.passes.push(lightingPass);
 
     // Set up render graph dependencies
     this.renderGraph.add(geometryPass, ssaoPass);
