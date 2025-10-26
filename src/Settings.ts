@@ -7,6 +7,7 @@ export interface SliderSetting {
   step: number;
   value: number;
   numType: string;
+  uniform?: boolean;
   onChange?: (value: number) => void;
 }
 
@@ -15,6 +16,7 @@ export interface CheckboxSetting {
   id: string;
   label: string;
   value: boolean;
+  uniform?: boolean;
   onChange?: (value: boolean) => void;
 }
 
@@ -60,6 +62,7 @@ export class SettingsSection {
     step: number;
     defaultValue: number;
     numType?: string;
+    uniform?: boolean;
     onChange?: (value: number) => void;
   }): void {
     const setting: SliderSetting = {
@@ -71,6 +74,7 @@ export class SettingsSection {
       step: config.step,
       value: config.defaultValue,
       numType: config.numType || "float",
+      uniform: config.uniform || true,
       onChange: config.onChange
     };
 
@@ -85,6 +89,7 @@ export class SettingsSection {
     id: string;
     label: string;
     defaultValue: boolean;
+    uniform?: boolean;
     onChange?: (value: boolean) => void;
   }): void {
     const setting: CheckboxSetting = {
@@ -92,6 +97,7 @@ export class SettingsSection {
       id: config.id,
       label: config.label,
       value: config.defaultValue,
+      uniform: config.uniform || true,
       onChange: config.onChange
     };
 
@@ -226,8 +232,8 @@ export class SettingsSection {
     if (!this.program) return;
     const program = this.program;
     for (let i = 0; i < this.settings.size; i++) {
-      debugger;
       const setting = Array.from(this.settings.values())[i];
+      if (setting.uniform === false) continue;
       if (setting.type === "slider") {
         const loc = gl.getUniformLocation(program, setting.id);
         if (loc) {

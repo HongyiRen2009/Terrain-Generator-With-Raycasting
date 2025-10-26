@@ -109,6 +109,10 @@ export class CloudsPass extends RenderPass {
       this.uniforms["cameraPosition"],
       this.resourceCache.getUniformData("cameraPosition")
     );
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.program!, "time"),
+      performance.now() * 0.001 // Convert to seconds
+    );
     this.settingsSection?.updateUniforms(this.gl);
     this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     this.gl.bindVertexArray(null);
@@ -130,13 +134,18 @@ export class CloudsPass extends RenderPass {
       "Clouds Settings",
       this.program!
     );
+    this.settingsSection.addCheckbox({
+      id: "enableClouds",
+      label: "Enable Clouds",
+      defaultValue: true
+    });
     this.settingsSection.addSlider({
       id: "MAX_STEPS",
       label: "Cloud Ray Marching Max Steps",
       min: 8,
       max: 128,
       step: 1,
-      defaultValue: 16,
+      defaultValue: 32,
       numType: "int"
     });
     this.settingsSection.addSlider({
@@ -163,7 +172,7 @@ export class CloudsPass extends RenderPass {
       min: -2.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.5
+      defaultValue: 0.09
     });
 
     this.settingsSection.addSlider({
@@ -172,7 +181,7 @@ export class CloudsPass extends RenderPass {
       min: 0.01,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.05
+      defaultValue: 0.45
     });
     this.settingsSection.addSlider({
       id: "detailFrequency",
@@ -180,7 +189,7 @@ export class CloudsPass extends RenderPass {
       min: 0.1,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.2
+      defaultValue: 0.46
     });
     this.settingsSection.addSlider({
       id: "lightAbsorption",
@@ -245,6 +254,30 @@ export class CloudsPass extends RenderPass {
       max: 10.0,
       step: 0.01,
       defaultValue: 0.0
+    });
+    this.settingsSection.addSlider({
+      id: "windSpeed",
+      label: "Cloud Wind Speed",
+      min: 0.0,
+      max: 10.0,
+      step: 0.01,
+      defaultValue: 0.1
+    });
+    this.settingsSection.addSlider({
+      id: "windDirectionX",
+      label: "Cloud Wind Direction X",
+      min: -1.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 1.0
+    });
+    this.settingsSection.addSlider({
+      id: "windDirectionZ",
+      label: "Cloud Wind Direction Z",
+      min: -1.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 1.0
     });
   }
   public resize(width: number, height: number): void {

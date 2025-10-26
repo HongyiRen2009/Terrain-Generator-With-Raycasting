@@ -15,6 +15,7 @@ uniform vec3 sunPos;
 uniform vec3 sunColor;
 
 //settings
+uniform bool enableClouds;
 uniform float absorption;
 uniform float densityThreshold;
 uniform float baseFrequency;
@@ -29,6 +30,11 @@ uniform float weatherMapOffsetX;
 uniform float weatherMapOffsetY;
 uniform int MAX_STEPS;
 uniform int MAX_STEPS_LIGHT;
+
+uniform float time;
+uniform float windDirectionX;
+uniform float windDirectionZ;
+uniform float windSpeed;
 out vec4 fragColor;
 
 // Add early exit constants
@@ -80,31 +86,38 @@ float sampleDetailNoise(vec3 p) {
 }
 
 float sampleDensity(vec3 pos) {
-    vec3 localPos = (pos - cubeMin) / (cubeMax - cubeMin);
+    vec3 windDirection = normalize(vec3(windDirectionX, 0.0f, windDirectionZ));
+    vec3 windOffset = windDirection * windSpeed * time;
+    vec3 animatedPos = pos + windOffset;
 
+    vec3 localPos = (animatedPos - cubeMin) / (cubeMax - cubeMin);
     // Weather map (right now idk if this is the best implementation and it needs some improvement)
-    vec2 weatherUV = (pos.xz - cubeMin.xz) / (cubeMax.xz - cubeMin.xz);
+
+    vec2 weatherUV = (animatedPos.xz - cubeMin.xz) / (cubeMax.xz - cubeMin.xz);
     vec2 weatherMapOffset = vec2(weatherMapOffsetX, weatherMapOffsetY);
-    vec4 weather = texture(weatherMap, weatherUV + weatherMapOffset);
+    vec2 weatherWindOffset = windDirection.xz * windSpeed * time * 0.001f;
+    vec4 weather = texture(weatherMap, weatherUV + weatherMapOffset + weatherWindOffset);
     float coverage = weather.r;
     if(coverage < 0.01f)
         return 0.0f;
 
-    float height01 = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
+    float height01 = (animatedPos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
     if(height01 < 0.1f || height01 > 1.0f)
         return 0.0f;
 
     float base = fbm(localPos * baseFrequency, 5, 0.5f, 2.0f);
-
-    float density = mix(0.0f, base, coverage);
+    float density = base * coverage;
     if(density < densityThreshold)
         return 0.0f;
 
-    float detail = sampleDetailNoise(localPos * detailFrequency);
+    vec3 detailWindOffset = windOffset * 0.5f;
+    vec3 detailPos = (pos + detailWindOffset - cubeMin) / (cubeMax - cubeMin);
+    float detail = sampleDetailNoise(detailPos * detailFrequency);
     density *= mix(0.5f, 1.0f, detail);
 
     // Height falloff and edge fade (stolen from Sebastian Lague)
-    float heightWeight = smoothstep(0.1f, 0.5f, height01) * (1.0f - smoothstep(0.6f, 1.0f, height01));
+    float originalHeight = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
+    float heightWeight = smoothstep(0.1f, 0.5f, originalHeight) * (1.0f - smoothstep(0.6f, 1.0f, originalHeight));
     float containerEdgeFadeDst = 50.0f;
     float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - cubeMin.x, cubeMax.x - pos.x));
     float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - cubeMin.z, cubeMax.z - pos.z));
@@ -153,6 +166,10 @@ vec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {
 }
 
 void main() {
+    if(!enableClouds) {
+        fragColor = vec4(0.0f);
+        return;
+    }
     vec2 uv = fragUV * 2.0f - 1.0f;
     vec4 rayClip = vec4(uv, -1.0f, 1.0f);
     vec4 rayEye = projInverse * rayClip;

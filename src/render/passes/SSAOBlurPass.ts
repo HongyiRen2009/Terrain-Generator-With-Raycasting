@@ -84,12 +84,7 @@ export class SSAOBlurPass extends RenderPass {
       "depthTexture",
       1
     );
-
-    this.gl.uniform1i(
-      this.uniforms["enableBlur"],
-      this.resourceCache.getUniformData("SSAOInfo")!.SSAOBlur ? 1 : 0
-    );
-
+    this.settingsSection?.updateUniforms(this.gl);
     this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     this.gl.bindVertexArray(null);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
