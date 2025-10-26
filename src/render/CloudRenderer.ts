@@ -1,4 +1,4 @@
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, vec2, vec3 } from "gl-matrix";
 import cloudFragmentShaderSource from "./CloudShader.frag";
 import cloudVertexShaderSource from "./CloudShader.vert";
 import { GlUtils } from "./GlUtils";
@@ -80,6 +80,14 @@ export class CloudRenderer {
     if (!cloudSection) {
       console.warn("Cloud settings section not found");
     }
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.shaderProgram, "MAX_STEPS"),
+      cloudSection?.getSliderValue("max-steps") || 16
+    );
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.shaderProgram, "MAX_STEPS_LIGHT"),
+      cloudSection?.getSliderValue("max-steps-light") || 8
+    );
     this.gl.uniform1f(
       this.gl.getUniformLocation(this.shaderProgram, "absorption"),
       cloudSection?.getSliderValue("absorption") || 1.0
@@ -120,6 +128,14 @@ export class CloudRenderer {
       this.gl.getUniformLocation(this.shaderProgram, "phaseMultiplier"),
       0.5
     );
+    this.gl.uniform2fv(
+      this.gl.getUniformLocation(this.shaderProgram, "weatherMapOffset"),
+      vec2.fromValues(
+        cloudSection?.getSliderValue("weather-map-offset-x") || 0.0,
+        cloudSection?.getSliderValue("weather-map-offset-y") || 0.0
+      )
+    );
+
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.shaderProgram, "sunPos"),
       lights[0].position
@@ -140,6 +156,9 @@ class NoiseGenerator {
   dataG: Uint8Array = new Uint8Array();
   dataB: Uint8Array = new Uint8Array();
   dataA: Uint8Array = new Uint8Array();
+  coverageData: Uint8Array = new Uint8Array();
+  densityData: Uint8Array = new Uint8Array();
+  typeData: Uint8Array = new Uint8Array();
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
   }
@@ -310,7 +329,7 @@ class NoiseGenerator {
     this.gl.texParameteri(
       this.gl.TEXTURE_3D,
       this.gl.TEXTURE_MIN_FILTER,
-      this.gl.LINEAR_MIPMAP_LINEAR
+      this.gl.LINEAR
     );
     this.gl.texParameteri(
       this.gl.TEXTURE_3D,
@@ -334,56 +353,113 @@ class NoiseGenerator {
     );
 
     // Generate mipmaps
-    this.gl.generateMipmap(this.gl.TEXTURE_3D);
-
     this.gl.bindTexture(this.gl.TEXTURE_3D, null);
-    this.visualizeSlice(
-      16,
-      document.getElementById("noisePreview") as HTMLCanvasElement,
-      "G"
-    );
+
     return texture!;
   }
-  fbMNoise(
-    size: number,
-    octaves: number,
-    baseFrequency: number,
-    baseAmplitude: number,
-    lacunarity: number,
-    persistence: number
+  worleyNoise2D(
+    width: number,
+    height: number,
+    gridSize: number,
+    pointsPerCell: number = 1
   ): Uint8Array {
-    const data = new Uint8Array(size * size);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        let frequency = baseFrequency;
-        let amplitude = baseAmplitude;
-        let noiseValue = 0;
-        for (let o = 0; o < octaves; o++) {
-          const value = this.simplex(
-            (x / size) * frequency,
-            (y / size) * frequency,
-            0
-          );
-          noiseValue += value * amplitude;
-          frequency *= lacunarity;
-          amplitude *= persistence;
+    const gridCols = Math.ceil(width / gridSize);
+    const gridRows = Math.ceil(height / gridSize);
+
+    // Store feature points by grid cell for fast lookup
+    const grid: Array<Array<Array<{ x: number; y: number }>>> = Array.from(
+      { length: gridCols },
+      () => Array.from({ length: gridRows }, () => [])
+    );
+
+    // Generate random feature points for each grid cell
+    for (let gx = 0; gx < gridCols; gx++) {
+      for (let gy = 0; gy < gridRows; gy++) {
+        for (let i = 0; i < pointsPerCell; i++) {
+          grid[gx][gy].push({
+            x: gx * gridSize + Math.random() * gridSize,
+            y: gy * gridSize + Math.random() * gridSize
+          });
         }
-        const normalized = Math.floor(((noiseValue + 1) / 2) * 255);
-        data[x + y * size] = normalized;
+      }
+    }
+
+    // Flattened Uint8Array for output
+    const data = new Uint8Array(width * height);
+    let maxDist = 0;
+    const distArr = new Float32Array(width * height);
+
+    // For each pixel, only consider feature points from neighboring cells
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let minDist = Infinity;
+        const gx = Math.floor(x / gridSize);
+        const gy = Math.floor(y / gridSize);
+
+        // Check current cell and 8 neighbors (3x3 grid, with wrapping)
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const ngx = (gx + dx + gridCols) % gridCols;
+            const ngy = (gy + dy + gridRows) % gridRows;
+            for (const p of grid[ngx][ngy]) {
+              let dxp = Math.abs(p.x - x);
+              dxp = Math.min(dxp, width - dxp);
+              let dyp = Math.abs(p.y - y);
+              dyp = Math.min(dyp, height - dyp);
+              const dist = dxp * dxp + dyp * dyp;
+              if (dist < minDist) minDist = dist;
+            }
+          }
+        }
+        const idx = x + y * width;
+        distArr[idx] = minDist;
+        if (minDist > maxDist) maxDist = minDist;
+      }
+    }
+
+    // Normalize distances and convert to Uint8
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = x + y * width;
+        const norm = (Math.sqrt(distArr[idx]) / Math.sqrt(maxDist)) * 255;
+        data[idx] = Math.floor(norm);
+      }
+    }
+    return data;
+  }
+
+  simplexNoise2D(width: number, height: number, frequency: number): Uint8Array {
+    const data = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const value = this.simplex(x * frequency, y * frequency, 10);
+        const normalized = Math.floor(((value + 1) / 2) * 255);
+        data[x + y * width] = normalized;
       }
     }
     return data;
   }
   generateWeatherMap(size: number): WebGLTexture {
-    const coverageData = this.fbMNoise(size, 1, 1, 1.0, 2.0, 0.5);
-    const densityData = this.fbMNoise(size, 3, 2, 1.0, 2.0, 0.5);
-    const typeData = this.fbMNoise(size, 4, 4, 1.0, 2.0, 0.5);
+    const worely = this.worleyNoise2D(size, size, size / 4);
+    const simplex = this.simplexNoise2D(size, size, 0.08);
+    this.coverageData = new Uint8Array(size * size);
+    for (let i = 0; i < size * size; i++) {
+      const worelyNorm = 1 - worely[i] / 255.0;
+      const simplexNorm = simplex[i] / 255.0;
+      let coverage = Math.pow(worelyNorm, 1.2) - simplexNorm * 0.3;
+      coverage = Math.min(Math.max(coverage, 0.0), 1.0);
+
+      this.coverageData[i] = coverage * 255;
+    }
+    // Right now I have no idea what to put in density and type maps, so just fill with zeros
+    this.densityData = new Uint8Array(size * size);
+    this.typeData = new Uint8Array(size * size);
     // Interleave RGB channels
     const data = new Uint8Array(size * size * 3);
     for (let i = 0; i < size * size; i++) {
-      data[i * 3 + 0] = coverageData[i];
-      data[i * 3 + 1] = densityData[i];
-      data[i * 3 + 2] = typeData[i];
+      data[i * 3 + 0] = this.coverageData[i];
+      data[i * 3 + 1] = this.densityData[i];
+      data[i * 3 + 2] = this.typeData[i];
     }
     const texture = GlUtils.createTexture(
       this.gl,
@@ -392,9 +468,50 @@ class NoiseGenerator {
       this.gl.RGB8,
       this.gl.RGB,
       this.gl.UNSIGNED_BYTE,
-      data
+      data,
+      this.gl.LINEAR,
+      this.gl.LINEAR,
+      this.gl.REPEAT,
+      this.gl.REPEAT
+    );
+    this.visualizeWeatherMap(
+      document.getElementById("noisePreview") as HTMLCanvasElement,
+      "R"
     );
     return texture;
+  }
+  visualizeWeatherMap(
+    canvas: HTMLCanvasElement,
+    channel: "RGB" | "R" | "G" | "B" = "RGB"
+  ) {
+    const size = Math.sqrt(this.coverageData.length);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const scale = canvas.width / size;
+    const imageData = ctx.createImageData(canvas.width, canvas.height);
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const scaledX = ((Math.floor(x / scale) % size) + size) % size;
+        const scaledY = ((Math.floor(y / scale) % size) + size) % size;
+        const idx = scaledX + scaledY * size;
+        const idx2D = (x + y * canvas.width) * 4;
+        let r = this.coverageData[idx];
+        let g = this.densityData[idx];
+        let b = this.typeData[idx];
+        if (channel === "R") {
+          g = b = r;
+        } else if (channel === "G") {
+          r = b = g;
+        } else if (channel === "B") {
+          r = g = b;
+        }
+        imageData.data[idx2D + 0] = r;
+        imageData.data[idx2D + 1] = g;
+        imageData.data[idx2D + 2] = b;
+        imageData.data[idx2D + 3] = 255;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
   }
   visualizeSlice(
     sliceZ: number,

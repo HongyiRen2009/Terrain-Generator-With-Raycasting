@@ -340,7 +340,30 @@ export class GameEngine {
       "clouds",
       "Cloud Settings"
     );
-
+    cloudSection.addSlider({
+      id: "weather-map-frequency",
+      label: "Cloud Weather Map Frequency",
+      min: 0.1,
+      max: 5.0,
+      step: 0.1,
+      defaultValue: 1.0
+    });
+    cloudSection.addSlider({
+      id: "max-steps",
+      label: "Cloud Ray Marching Max Steps",
+      min: 8,
+      max: 128,
+      step: 1,
+      defaultValue: 16
+    });
+    cloudSection.addSlider({
+      id: "max-steps-light",
+      label: "Cloud Light Ray Marching Max Steps",
+      min: 4,
+      max: 32,
+      step: 1,
+      defaultValue: 8
+    });
     cloudSection.addSlider({
       id: "absorption",
       label: "Cloud Absorption",
@@ -387,9 +410,9 @@ export class GameEngine {
       id: "light-intensity",
       label: "Cloud Light Intensity",
       min: 0,
-      max: 2.0,
+      max: 5.0,
       step: 0.01,
-      defaultValue: 0.8
+      defaultValue: 2.4
     });
     cloudSection.addSlider({
       id: "ambient-intensity",
@@ -397,7 +420,7 @@ export class GameEngine {
       min: 0,
       max: 2.0,
       step: 0.01,
-      defaultValue: 0.6
+      defaultValue: 0.5
     });
     cloudSection.addSlider({
       id: "darkness-threshold",
@@ -422,6 +445,22 @@ export class GameEngine {
       max: 1.0,
       step: 0.01,
       defaultValue: 0.5
+    });
+    cloudSection.addSlider({
+      id: "weather-map-offset-x",
+      label: "Cloud Weather Map Offset X",
+      min: 0.0,
+      max: 10.0,
+      step: 0.01,
+      defaultValue: 0.0
+    });
+    cloudSection.addSlider({
+      id: "weather-map-offset-y",
+      label: "Cloud Weather Map Offset Y",
+      min: 0.0,
+      max: 10.0,
+      step: 0.01,
+      defaultValue: 0.0
     });
   }
 }
