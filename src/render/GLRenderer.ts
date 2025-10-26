@@ -1,16 +1,23 @@
 import { Camera } from "./Camera";
 import { DebugMenu } from "../DebugMenu";
 import { WorldMap } from "../map/Map";
-import { ResourceCache } from "./renderSystem/managers/UniformsManager";
+import { ResourceCache } from "./renderSystem/managers/ResourceCache";
 import { RenderGraph } from "./renderSystem/RenderGraph";
-import { RenderPass } from "./renderSystem/RenderPass";
+import { RenderPass, VAOInputType } from "./renderSystem/RenderPass";
 import { VAOManager } from "./renderSystem/managers/VaoManager";
-import { UniformsManager } from "./renderSystem/managers/UniformsManager";
 import { GeometryPass } from "./passes/GeometryPass";
 import { SSAOPass } from "./passes/SSAOPass";
 import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
-
+import { CloudsPass } from "./passes/CloudsPass";
+import { mat4 } from "gl-matrix";
+interface Matrices {
+  matView: mat4;
+  matProj: mat4;
+  matViewProj: mat4;
+  matViewInverse: mat4;
+  matProjInverse: mat4;
+}
 export class GLRenderer {
   private gl: WebGL2RenderingContext;
   private canvas: HTMLCanvasElement;
@@ -19,18 +26,12 @@ export class GLRenderer {
   private world: WorldMap;
   private resourceCache: ResourceCache;
   private renderGraph: RenderGraph;
-  private passes: RenderPass[];
 
   private _vaoManager: VAOManager;
-  private _uniformsManager: UniformsManager;
 
   // Expose managers for external access
   public get vaoManager(): VAOManager {
     return this._vaoManager;
-  }
-
-  public get uniformsManager(): UniformsManager {
-    return this._uniformsManager;
   }
 
   constructor(
@@ -49,14 +50,7 @@ export class GLRenderer {
     gl.depthFunc(gl.LEQUAL);
     this.resourceCache = new ResourceCache(gl);
     this.renderGraph = new RenderGraph();
-    this.passes = [];
     this._vaoManager = new VAOManager(gl);
-    this._uniformsManager = new UniformsManager(
-      gl,
-      canvas,
-      this.resourceCache,
-      this.camera
-    );
     this.init();
   }
 
@@ -85,22 +79,24 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
-    this.passes.push(geometryPass);
-    this.passes.push(ssaoPass);
-    this.passes.push(ssaoBlurPass);
-    this.passes.push(lightingPass);
+    const cloudsPass = new CloudsPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
+    // Build render graph tree structure
+    this.renderGraph.addRoot(geometryPass);
+    this.renderGraph.add(ssaoPass, geometryPass);
+    this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
+    this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
 
-    // Set up render graph dependencies
-    this.renderGraph.add(geometryPass, ssaoPass);
-    this.renderGraph.add(ssaoPass, ssaoBlurPass);
-    this.renderGraph.add(geometryPass, ssaoBlurPass);
-    this.renderGraph.add(geometryPass, lightingPass);
-    this.renderGraph.add(ssaoBlurPass, lightingPass);
+    this.renderGraph.add(cloudsPass, geometryPass);
   }
 
   public render(): void {
-    this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
-    this._uniformsManager.calculateCameraInfo();
+    this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
+    this.calculateCameraInfo();
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
     const vaosToRender = this._vaoManager.getVaosToRender();
@@ -108,31 +104,55 @@ export class GLRenderer {
 
     this.resourceCache.setUniformData("lights", this.world.lights);
 
-    // Render geometry pass with all VAOs
-    this.passes[0].render(vaosToRender);
-
-    // Render post-processing passes with screen quad
-    for (let i = 1; i < this.passes.length; i++) {
-      if (screenQuadVAO) {
-        this.passes[i].render(screenQuadVAO);
+    // Get passes in correct execution order
+    const sortedPasses = this.renderGraph.getSortedPasses();
+    for (const pass of sortedPasses) {
+      if (pass.VAOInputType === VAOInputType.FULLSCREENQUAD) {
+        if (!screenQuadVAO) {
+          console.warn("No screen quad VAO available for fullscreen pass");
+          continue;
+        }
+        pass.render(screenQuadVAO);
+      } else if (pass.VAOInputType === VAOInputType.SCENE) {
+        pass.render(vaosToRender);
       }
     }
   }
-
+  public calculateCameraInfo(): void {
+    const matViewAndProj = this.camera.calculateProjectionMatrices(
+      this.canvas.width,
+      this.canvas.height
+    );
+    const cameraInfo: Matrices = {
+      matView: matViewAndProj.matView,
+      matProj: matViewAndProj.matProj,
+      matViewProj: mat4.multiply(
+        mat4.create(),
+        matViewAndProj.matProj,
+        matViewAndProj.matView
+      ),
+      matViewInverse: mat4.invert(mat4.create(), matViewAndProj.matView),
+      matProjInverse: mat4.invert(mat4.create(), matViewAndProj.matProj)
+    };
+    this.resourceCache.setUniformData("CameraInfo", cameraInfo);
+    this.resourceCache.setUniformData("cameraPosition", this.camera.position);
+  }
   public resizeGBuffer(width: number, height: number): void {
     this.canvas.width = width;
     this.canvas.height = height;
     this.gl.viewport(0, 0, width, height);
 
     // Resize all render passes
-    for (const pass of this.passes) {
+    const allPasses = this.renderGraph.getSortedPasses();
+    for (const pass of allPasses) {
       pass.resize(width, height);
     }
   }
 
   public dispose(): void {
     this._vaoManager.dispose();
-    for (const pass of this.passes) {
+    const allPasses = this.renderGraph.getSortedPasses();
+    for (const pass of allPasses) {
       pass.dispose();
     }
   }

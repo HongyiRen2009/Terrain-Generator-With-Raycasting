@@ -34,24 +34,9 @@
         <input type="range" id="bounceSlider" min="0" max="15" value="10">
         <p class = "sliderInput">(Pathtracing) Number of Bounces: <span id="bounceValue">5</span></p>
       </div>
-      <div id="ssao-controls" style="margin: 16px 0;">
-        <label for="ssao-checkbox">
-          <input type="checkbox" id="ssao-checkbox" checked>
-          Enable SSAO
-        </label>
-        <br>
-        <label for="radius-slider">SSAO Radius: <span id="radius-value">5.0</span></label>
-        <input type="range" id="radius-slider" min="0.1" max="10.0" step="0.01" value="5.0">
-        <br>
-        <label for="bias-slider">SSAO Bias: <span id="bias-value">0.025</span></label>
-        <input type="range" id="bias-slider" min="0.0" max="11" step="0.001" value="0.025">
-        <br>
-        <label for="blur-checkbox">
-          <input type="checkbox" id="blur-checkbox" checked>
-          Enable SSAO Blur
-        </label>
-
-      </div>
+      <br>
+      <canvas id="noisePreview" width="128" height="128"></canvas>
+      <div id = "settings-section"></div>
       <h3>World Objects</h3>
       <button id="open-popup-btn">Add World Object</button>
       <div id = "world-objects">

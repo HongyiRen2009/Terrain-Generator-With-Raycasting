@@ -85,45 +85,6 @@ export class GameEngine {
       this.debug,
       this.world
     );
-    const ssaoCheckbox = document.getElementById(
-      "ssao-checkbox"
-    ) as HTMLInputElement;
-    // ssaoCheckbox.checked = this.renderer.enableSSAO;
-    // ssaoCheckbox.addEventListener("change", () => {
-    //   this.renderer.enableSSAO = ssaoCheckbox.checked;
-    // });
-
-    const radiusSlider = document.getElementById(
-      "radius-slider"
-    ) as HTMLInputElement;
-    const radiusValue = document.getElementById("radius-value")!;
-    radiusSlider.value = this.renderer.uniformsManager.getSSAOInfo().radius.toString();
-    radiusValue.textContent = this.renderer.uniformsManager.getSSAOInfo().radius.toString();
-    radiusSlider.addEventListener("input", () => {
-      const ssaoInfo = this.renderer.uniformsManager.getSSAOInfo();
-      this.renderer.uniformsManager.setSSAOParameters(parseFloat(radiusSlider.value), ssaoInfo.bias, ssaoInfo.SSAOBlur);
-      radiusValue.textContent = radiusSlider.value;
-    });
-
-    const biasSlider = document.getElementById(
-      "bias-slider"
-    ) as HTMLInputElement;
-    const biasValue = document.getElementById("bias-value")!;
-    biasSlider.value = this.renderer.uniformsManager.getSSAOInfo().bias.toString();
-    biasValue.textContent = this.renderer.uniformsManager.getSSAOInfo().bias.toString();
-    biasSlider.addEventListener("input", () => {
-      const ssaoInfo = this.renderer.uniformsManager.getSSAOInfo();
-      this.renderer.uniformsManager.setSSAOParameters(ssaoInfo.radius, parseFloat(biasSlider.value), ssaoInfo.SSAOBlur);
-      biasValue.textContent = biasSlider.value;
-    });
-    const blurCheckbox = document.getElementById(
-      "blur-checkbox"
-    ) as HTMLInputElement;
-    blurCheckbox.checked = this.renderer.uniformsManager.getSSAOInfo().SSAOBlur;
-    blurCheckbox.addEventListener("change", () => {
-      const ssaoInfo = this.renderer.uniformsManager.getSSAOInfo();
-      this.renderer.uniformsManager.setSSAOParameters(ssaoInfo.radius, ssaoInfo.bias, blurCheckbox.checked);
-    });
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,
