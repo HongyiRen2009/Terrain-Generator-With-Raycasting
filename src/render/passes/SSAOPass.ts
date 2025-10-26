@@ -64,12 +64,6 @@ export class SSAOPass extends RenderPass {
     });
     this.generateKernels();
     this.generateNoiseTexture();
-    this.resourceCache.setUniformData("SSAOInfo", {
-      Kernels: this.kernels,
-      KernelSize: this.kernelSize,
-      NoiseTexture: this.noiseTexture,
-      NoiseSize: this.noiseSize
-    });
   }
   protected initRenderTarget(width?: number, height?: number): RenderTarget {
     const w = width || this.canvas.width;
@@ -133,7 +127,7 @@ export class SSAOPass extends RenderPass {
     TextureUtils.bindTex(
       this.gl,
       this.program!,
-      this.resourceCache.getUniformData("SSAOInfo")!.NoiseTexture,
+      this.noiseTexture!,
       "noiseTexture",
       2
     );
@@ -145,17 +139,13 @@ export class SSAOPass extends RenderPass {
       false,
       cameraInfo.matProjInverse
     );
-    this.gl.uniform1f(
-      this.uniforms["noiseSize"],
-      this.resourceCache.getUniformData("SSAOInfo")!.NoiseSize
-    );
+    this.gl.uniform1f(this.uniforms["noiseSize"], this.noiseSize);
 
     // Upload kernel samples
-    const ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
-    for (let i = 0; i < ssaoInfo.KernelSize; i++) {
+    for (let i = 0; i < this.kernelSize; i++) {
       this.gl.uniform3fv(
         this.gl.getUniformLocation(this.program!, `samples[${i}]`),
-        ssaoInfo.Kernels[i]
+        this.kernels[i]
       );
     }
 
