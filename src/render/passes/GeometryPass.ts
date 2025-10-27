@@ -44,7 +44,7 @@ export class GeometryPass extends RenderPass {
     const w = width || this.canvas.width;
     const h = height || this.canvas.height;
 
-    const normalTexture = TextureUtils.createTexture(
+    const normalTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -52,7 +52,7 @@ export class GeometryPass extends RenderPass {
       this.gl.RGBA,
       this.gl.FLOAT
     );
-    const albedoTexture = TextureUtils.createTexture(
+    const albedoTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -60,7 +60,7 @@ export class GeometryPass extends RenderPass {
       this.gl.RGBA,
       this.gl.UNSIGNED_BYTE
     );
-    const depthTexture = TextureUtils.createTexture(
+    const depthTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,

@@ -134,11 +134,13 @@ export class CloudsPass extends RenderPass {
       "Clouds Settings",
       this.program!
     );
+
     this.settingsSection.addCheckbox({
       id: "enableClouds",
       label: "Enable Clouds",
       defaultValue: true
     });
+
     this.settingsSection.addSlider({
       id: "MAX_STEPS",
       label: "Cloud Ray Marching Max Steps",
@@ -148,6 +150,7 @@ export class CloudsPass extends RenderPass {
       defaultValue: 32,
       numType: "int"
     });
+
     this.settingsSection.addSlider({
       id: "MAX_STEPS_LIGHT",
       label: "Cloud Light Ray Marching Max Steps",
@@ -157,13 +160,15 @@ export class CloudsPass extends RenderPass {
       defaultValue: 8,
       numType: "int"
     });
+
     this.settingsSection.addSlider({
       id: "absorption",
       label: "Cloud Absorption",
       min: 0,
       max: 2.0,
       step: 0.01,
-      defaultValue: 1.0
+      defaultValue: 1.0,
+      numType: "float"
     });
 
     this.settingsSection.addSlider({
@@ -172,7 +177,8 @@ export class CloudsPass extends RenderPass {
       min: -2.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.09
+      defaultValue: 0.09,
+      numType: "float"
     });
 
     this.settingsSection.addSlider({
@@ -181,103 +187,128 @@ export class CloudsPass extends RenderPass {
       min: 0.01,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.45
+      defaultValue: 0.45,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "detailFrequency",
       label: "Cloud Detail Frequency",
       min: 0.1,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.46
+      defaultValue: 0.46,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "lightAbsorption",
       label: "Cloud Light Absorption",
       min: 0,
       max: 2.0,
       step: 0.01,
-      defaultValue: 1.0
+      defaultValue: 1.0,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "lightIntensity",
       label: "Cloud Light Intensity",
       min: 0,
       max: 5.0,
       step: 0.01,
-      defaultValue: 2.4
+      defaultValue: 2.4,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "ambientIntensity",
       label: "Cloud Ambient Intensity",
       min: 0,
       max: 2.0,
       step: 0.01,
-      defaultValue: 0.5
+      defaultValue: 0.5,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "darknessThreshold",
       label: "Cloud Darkness Threshold",
       min: 0.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.2
+      defaultValue: 0.2,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "phaseG",
       label: "Cloud Phase Function g",
       min: -1.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.5
+      defaultValue: 0.5,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "phaseMultiplier",
       label: "Cloud Phase Function Multiplier",
       min: 0.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.5
+      defaultValue: 0.5,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "weatherMapOffsetX",
       label: "Cloud Weather Map Offset X",
       min: 0.0,
       max: 10.0,
       step: 0.01,
-      defaultValue: 0.0
+      defaultValue: 0.0,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "weatherMapOffsetY",
       label: "Cloud Weather Map Offset Y",
       min: 0.0,
       max: 10.0,
       step: 0.01,
-      defaultValue: 0.0
+      defaultValue: 0.0,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "windSpeed",
       label: "Cloud Wind Speed",
       min: 0.0,
       max: 10.0,
       step: 0.01,
-      defaultValue: 3.0
+      defaultValue: 3.0,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "windDirectionX",
       label: "Cloud Wind Direction X",
       min: -1.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 1.0
+      defaultValue: 1.0,
+      numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "windDirectionZ",
       label: "Cloud Wind Direction Z",
       min: -1.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 1.0
+      defaultValue: 1.0,
+      numType: "float"
     });
   }
   public resize(width: number, height: number): void {
@@ -437,9 +468,6 @@ class NoiseGenerator {
     this.dataG = this.worleyNoise3D(size, size, size, size / (frequency * 2));
     this.dataB = this.worleyNoise3D(size, size, size, (frequency * 4) / 2);
     this.dataA = this.worleyNoise3D(size, size, size, size / (frequency * 8));
-    const texture = this.gl.createTexture();
-    this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
-
     // Interleave RGBA channels
     const data = new Uint8Array(size * size * size * 4);
     for (let i = 0; i < size * size * size; i++) {
@@ -448,49 +476,21 @@ class NoiseGenerator {
       data[i * 4 + 2] = this.dataB[i];
       data[i * 4 + 3] = this.dataA[i];
     }
-
-    this.gl.texImage3D(
-      this.gl.TEXTURE_3D,
-      0, // mip level
+    const texture = TextureUtils.createTexture3D(
+      this.gl,
+      size,
+      size,
+      size,
       this.gl.RGBA8,
-      size,
-      size,
-      size,
-      0, // border
       this.gl.RGBA,
       this.gl.UNSIGNED_BYTE,
-      data
-    );
-
-    // Set texture parameters for mipmapping and filtering
-    this.gl.texParameteri(
-      this.gl.TEXTURE_3D,
-      this.gl.TEXTURE_MIN_FILTER,
-      this.gl.LINEAR
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_3D,
-      this.gl.TEXTURE_MAG_FILTER,
-      this.gl.LINEAR
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_3D,
-      this.gl.TEXTURE_WRAP_S,
+      data,
+      this.gl.LINEAR,
+      this.gl.LINEAR,
+      this.gl.REPEAT,
+      this.gl.REPEAT,
       this.gl.REPEAT
     );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_3D,
-      this.gl.TEXTURE_WRAP_T,
-      this.gl.REPEAT
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_3D,
-      this.gl.TEXTURE_WRAP_R,
-      this.gl.REPEAT
-    );
-
-    // Generate mipmaps
-    this.gl.bindTexture(this.gl.TEXTURE_3D, null);
 
     return texture!;
   }
@@ -598,7 +598,7 @@ class NoiseGenerator {
       data[i * 3 + 1] = this.densityData[i];
       data[i * 3 + 2] = this.typeData[i];
     }
-    const texture = TextureUtils.createTexture(
+    const texture = TextureUtils.createTexture2D(
       this.gl,
       size,
       size,

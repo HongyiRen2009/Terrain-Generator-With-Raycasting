@@ -37,7 +37,7 @@ export class SSAOBlurPass extends RenderPass {
     }
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
 
-    const ssaoBlurTexture = TextureUtils.createTexture(
+    const ssaoBlurTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,

@@ -1,29 +1,29 @@
-export interface SliderSetting {
-  type: "slider";
+interface Setting<T> {
   id: string;
   label: string;
+  value: T;
+  uniform?: boolean;
+  defaultValue?: T;
+  type: "slider" | "checkbox";
+  onChange?: (value: T) => void;
+}
+
+interface SliderSetting extends Setting<number> {
+  type: "slider";
   min: number;
   max: number;
   step: number;
-  value: number;
-  numType: string;
-  uniform?: boolean;
-  onChange?: (value: number) => void;
+  numType?: "int" | "float";
 }
 
-export interface CheckboxSetting {
+interface CheckboxSetting extends Setting<boolean> {
   type: "checkbox";
-  id: string;
-  label: string;
-  value: boolean;
-  uniform?: boolean;
-  onChange?: (value: boolean) => void;
 }
 
-export type Setting = SliderSetting | CheckboxSetting;
+type AnySetting = SliderSetting | CheckboxSetting;
 
 export class SettingsSection {
-  private settings: Map<string, Setting> = new Map();
+  private settings: Map<string, AnySetting> = new Map();
   private container: HTMLElement;
   private sectionElement: HTMLElement;
   private program: WebGLProgram | null = null;
@@ -54,30 +54,14 @@ export class SettingsSection {
   /**
    * Add a slider setting
    */
-  addSlider(config: {
-    id: string;
-    label: string;
-    min: number;
-    max: number;
-    step: number;
-    defaultValue: number;
-    numType?: string;
-    uniform?: boolean;
-    onChange?: (value: number) => void;
-  }): void {
+  addSlider(config: Omit<SliderSetting, "type" | "value">): void {
     const setting: SliderSetting = {
+      ...config,
       type: "slider",
-      id: config.id,
-      label: config.label,
-      min: config.min,
-      max: config.max,
-      step: config.step,
-      value: config.defaultValue,
-      numType: config.numType || "float",
-      uniform: config.uniform || true,
-      onChange: config.onChange
+      value: config.defaultValue ?? 0,
+      uniform: config.uniform ?? true,
+      numType: config.numType ?? "float"
     };
-
     this.settings.set(config.id, setting);
     this.renderSlider(setting);
   }
@@ -85,22 +69,13 @@ export class SettingsSection {
   /**
    * Add a checkbox setting
    */
-  addCheckbox(config: {
-    id: string;
-    label: string;
-    defaultValue: boolean;
-    uniform?: boolean;
-    onChange?: (value: boolean) => void;
-  }): void {
+  addCheckbox(config: Omit<CheckboxSetting, "type" | "value">): void {
     const setting: CheckboxSetting = {
+      ...config,
       type: "checkbox",
-      id: config.id,
-      label: config.label,
-      value: config.defaultValue,
-      uniform: config.uniform || true,
-      onChange: config.onChange
+      value: config.defaultValue ?? false,
+      uniform: config.uniform ?? true
     };
-
     this.settings.set(config.id, setting);
     this.renderCheckbox(setting);
   }
@@ -228,37 +203,39 @@ export class SettingsSection {
 
     this.container.appendChild(wrapper);
   }
-  public updateUniforms(gl: WebGL2RenderingContext) {
-    if (!this.program) return;
+
+  public updateUniforms(gl: WebGL2RenderingContext): void {
+    if (!this.program) {
+      console.warn("No program associated with this settings section.");
+      return;
+    }
     const program = this.program;
-    for (let i = 0; i < this.settings.size; i++) {
-      const setting = Array.from(this.settings.values())[i];
-      if (setting.uniform === false) continue;
+
+    this.settings.forEach((setting) => {
+      if (setting.uniform === false) return;
+
+      const loc = gl.getUniformLocation(program, setting.id);
+      if (!loc) {
+        console.warn(`Uniform location for ${setting.id} not found.`);
+        return;
+      }
+
       if (setting.type === "slider") {
-        const loc = gl.getUniformLocation(program, setting.id);
-        if (loc) {
-          if (setting.numType === "int") {
-            gl.uniform1i(loc, Math.floor(setting.value));
-          } else {
-            gl.uniform1f(loc, setting.value);
-          }
+        if (setting.numType === "int") {
+          gl.uniform1i(loc, Math.floor(setting.value));
         } else {
-          console.warn(`Uniform location for ${setting.id} not found.`);
+          gl.uniform1f(loc, setting.value);
         }
       } else if (setting.type === "checkbox") {
-        const loc = gl.getUniformLocation(program, setting.id);
-        if (loc) {
-          gl.uniform1i(loc, setting.value ? 1 : 0);
-        } else {
-          console.warn(`Uniform location for ${setting.id} not found.`);
-        }
+        gl.uniform1i(loc, setting.value ? 1 : 0);
       }
-    }
+    });
   }
+
   /**
    * Get a setting by ID
    */
-  getSetting(id: string): Setting | undefined {
+  getSetting(id: string): AnySetting | undefined {
     return this.settings.get(id);
   }
 

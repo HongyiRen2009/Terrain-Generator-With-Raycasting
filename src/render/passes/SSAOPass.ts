@@ -69,7 +69,7 @@ export class SSAOPass extends RenderPass {
     const w = width || this.canvas.width;
     const h = height || this.canvas.height;
 
-    const ssaoTexture = TextureUtils.createTexture(
+    const ssaoTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -200,7 +200,7 @@ export class SSAOPass extends RenderPass {
         noiseData[index + 2] = 0.0;
       }
     }
-    this.noiseTexture = TextureUtils.createTexture(
+    this.noiseTexture = TextureUtils.createTexture2D(
       this.gl,
       this.noiseSize,
       this.noiseSize,

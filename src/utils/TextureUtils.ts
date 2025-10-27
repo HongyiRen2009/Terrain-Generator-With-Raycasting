@@ -1,5 +1,4 @@
 export class TextureUtils {
-
   /**
    * Binds a given WebGL texture to texture unit 0 and sets the corresponding sampler uniform in the shader program.
    *
@@ -94,7 +93,7 @@ export class TextureUtils {
    * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
    * @returns The created WebGLTexture object.
    */
-  static createTexture(
+  static createTexture2D(
     gl: WebGL2RenderingContext,
     width: number,
     height: number,
@@ -124,6 +123,57 @@ export class TextureUtils {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return texture;
+  }
+  /**
+   * Creates and initializes a WebGL 2D texture with the specified parameters.
+   *
+   * @param gl - The WebGL2 rendering context.
+   * @param width - The width of the texture in pixels.
+   * @param height - The height of the texture in pixels.
+   * @param internalFormat - The internal format of the texture (e.g., `gl.RGBA8`).
+   * @param format - The format of the pixel data (e.g., `gl.RGBA`).
+   * @param type - The data type of the pixel data (e.g., `gl.UNSIGNED_BYTE`).
+   * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
+   * @returns The created WebGLTexture object.
+   */
+  static createTexture3D(
+    gl: WebGL2RenderingContext,
+    width: number,
+    height: number,
+    depth: number,
+    internalFormat: number,
+    format: number,
+    type: number,
+    data: ArrayBufferView | null = null,
+    minFilter: number = gl.NEAREST,
+    magFilter: number = gl.NEAREST,
+    wrapS: number = gl.CLAMP_TO_EDGE,
+    wrapT: number = gl.CLAMP_TO_EDGE,
+    wrapR: number = gl.CLAMP_TO_EDGE
+  ) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_3D, texture);
+    gl.texImage3D(
+      gl.TEXTURE_3D,
+      0,
+      internalFormat,
+      width,
+      height,
+      depth,
+      0,
+      format,
+      type,
+      data
+    );
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, minFilter);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, magFilter);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, wrapS);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, wrapT);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, wrapR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, wrapR);
+    gl.bindTexture(gl.TEXTURE_3D, null);
     return texture;
   }
 }

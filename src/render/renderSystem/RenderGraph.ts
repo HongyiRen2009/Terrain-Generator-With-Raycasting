@@ -1,5 +1,5 @@
 import { RenderPass } from "./RenderPass";
-
+type TextureMap = { [key: string]: WebGLTexture };
 export class RenderGraph {
   private roots: Set<RenderPass>;
   private dependencies: Map<RenderPass, Set<RenderPass>>;
@@ -83,11 +83,11 @@ export class RenderGraph {
   getOutputs(renderPass: RenderPass): { [key: string]: WebGLTexture } {
     const deps = this.dependencies.get(renderPass);
     if (!deps || deps.size === 0) {
-      return {};
+      return {} as TextureMap;
     }
 
     // Merge texture dictionaries from all dependencies
-    const mergedTextures: { [key: string]: WebGLTexture } = {};
+    const mergedTextures: TextureMap = {};
     deps.forEach((pass) => {
       const passTextures = pass.getRenderTarget()?.textures;
       if (passTextures) {
