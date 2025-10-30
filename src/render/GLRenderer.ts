@@ -11,6 +11,7 @@ import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
 import { mat4 } from "gl-matrix";
+import { GrassPass } from "./passes/GrassPass";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -85,13 +86,20 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const grassPass = new GrassPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     // Build render graph tree structure
-    this.renderGraph.addRoot(geometryPass);
+    /*     this.renderGraph.addRoot(geometryPass);
     this.renderGraph.add(ssaoPass, geometryPass);
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
     this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
 
-    this.renderGraph.add(cloudsPass, geometryPass);
+    this.renderGraph.add(cloudsPass, geometryPass); */
+    this.renderGraph.addRoot(grassPass);
   }
 
   public render(): void {
@@ -115,6 +123,8 @@ export class GLRenderer {
         pass.render(screenQuadVAO);
       } else if (pass.VAOInputType === VAOInputType.SCENE) {
         pass.render(vaosToRender);
+      } else if (pass.VAOInputType === VAOInputType.NONE) {
+        pass.render([]);
       }
     }
   }

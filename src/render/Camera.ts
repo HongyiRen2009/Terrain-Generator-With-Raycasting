@@ -15,7 +15,7 @@ export class Camera {
     this.position = position;
 
     this.UpdateCameraVectors();
-    this.speed = 0.02;
+    this.speed = 0.005;
   }
 
   //enables Camera.XPosition instead of Camera.position[0]

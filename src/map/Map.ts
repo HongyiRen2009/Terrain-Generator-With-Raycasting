@@ -94,7 +94,7 @@ export class WorldMap {
   //Generates map
   public generate() {
     this.chunks = [
-      // Row 1
+      /*       // Row 1
       new Chunk(
         vec2.fromValues(0, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
@@ -118,7 +118,7 @@ export class WorldMap {
         vec3.fromValues(this.resolution, this.height, this.resolution),
         this.seed,
         this.Workers[3]
-      )
+      ) */
     ];
   }
   public combinedMesh(): Mesh {

@@ -5,7 +5,8 @@ import { RenderGraph } from "./RenderGraph";
 import { SettingsSection } from "../../Settings";
 export enum VAOInputType {
   SCENE,
-  FULLSCREENQUAD
+  FULLSCREENQUAD,
+  NONE
 }
 export abstract class RenderPass {
   protected gl: WebGL2RenderingContext;
