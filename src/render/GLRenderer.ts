@@ -146,6 +146,7 @@ export class GLRenderer {
     };
     this.resourceCache.setUniformData("CameraInfo", cameraInfo);
     this.resourceCache.setUniformData("cameraPosition", this.camera.position);
+    this.resourceCache.setUniformData("cameraDirection", this.camera.front);
   }
   public resizeGBuffer(width: number, height: number): void {
     this.canvas.width = width;
