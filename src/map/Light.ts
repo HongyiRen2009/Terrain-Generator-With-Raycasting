@@ -4,7 +4,7 @@ import { Color } from "./terrains";
 /**
  *  Represents a light source in the world.
  */
-export class Light {
+export class PointLight {
   position: vec3;
   color: Color; //Emission color
   showColor: Color; //color of what the light looks
@@ -32,5 +32,16 @@ export class Light {
   }
   public addPosition(position: vec3) {
     vec3.add(this.position, this.position, position);
+  }
+}
+
+export class DirectionalLight {
+  direction: vec3;
+  color: Color;
+  intensity: number;
+  constructor(direction: vec3, color: Color, intensity: number) {
+    this.direction = direction;
+    this.color = color;
+    this.intensity = intensity;
   }
 }

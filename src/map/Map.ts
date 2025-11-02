@@ -2,7 +2,7 @@
 
 import { Chunk } from "./marching_cubes";
 import { mat4, vec2, vec3, vec4 } from "gl-matrix";
-import { Light } from "./Light";
+import { PointLight, DirectionalLight } from "./Light";
 
 import { Color, Terrain, Terrains } from "./terrains";
 import { Mesh, Triangle } from "./Mesh";
@@ -25,14 +25,19 @@ export class WorldMap {
   //Unused for now: placeholders and use them when actually implemented
   private width: number;
   private length: number;
-  public lights: Light[] = [
-    new Light(
-      vec3.fromValues(0, 500, 0),
-      new Color(255, 255, 255),
-      1,
-      200,
-      new Color(255, 228, 132)
+  public lights: (PointLight | DirectionalLight)[] = [
+    new DirectionalLight(
+       vec3.fromValues(0, -1, 0),
+       new Color(255, 255, 255),
+       0.138 //account for attenuation to be same as point light
     )
+    // new PointLight(
+    //   vec3.fromValues(0, 500, 0),
+    //   new Color(255, 255, 255),
+    //   1,
+    //   200,
+    //   new Color(255, 228, 132)
+    // )
   ];
 
   public height: number;

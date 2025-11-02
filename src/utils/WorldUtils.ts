@@ -1,6 +1,6 @@
 import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
-import { Light } from "../map/Light";
+import { PointLight, DirectionalLight } from "../map/Light";
 import { Camera } from "../render/Camera";
 import { vec3 } from "gl-matrix";
 
@@ -29,15 +29,36 @@ export class WorldUtils {
   static updateLights(
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
-    lights: Array<Light>,
+    lights: Array<PointLight | DirectionalLight>,
     camera?: Camera
   ) {
-    // Set number of active lights
-    const numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
-    gl.uniform1i(numLightsLocation, lights.length);
+    // Separate point lights and directional lights
+    const pointLights: PointLight[] = [];
+    const directionalLights: DirectionalLight[] = [];
 
-    // Update each light's data
-    lights.forEach((light, index) => {
+    lights.forEach((light) => {
+      if (light instanceof PointLight) {
+        pointLights.push(light);
+      } else if (light instanceof DirectionalLight) {
+        directionalLights.push(light);
+      }
+    });
+
+    // Set number of active lights
+    const numPointLightsLocation = gl.getUniformLocation(
+      program,
+      "numActivePointLights"
+    );
+    gl.uniform1i(numPointLightsLocation, pointLights.length);
+
+    const numDirectionalLightsLocation = gl.getUniformLocation(
+      program,
+      "numActiveDirectionalLights"
+    );
+    gl.uniform1i(numDirectionalLightsLocation, directionalLights.length);
+
+    // Update point lights
+    pointLights.forEach((light, index) => {
       const baseUniform = `lights[${index}]`;
 
       const posLocation = gl.getUniformLocation(
@@ -66,6 +87,28 @@ export class WorldUtils {
       gl.uniform3fv(showColorLocation, light.showColor.createVec3());
       gl.uniform1f(intensityLocation, light.intensity);
       gl.uniform1f(radiusLocation, light.radius);
+    });
+
+    // Update directional lights
+    directionalLights.forEach((light, index) => {
+      const baseUniform = `directionalLights[${index}]`;
+
+      const directionLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.direction`
+      );
+      const colorLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.color`
+      );
+      const intensityLocation = gl.getUniformLocation(
+        program,
+        `${baseUniform}.intensity`
+      );
+
+      gl.uniform3fv(directionLocation, light.direction);
+      gl.uniform3fv(colorLocation, light.color.createVec3());
+      gl.uniform1f(intensityLocation, light.intensity);
     });
 
     if (camera) {

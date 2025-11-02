@@ -15,10 +15,16 @@ struct Light {
     float intensity;
     float radius;
 };
+struct DirectionalLight {
+    vec3 direction;
+    vec3 color;
+    float intensity;
+};
 #define MAX_LIGHTS 100
-
+uniform DirectionalLight directionalLights[MAX_LIGHTS];
 uniform Light lights[MAX_LIGHTS];
-uniform int numActiveLights;
+uniform int numActivePointLights;
+uniform int numActiveDirectionalLights;
 uniform vec3 cameraPosition;
 
 vec3 getViewPosition(vec2 texCoord) {
@@ -48,14 +54,34 @@ void main() {
     vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;
     vec3 lighting = ambient;
 
-    for(int i = 0; i < numActiveLights; i++) {
-        vec3 lightDir = normalize(lights[i].position - fragWorldPos);
+    // Process directional lights
+    for(int i = 0; i < numActiveDirectionalLights; i++) {
+        vec3 lightDir = normalize(-directionalLights[i].direction);
         float diff = max(dot(lightDir, worldNormal), 0.0f);
-        vec3 diffuse = diff * lights[i].color * lights[i].intensity;
+        // Diffuse should be multiplied by albedo to get correct surface color
+        vec3 diffuse = diff * albedo * directionalLights[i].color * directionalLights[i].intensity;
 
         vec3 viewDir = normalize(cameraPosition - fragWorldPos);
         vec3 reflectDir = reflect(-lightDir, worldNormal);
         float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);
+        // Specular highlights are typically white/light-colored, not affected by albedo
+        vec3 specular = spec * directionalLights[i].color * directionalLights[i].intensity;
+
+        // Directional lights have no attenuation
+        lighting += diffuse+specular;
+    }
+
+    // Process point lights
+    for(int i = 0; i < numActivePointLights; i++) {
+        vec3 lightDir = normalize(lights[i].position - fragWorldPos);
+        float diff = max(dot(lightDir, worldNormal), 0.0f);
+        // Diffuse should be multiplied by albedo to get correct surface color
+        vec3 diffuse = diff * albedo * lights[i].color * lights[i].intensity;
+
+        vec3 viewDir = normalize(cameraPosition - fragWorldPos);
+        vec3 reflectDir = reflect(-lightDir, worldNormal);
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);
+        // Specular highlights are typically white/light-colored, not affected by albedo
         vec3 specular = spec * lights[i].color * lights[i].intensity;
 
         float distance = length(lights[i].position - fragWorldPos);
@@ -63,12 +89,14 @@ void main() {
         diffuse *= attenuation;
         specular *= attenuation;
 
-        lighting += (diffuse + specular) * ambient;
+        lighting += diffuse + specular;
     }
 
     if(texture(depthTexture, fragUV).r >= 1.0f) {
         outputColor = vec4(skyColor, 1.0f);
     } else {
-        outputColor = vec4(lighting, 1.0f);
+        // Clamp lighting to prevent HDR overflow (white spots)
+        // If you want HDR support, consider implementing tone mapping instead
+        outputColor = vec4(min(lighting, vec3(1.0f)), 1.0f);
     }
 }

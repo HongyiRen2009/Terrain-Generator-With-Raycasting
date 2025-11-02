@@ -13,6 +13,7 @@ import { RenderGraph } from "../renderSystem/RenderGraph";
 import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { vec3 } from "gl-matrix";
+import { PointLight, DirectionalLight } from "../../map/Light";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   protected settingsSection: SettingsSection | null = null;
@@ -86,13 +87,35 @@ export class CloudsPass extends RenderPass {
       "depthTexture",
       2
     );
+    const lights = this.resourceCache.getUniformData("lights");
+    const firstLight = lights && lights.length > 0 ? lights[0] : null;
+    
+    // Handle both PointLight and DirectionalLight for sun position
+    let sunPos: vec3;
+    let sunColor: vec3;
+    
+    if (firstLight instanceof PointLight) {
+      sunPos = firstLight.position;
+      sunColor = firstLight.color.createVec3();
+    } else if (firstLight instanceof DirectionalLight) {
+      // For directional light, use direction to determine sun position in sky
+      // Scale the direction to represent sun position far away
+      sunPos = vec3.create();
+      vec3.scale(sunPos, firstLight.direction, -1000.0); // Negative because light direction points toward light
+      sunColor = firstLight.color.createVec3();
+    } else {
+      // Fallback - default sun position
+      sunPos = vec3.fromValues(0, 1000, 0);
+      sunColor = vec3.fromValues(1, 1, 1);
+    }
+    
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunPos"),
-      this.resourceCache.getUniformData("lights")[0].position
+      sunPos
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunColor"),
-      this.resourceCache.getUniformData("lights")[0].color.createVec3()
+      sunColor
     );
     const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
     this.gl.uniformMatrix4fv(
