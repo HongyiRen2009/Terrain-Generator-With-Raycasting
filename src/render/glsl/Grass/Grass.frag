@@ -26,5 +26,5 @@ void main() {
     float diffuse = max(dot(normalize(vNormal), normalize(lightDir)), 0.0f);
     grassColor *= 0.5f + 0.5f * diffuse; // ambient + diffuse
 
-    fragColor = vec4(vec3(diffuse), 1.0f);
+    fragColor = vec4(grassColor, 1.0f);
 }

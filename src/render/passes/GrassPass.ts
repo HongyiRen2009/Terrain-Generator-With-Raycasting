@@ -7,7 +7,9 @@ import GrassFragmentShaderSource from "../glsl/Grass/Grass.frag";
 import { RenderUtils } from "../../utils/RenderUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { RenderTarget } from "../renderSystem/RenderTarget";
-
+import { TextureUtils } from "../../utils/TextureUtils";
+import { createNoise2D } from "simplex-noise";
+import { SettingsSection } from "../../Settings";
 export class GrassPass extends RenderPass {
   public VAOInputType = VAOInputType.NONE;
 
@@ -19,11 +21,15 @@ export class GrassPass extends RenderPass {
   private attributes: { size: number; location: number }[] = [
     { size: 3, location: 0 }, // localPosition
     { size: 3, location: 1 }, // basePosition
-    { size: 1, location: 2 } // randomLean
+    { size: 1, location: 2 }, // randomLean
+    { size: 3, location: 3 } // normal
   ];
   protected program: WebGLProgram | null;
 
   private grassThickness = 0.1;
+  private noiseTexture: WebGLTexture;
+  protected settingsSection: SettingsSection | null = null;
+
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -31,24 +37,48 @@ export class GrassPass extends RenderPass {
     renderGraph?: RenderGraph
   ) {
     super(gl, resourceCache, canvas, renderGraph);
-    debugger;
     this.floatsPerVertex = this.attributes.reduce(
       (acc, attr) => acc + attr.size,
       0
     );
     this.generateGrassVAO();
+    this.noiseTexture = this.generateNoiseTexture(256);
     this.program = RenderUtils.CreateProgram(
       gl,
       GrassVertexShaderSource,
       GrassFragmentShaderSource
     )!;
+    this.initSettings();
+  }
+  private initSettings() {
+    this.settingsSection = new SettingsSection(
+      document.getElementById("settings-section")!,
+      "Clouds Settings",
+      this.program!
+    );
+    this.settingsSection.addSlider({
+      id: "windStrength",
+      label: "Wind Strength",
+      min: 0,
+      max: 5,
+      step: 0.1,
+      defaultValue: 1
+    });
+    this.settingsSection.addSlider({
+      id: "windSpeed",
+      label: "Wind Speed",
+      min: 0,
+      max: 5,
+      step: 0.1,
+      defaultValue: 1
+    });
   }
   protected initRenderTarget(): RenderTarget {
     return { fbo: null, textures: {} };
   }
   private generateGrassVAO() {
     const gl = this.gl;
-    const numBlades = 1000,
+    const numBlades = 10000,
       patchSize = 10,
       defaultHeight = 1,
       defaultWidth = this.grassThickness,
@@ -97,6 +127,48 @@ export class GrassPass extends RenderPass {
 
     this.vertexCount = indices.length;
   }
+  private generateNoiseTexture(size: number): WebGLTexture {
+    const noiseFunction = createNoise2D();
+    const data = new Uint8Array(size * size);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        // Use tiling noise coordinates
+        const nx = x / size;
+        const ny = y / size;
+
+        // Sample noise in a torus topology for seamless tiling
+        const s = nx * 2 * Math.PI;
+        const t = ny * 2 * Math.PI;
+
+        const dx = Math.cos(s);
+        const dy = Math.sin(s);
+        const dz = Math.cos(t);
+        const dw = Math.sin(t);
+
+        // Sample 4D noise projected onto 2D
+        const scale = 2.0;
+        const value1 = noiseFunction(dx * scale, dy * scale);
+        const value2 = noiseFunction(dz * scale, dw * scale);
+        const value = (value1 + value2) / 2;
+
+        data[y * size + x] = Math.floor(((value + 1) / 2) * 255);
+      }
+    }
+    const texture = TextureUtils.createTexture2D(
+      this.gl,
+      size,
+      size,
+      this.gl.R8,
+      this.gl.RED,
+      this.gl.UNSIGNED_BYTE,
+      data,
+      this.gl.LINEAR,
+      this.gl.LINEAR,
+      this.gl.REPEAT,
+      this.gl.REPEAT
+    );
+    return texture;
+  }
   private generateGrassVertices(
     numBlades: number,
     segments: number,
@@ -138,6 +210,16 @@ export class GrassPass extends RenderPass {
           vertices.set([base[0], base[1], base[2]], offset);
           offset += 3;
           vertices[offset] = lean; // randomLean
+          offset += 1;
+          // normal
+          // Calculate local normal for rounded blade
+          const bladeRadius = 0.9; // tweak for more/less roundness
+          const normalLocal = vec3.normalize(
+            vec3.create(),
+            vec3.fromValues(x * bladeRadius, 1.0, z * bladeRadius)
+          );
+          vertices.set(normalLocal, offset);
+          // offset += 3; // (increment offset if needed)
         }
       }
       // Tip vertex
@@ -193,6 +275,19 @@ export class GrassPass extends RenderPass {
       this.gl.getUniformLocation(this.program!, "grassThickness"),
       this.grassThickness
     );
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.program!, "time"),
+      performance.now() / 1000
+    );
+    // Bind noise texture
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      this.noiseTexture,
+      "noiseTexture",
+      0
+    );
+    this.settingsSection?.updateUniforms(this.gl);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
 
