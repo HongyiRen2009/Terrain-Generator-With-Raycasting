@@ -118,8 +118,10 @@ export class GeometryPass extends RenderPass {
 
   public render(vaosToRender: VaoInfo[], pathtracerOn: Boolean): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
-    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    if(!pathtracerOn || this.pathtracerRender){
+      this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    }
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.enable(this.gl.DEPTH_TEST);
     this.gl.depthMask(true);
@@ -138,12 +140,14 @@ export class GeometryPass extends RenderPass {
         false,
         vaoInfo.modelMatrix
       );
-      this.gl.drawElements(
-        this.gl.TRIANGLES,
-        vaoInfo.indexCount,
-        this.gl.UNSIGNED_INT,
-        0
-      );
+      if(!pathtracerOn || this.pathtracerRender){
+        this.gl.drawElements(
+          this.gl.TRIANGLES,
+          vaoInfo.indexCount,
+          this.gl.UNSIGNED_INT,
+          0
+        );
+      }
     }
 
     this.gl.bindVertexArray(null);

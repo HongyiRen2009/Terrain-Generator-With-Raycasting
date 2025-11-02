@@ -70,7 +70,9 @@ export class SSAOBlurPass extends RenderPass {
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    if(!pathtracerOn || this.pathtracerRender){
+      this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    }
     this.gl.disable(this.gl.DEPTH_TEST);
     this.gl.disable(this.gl.BLEND);
 

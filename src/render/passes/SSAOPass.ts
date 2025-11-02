@@ -101,8 +101,10 @@ export class SSAOPass extends RenderPass {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const gBuffer = this.renderGraph!.getOutputs(this);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
-    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    if(!pathtracerOn || this.pathtracerRender){
+      this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    }
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.disable(this.gl.DEPTH_TEST);
     this.gl.disable(this.gl.BLEND);
