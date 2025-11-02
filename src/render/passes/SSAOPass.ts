@@ -13,6 +13,7 @@ import { SettingsSection } from "../../Settings";
 
 export class SSAOPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
+  public pathtracerRender: Boolean = false;
   private kernelSize: number = 64;
   private noiseSize: number = 4;
   private kernels: vec3[] = [];
@@ -96,7 +97,7 @@ export class SSAOPass extends RenderPass {
     };
   }
 
-  public render(vao_info: VaoInfo | VaoInfo[]): void {
+  public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: Boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const gBuffer = this.renderGraph!.getOutputs(this);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
@@ -148,8 +149,9 @@ export class SSAOPass extends RenderPass {
         this.kernels[i]
       );
     }
-
-    this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+    if(!pathtracerOn || this.pathtracerRender){
+      this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+    }
     this.gl.bindVertexArray(null);
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);

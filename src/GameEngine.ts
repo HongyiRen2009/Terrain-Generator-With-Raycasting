@@ -91,6 +91,7 @@ export class GameEngine {
       this.gl,
       this.world,
       this.mainCamera,
+      this.renderer,
       this.debug
     );
     this.updatePathracing = () => {

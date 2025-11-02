@@ -11,6 +11,7 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 
 export class SSAOBlurPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
+  public pathtracerRender: Boolean = false;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -59,7 +60,7 @@ export class SSAOBlurPass extends RenderPass {
     return { fbo: framebuffer, textures: { ssaoBlur: ssaoBlurTexture } };
   }
 
-  public render(vao_info: VaoInfo | VaoInfo[]): void {
+  public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: Boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     // Get textures from render graph
     const textures = this.renderGraph!.getOutputs(this);
@@ -85,7 +86,9 @@ export class SSAOBlurPass extends RenderPass {
       1
     );
     this.settingsSection?.updateUniforms(this.gl);
-    this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+    if(!pathtracerOn || this.pathtracerRender){
+      this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+    }
     this.gl.bindVertexArray(null);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }

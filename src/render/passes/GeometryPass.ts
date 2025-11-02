@@ -12,6 +12,7 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 
 export class GeometryPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.SCENE;
+  public pathtracerRender: Boolean = false;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -115,7 +116,7 @@ export class GeometryPass extends RenderPass {
     };
   }
 
-  public render(vaosToRender: VaoInfo[]): void {
+  public render(vaosToRender: VaoInfo[], pathtracerOn: Boolean): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);

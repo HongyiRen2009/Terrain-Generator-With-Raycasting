@@ -14,6 +14,7 @@ import {
 } from "./glslPath";
 import { BVHUtils } from "../map/BVHUtils";
 import { copyFragmentShader, copyVertexShader } from "./copyShader";
+import { GLRenderer } from "../render/GLRenderer";
 
 export class PathTracer {
   //Rendering
@@ -44,20 +45,23 @@ export class PathTracer {
   private world: WorldMap;
   private camera: Camera;
   private debug: DebugMenu;
+  private glRenderer: GLRenderer;
 
   public constructor(
     canvas: HTMLCanvasElement,
     context: WebGL2RenderingContext,
     world: WorldMap,
     camera: Camera,
+    glRenderer: GLRenderer,
     debug: DebugMenu
   ) {
     this.canvas = canvas;
     this.gl = context;
     this.world = world;
     this.camera = camera;
+    this.glRenderer = glRenderer;
     this.debug = debug;
-    //this.gl.enable(this.gl.BLEND);
+    this.gl.enable(this.gl.BLEND);
 
     //Enable float texture writing extention
     const float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
@@ -223,6 +227,9 @@ export class PathTracer {
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+
+    //draw other shaders
+    this.glRenderer.render(true);
   }
 
   public makeVao() {
