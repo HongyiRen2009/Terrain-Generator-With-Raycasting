@@ -26,6 +26,7 @@ uniform bool csmEnabled;
 uniform bool cascadeDebug;
 uniform bool showShadowMap;
 uniform int shadowMapCascade;
+uniform bool showCameraDepth;
 
 struct PointLight {
     vec3 position;
@@ -137,6 +138,38 @@ float computeShadow(vec3 worldPos, int cascadeIndex){
 }
 
 void main() {
+    // Camera Depth Visualization Mode - Display the raw camera depth texture directly
+    if (showCameraDepth) {
+        // Read depth directly from texture
+        float depth = texture(depthTexture, fragUV).r;
+        
+        // Check if depth is exactly 0.0 or 1.0 (not written)
+        const float epsilon = 0.0001;
+        
+        vec3 color;
+        if (depth == 0.0 || depth == 1.0) {
+            // Exactly 0.0 or 1.0 - likely means depth isn't being written (red to indicate error)
+            color = vec3(1.0, 0.0, 0.0); // Red
+        } else {
+            // Depth is being written - create a visible gradient
+            // Note: White = near plane, Black = far plane (depth values are inverted)
+            // Invert for proper visualization (black=near, white=far)
+            float depthToUse = 1.0 - depth;
+            
+            // The depth values are clustered at extremes (very close to 0 or 1)
+            // To create a visible gradient, we need to expand the range
+            // Use a power curve to stretch the middle values
+            float normalizedDepth = pow(depthToUse, 0.5); // Square root to expand middle range
+            
+            // Visualize as grayscale gradient
+            // Black = near plane, White = far plane
+            color = vec3(normalizedDepth);
+        }
+        
+        outputColor = vec4(color, 1.0);
+        return;
+    }
+    
     // Shadow Map Visualization Mode - Display the raw shadow map texture directly
     if (showShadowMap && csmEnabled) {
         // Directly visualize the shadow map texture at screen coordinates
@@ -152,10 +185,32 @@ void main() {
             shadowDepth = texture(cascadeDepthTexture2, shadowUV).r;
         }
         
-        // Visualize depth directly - shows raw depth values
-        // 0.0 = near plane (black), 1.0 = far plane/uninitialized (white)
-        // If all white, the shadow map isn't being written to (stays at clear value 1.0)
-        vec3 color = vec3(shadowDepth);
+        // Check if depth is exactly 0.0 or 1.0 (not written)
+        // Shadow maps are cleared to 1.0, so if they're all 1.0, nothing is being written
+        const float epsilon = 0.0001;
+        
+        vec3 color;
+        if (shadowDepth == 0.0) {
+            // Exactly 0.0 - likely means depth isn't being written (red to indicate error)
+            color = vec3(1.0, 0.0, 0.0); // Red
+        } else if (shadowDepth == 1.0) {
+            // Exactly 1.0 - shadow map cleared but not written to (stays at clear value)
+            color = vec3(1.0, 0.0, 0.0); // Red to indicate error
+        } else {
+            // Depth is being written - create a visible gradient
+            // Note: White = near plane, Black = far plane (depth values are inverted)
+            // Invert for proper visualization (black=near, white=far)
+            float depthToUse = 1.0 - shadowDepth;
+            
+            // The depth values are clustered at extremes (very close to 0 or 1)
+            // To create a visible gradient, we need to expand the range
+            // Use a power curve to stretch the middle values
+            float normalizedDepth = pow(depthToUse, 0.5); // Square root to expand middle range
+            
+            // Visualize as grayscale gradient
+            // Black = near plane, White = far plane
+            color = vec3(normalizedDepth);
+        }
         
         outputColor = vec4(color, 1.0);
         return;

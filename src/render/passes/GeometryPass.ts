@@ -68,6 +68,7 @@ export class GeometryPass extends RenderPass {
       this.gl.DEPTH_COMPONENT,
       this.gl.FLOAT
     );
+    
     const fbo = this.gl.createFramebuffer();
 
     if (!fbo) {
@@ -96,6 +97,18 @@ export class GeometryPass extends RenderPass {
       depthTexture,
       0
     );
+    
+    // Configure depth texture to be readable AFTER attaching to framebuffer
+    // This allows the depth texture to be sampled as a regular texture in shaders
+    // NEAREST filtering is required for reading DEPTH_COMPONENT textures on many WebGL implementations
+    this.gl.bindTexture(this.gl.TEXTURE_2D, depthTexture);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_COMPARE_MODE, this.gl.NONE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+    
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
 
     const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
@@ -118,9 +131,11 @@ export class GeometryPass extends RenderPass {
   public render(vaosToRender: VaoInfo[]): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.enable(this.gl.DEPTH_TEST);
+    this.gl.depthFunc(this.gl.LESS);
     this.gl.depthMask(true);
     this.gl.disable(this.gl.BLEND);
 

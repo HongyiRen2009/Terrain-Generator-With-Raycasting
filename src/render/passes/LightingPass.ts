@@ -9,9 +9,11 @@ import LightingVertexShaderSource from "../glsl/DeferredRendering/Lighting.vert"
 import LightingFragmentShaderSource from "../glsl/DeferredRendering/Lighting.frag";
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { WorldUtils } from "../../utils/WorldUtils";
+import { SettingsSection } from "../../Settings";
 
 export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
+  protected settingsSection: SettingsSection | null = null;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -37,8 +39,10 @@ export class LightingPass extends RenderPass {
       "cascadeDebug",
       "showShadowMap",
       "shadowMapCascade",
-      "shadowMapSize"
+      "shadowMapSize",
+      "showCameraDepth"
     ]);
+    this.InitSettings();
   }
 
   protected initRenderTarget(): RenderTarget {
@@ -167,6 +171,7 @@ export class LightingPass extends RenderPass {
     const showShadowMap = this.resourceCache.getUniformData("showShadowMap") ?? false;
     const shadowMapCascade = this.resourceCache.getUniformData("shadowMapCascade") ?? 0;
     const shadowMapSize = this.resourceCache.getUniformData("shadowMapSize") ?? 2048;
+    const showCameraDepth = this.resourceCache.getUniformData("showCameraDepth") ?? false;
     
     this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
     this.gl.uniform1f(this.uniforms["shadowBias"], shadowBias);
@@ -175,6 +180,7 @@ export class LightingPass extends RenderPass {
     this.gl.uniform1i(this.uniforms["showShadowMap"], showShadowMap ? 1 : 0);
     this.gl.uniform1i(this.uniforms["shadowMapCascade"], shadowMapCascade);
     this.gl.uniform1i(this.uniforms["shadowMapSize"], shadowMapSize);
+    this.gl.uniform1i(this.uniforms["showCameraDepth"], showCameraDepth ? 1 : 0);
 
     WorldUtils.updateLights(
       this.gl,
@@ -190,5 +196,24 @@ export class LightingPass extends RenderPass {
     // LightingPass renders to default framebuffer, no resize needed
     // But we need to update viewport
     this.gl.viewport(0, 0, width, height);
+  }
+
+  private InitSettings() {
+    this.settingsSection = new SettingsSection(
+      document.getElementById("settings-section")!,
+      "Lighting Settings",
+      this.program!
+    );
+    this.settingsSection.addCheckbox({
+      id: "showCameraDepth",
+      label: "Show Camera Depth",
+      defaultValue: false,
+      onChange: (value: boolean) => {
+        this.resourceCache.setUniformData("showCameraDepth", value);
+      }
+    });
+    
+    // Initialize default value in resourceCache
+    this.resourceCache.setUniformData("showCameraDepth", false);
   }
 }
