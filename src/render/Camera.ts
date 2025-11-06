@@ -88,4 +88,8 @@ export class Camera {
     vec3.cross(this.right, this.front, this.up);
     vec3.normalize(this.right, this.right);
   }
+
+  getNearFarPlanes() : { near: number, far: number } {
+    return { near: 0.1, far: 100.0 };
+  }
 }

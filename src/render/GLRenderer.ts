@@ -10,6 +10,7 @@ import { SSAOPass } from "./passes/SSAOPass";
 import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
+import { CSMPass } from "./passes/CSMPass";
 import { mat4 } from "gl-matrix";
 interface Matrices {
   matView: mat4;
@@ -79,6 +80,12 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const csmPass = new CSMPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     const cloudsPass = new CloudsPass(
       this.gl,
       this.resourceCache,
@@ -89,9 +96,9 @@ export class GLRenderer {
     this.renderGraph.addRoot(geometryPass);
     this.renderGraph.add(ssaoPass, geometryPass);
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
-    this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
+    this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass, csmPass);
 
-    this.renderGraph.add(cloudsPass, geometryPass);
+    //this.renderGraph.add(cloudsPass, geometryPass);
   }
 
   public render(): void {
@@ -107,14 +114,18 @@ export class GLRenderer {
     // Get passes in correct execution order
     const sortedPasses = this.renderGraph.getSortedPasses();
     for (const pass of sortedPasses) {
-      if (pass.VAOInputType === VAOInputType.FULLSCREENQUAD) {
-        if (!screenQuadVAO) {
-          console.warn("No screen quad VAO available for fullscreen pass");
-          continue;
+      const invocationCount = pass.getInvocationCount();
+      for (let i = 0; i < invocationCount; i++) {
+        pass.setInvocationIndex(i);
+        if (pass.VAOInputType === VAOInputType.FULLSCREENQUAD) {
+          if (!screenQuadVAO) {
+            console.warn("No screen quad VAO available for fullscreen pass");
+            continue;
+          }
+          pass.render(screenQuadVAO);
+        } else if (pass.VAOInputType === VAOInputType.SCENE) {
+          pass.render(vaosToRender);
         }
-        pass.render(screenQuadVAO);
-      } else if (pass.VAOInputType === VAOInputType.SCENE) {
-        pass.render(vaosToRender);
       }
     }
   }
@@ -135,6 +146,7 @@ export class GLRenderer {
       matProjInverse: mat4.invert(mat4.create(), matViewAndProj.matProj)
     };
     this.resourceCache.setUniformData("CameraInfo", cameraInfo);
+    this.resourceCache.setUniformData("nearFarPlanes", this.camera.getNearFarPlanes());
     this.resourceCache.setUniformData("cameraPosition", this.camera.position);
   }
   public resizeGBuffer(width: number, height: number): void {

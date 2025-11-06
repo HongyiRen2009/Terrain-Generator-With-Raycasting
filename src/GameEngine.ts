@@ -174,9 +174,9 @@ export class GameEngine {
 
     // Add a gear object
     const mesh = await threemfToMesh(gearModelUrl);
-    const identity2 = mat4.create();
-    mat4.identity(identity2);
-    this.world.addObject(mesh, identity2, "Gear");
+    const gearTransform = mat4.create();
+    mat4.fromTranslation(gearTransform, vec3.fromValues(25, 20, 25));
+    this.world.addObject(mesh, gearTransform, "Gear");
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);

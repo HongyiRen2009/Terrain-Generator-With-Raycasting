@@ -32,6 +32,19 @@ export abstract class RenderPass {
     this.renderGraph = renderGraph;
   }
   protected abstract initRenderTarget(): RenderTarget;
+  /**
+   * Number of times this pass should execute per frame. Override in subclasses as needed.
+   */
+  public getInvocationCount(): number {
+    return 1;
+  }
+
+  /**
+   * Optional hook to inform the pass about the current invocation index (0..count-1).
+   * Subclasses can override to adjust state between invocations.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  public setInvocationIndex(_index: number): void {}
 
   public getRenderTarget(): RenderTarget | null {
     return this.renderTarget;

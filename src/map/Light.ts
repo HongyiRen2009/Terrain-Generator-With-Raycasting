@@ -7,12 +7,10 @@ import { Color } from "./terrains";
 export class PointLight {
   position: vec3;
   color: Color; //Emission color
-  showColor: Color; //color of what the light looks
-  /*Note:
-  The idea is that color is the color emmitted, while showColor is the color it looks like. This is useful in sun-like lights where it emits white light but looks yellow. 
-  */
   intensity: number;
   radius: number; // Default radius, can be adjusted
+  showColor?: Color; //color of what the light looks
+  direction?: vec3;
 
   constructor(
     position: vec3,

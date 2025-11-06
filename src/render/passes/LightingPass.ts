@@ -28,7 +28,16 @@ export class LightingPass extends RenderPass {
     this.uniforms = getUniformLocations(gl, this.program!, [
       "viewInverse",
       "projInverse",
-      "cameraPosition"
+      "cameraPosition",
+      "lightSpaceMatrices",
+      "cascadeSplits",
+      "usingPCF",
+      "shadowBias",
+      "csmEnabled",
+      "cascadeDebug",
+      "showShadowMap",
+      "shadowMapCascade",
+      "shadowMapSize"
     ]);
   }
 
@@ -43,6 +52,19 @@ export class LightingPass extends RenderPass {
     const albedoTexture = textures["albedo"];
     const depthTexture = textures["depth"];
     const ssaoTexture = textures["ssaoBlur"];
+    const cascadeDepthTexture0 = textures["shadowDepthTexture0"];
+    const cascadeDepthTexture1 = textures["shadowDepthTexture1"];
+    const cascadeDepthTexture2 = textures["shadowDepthTexture2"];
+
+    // Debug: Check if shadow textures are available
+    if (!cascadeDepthTexture0 || !cascadeDepthTexture1 || !cascadeDepthTexture2) {
+        console.warn("[Lighting] Missing shadow depth textures:", {
+            cascade0: !!cascadeDepthTexture0,
+            cascade1: !!cascadeDepthTexture1,
+            cascade2: !!cascadeDepthTexture2,
+            availableTextures: Object.keys(textures)
+        });
+    }
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -75,6 +97,29 @@ export class LightingPass extends RenderPass {
       2
     );
     TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 3);
+    
+    // Bind cascade depth textures
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      cascadeDepthTexture0,
+      "cascadeDepthTexture0",
+      4
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      cascadeDepthTexture1,
+      "cascadeDepthTexture1",
+      5
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      cascadeDepthTexture2,
+      "cascadeDepthTexture2",
+      6
+    );
 
     const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
     this.gl.uniformMatrix4fv(
@@ -91,6 +136,45 @@ export class LightingPass extends RenderPass {
       this.uniforms["cameraPosition"],
       this.resourceCache.getUniformData("cameraPosition")
     );
+
+    // Set CSM uniforms
+    const lightSpaceMatrices = this.resourceCache.getUniformData("lightSpaceMatrices");
+    if (lightSpaceMatrices && Array.isArray(lightSpaceMatrices) && lightSpaceMatrices.length === 3) {
+      // Flatten the array of matrices into a single Float32Array (3 matrices * 16 floats = 48 floats)
+      const flattened = new Float32Array(48);
+      for (let i = 0; i < 3; i++) {
+        flattened.set(lightSpaceMatrices[i], i * 16);
+      }
+      this.gl.uniformMatrix4fv(
+        this.uniforms["lightSpaceMatrices"],
+        false,
+        flattened
+      );
+    }
+
+    const cascadeSplits = this.resourceCache.getUniformData("cascadeSplits");
+    if (cascadeSplits && Array.isArray(cascadeSplits) && cascadeSplits.length === 3) {
+      this.gl.uniform1fv(
+        this.uniforms["cascadeSplits"],
+        cascadeSplits
+      );
+    }
+
+    const usingPCF = this.resourceCache.getUniformData("usingPCF") ?? true;
+    const shadowBias = this.resourceCache.getUniformData("shadowBias") ?? 0.001;
+    const csmEnabled = this.resourceCache.getUniformData("csmEnabled") ?? true;
+    const cascadeDebug = this.resourceCache.getUniformData("cascadeDebug") ?? false;
+    const showShadowMap = this.resourceCache.getUniformData("showShadowMap") ?? false;
+    const shadowMapCascade = this.resourceCache.getUniformData("shadowMapCascade") ?? 0;
+    const shadowMapSize = this.resourceCache.getUniformData("shadowMapSize") ?? 2048;
+    
+    this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
+    this.gl.uniform1f(this.uniforms["shadowBias"], shadowBias);
+    this.gl.uniform1i(this.uniforms["csmEnabled"], csmEnabled ? 1 : 0);
+    this.gl.uniform1i(this.uniforms["cascadeDebug"], cascadeDebug ? 1 : 0);
+    this.gl.uniform1i(this.uniforms["showShadowMap"], showShadowMap ? 1 : 0);
+    this.gl.uniform1i(this.uniforms["shadowMapCascade"], shadowMapCascade);
+    this.gl.uniform1i(this.uniforms["shadowMapSize"], shadowMapSize);
 
     WorldUtils.updateLights(
       this.gl,

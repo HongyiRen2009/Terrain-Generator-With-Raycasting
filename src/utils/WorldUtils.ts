@@ -84,7 +84,7 @@ export class WorldUtils {
 
       gl.uniform3fv(posLocation, light.position);
       gl.uniform3fv(colorLocation, light.color.createVec3());
-      gl.uniform3fv(showColorLocation, light.showColor.createVec3());
+      gl.uniform3fv(showColorLocation, light.showColor!.createVec3());
       gl.uniform1f(intensityLocation, light.intensity);
       gl.uniform1f(radiusLocation, light.radius);
     });

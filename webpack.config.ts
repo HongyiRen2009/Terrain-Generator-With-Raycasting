@@ -19,7 +19,7 @@ const config: webpack.Configuration = {
     static: path.resolve(__dirname, "public"),
     hot: true,
     open: {
-      app: 'msedge'
+      app: "msedge",
     },
     port: 3000
   },
@@ -31,7 +31,6 @@ const config: webpack.Configuration = {
       {
         test: /\.ts$/,
         use: "ts-loader",
-        exclude: [/node_modules/, /OldGLRenderer\.ts$/, /DeferredRenderer \(old\)\.ts$/]
       },
       {
         test: /\.obj$/,
