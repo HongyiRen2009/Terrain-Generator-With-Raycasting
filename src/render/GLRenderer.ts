@@ -108,20 +108,24 @@ export class GLRenderer {
 
     // Get passes in correct execution order
     const sortedPasses = this.renderGraph.getSortedPasses();
-    let passIndex = 0;
     for (const pass of sortedPasses) {
       if (pass.VAOInputType === VAOInputType.FULLSCREENQUAD) {
         if (!screenQuadVAO) {
           console.warn("No screen quad VAO available for fullscreen pass");
           continue;
         }
-        pass.render(screenQuadVAO, pathtracerOn);
-      } else if (pass.VAOInputType === VAOInputType.SCENE) {
-        pass.render(vaosToRender, pathtracerOn);
+        if(!pathtracerOn || pass.pathtracerRender){
+          pass.render(screenQuadVAO, pathtracerOn);
+        }
+      } else if (pass.VAOInputType === VAOInputType.SCENE) {    
+        if(!pathtracerOn||pass.pathtracerRender){
+          pass.render(vaosToRender, pathtracerOn);
+        }
       }
     }
-    passIndex++;
+
   }
+
   public calculateCameraInfo(): void {
     const matViewAndProj = this.camera.calculateProjectionMatrices(
       this.canvas.width,

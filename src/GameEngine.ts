@@ -58,7 +58,7 @@ export class GameEngine {
     this.canvas.style.display = "none";
 
     //GL Context
-    this.gl = this.canvas.getContext("webgl2", { antialias: true })!;
+    this.gl = this.canvas.getContext("webgl2", { antialias: true , alpha: true, preserveDrawingBuffer: true, depth: true, stencil: true})!;
 
     //Initialize controls
     this.addKeys();
