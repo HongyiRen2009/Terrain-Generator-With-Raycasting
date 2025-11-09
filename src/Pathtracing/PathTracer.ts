@@ -8,12 +8,11 @@ import { RenderUtils } from "../utils/RenderUtils";
 import { TextureUtils } from "../utils/TextureUtils";
 import { WorldUtils } from "../utils/WorldUtils";
 import { DebugMenu } from "../DebugMenu";
-import {
-  pathTracingFragmentShaderCode,
-  pathTracingVertexShaderCode
-} from "./glslPath";
+import pathTracingFragmentShaderCode from "./glsl/pathtracerShader/path.frag";
+import pathTracingVertexShaderCode from "./glsl/pathtracerShader/path.vert";
 import { BVHUtils } from "../map/BVHUtils";
-import { copyFragmentShader, copyVertexShader } from "./copyShader";
+import  copyFragmentShader from "./glsl/copyShader/copy.frag";
+import  copyVertexShader  from "./glsl/copyShader/copy.vert";
 import { GLRenderer } from "../render/GLRenderer";
 
 export class PathTracer {
