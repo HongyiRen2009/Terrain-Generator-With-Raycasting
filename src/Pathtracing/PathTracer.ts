@@ -8,12 +8,12 @@ import { RenderUtils } from "../utils/RenderUtils";
 import { TextureUtils } from "../utils/TextureUtils";
 import { WorldUtils } from "../utils/WorldUtils";
 import { DebugMenu } from "../DebugMenu";
-import {
-  pathTracingFragmentShaderCode,
-  pathTracingVertexShaderCode
-} from "./glslPath";
+import pathTracingFragmentShaderCode from "./glsl/pathtracerShader/path.frag";
+import pathTracingVertexShaderCode from "./glsl/pathtracerShader/path.vert";
 import { BVHUtils } from "../map/BVHUtils";
-import { copyFragmentShader, copyVertexShader } from "./copyShader";
+import copyFragmentShader from "./glsl/copyShader/copy.frag";
+import copyVertexShader from "./glsl/copyShader/copy.vert";
+import { GLRenderer } from "../render/GLRenderer";
 
 export class PathTracer {
   //Rendering
@@ -44,20 +44,23 @@ export class PathTracer {
   private world: WorldMap;
   private camera: Camera;
   private debug: DebugMenu;
+  private glRenderer: GLRenderer;
 
   public constructor(
     canvas: HTMLCanvasElement,
     context: WebGL2RenderingContext,
     world: WorldMap,
     camera: Camera,
+    glRenderer: GLRenderer,
     debug: DebugMenu
   ) {
     this.canvas = canvas;
     this.gl = context;
     this.world = world;
     this.camera = camera;
+    this.glRenderer = glRenderer;
     this.debug = debug;
-    //this.gl.enable(this.gl.BLEND);
+    this.gl.enable(this.gl.BLEND);
 
     //Enable float texture writing extention
     const float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
@@ -137,6 +140,7 @@ export class PathTracer {
 
   public drawMesh() {
     this.initPathtracing();
+    this.makeVao();
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
@@ -223,6 +227,9 @@ export class PathTracer {
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+
+    //draw other shaders
+    this.glRenderer.render(true);
   }
 
   public makeVao() {
@@ -256,8 +263,14 @@ export class PathTracer {
   private initPathtracing() {
     this.gl.useProgram(this.meshProgram);
     //Textures
-    let verticeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
-    let terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    let verticeTex = TextureUtils.packFloatArrayToTexture(
+      this.gl,
+      this.vertices
+    );
+    let terrainTex = TextureUtils.packFloatArrayToTexture(
+      this.gl,
+      this.terrains
+    );
     let boundingBoxesTex = TextureUtils.packFloatArrayToTexture(
       this.gl,
       this.boundingBoxes
@@ -273,8 +286,20 @@ export class PathTracer {
       this.vertexNormals
     );
 
-    TextureUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
-    TextureUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
+    TextureUtils.bindTex(
+      this.gl,
+      this.meshProgram,
+      verticeTex,
+      "u_vertices",
+      0
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.meshProgram,
+      terrainTex,
+      "u_terrains",
+      1
+    );
     TextureUtils.bindTex(
       this.gl,
       this.meshProgram,

@@ -261,6 +261,3 @@ export class RenderUtils {
     return transformMatrix;
   }
 }
-  
-
-  
