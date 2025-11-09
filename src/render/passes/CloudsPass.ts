@@ -15,7 +15,7 @@ import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { vec3 } from "gl-matrix";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
-  public pathtracerRender: Boolean = true;
+  public pathtracerRender: boolean = true;
   protected settingsSection: SettingsSection | null = null;
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
@@ -46,7 +46,7 @@ export class CloudsPass extends RenderPass {
   protected initRenderTarget(): RenderTarget {
     return { fbo: null, textures: {} };
   }
-  public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: Boolean): void {
+  public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.enable(this.gl.BLEND);
@@ -115,7 +115,7 @@ export class CloudsPass extends RenderPass {
       performance.now() * 0.001 // Convert to seconds
     );
     this.settingsSection?.updateUniforms(this.gl);
-    if(!pathtracerOn || this.pathtracerRender){
+    if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
     this.gl.bindVertexArray(null);

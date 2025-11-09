@@ -94,8 +94,8 @@ export class GLRenderer {
     this.renderGraph.add(cloudsPass, geometryPass);
   }
 
-  public render(pathtracerOn: Boolean = false): void {
-    if(!pathtracerOn){
+  public render(pathtracerOn: boolean = false): void {
+    if (!pathtracerOn) {
       this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
       this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     }
@@ -114,16 +114,15 @@ export class GLRenderer {
           console.warn("No screen quad VAO available for fullscreen pass");
           continue;
         }
-        if(!pathtracerOn || pass.pathtracerRender){
+        if (!pathtracerOn || pass.pathtracerRender) {
           pass.render(screenQuadVAO, pathtracerOn);
         }
-      } else if (pass.VAOInputType === VAOInputType.SCENE) {    
-        if(!pathtracerOn||pass.pathtracerRender){
+      } else if (pass.VAOInputType === VAOInputType.SCENE) {
+        if (!pathtracerOn || pass.pathtracerRender) {
           pass.render(vaosToRender, pathtracerOn);
         }
       }
     }
-
   }
 
   public calculateCameraInfo(): void {

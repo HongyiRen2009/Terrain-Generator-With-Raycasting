@@ -12,7 +12,7 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 
 export class GeometryPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.SCENE;
-  public pathtracerRender: Boolean = false;
+  public pathtracerRender: boolean = false;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -116,9 +116,9 @@ export class GeometryPass extends RenderPass {
     };
   }
 
-  public render(vaosToRender: VaoInfo[], pathtracerOn: Boolean): void {
+  public render(vaosToRender: VaoInfo[], pathtracerOn: boolean): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
-    if(!pathtracerOn || this.pathtracerRender){
+    if (!pathtracerOn || this.pathtracerRender) {
       this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
       this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     }
@@ -140,7 +140,7 @@ export class GeometryPass extends RenderPass {
         false,
         vaoInfo.modelMatrix
       );
-      if(!pathtracerOn || this.pathtracerRender){
+      if (!pathtracerOn || this.pathtracerRender) {
         this.gl.drawElements(
           this.gl.TRIANGLES,
           vaoInfo.indexCount,

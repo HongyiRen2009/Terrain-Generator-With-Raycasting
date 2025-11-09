@@ -16,7 +16,7 @@ export abstract class RenderPass {
   protected renderGraph?: RenderGraph;
   protected uniforms: { [key: string]: WebGLUniformLocation } = {};
   protected settingsSection: SettingsSection | null = null;
-  public abstract pathtracerRender: Boolean; // Do you render while pathtracing
+  public abstract pathtracerRender: boolean; // Do you render while pathtracing
   public abstract VAOInputType: VAOInputType;
   constructor(
     gl: WebGL2RenderingContext,
@@ -38,7 +38,10 @@ export abstract class RenderPass {
     return this.renderTarget;
   }
 
-  public abstract render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: Boolean): void;
+  public abstract render(
+    vao_info: VaoInfo | VaoInfo[],
+    pathtracerOn: boolean
+  ): void;
 
   public resize(width: number, height: number): void {
     // Delete old resources

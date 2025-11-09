@@ -12,7 +12,7 @@ import { WorldUtils } from "../../utils/WorldUtils";
 
 export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
-  public pathtracerRender: Boolean = false;
+  public pathtracerRender: boolean = false;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -37,7 +37,7 @@ export class LightingPass extends RenderPass {
     return { fbo: null, textures: {} };
   }
 
-  public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: Boolean): void {
+  public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const textures = this.renderGraph!.getOutputs(this);
     const normalTexture = textures["normal"];
@@ -47,7 +47,7 @@ export class LightingPass extends RenderPass {
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    if(!pathtracerOn || this.pathtracerRender){
+    if (!pathtracerOn || this.pathtracerRender) {
       this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     }
     this.gl.disable(this.gl.DEPTH_TEST);
@@ -100,7 +100,7 @@ export class LightingPass extends RenderPass {
       this.program!,
       this.resourceCache.getUniformData("lights")
     );
-    if(!pathtracerOn || this.pathtracerRender){
+    if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
     this.gl.bindVertexArray(null);

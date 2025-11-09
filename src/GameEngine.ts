@@ -58,7 +58,13 @@ export class GameEngine {
     this.canvas.style.display = "none";
 
     //GL Context
-    this.gl = this.canvas.getContext("webgl2", { antialias: true , alpha: true, preserveDrawingBuffer: true, depth: true, stencil: true})!;
+    this.gl = this.canvas.getContext("webgl2", {
+      antialias: true,
+      alpha: true,
+      preserveDrawingBuffer: true,
+      depth: true,
+      stencil: true
+    })!;
 
     //Initialize controls
     this.addKeys();
@@ -189,7 +195,10 @@ export class GameEngine {
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
   tick(timestamp: number) {
-    if (timestamp - this.lastRenderTime < this.frameInterval || this.mode == -1) {
+    if (
+      timestamp - this.lastRenderTime < this.frameInterval ||
+      this.mode == -1
+    ) {
       return;
     }
     const timePassed = timestamp - this.lastRenderTime;

@@ -11,8 +11,8 @@ import { DebugMenu } from "../DebugMenu";
 import pathTracingFragmentShaderCode from "./glsl/pathtracerShader/path.frag";
 import pathTracingVertexShaderCode from "./glsl/pathtracerShader/path.vert";
 import { BVHUtils } from "../map/BVHUtils";
-import  copyFragmentShader from "./glsl/copyShader/copy.frag";
-import  copyVertexShader  from "./glsl/copyShader/copy.vert";
+import copyFragmentShader from "./glsl/copyShader/copy.frag";
+import copyVertexShader from "./glsl/copyShader/copy.vert";
 import { GLRenderer } from "../render/GLRenderer";
 
 export class PathTracer {
@@ -263,8 +263,14 @@ export class PathTracer {
   private initPathtracing() {
     this.gl.useProgram(this.meshProgram);
     //Textures
-    let verticeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
-    let terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    let verticeTex = TextureUtils.packFloatArrayToTexture(
+      this.gl,
+      this.vertices
+    );
+    let terrainTex = TextureUtils.packFloatArrayToTexture(
+      this.gl,
+      this.terrains
+    );
     let boundingBoxesTex = TextureUtils.packFloatArrayToTexture(
       this.gl,
       this.boundingBoxes
@@ -280,8 +286,20 @@ export class PathTracer {
       this.vertexNormals
     );
 
-    TextureUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
-    TextureUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
+    TextureUtils.bindTex(
+      this.gl,
+      this.meshProgram,
+      verticeTex,
+      "u_vertices",
+      0
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.meshProgram,
+      terrainTex,
+      "u_terrains",
+      1
+    );
     TextureUtils.bindTex(
       this.gl,
       this.meshProgram,
