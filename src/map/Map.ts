@@ -37,8 +37,15 @@ export class WorldMap {
 
   public height: number;
   public resolution = 64; //#of vertices square size of chunk
-  public chunks: Chunk[];
-  public fieldMap: Map<string, number>;
+public chunks: Chunk[];
+  
+  // NEW: Single TypedArray for entire world (replaces fieldMap!)
+  private worldFieldData: Float32Array | null = null;
+  private worldFieldMinX: number = 0;
+  private worldFieldMinZ: number = 0;
+  private worldFieldMaxX: number = 0;
+  private worldFieldMaxZ: number = 0;
+  
   public Workers: Worker[] = [];
   public seed: number = 10; // Random seed for noise generation
 
@@ -71,30 +78,17 @@ export class WorldMap {
     this.length = length;
     this.height = height;
     this.chunks = [];
-    for (let i = 0; i < navigator.hardwareConcurrency; i++) {
+    const NUM_CHUNKS = 4;
+    for (let i = 0; i < NUM_CHUNKS; i++) {
       this.Workers.push(new Worker(new URL("./Worker.ts", import.meta.url)));
     }
-    this.generate();
 
-    this.fieldMap = new Map<string, number>();
+    this.generate();
 
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
   }
-
-  public populateFieldMap() {
-    for (const chunk of this.chunks) {
-      for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
-        this.fieldMap.set(key, val);
-      }
-    }
-    for (const chunk of this.chunks) {
-      chunk.setWorldFieldMap(this.fieldMap);
-    }
-  }
-  //Generates map
-  public generate() {
+public generate() {
     this.chunks = [
-      // Row 1
       new Chunk(
         vec2.fromValues(0, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
@@ -120,6 +114,62 @@ export class WorldMap {
         this.Workers[3]
       )
     ];
+  }
+  public populateFieldMap() {
+    console.log("🔄 Consolidating chunk data into single TypedArray...");
+    
+    // Calculate world bounds
+    this.worldFieldMinX = Math.min(...this.chunks.map(c => c.ChunkPosition[0]));
+    this.worldFieldMinZ = Math.min(...this.chunks.map(c => c.ChunkPosition[1]));
+    this.worldFieldMaxX = Math.max(...this.chunks.map(c => c.ChunkPosition[0] + c.GridSize[0]));
+    this.worldFieldMaxZ = Math.max(...this.chunks.map(c => c.ChunkPosition[1] + c.GridSize[2]));
+    
+    const sizeX = this.worldFieldMaxX - this.worldFieldMinX + 1;
+    const sizeY = this.height + 1;
+    const sizeZ = this.worldFieldMaxZ - this.worldFieldMinZ + 1;
+    
+    const totalSize = sizeX * sizeY * sizeZ;    
+    // Create single typed array for entire world
+    this.worldFieldData = new Float32Array(totalSize);
+    
+    // Copy data from all chunks
+    let totalEntries = 0;
+    for (const chunk of this.chunks) {
+      for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
+        const coords = key.split(',').map(Number);
+        const [x, y, z] = coords;
+        
+        // Convert to local coordinates
+        const localX = x - this.worldFieldMinX;
+        const localZ = z - this.worldFieldMinZ;
+        
+        if (localX >= 0 && localX < sizeX &&
+            localZ >= 0 && localZ < sizeZ &&
+            y >= 0 && y < sizeY) {
+          const idx = localX + y * sizeX + localZ * sizeX * sizeY;
+          this.worldFieldData[idx] = val;
+          totalEntries++;
+        }
+      }
+    }
+    
+    console.log(`✅ Consolidated ${totalEntries.toLocaleString()} field values`);
+    
+    // Share the typed array with all chunks
+    for (const chunk of this.chunks) {
+      chunk.setWorldFieldData(
+        this.worldFieldData,
+        this.worldFieldMinX,
+        this.worldFieldMinZ,
+        sizeX,
+        sizeY,
+        sizeZ
+      );
+      // Clear temporary Map data to free memory
+      chunk.clearTemporaryData();
+    }
+    
+    console.log("✅ Shared world field with all chunks and cleared temporary Maps");
   }
   public combinedMesh(): Mesh {
     const CombinedMesh = new Mesh();

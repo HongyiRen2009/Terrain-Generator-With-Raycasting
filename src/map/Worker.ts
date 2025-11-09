@@ -10,15 +10,30 @@ export type WorkerConstructor = new (
   stringUrl: string | URL,
   options?: WorkerOptions
 ) => Worker;
+
 console.log("Worker started");
-let WorldFieldMap: Map<string, number> = new Map<string, number>();
+
 let globalChunkPosition: vec2;
+
+// Optimized: Use typed array instead of Map
+let worldFieldData: Float32Array;
+let fieldMinX: number, fieldMinZ: number;
+let fieldSizeX: number, fieldSizeY: number, fieldSizeZ: number;
+
 type WorkerMessage = {
   Seed: string;
   GridSize: vec3;
   ChunkPosition: vec2;
   generatingTerrain: boolean;
-  worldFieldMap: Map<string, number>;
+  worldFieldMap?: Map<string, number>;
+  worldFieldData?: {
+    data: Float32Array;
+    minX: number;
+    minZ: number;
+    sizeX: number;
+    sizeY: number;
+    sizeZ: number;
+  };
 };
 
 function chunkCoordinateToIndex(c: vec3, gridSize: vec3): number {
@@ -43,48 +58,57 @@ function noiseFunction(c: vec3, simplex: NoiseFunction3D): number {
 }
 
 function GenerateCase(cubeCoordinates: vec3): number {
-  /*
-      Given the coordinate of a cube in the world,
-      return the corresponding index into the marching cubes lookup.
-      Involves looking at each of the eight vertices.
-    */
-
   let caseIndex = 0;
 
   for (let i = 0; i < VERTICES.length; i++) {
     let vertexOffset = vec3.fromValues(...VERTICES[i]);
-
     vec3.add(vertexOffset, vertexOffset, cubeCoordinates);
-
     const isTerrain = Number(solidChecker(getFieldValue(vertexOffset)));
     caseIndex += isTerrain << i;
   }
 
   return caseIndex;
 }
+
 function solidChecker(a: number) {
   return a > 0.5;
 }
-function getFieldValue(c: vec3) {
+
+function getFieldValue(c: vec3): number {
   const newVector = vec3.fromValues(0, 0, 0);
   vec3.add(
     newVector,
     c,
     vec3.fromValues(globalChunkPosition[0], 0, globalChunkPosition[1])
   );
-  return WorldFieldMap.get(vertexKey(newVector)) ?? 0;
+  
+  const x = newVector[0];
+  const y = newVector[1];
+  const z = newVector[2];
+  
+  // Convert to local coordinates
+  const localX = x - fieldMinX;
+  const localZ = z - fieldMinZ;
+  
+  // Bounds check
+  if (localX < 0 || localX >= fieldSizeX ||
+      localZ < 0 || localZ >= fieldSizeZ ||
+      y < 0 || y >= fieldSizeY) {
+    return 0;
+  }
+  
+  const idx = localX + y * fieldSizeX + localZ * fieldSizeX * fieldSizeY;
+  return worldFieldData[idx] ?? 0;
 }
+
 function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
   const caseMesh: Mesh = new Mesh();
   const caseLookup = CASES[caseNumber];
   for (const triangleLookup of caseLookup) {
-    // each triangle is represented as list of the three edges which it is located on
-    // for now, place the actual triangle's vertices as the midpoint of the edge
     const vertices = triangleLookup.map((edgeIndex) =>
       edgeIndexToCoordinate(c, edgeIndex)
     );
 
-    // Add triangle with both position and normal information
     caseMesh.addTriangle(
       vertices.map((v) => v.position) as Triangle,
       vertices.map((v) => v.normal) as Triangle,
@@ -93,6 +117,7 @@ function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
   }
   return caseMesh;
 }
+
 function edgeIndexToCoordinate(
   c: vec3,
   edgeIndex: number
@@ -105,11 +130,9 @@ function edgeIndexToCoordinate(
   vec3.add(v1, v1, c);
   vec3.add(v2, v2, c);
 
-  // Get terrain values using the field array
   const value1 = getFieldValue(v1);
   const value2 = getFieldValue(v2);
 
-  // Calculate normals using central differences and the noise function
   const normal1 = calculateNormal(v1);
   const normal2 = calculateNormal(v2);
 
@@ -124,13 +147,11 @@ function edgeIndexToCoordinate(
 
   return { position, normal };
 }
-// Helper for normal calculation
-// Helper for normal calculation
+
 function calculateNormal(vertex: vec3): vec3 {
   const delta = 1.0;
   const normal = vec3.create();
 
-  // Calculate gradients using central differences
   // X gradient
   const x1 = vec3.fromValues(vertex[0] + delta, vertex[1], vertex[2]);
   const x2 = vec3.fromValues(vertex[0] - delta, vertex[1], vertex[2]);
@@ -146,18 +167,19 @@ function calculateNormal(vertex: vec3): vec3 {
   const z2 = vec3.fromValues(vertex[0], vertex[1], vertex[2] - delta);
   normal[2] = getFieldValue(z1) - getFieldValue(z2);
 
-  // Negate and normalize the normal
   vec3.negate(normal, normal);
   vec3.normalize(normal, normal);
 
   return normal;
 }
+
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
-  const { Seed, GridSize, ChunkPosition, generatingTerrain, worldFieldMap } =
-    event.data;
+  const { Seed, GridSize, ChunkPosition, generatingTerrain, worldFieldData: fieldData } = event.data;
+  
   globalChunkPosition = ChunkPosition;
   const prng = alea(Seed);
   const simplex = createNoise3D(prng);
+  
   if (generatingTerrain) {
     const field = new Float32Array(
       (GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1)
@@ -169,7 +191,6 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       for (let y = 0; y <= GridSize[1]; y++) {
         for (let z = 0; z <= GridSize[2]; z++) {
           let c = vec3.fromValues(x, y, z);
-          // Offset by chunk position
           vec3.add(
             c,
             c,
@@ -195,8 +216,17 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
     );
     return;
   } else {
-    WorldFieldMap = worldFieldMap;
-    //Generate mesh with marching cubes
+    // Set up the optimized field data
+    if (fieldData) {
+      worldFieldData = fieldData.data;
+      fieldMinX = fieldData.minX;
+      fieldMinZ = fieldData.minZ;
+      fieldSizeX = fieldData.sizeX;
+      fieldSizeY = fieldData.sizeY;
+      fieldSizeZ = fieldData.sizeZ;
+    }
+    
+    // Generate mesh with marching cubes
     const mesh: Mesh = new Mesh();
     for (let x = 0; x < GridSize[0]; x++) {
       for (let y = 0; y < GridSize[1]; y++) {
