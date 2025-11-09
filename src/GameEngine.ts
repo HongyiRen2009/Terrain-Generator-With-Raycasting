@@ -34,7 +34,7 @@ export class GameEngine {
   private maxFPS: number = 60;
   private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
-  private mode: number = 0; // 0 for hybrid, 1 for pathtracer
+  private mode: number = 0; // 0 for hybrid, 1 for pathtracer, -1 for off
 
   //
   private frameCounter: number = 0; // In the current FPS
@@ -189,7 +189,7 @@ export class GameEngine {
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
   tick(timestamp: number) {
-    if (timestamp - this.lastRenderTime < this.frameInterval) {
+    if (timestamp - this.lastRenderTime < this.frameInterval || this.mode == -1) {
       return;
     }
     const timePassed = timestamp - this.lastRenderTime;
@@ -203,6 +203,7 @@ export class GameEngine {
         this.renderer.render();
       } else {
         this.pathTracer.render(timestamp);
+        //this.mode=-1;
       }
     }
     this.frameCounter += 1;

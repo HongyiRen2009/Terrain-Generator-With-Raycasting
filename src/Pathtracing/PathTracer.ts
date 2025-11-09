@@ -141,6 +141,7 @@ export class PathTracer {
 
   public drawMesh() {
     this.initPathtracing();
+    this.makeVao();
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
