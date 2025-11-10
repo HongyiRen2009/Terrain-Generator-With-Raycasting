@@ -196,7 +196,7 @@ export class LightingPass extends RenderPass {
     );
     this.gl.uniform1i(this.uniforms["showShadowMap"], showShadowMap ? 1 : 0);
     this.gl.uniform1i(this.uniforms["shadowMapCascade"], shadowMapCascade);
-    this.gl.uniform1f(this.uniforms["shadowMapSize"], shadowMapSize);
+    this.gl.uniform1i(this.uniforms["shadowMapSize"], shadowMapSize);
     this.gl.uniform1i(this.uniforms["showCameraDepth"], showCameraDepth ? 1 : 0);
 
     WorldUtils.updateLights(

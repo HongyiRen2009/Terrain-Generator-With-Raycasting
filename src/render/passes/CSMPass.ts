@@ -39,16 +39,19 @@ export class CSMPass extends RenderPass {
         // For shadow maps, DEPTH_COMPONENT32F with FLOAT is more reliable
         const shadowMapSize = 2048; // Higher resolution for shadow maps
         this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
-        const shadowDepthTexture0 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
-        const shadowDepthTexture1 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
-        const shadowDepthTexture2 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
+        const depthInternalFormat = this.gl.DEPTH_COMPONENT32F;
+        const depthFormat = this.gl.DEPTH_COMPONENT;
+        const depthType = this.gl.FLOAT;
+        const shadowDepthTexture0 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, depthInternalFormat, depthFormat, depthType);
+        const shadowDepthTexture1 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, depthInternalFormat, depthFormat, depthType);
+        const shadowDepthTexture2 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, depthInternalFormat, depthFormat, depthType);
         
         const textures = [shadowDepthTexture0, shadowDepthTexture1, shadowDepthTexture2];
         for (const tex of textures) {
             this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_COMPARE_MODE, this.gl.NONE);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
         }
@@ -98,6 +101,9 @@ export class CSMPass extends RenderPass {
             console.error(`Framebuffer not complete: ${status}`);
         }
         this.gl.drawBuffers([this.gl.NONE]);
+        if (this.gl.readBuffer) {
+            this.gl.readBuffer(this.gl.NONE);
+        }
         this.gl.colorMask(false, false, false, false);
 
         const shadowMapSize = 2048;
@@ -184,7 +190,7 @@ export class CSMPass extends RenderPass {
             min: 0.0,
             max: 0.1,
             step: 0.001,
-            defaultValue: 0.001,
+            defaultValue: 0.01,
             numType: "float",
             onChange: (value: number) => {
                 this.resourceCache.setUniformData("shadowBias", value);

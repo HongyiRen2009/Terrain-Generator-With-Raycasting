@@ -22,7 +22,7 @@ export function getUniformLocations(
   const locations: { [key: string]: WebGLUniformLocation } = {};
   for (const name of names) {
     const loc = gl.getUniformLocation(program, name);
-    if (loc) locations[name] = loc;
+    if (loc !== null) locations[name] = loc;
   }
   return locations;
 }
