@@ -93,13 +93,13 @@ export class GLRenderer {
       this.renderGraph
     );
     // Build render graph tree structure
-    /*     this.renderGraph.addRoot(geometryPass);
+    this.renderGraph.addRoot(geometryPass);
     this.renderGraph.add(ssaoPass, geometryPass);
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
     this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
 
-    this.renderGraph.add(cloudsPass, geometryPass); */
-    this.renderGraph.addRoot(grassPass);
+    this.renderGraph.add(grassPass, geometryPass);
+    this.renderGraph.add(cloudsPass, geometryPass, grassPass);
   }
 
   public render(): void {

@@ -1,30 +1,60 @@
 #version 300 es
-precision highp float;
+precision lowp float;
 
+uniform sampler2D depthTexture;
 in vec3 vWorldPos;
 in float vHeight;
 in vec3 vNormal;
+in float fragCurveAngle;
+in vec3 vCurveDirection;
+in float vFragDepth;
 
 out vec4 fragColor;
 uniform vec4 wireframeColor;
 uniform vec3 sunPos;
-
+uniform vec3 viewDir;
 void main() {
+    // Convert fragment coordinates to texture coordinates
+    vec2 screenCoord = gl_FragCoord.xy / vec2(textureSize(depthTexture, 0));
+
+    // Sample the depth buffer
+    float sceneDepth = texture(depthTexture, screenCoord).r;
+
+    // Compare depths (add small bias to avoid z-fighting)
+    float depthBias = 0.0001f;
+    if(vFragDepth > sceneDepth + depthBias) {
+        discard; // Grass is behind something, don't render
+    }
+
     if(wireframeColor.a > 0.0f) {
         fragColor = wireframeColor;
         return;
     }
-    vec3 lightDir = vec3(0.3f, 1.0f, 0.5f);
-    // Simple gradient from dark green at base to light green at tip
+
+    // Check if viewing outer or inner curve
+    // If dot product is positive, we're viewing the outer curve (convex side)
+    // If negative, we're viewing the inner curve (concave side)
+    vec3 toCamera = normalize(-viewDir);
+    toCamera.y = 0.0f; // Project onto horizontal plane
+    vec3 curveDirection = vec3(vCurveDirection.x, 0.0f, vCurveDirection.z);
+    float curveViewDot = dot(curveDirection, toCamera);
+    bool isInnerCurve = curveViewDot > 0.0f;
+
+    vec3 lightDir = vec3(0.0f, 1.0f, 0.0f);
     vec3 baseColor = vec3(0.1f, 0.4f, 0.1f);
     vec3 tipColor = vec3(0.3f, 0.8f, 0.3f);
 
     float t = clamp(vHeight / 1.5f, 0.0f, 1.0f);
     vec3 grassColor = mix(baseColor, tipColor, t);
 
-    // Simple diffuse lighting
-    float diffuse = max(dot(normalize(vNormal), normalize(lightDir)), 0.0f);
-    grassColor *= 0.5f + 0.5f * diffuse; // ambient + diffuse
+    // Flip normal based on which side we're viewing
+    vec3 normal = normalize(vNormal) * (isInnerCurve ? -1.0f : 1.0f);
+
+    float diffuse = max(dot(normalize(normal), normalize(lightDir)), 0.0f);
+    grassColor *= 0.7f + 0.3f * diffuse;
+
+    // Debug: show outer curve in green, inner in red
+    //fragColor = vec4(isInnerCurve ? vec3(1, 0, 0) : vec3(0, 1, 0), 1.0f);
 
     fragColor = vec4(grassColor, 1.0f);
 }

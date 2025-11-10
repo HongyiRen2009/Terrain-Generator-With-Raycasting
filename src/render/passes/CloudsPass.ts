@@ -611,10 +611,6 @@ class NoiseGenerator {
       this.gl.REPEAT,
       this.gl.REPEAT
     );
-    this.visualizeWeatherMap(
-      document.getElementById("noisePreview") as HTMLCanvasElement,
-      "R"
-    );
     return texture;
   }
   visualizeWeatherMap(
