@@ -34,7 +34,7 @@ export class GameEngine {
   private maxFPS: number = 60;
   private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
-  private mode: number = 0; // 0 for hybrid, 1 for pathtracer
+  private mode: number = 0; // 0 for hybrid, 1 for pathtracer, -1 for off
 
   //
   private frameCounter: number = 0; // In the current FPS
@@ -58,7 +58,13 @@ export class GameEngine {
     this.canvas.style.display = "none";
 
     //GL Context
-    this.gl = this.canvas.getContext("webgl2", { antialias: true })!;
+    this.gl = this.canvas.getContext("webgl2", {
+      antialias: true,
+      alpha: true,
+      preserveDrawingBuffer: true,
+      depth: true,
+      stencil: true
+    })!;
 
     //Initialize controls
     this.addKeys();
@@ -91,6 +97,7 @@ export class GameEngine {
       this.gl,
       this.world,
       this.mainCamera,
+      this.renderer,
       this.debug
     );
     this.updatePathracing = () => {
@@ -188,7 +195,10 @@ export class GameEngine {
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
   tick(timestamp: number) {
-    if (timestamp - this.lastRenderTime < this.frameInterval) {
+    if (
+      timestamp - this.lastRenderTime < this.frameInterval ||
+      this.mode == -1
+    ) {
       return;
     }
     const timePassed = timestamp - this.lastRenderTime;
@@ -202,6 +212,7 @@ export class GameEngine {
         this.renderer.render();
       } else {
         this.pathTracer.render(timestamp);
+        //this.mode=-1;
       }
     }
     this.frameCounter += 1;

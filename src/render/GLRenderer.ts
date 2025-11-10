@@ -102,10 +102,12 @@ export class GLRenderer {
     this.renderGraph.add(cloudsPass, geometryPass, grassPass);
   }
 
-  public render(): void {
-    this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
+  public render(pathtracerOn: boolean = false): void {
+    if (!pathtracerOn) {
+      this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
+      this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    }
     this.calculateCameraInfo();
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
 
     const vaosToRender = this._vaoManager.getVaosToRender();
     const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
@@ -120,14 +122,17 @@ export class GLRenderer {
           console.warn("No screen quad VAO available for fullscreen pass");
           continue;
         }
-        pass.render(screenQuadVAO);
+        if (!pathtracerOn || pass.pathtracerRender) {
+          pass.render(screenQuadVAO, pathtracerOn);
+        }
       } else if (pass.VAOInputType === VAOInputType.SCENE) {
-        pass.render(vaosToRender);
+        pass.render(vaosToRender, pathtracerOn);
       } else if (pass.VAOInputType === VAOInputType.NONE) {
-        pass.render([]);
+        pass.render([], pathtracerOn);
       }
     }
   }
+
   public calculateCameraInfo(): void {
     const matViewAndProj = this.camera.calculateProjectionMatrices(
       this.canvas.width,

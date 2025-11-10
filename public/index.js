@@ -4328,6 +4328,489 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
 /***/ }),
 
+/***/ "./node_modules/simplex-noise/dist/esm/simplex-noise.js":
+/*!**************************************************************!*\
+  !*** ./node_modules/simplex-noise/dist/esm/simplex-noise.js ***!
+  \**************************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   buildPermutationTable: () => (/* binding */ buildPermutationTable),
+/* harmony export */   createNoise2D: () => (/* binding */ createNoise2D),
+/* harmony export */   createNoise3D: () => (/* binding */ createNoise3D),
+/* harmony export */   createNoise4D: () => (/* binding */ createNoise4D)
+/* harmony export */ });
+/*
+ * A fast javascript implementation of simplex noise by Jonas Wagner
+
+Based on a speed-improved simplex noise algorithm for 2D, 3D and 4D in Java.
+Which is based on example code by Stefan Gustavson (stegu@itn.liu.se).
+With Optimisations by Peter Eastman (peastman@drizzle.stanford.edu).
+Better rank ordering method by Stefan Gustavson in 2012.
+
+ Copyright (c) 2024 Jonas Wagner
+
+ Permission is hereby granted, free of charge, to any person obtaining a copy
+ of this software and associated documentation files (the "Software"), to deal
+ in the Software without restriction, including without limitation the rights
+ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ copies of the Software, and to permit persons to whom the Software is
+ furnished to do so, subject to the following conditions:
+
+ The above copyright notice and this permission notice shall be included in all
+ copies or substantial portions of the Software.
+
+ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ SOFTWARE.
+ */
+// these __PURE__ comments help uglifyjs with dead code removal
+//
+const SQRT3 = /*#__PURE__*/ Math.sqrt(3.0);
+const SQRT5 = /*#__PURE__*/ Math.sqrt(5.0);
+const F2 = 0.5 * (SQRT3 - 1.0);
+const G2 = (3.0 - SQRT3) / 6.0;
+const F3 = 1.0 / 3.0;
+const G3 = 1.0 / 6.0;
+const F4 = (SQRT5 - 1.0) / 4.0;
+const G4 = (5.0 - SQRT5) / 20.0;
+// I'm really not sure why this | 0 (basically a coercion to int)
+// is making this faster but I get ~5 million ops/sec more on the
+// benchmarks across the board or a ~10% speedup.
+const fastFloor = (x) => Math.floor(x) | 0;
+const grad2 = /*#__PURE__*/ new Float64Array([1, 1,
+    -1, 1,
+    1, -1,
+    -1, -1,
+    1, 0,
+    -1, 0,
+    1, 0,
+    -1, 0,
+    0, 1,
+    0, -1,
+    0, 1,
+    0, -1]);
+// double seems to be faster than single or int's
+// probably because most operations are in double precision
+const grad3 = /*#__PURE__*/ new Float64Array([1, 1, 0,
+    -1, 1, 0,
+    1, -1, 0,
+    -1, -1, 0,
+    1, 0, 1,
+    -1, 0, 1,
+    1, 0, -1,
+    -1, 0, -1,
+    0, 1, 1,
+    0, -1, 1,
+    0, 1, -1,
+    0, -1, -1]);
+// double is a bit quicker here as well
+const grad4 = /*#__PURE__*/ new Float64Array([0, 1, 1, 1, 0, 1, 1, -1, 0, 1, -1, 1, 0, 1, -1, -1,
+    0, -1, 1, 1, 0, -1, 1, -1, 0, -1, -1, 1, 0, -1, -1, -1,
+    1, 0, 1, 1, 1, 0, 1, -1, 1, 0, -1, 1, 1, 0, -1, -1,
+    -1, 0, 1, 1, -1, 0, 1, -1, -1, 0, -1, 1, -1, 0, -1, -1,
+    1, 1, 0, 1, 1, 1, 0, -1, 1, -1, 0, 1, 1, -1, 0, -1,
+    -1, 1, 0, 1, -1, 1, 0, -1, -1, -1, 0, 1, -1, -1, 0, -1,
+    1, 1, 1, 0, 1, 1, -1, 0, 1, -1, 1, 0, 1, -1, -1, 0,
+    -1, 1, 1, 0, -1, 1, -1, 0, -1, -1, 1, 0, -1, -1, -1, 0]);
+/**
+ * Creates a 2D noise function
+ * @param random the random function that will be used to build the permutation table
+ * @returns {NoiseFunction2D}
+ */
+function createNoise2D(random = Math.random) {
+    const perm = buildPermutationTable(random);
+    // precalculating this yields a little ~3% performance improvement.
+    const permGrad2x = new Float64Array(perm).map(v => grad2[(v % 12) * 2]);
+    const permGrad2y = new Float64Array(perm).map(v => grad2[(v % 12) * 2 + 1]);
+    return function noise2D(x, y) {
+        // if(!isFinite(x) || !isFinite(y)) return 0;
+        let n0 = 0; // Noise contributions from the three corners
+        let n1 = 0;
+        let n2 = 0;
+        // Skew the input space to determine which simplex cell we're in
+        const s = (x + y) * F2; // Hairy factor for 2D
+        const i = fastFloor(x + s);
+        const j = fastFloor(y + s);
+        const t = (i + j) * G2;
+        const X0 = i - t; // Unskew the cell origin back to (x,y) space
+        const Y0 = j - t;
+        const x0 = x - X0; // The x,y distances from the cell origin
+        const y0 = y - Y0;
+        // For the 2D case, the simplex shape is an equilateral triangle.
+        // Determine which simplex we are in.
+        let i1, j1; // Offsets for second (middle) corner of simplex in (i,j) coords
+        if (x0 > y0) {
+            i1 = 1;
+            j1 = 0;
+        } // lower triangle, XY order: (0,0)->(1,0)->(1,1)
+        else {
+            i1 = 0;
+            j1 = 1;
+        } // upper triangle, YX order: (0,0)->(0,1)->(1,1)
+        // A step of (1,0) in (i,j) means a step of (1-c,-c) in (x,y), and
+        // a step of (0,1) in (i,j) means a step of (-c,1-c) in (x,y), where
+        // c = (3-sqrt(3))/6
+        const x1 = x0 - i1 + G2; // Offsets for middle corner in (x,y) unskewed coords
+        const y1 = y0 - j1 + G2;
+        const x2 = x0 - 1.0 + 2.0 * G2; // Offsets for last corner in (x,y) unskewed coords
+        const y2 = y0 - 1.0 + 2.0 * G2;
+        // Work out the hashed gradient indices of the three simplex corners
+        const ii = i & 255;
+        const jj = j & 255;
+        // Calculate the contribution from the three corners
+        let t0 = 0.5 - x0 * x0 - y0 * y0;
+        if (t0 >= 0) {
+            const gi0 = ii + perm[jj];
+            const g0x = permGrad2x[gi0];
+            const g0y = permGrad2y[gi0];
+            t0 *= t0;
+            // n0 = t0 * t0 * (grad2[gi0] * x0 + grad2[gi0 + 1] * y0); // (x,y) of grad3 used for 2D gradient
+            n0 = t0 * t0 * (g0x * x0 + g0y * y0);
+        }
+        let t1 = 0.5 - x1 * x1 - y1 * y1;
+        if (t1 >= 0) {
+            const gi1 = ii + i1 + perm[jj + j1];
+            const g1x = permGrad2x[gi1];
+            const g1y = permGrad2y[gi1];
+            t1 *= t1;
+            // n1 = t1 * t1 * (grad2[gi1] * x1 + grad2[gi1 + 1] * y1);
+            n1 = t1 * t1 * (g1x * x1 + g1y * y1);
+        }
+        let t2 = 0.5 - x2 * x2 - y2 * y2;
+        if (t2 >= 0) {
+            const gi2 = ii + 1 + perm[jj + 1];
+            const g2x = permGrad2x[gi2];
+            const g2y = permGrad2y[gi2];
+            t2 *= t2;
+            // n2 = t2 * t2 * (grad2[gi2] * x2 + grad2[gi2 + 1] * y2);
+            n2 = t2 * t2 * (g2x * x2 + g2y * y2);
+        }
+        // Add contributions from each corner to get the final noise value.
+        // The result is scaled to return values in the interval [-1,1].
+        return 70.0 * (n0 + n1 + n2);
+    };
+}
+/**
+ * Creates a 3D noise function
+ * @param random the random function that will be used to build the permutation table
+ * @returns {NoiseFunction3D}
+ */
+function createNoise3D(random = Math.random) {
+    const perm = buildPermutationTable(random);
+    // precalculating these seems to yield a speedup of over 15%
+    const permGrad3x = new Float64Array(perm).map(v => grad3[(v % 12) * 3]);
+    const permGrad3y = new Float64Array(perm).map(v => grad3[(v % 12) * 3 + 1]);
+    const permGrad3z = new Float64Array(perm).map(v => grad3[(v % 12) * 3 + 2]);
+    return function noise3D(x, y, z) {
+        let n0, n1, n2, n3; // Noise contributions from the four corners
+        // Skew the input space to determine which simplex cell we're in
+        const s = (x + y + z) * F3; // Very nice and simple skew factor for 3D
+        const i = fastFloor(x + s);
+        const j = fastFloor(y + s);
+        const k = fastFloor(z + s);
+        const t = (i + j + k) * G3;
+        const X0 = i - t; // Unskew the cell origin back to (x,y,z) space
+        const Y0 = j - t;
+        const Z0 = k - t;
+        const x0 = x - X0; // The x,y,z distances from the cell origin
+        const y0 = y - Y0;
+        const z0 = z - Z0;
+        // For the 3D case, the simplex shape is a slightly irregular tetrahedron.
+        // Determine which simplex we are in.
+        let i1, j1, k1; // Offsets for second corner of simplex in (i,j,k) coords
+        let i2, j2, k2; // Offsets for third corner of simplex in (i,j,k) coords
+        if (x0 >= y0) {
+            if (y0 >= z0) {
+                i1 = 1;
+                j1 = 0;
+                k1 = 0;
+                i2 = 1;
+                j2 = 1;
+                k2 = 0;
+            } // X Y Z order
+            else if (x0 >= z0) {
+                i1 = 1;
+                j1 = 0;
+                k1 = 0;
+                i2 = 1;
+                j2 = 0;
+                k2 = 1;
+            } // X Z Y order
+            else {
+                i1 = 0;
+                j1 = 0;
+                k1 = 1;
+                i2 = 1;
+                j2 = 0;
+                k2 = 1;
+            } // Z X Y order
+        }
+        else { // x0<y0
+            if (y0 < z0) {
+                i1 = 0;
+                j1 = 0;
+                k1 = 1;
+                i2 = 0;
+                j2 = 1;
+                k2 = 1;
+            } // Z Y X order
+            else if (x0 < z0) {
+                i1 = 0;
+                j1 = 1;
+                k1 = 0;
+                i2 = 0;
+                j2 = 1;
+                k2 = 1;
+            } // Y Z X order
+            else {
+                i1 = 0;
+                j1 = 1;
+                k1 = 0;
+                i2 = 1;
+                j2 = 1;
+                k2 = 0;
+            } // Y X Z order
+        }
+        // A step of (1,0,0) in (i,j,k) means a step of (1-c,-c,-c) in (x,y,z),
+        // a step of (0,1,0) in (i,j,k) means a step of (-c,1-c,-c) in (x,y,z), and
+        // a step of (0,0,1) in (i,j,k) means a step of (-c,-c,1-c) in (x,y,z), where
+        // c = 1/6.
+        const x1 = x0 - i1 + G3; // Offsets for second corner in (x,y,z) coords
+        const y1 = y0 - j1 + G3;
+        const z1 = z0 - k1 + G3;
+        const x2 = x0 - i2 + 2.0 * G3; // Offsets for third corner in (x,y,z) coords
+        const y2 = y0 - j2 + 2.0 * G3;
+        const z2 = z0 - k2 + 2.0 * G3;
+        const x3 = x0 - 1.0 + 3.0 * G3; // Offsets for last corner in (x,y,z) coords
+        const y3 = y0 - 1.0 + 3.0 * G3;
+        const z3 = z0 - 1.0 + 3.0 * G3;
+        // Work out the hashed gradient indices of the four simplex corners
+        const ii = i & 255;
+        const jj = j & 255;
+        const kk = k & 255;
+        // Calculate the contribution from the four corners
+        let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0;
+        if (t0 < 0)
+            n0 = 0.0;
+        else {
+            const gi0 = ii + perm[jj + perm[kk]];
+            t0 *= t0;
+            n0 = t0 * t0 * (permGrad3x[gi0] * x0 + permGrad3y[gi0] * y0 + permGrad3z[gi0] * z0);
+        }
+        let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1;
+        if (t1 < 0)
+            n1 = 0.0;
+        else {
+            const gi1 = ii + i1 + perm[jj + j1 + perm[kk + k1]];
+            t1 *= t1;
+            n1 = t1 * t1 * (permGrad3x[gi1] * x1 + permGrad3y[gi1] * y1 + permGrad3z[gi1] * z1);
+        }
+        let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2;
+        if (t2 < 0)
+            n2 = 0.0;
+        else {
+            const gi2 = ii + i2 + perm[jj + j2 + perm[kk + k2]];
+            t2 *= t2;
+            n2 = t2 * t2 * (permGrad3x[gi2] * x2 + permGrad3y[gi2] * y2 + permGrad3z[gi2] * z2);
+        }
+        let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3;
+        if (t3 < 0)
+            n3 = 0.0;
+        else {
+            const gi3 = ii + 1 + perm[jj + 1 + perm[kk + 1]];
+            t3 *= t3;
+            n3 = t3 * t3 * (permGrad3x[gi3] * x3 + permGrad3y[gi3] * y3 + permGrad3z[gi3] * z3);
+        }
+        // Add contributions from each corner to get the final noise value.
+        // The result is scaled to stay just inside [-1,1]
+        return 32.0 * (n0 + n1 + n2 + n3);
+    };
+}
+/**
+ * Creates a 4D noise function
+ * @param random the random function that will be used to build the permutation table
+ * @returns {NoiseFunction4D}
+ */
+function createNoise4D(random = Math.random) {
+    const perm = buildPermutationTable(random);
+    // precalculating these leads to a ~10% speedup
+    const permGrad4x = new Float64Array(perm).map(v => grad4[(v % 32) * 4]);
+    const permGrad4y = new Float64Array(perm).map(v => grad4[(v % 32) * 4 + 1]);
+    const permGrad4z = new Float64Array(perm).map(v => grad4[(v % 32) * 4 + 2]);
+    const permGrad4w = new Float64Array(perm).map(v => grad4[(v % 32) * 4 + 3]);
+    return function noise4D(x, y, z, w) {
+        let n0, n1, n2, n3, n4; // Noise contributions from the five corners
+        // Skew the (x,y,z,w) space to determine which cell of 24 simplices we're in
+        const s = (x + y + z + w) * F4; // Factor for 4D skewing
+        const i = fastFloor(x + s);
+        const j = fastFloor(y + s);
+        const k = fastFloor(z + s);
+        const l = fastFloor(w + s);
+        const t = (i + j + k + l) * G4; // Factor for 4D unskewing
+        const X0 = i - t; // Unskew the cell origin back to (x,y,z,w) space
+        const Y0 = j - t;
+        const Z0 = k - t;
+        const W0 = l - t;
+        const x0 = x - X0; // The x,y,z,w distances from the cell origin
+        const y0 = y - Y0;
+        const z0 = z - Z0;
+        const w0 = w - W0;
+        // For the 4D case, the simplex is a 4D shape I won't even try to describe.
+        // To find out which of the 24 possible simplices we're in, we need to
+        // determine the magnitude ordering of x0, y0, z0 and w0.
+        // Six pair-wise comparisons are performed between each possible pair
+        // of the four coordinates, and the results are used to rank the numbers.
+        let rankx = 0;
+        let ranky = 0;
+        let rankz = 0;
+        let rankw = 0;
+        if (x0 > y0)
+            rankx++;
+        else
+            ranky++;
+        if (x0 > z0)
+            rankx++;
+        else
+            rankz++;
+        if (x0 > w0)
+            rankx++;
+        else
+            rankw++;
+        if (y0 > z0)
+            ranky++;
+        else
+            rankz++;
+        if (y0 > w0)
+            ranky++;
+        else
+            rankw++;
+        if (z0 > w0)
+            rankz++;
+        else
+            rankw++;
+        // simplex[c] is a 4-vector with the numbers 0, 1, 2 and 3 in some order.
+        // Many values of c will never occur, since e.g. x>y>z>w makes x<z, y<w and x<w
+        // impossible. Only the 24 indices which have non-zero entries make any sense.
+        // We use a thresholding to set the coordinates in turn from the largest magnitude.
+        // Rank 3 denotes the largest coordinate.
+        // Rank 2 denotes the second largest coordinate.
+        // Rank 1 denotes the second smallest coordinate.
+        // The integer offsets for the second simplex corner
+        const i1 = rankx >= 3 ? 1 : 0;
+        const j1 = ranky >= 3 ? 1 : 0;
+        const k1 = rankz >= 3 ? 1 : 0;
+        const l1 = rankw >= 3 ? 1 : 0;
+        // The integer offsets for the third simplex corner
+        const i2 = rankx >= 2 ? 1 : 0;
+        const j2 = ranky >= 2 ? 1 : 0;
+        const k2 = rankz >= 2 ? 1 : 0;
+        const l2 = rankw >= 2 ? 1 : 0;
+        // The integer offsets for the fourth simplex corner
+        const i3 = rankx >= 1 ? 1 : 0;
+        const j3 = ranky >= 1 ? 1 : 0;
+        const k3 = rankz >= 1 ? 1 : 0;
+        const l3 = rankw >= 1 ? 1 : 0;
+        // The fifth corner has all coordinate offsets = 1, so no need to compute that.
+        const x1 = x0 - i1 + G4; // Offsets for second corner in (x,y,z,w) coords
+        const y1 = y0 - j1 + G4;
+        const z1 = z0 - k1 + G4;
+        const w1 = w0 - l1 + G4;
+        const x2 = x0 - i2 + 2.0 * G4; // Offsets for third corner in (x,y,z,w) coords
+        const y2 = y0 - j2 + 2.0 * G4;
+        const z2 = z0 - k2 + 2.0 * G4;
+        const w2 = w0 - l2 + 2.0 * G4;
+        const x3 = x0 - i3 + 3.0 * G4; // Offsets for fourth corner in (x,y,z,w) coords
+        const y3 = y0 - j3 + 3.0 * G4;
+        const z3 = z0 - k3 + 3.0 * G4;
+        const w3 = w0 - l3 + 3.0 * G4;
+        const x4 = x0 - 1.0 + 4.0 * G4; // Offsets for last corner in (x,y,z,w) coords
+        const y4 = y0 - 1.0 + 4.0 * G4;
+        const z4 = z0 - 1.0 + 4.0 * G4;
+        const w4 = w0 - 1.0 + 4.0 * G4;
+        // Work out the hashed gradient indices of the five simplex corners
+        const ii = i & 255;
+        const jj = j & 255;
+        const kk = k & 255;
+        const ll = l & 255;
+        // Calculate the contribution from the five corners
+        let t0 = 0.6 - x0 * x0 - y0 * y0 - z0 * z0 - w0 * w0;
+        if (t0 < 0)
+            n0 = 0.0;
+        else {
+            const gi0 = ii + perm[jj + perm[kk + perm[ll]]];
+            t0 *= t0;
+            n0 = t0 * t0 * (permGrad4x[gi0] * x0 + permGrad4y[gi0] * y0 + permGrad4z[gi0] * z0 + permGrad4w[gi0] * w0);
+        }
+        let t1 = 0.6 - x1 * x1 - y1 * y1 - z1 * z1 - w1 * w1;
+        if (t1 < 0)
+            n1 = 0.0;
+        else {
+            const gi1 = ii + i1 + perm[jj + j1 + perm[kk + k1 + perm[ll + l1]]];
+            t1 *= t1;
+            n1 = t1 * t1 * (permGrad4x[gi1] * x1 + permGrad4y[gi1] * y1 + permGrad4z[gi1] * z1 + permGrad4w[gi1] * w1);
+        }
+        let t2 = 0.6 - x2 * x2 - y2 * y2 - z2 * z2 - w2 * w2;
+        if (t2 < 0)
+            n2 = 0.0;
+        else {
+            const gi2 = ii + i2 + perm[jj + j2 + perm[kk + k2 + perm[ll + l2]]];
+            t2 *= t2;
+            n2 = t2 * t2 * (permGrad4x[gi2] * x2 + permGrad4y[gi2] * y2 + permGrad4z[gi2] * z2 + permGrad4w[gi2] * w2);
+        }
+        let t3 = 0.6 - x3 * x3 - y3 * y3 - z3 * z3 - w3 * w3;
+        if (t3 < 0)
+            n3 = 0.0;
+        else {
+            const gi3 = ii + i3 + perm[jj + j3 + perm[kk + k3 + perm[ll + l3]]];
+            t3 *= t3;
+            n3 = t3 * t3 * (permGrad4x[gi3] * x3 + permGrad4y[gi3] * y3 + permGrad4z[gi3] * z3 + permGrad4w[gi3] * w3);
+        }
+        let t4 = 0.6 - x4 * x4 - y4 * y4 - z4 * z4 - w4 * w4;
+        if (t4 < 0)
+            n4 = 0.0;
+        else {
+            const gi4 = ii + 1 + perm[jj + 1 + perm[kk + 1 + perm[ll + 1]]];
+            t4 *= t4;
+            n4 = t4 * t4 * (permGrad4x[gi4] * x4 + permGrad4y[gi4] * y4 + permGrad4z[gi4] * z4 + permGrad4w[gi4] * w4);
+        }
+        // Sum up and scale the result to cover the range [-1,1]
+        return 27.0 * (n0 + n1 + n2 + n3 + n4);
+    };
+}
+/**
+ * Builds a random permutation table.
+ * This is exported only for (internal) testing purposes.
+ * Do not rely on this export.
+ * @private
+ */
+function buildPermutationTable(random) {
+    const tableSize = 512;
+    const p = new Uint8Array(tableSize);
+    for (let i = 0; i < tableSize / 2; i++) {
+        p[i] = i;
+    }
+    for (let i = 0; i < tableSize / 2 - 1; i++) {
+        const r = i + ~~(random() * (256 - i));
+        const aux = p[i];
+        p[i] = p[r];
+        p[r] = aux;
+    }
+    for (let i = 256; i < tableSize; i++) {
+        p[i] = p[i - 256];
+    }
+    return p;
+}
+//# sourceMappingURL=simplex-noise.js.map
+
+/***/ }),
+
 /***/ "./src/DebugMenu.ts":
 /*!**************************!*\
   !*** ./src/DebugMenu.ts ***!
@@ -4429,7 +4912,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _DebugMenu__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
 /* harmony import */ var _map_Map__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./map/Map */ "./src/map/Map.ts");
 /* harmony import */ var _render_Camera__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
-/* harmony import */ var _render_GlRenderer__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./render/GlRenderer */ "./src/render/GlRenderer.ts");
+/* harmony import */ var _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
 /* harmony import */ var _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./Pathtracing/PathTracer */ "./src/Pathtracing/PathTracer.ts");
 /* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./utils/WorldUtils */ "./src/utils/WorldUtils.ts");
 /* harmony import */ var _models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../models/stand.3mf */ "./models/stand.3mf");
@@ -4498,7 +4981,7 @@ var GameEngine = /** @class */ (function () {
         this.maxFPS = 60;
         this.frameInterval = 1000 / this.maxFPS;
         this.lastRenderTime = 0;
-        this.mode = 0; // 0 for hybrid, 1 for pathtracer
+        this.mode = 0; // 0 for hybrid, 1 for pathtracer, -1 for off
         //
         this.frameCounter = 0; // In the current FPS
         this.lastFPSCheck = 0;
@@ -4511,7 +4994,13 @@ var GameEngine = /** @class */ (function () {
         this.canvas.height = window.innerHeight;
         this.canvas.style.display = "none";
         //GL Context
-        this.gl = this.canvas.getContext("webgl2", { antialias: true });
+        this.gl = this.canvas.getContext("webgl2", {
+            antialias: true,
+            alpha: true,
+            preserveDrawingBuffer: true,
+            depth: true,
+            stencil: true
+        });
         //Initialize controls
         this.addKeys();
         this.updatePathracing = function () { };
@@ -4520,30 +5009,9 @@ var GameEngine = /** @class */ (function () {
         //Initialize Camera
         this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(-22, 20, 33));
         //Initialize Renderer
-        this.renderer = new _render_GlRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
-        var radiusSlider = document.getElementById("radius-slider");
-        var radiusValue = document.getElementById("radius-value");
-        radiusSlider.value = this.renderer.radius.toString();
-        radiusValue.textContent = this.renderer.radius.toString();
-        radiusSlider.addEventListener("input", function () {
-            _this.renderer.radius = parseFloat(radiusSlider.value);
-            radiusValue.textContent = radiusSlider.value;
-        });
-        var biasSlider = document.getElementById("bias-slider");
-        var biasValue = document.getElementById("bias-value");
-        biasSlider.value = this.renderer.bias.toString();
-        biasValue.textContent = this.renderer.bias.toString();
-        biasSlider.addEventListener("input", function () {
-            _this.renderer.bias = parseFloat(biasSlider.value);
-            biasValue.textContent = biasSlider.value;
-        });
-        var blurCheckbox = document.getElementById("blur-checkbox");
-        blurCheckbox.checked = this.renderer.enableSSAOBlur;
-        blurCheckbox.addEventListener("change", function () {
-            _this.renderer.enableSSAOBlur = blurCheckbox.checked;
-        });
+        this.renderer = new _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
         //Initial pathTracer
-        this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.debug);
+        this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.renderer, this.debug);
         this.updatePathracing = function () {
             _this.pathTracer.initBVH(_this.world.combinedMesh());
             _this.pathTracer.init(false);
@@ -4602,10 +5070,10 @@ var GameEngine = /** @class */ (function () {
                         return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateMarchingCubes(); }))];
                     case 2:
                         _a.sent();
-                        this.renderer.GenerateTerrainBuffers(_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.genTerrainVertices(this.world));
+                        this.renderer.vaoManager.createTerrainVAO(_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.genTerrainVertices(this.world));
                         this.world.onObjectAdded = function (obj) {
                             _this.world.objectUI.setupObjectUI(obj, _this.world, document.getElementById("world-objects"), _this.world.objectUI);
-                            _this.renderer.GenerateWorldObjectVAOs();
+                            _this.renderer.vaoManager.createWorldObjectVAOs(_this.world.worldObjects);
                         };
                         return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__)];
                     case 3:
@@ -4627,7 +5095,8 @@ var GameEngine = /** @class */ (function () {
      * Our Game Loop - Run once every frame (capped at max framerate)
      */
     GameEngine.prototype.tick = function (timestamp) {
-        if (timestamp - this.lastRenderTime < this.frameInterval) {
+        if (timestamp - this.lastRenderTime < this.frameInterval ||
+            this.mode == -1) {
             return;
         }
         var timePassed = timestamp - this.lastRenderTime;
@@ -4641,6 +5110,7 @@ var GameEngine = /** @class */ (function () {
             }
             else {
                 this.pathTracer.render(timestamp);
+                //this.mode=-1;
             }
         }
         this.frameCounter += 1;
@@ -4751,15 +5221,17 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   PathTracer: () => (/* binding */ PathTracer)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
 /* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
 /* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
 /* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
 /* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/WorldUtils */ "./src/utils/WorldUtils.ts");
-/* harmony import */ var _glslPath__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./glslPath */ "./src/Pathtracing/glslPath.ts");
-/* harmony import */ var _map_BVHUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
-/* harmony import */ var _copyShader__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./copyShader */ "./src/Pathtracing/copyShader.ts");
+/* harmony import */ var _glsl_pathtracerShader_path_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./glsl/pathtracerShader/path.frag */ "./src/Pathtracing/glsl/pathtracerShader/path.frag");
+/* harmony import */ var _glsl_pathtracerShader_path_vert__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./glsl/pathtracerShader/path.vert */ "./src/Pathtracing/glsl/pathtracerShader/path.vert");
+/* harmony import */ var _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
+/* harmony import */ var _glsl_copyShader_copy_frag__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./glsl/copyShader/copy.frag */ "./src/Pathtracing/glsl/copyShader/copy.frag");
+/* harmony import */ var _glsl_copyShader_copy_vert__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./glsl/copyShader/copy.vert */ "./src/Pathtracing/glsl/copyShader/copy.vert");
 // Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
 
 
@@ -4769,8 +5241,10 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
+
+
 var PathTracer = /** @class */ (function () {
-    function PathTracer(canvas, context, world, camera, debug) {
+    function PathTracer(canvas, context, world, camera, glRenderer, debug) {
         // Accumulation stuff
         this.framebuffers = [];
         this.accumulationTextures = [];
@@ -4791,8 +5265,9 @@ var PathTracer = /** @class */ (function () {
         this.gl = context;
         this.world = world;
         this.camera = camera;
+        this.glRenderer = glRenderer;
         this.debug = debug;
-        //this.gl.enable(this.gl.BLEND);
+        this.gl.enable(this.gl.BLEND);
         //Enable float texture writing extention
         var float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
         if (!float_render_ext) {
@@ -4800,8 +5275,8 @@ var PathTracer = /** @class */ (function () {
             throw new Error("EXT_color_buffer_float not supported");
         }
         //Shaders
-        this.meshProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _glslPath__WEBPACK_IMPORTED_MODULE_4__.pathTracingVertexShaderCode, _glslPath__WEBPACK_IMPORTED_MODULE_4__.pathTracingFragmentShaderCode);
-        this.copyProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _copyShader__WEBPACK_IMPORTED_MODULE_6__.copyVertexShader, _copyShader__WEBPACK_IMPORTED_MODULE_6__.copyFragmentShader);
+        this.meshProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _glsl_pathtracerShader_path_vert__WEBPACK_IMPORTED_MODULE_5__, _glsl_pathtracerShader_path_frag__WEBPACK_IMPORTED_MODULE_4__);
+        this.copyProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _glsl_copyShader_copy_vert__WEBPACK_IMPORTED_MODULE_8__, _glsl_copyShader_copy_frag__WEBPACK_IMPORTED_MODULE_7__);
         //Slider
         var slider = document.getElementById("bounceSlider");
         slider.addEventListener("input", this.handleBounceInput.bind(this));
@@ -4824,11 +5299,11 @@ var PathTracer = /** @class */ (function () {
         var flatBVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.flattenBVH(BVHtree);
         ////////////// Pack everything float format to send to glsl
         //Pack triangles
-        var _a = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_5__.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals), vertices = _a.vertices, terrains = _a.terrains, normals = _a.normals;
+        var _a = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals), vertices = _a.vertices, terrains = _a.terrains, normals = _a.normals;
         //Pack BVH
-        var _b = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_5__.BVHUtils.packBVH(flatBVHtree), boundingBoxes = _b.boundingBoxes, nodes = _b.nodes, leafs = _b.leafs;
+        var _b = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packBVH(flatBVHtree), boundingBoxes = _b.boundingBoxes, nodes = _b.nodes, leafs = _b.leafs;
         //Pack terrain Types
-        var terrainTypes = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_5__.BVHUtils.packTerrainTypes();
+        var terrainTypes = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packTerrainTypes();
         //save
         this.vertices = vertices;
         this.terrains = terrains;
@@ -4847,13 +5322,14 @@ var PathTracer = /** @class */ (function () {
     };
     PathTracer.prototype.drawMesh = function () {
         this.initPathtracing();
+        this.makeVao();
         //Put camera position, direction in shader
         this.gl.uniform3fv(this.gl.getUniformLocation(this.meshProgram, "u_cameraPos"), this.camera.position);
         var viewProjMatrix = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
-        gl_matrix__WEBPACK_IMPORTED_MODULE_7__.invert(invViewProjMatrix, viewProjMatrix);
+        var invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.invert(invViewProjMatrix, viewProjMatrix);
         this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.meshProgram, "u_invViewProjMatrix"), false, invViewProjMatrix);
-        var resolution = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
+        var resolution = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
         resolution[0] = this.canvas.width;
         resolution[1] = this.canvas.height;
         this.gl.uniform2fv(this.gl.getUniformLocation(this.meshProgram, "u_resolution"), resolution);
@@ -4886,6 +5362,8 @@ var PathTracer = /** @class */ (function () {
         this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+        //draw other shaders
+        this.glRenderer.render(true);
     };
     PathTracer.prototype.makeVao = function () {
         var fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
@@ -4959,39 +5437,264 @@ var PathTracer = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/Pathtracing/copyShader.ts":
-/*!***************************************!*\
-  !*** ./src/Pathtracing/copyShader.ts ***!
-  \***************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/***/ "./src/Pathtracing/glsl/copyShader/copy.frag":
+/*!***************************************************!*\
+  !*** ./src/Pathtracing/glsl/copyShader/copy.frag ***!
+  \***************************************************/
+/***/ ((module) => {
 
 "use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   copyFragmentShader: () => (/* binding */ copyFragmentShader),
-/* harmony export */   copyVertexShader: () => (/* binding */ copyVertexShader)
-/* harmony export */ });
-//Imma be honest all this code was written by AI cause I'm too lazy to right the Tone mapping
-var copyVertexShader = /* glsl */ "#version 300 es\nprecision highp float;\n\n// Input: A hardcoded triangle that fills the screen\nlayout(location = 0) in vec2 a_position;\n\n// Output: The UV coordinates to sample the texture\nout vec2 v_uv;\n\nvoid main() {\n    // We want the UVs to go from (0,0) to (1,1) across the screen\n    v_uv = a_position * 0.5 + 0.5;\n    \n    // Output the clip-space position of the triangle vertices\n    gl_Position = vec4(a_position, 0.0, 1.0);\n}\n";
-var copyFragmentShader = /* glsl */ "#version 300 es\nprecision highp float;\n\nuniform sampler2D u_sourceTexture; // This texture now contains the SUM of samples\nuniform float u_frameNumber;       // We need the frame number here now\nin vec2 v_uv;\nout vec4 fragColor;\n\n// ACES Filmic Tone Mapping Curve\nvec3 ACESFilmic(vec3 x) {\n    const float a = 2.51;\n    const float b = 0.03;\n    const float c = 2.43;\n    const float d = 0.59;\n    const float e = 0.14;\n    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);\n}\n\nvoid main() {\n    // 1. Get the SUM of colors from the accumulation texture\n    vec3 sumColor = texture(u_sourceTexture, v_uv).rgb;\n\n    // 2. Calculate the correct average by dividing by the number of samples (frames)\n    //    Add a max to prevent division by zero if frameNumber is somehow 0.\n    vec3 avgColor = sumColor / max(u_frameNumber, 1.0);\n\n    // 3. Now apply tone mapping and gamma to the STABLE AVERAGE\n    float exposure = 1.0;\n    vec3 tonedColor = ACESFilmic(avgColor * exposure);\n    \n    float gamma = 2.2;\n    vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));\n\n    fragColor = vec4(finalColor, 1.0);\n}\n";
-
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nuniform sampler2D u_sourceTexture; // This texture now contains the SUM of samples\r\nuniform float u_frameNumber;       // We need the frame number here now\r\nin vec2 v_uv;\r\nout vec4 fragColor;\r\n\r\n// ACES Filmic Tone Mapping Curve\r\nvec3 ACESFilmic(vec3 x) {\r\n    const float a = 2.51;\r\n    const float b = 0.03;\r\n    const float c = 2.43;\r\n    const float d = 0.59;\r\n    const float e = 0.14;\r\n    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);\r\n}\r\n\r\nvoid main() {\r\n    // 1. Get the SUM of colors from the accumulation texture\r\n    vec3 sumColor = texture(u_sourceTexture, v_uv).rgb;\r\n\r\n    // 2. Calculate the correct average by dividing by the number of samples (frames)\r\n    //    Add a max to prevent division by zero if frameNumber is somehow 0.\r\n    vec3 avgColor = sumColor / max(u_frameNumber, 1.0);\r\n\r\n    // 3. Now apply tone mapping and gamma to the STABLE AVERAGE\r\n    float exposure = 1.0;\r\n    vec3 tonedColor = ACESFilmic(avgColor * exposure);\r\n    \r\n    float gamma = 2.2;\r\n    vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));\r\n\r\n    fragColor = vec4(finalColor, 1.0);\r\n}";
 
 /***/ }),
 
-/***/ "./src/Pathtracing/glslPath.ts":
-/*!*************************************!*\
-  !*** ./src/Pathtracing/glslPath.ts ***!
-  \*************************************/
+/***/ "./src/Pathtracing/glsl/copyShader/copy.vert":
+/*!***************************************************!*\
+  !*** ./src/Pathtracing/glsl/copyShader/copy.vert ***!
+  \***************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\n// Input: A hardcoded triangle that fills the screen\r\nlayout(location = 0) in vec2 a_position;\r\n\r\n// Output: The UV coordinates to sample the texture\r\nout vec2 v_uv;\r\n\r\nvoid main() {\r\n    // We want the UVs to go from (0,0) to (1,1) across the screen\r\n    v_uv = a_position * 0.5 + 0.5;\r\n    \r\n    // Output the clip-space position of the triangle vertices\r\n    gl_Position = vec4(a_position, 0.0, 1.0);\r\n}";
+
+/***/ }),
+
+/***/ "./src/Pathtracing/glsl/pathtracerShader/path.frag":
+/*!*********************************************************!*\
+  !*** ./src/Pathtracing/glsl/pathtracerShader/path.frag ***!
+  \*********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\n#define MAX_LIGHTS 30\r\n#define PI 3.1415926\r\n//#define NUM_TERRAINS 1000 \r\n\r\n//Note: \r\nuniform sampler2D u_lastFrame;\r\nuniform float u_frameNumber;\r\nuniform int numBounces;\r\n\r\n\r\nuniform sampler2D u_vertices;\r\nuniform sampler2D u_terrains;\r\nuniform sampler2D u_normals;\r\nuniform sampler2D u_boundingBox;\r\nuniform sampler2D u_nodesTex;\r\nuniform sampler2D u_leafsTex;\r\nuniform sampler2D u_terrainTypes;\r\nuniform vec3 u_cameraPos;\r\nuniform mat4 u_invViewProjMatrix;\r\nuniform vec2 u_resolution;\r\n\r\nstruct Light {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n};\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\n\r\nin vec2 v_uv;\r\nout vec4 fragColor;\r\n\r\nstruct BVH{\r\n    vec3 min;\r\n    vec3 max;\r\n    int right;\r\n    int left;\r\n    int[4] triangles;\r\n};\r\n\r\nstruct Triangle{\r\n    vec3[3] vertices; \r\n    int[3] types;\r\n    vec3 min;\r\n    vec3 max;\r\n    vec3 center;\r\n    vec3 triNormal;\r\n    vec3[3] normals;\r\n};\r\n\r\nstruct TerrainType{\r\n    vec3 color;\r\n    float reflectiveness; // Decimal 0-1   \r\n    float roughness; // Decimal 0-1\r\n    int type; //Type. See terrains.ts\r\n};\r\n\r\n//TerrainType[NUM_TERRAINS] Terrains;\r\n\r\n// Provides a high quality 32-bit hash function to generate pseudo-random numbers\r\n// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins\r\nuint hash(uint state) {\r\n    state ^= 2747636419u;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    return state;\r\n}\r\n\r\n// Generates a random float in the [0, 1] range\r\nfloat rand(inout uint state) {\r\n    state = hash(state);\r\n    return float(state) / 4294967295.0; // 2^32 - 1\r\n}\r\n\r\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\r\n    ivec2 size = textureSize(tex, 0);\r\n    int texWidth = size.x;\r\n    \r\n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\r\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\r\n\r\n    // Calculate 2D coordinates of the texel\r\n    int y_coord = texelIndex / texWidth;\r\n    int x_coord = texelIndex % texWidth;\r\n\r\n    // Convert to UV coordinates [0, 1] for sampling\r\n    // Add 0.5 to sample the center of the texel\r\n    float u = (float(x_coord) + 0.5) / float(texWidth);\r\n    float v = (float(y_coord) + 0.5) / float(size.y);\r\n\r\n    vec4 texel = texture(tex, vec2(u, v));\r\n\r\n    if (componentIndex == 0) return texel.r;\r\n    else if (componentIndex == 1) return texel.g;\r\n    else if (componentIndex == 2) return texel.b;\r\n    else return texel.a;\r\n}\r\n\r\nBVH getBVH(int i){\r\n    BVH r;\r\n    int bbBoxSize = 6;\r\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\r\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\r\n\r\n    int nodeSize = 2;\r\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\r\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\r\n\r\n    int leafSize = 4;\r\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\r\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\r\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\r\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\r\n    \r\n    return r;\r\n}\r\n\r\nTriangle getTriangle(int i){\r\n    Triangle tri;\r\n    int triVertexSize = 9;\r\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\r\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\r\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\r\n\r\n    int typeSize = 3;\r\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\r\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\r\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\r\n\r\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.center = (tri.min + tri.max) * 0.5;\r\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\r\n\r\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\r\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\r\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\r\n\r\n    return tri;\r\n}\r\n\r\nTerrainType getTerrainType(int i){\r\n    TerrainType t;\r\n    int terrainTypeSize = 6;\r\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\r\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \r\n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \r\n    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));\r\n\r\n    return t;\r\n}\r\n\r\nbool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\r\n    vec3 invDir = 1.0 / rayDir;\r\n    vec3 t0s = (boxMin - rayOrigin) * invDir;\r\n    vec3 t1s = (boxMax - rayOrigin) * invDir;\r\n\r\n    vec3 tSmalls = min(t0s, t1s);\r\n    vec3 tBigs = max(t0s, t1s);\r\n\r\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\r\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\r\n\r\n    return tMax >= max(tMin, 0.0);\r\n}\r\n\r\n//AI written; Returns distance to intersection with triangle\r\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\r\n    const float EPSILON = 0.000001;\r\n    vec3 v0 = tri.vertices[0];\r\n    vec3 v1 = tri.vertices[1];\r\n    vec3 v2 = tri.vertices[2];\r\n    vec3 edge1 = v1 - v0;\r\n    vec3 edge2 = v2 - v0;\r\n\r\n    vec3 h = cross(rayDir, edge2);\r\n    float a = dot(edge1, h);\r\n\r\n    if (a > -EPSILON && a < EPSILON) {\r\n        return -1.0; // Ray is parallel to the triangle\r\n    }\r\n\r\n    float f = 1.0 / a;\r\n    vec3 s = rayOrigin - v0;\r\n    float u = f * dot(s, h);\r\n\r\n    if (u < 0.0 || u > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    vec3 q = cross(s, edge1);\r\n    float v = f * dot(rayDir, q);\r\n\r\n    if (v < 0.0 || u + v > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    // At this stage we can compute t to find out where the intersection point is on the line.\r\n    float t = f * dot(edge2, q);\r\n    if (t > EPSILON) { // ray intersection\r\n        barycentric = vec3(1.0 - u - v, u, v);\r\n        return t;\r\n    }\r\n    \r\n    return -1.0; // This means that there is a line intersection but not a ray intersection.\r\n}\r\n\r\n//AI written; Returns distance to intersection with light sphere\r\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\r\n    vec3 oc = rayOrigin - light.position; \r\n\r\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\r\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\r\n    float b = 2.0 * dot(oc, rayDir);\r\n    float c = dot(oc, oc) - light.radius * light.radius;\r\n\r\n    float discriminant = b*b - 4.0*a*c;\r\n\r\n    // If the discriminant is negative, the ray misses the sphere.\r\n    if (discriminant < 0.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    float sqrt_d = sqrt(discriminant);\r\n\r\n    // Calculate the two potential intersection distances (solutions for t)\r\n    float t0 = (-b - sqrt_d) / (2.0 * a);\r\n    float t1 = (-b + sqrt_d) / (2.0 * a);\r\n\r\n    // We need the smallest, positive t value.\r\n    // Check the closer intersection point (t0) first.\r\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\r\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t0;\r\n    }\r\n    // If t0 was behind the ray, check the farther intersection point (t1).\r\n    // This case occurs if the ray starts inside the sphere.\r\n    else if (t1 > 0.001) {\r\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t1;\r\n    }\r\n\r\n    // Both intersection points are behind the ray's origin.\r\n    return -1.0;\r\n}\r\n\r\n/**\r\n * Returns TRIANGLE index\r\n */\r\nint traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {\r\n    int closestHitIndex = -1;\r\n    minHitDistance = 1.0/0.0; // Infinity\r\n\r\n    int stack[64]; // Stack of 64 - May need to change for larger BVH later\r\n    int stackPtr = 0;\r\n    stack[stackPtr++] = 0; // Push root node index\r\n\r\n    while (stackPtr > 0) {\r\n        int nodeIndex = stack[--stackPtr];\r\n        BVH node = getBVH(nodeIndex);\r\n\r\n        float tMin, tMax;\r\n        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {\r\n            continue;\r\n        }\r\n\r\n        if (tMin >= minHitDistance) {\r\n            continue;\r\n        }\r\n\r\n        if (node.left == -1) { // Leaf Node\r\n            for (int j = 0; j < 4; j++) {\r\n                int triIdx = node.triangles[j];\r\n                if (triIdx == -1) continue;\r\n\r\n                Triangle tri = getTriangle(triIdx);\r\n                vec3 currentBarycentric;\r\n                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);\r\n\r\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\r\n                    minHitDistance = hitDist;\r\n                    closestHitIndex = triIdx;\r\n                    closestBarycentric = currentBarycentric;\r\n                }\r\n            }\r\n        } else { // Internal Node\r\n            // Check for space for two children to prevent stack overflow\r\n            if (stackPtr < 63) { \r\n                stack[stackPtr++] = node.left;\r\n                stack[stackPtr++] = node.right;\r\n            }\r\n        }\r\n    }\r\n\r\n    return closestHitIndex;\r\n}\r\n\r\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\r\n    return (\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\nfloat smoothItem(float[3] a, vec3 baryCentric){\r\n    return(\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\n\r\nvoid getInfo(Triangle tri, TerrainType tt1, TerrainType tt2, TerrainType tt3, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){\r\n    vec3[3] colors = vec3[3](\r\n        tt1.color,\r\n        tt2.color,\r\n        tt3.color\r\n    );\r\n    float[3] reflectivities = float[3](\r\n        tt1.reflectiveness,\r\n        tt2.reflectiveness,\r\n        tt3.reflectiveness\r\n    );\r\n    float[3] roughness = float[3](\r\n        tt1.roughness,\r\n        tt2.roughness,\r\n        tt3.roughness\r\n    );\r\n\r\n    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));\r\n    matColor = smoothItem(colors,baryCentric);\r\n    matRoughness = smoothItem(roughness,baryCentric);\r\n    reflectiveness = smoothItem(reflectivities,baryCentric);\r\n}\r\n\r\n/**\r\nReturn random direction based on given via cosine\r\n*/\r\nvec3 weightedDIR(vec3 normal, inout uint rng_state){\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cos_theta = sqrt(1.0 - r2);\r\n    float sin_theta = sqrt(r2);\r\n    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);\r\n    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, normal));\r\n    vec3 bitangent = cross(normal, tangent);\r\n    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;\r\n    return normalize(dirWorld);\r\n}\r\n\r\nvec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));\r\n    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\r\n\r\n    vec3 localDir = vec3(\r\n        cos(phi) * sinTheta,\r\n        sin(phi) * sinTheta,\r\n        cosTheta\r\n    );\r\n\r\n    // Construct tangent space around the perfect reflection direction\r\n    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, perfectDir));\r\n    vec3 bitangent = cross(perfectDir, tangent);\r\n\r\n    vec3 worldDir = normalize(\r\n        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z\r\n    );\r\n\r\n    return worldDir;\r\n}\r\n\r\nbool isValidVec3(vec3 v) {\r\n    return all(greaterThanEqual(v, vec3(-1e20))) &&\r\n           all(lessThanEqual(v, vec3(1e20))) &&\r\n           !any(isnan(v));\r\n}\r\n\r\nvec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {\r\n    vec3 rayOrigin = OGrayOrigin;\r\n    vec3 rayDir = OGrayDir;\r\n\r\n    vec3 color = vec3(0.0);\r\n    vec3 throughput = vec3(1.0);\r\n\r\n    int hasMirror = -2;\r\n    for (int bounce = 0; bounce < numBounces; bounce++) {\r\n        vec3 baryCentric;\r\n        float minHitDistance;\r\n        \r\n        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);\r\n        \r\n        int hitLightIndex = -1;\r\n        for (int i = 0; i < numActiveLights; i++) {\r\n            vec3 lightHitNormal;\r\n            float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);\r\n            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {\r\n                hitLightIndex = i;\r\n                minHitDistance = lightHitDistance;\r\n            }\r\n        }\r\n\r\n        if (hitLightIndex != -1) {\r\n            // Ray hit light source\r\n            if(bounce != 0){\r\n                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;\r\n            }else{\r\n                color = lights[hitLightIndex].showColor;\r\n            }\r\n            \r\n            break; // Path terminates.\r\n        }\r\n\r\n        if (triIndex == -1) {\r\n            // Ray missed everything and flew into space.\r\n            if(bounce == 0 || bounce == hasMirror + 1){\r\n                color = throughput * vec3(0.54,0.824,0.94);\r\n            }else{\r\n                color += throughput * 0.00001; // light sky!\r\n            }\r\n            break;\r\n        }\r\n\r\n        // The ray hit a triangle \r\n        //Get information\r\n        vec3 hitPoint = rayOrigin + rayDir * minHitDistance;\r\n        Triangle tri = getTriangle(triIndex);\r\n\r\n        TerrainType t1 = getTerrainType(tri.types[0]);\r\n        TerrainType t2 = getTerrainType(tri.types[1]);\r\n        TerrainType t3 = getTerrainType(tri.types[2]);\r\n\r\n        vec3 smoothNormal, matColor;\r\n        float matRoughness, reflectiveness;\r\n        int type = 2;\r\n        type = getTerrainType(tri.types[0]).type;\r\n        getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);\r\n        \r\n\r\n        vec3 geometricNormal = tri.triNormal;\r\n        bool didSwitch = false;\r\n        if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;\r\n        if (dot(smoothNormal, geometricNormal) < 0.0) {\r\n            smoothNormal = -smoothNormal;\r\n            didSwitch = true;\r\n        }\r\n\r\n        vec3 BRDF = matColor / PI;\r\n        \r\n        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy\r\n\r\n\r\n        // INDIRECT LIGHTING (Prepare for the NEXT bounce)\r\n        // Create the next bounce ray\r\n        if(type != 4) //Transmission goes through\r\n            rayOrigin = hitPoint + geometricNormal * 0.01;\r\n        if(type == 1){ //Diffuse\r\n            rayDir = weightedDIR(smoothNormal, rng_state);\r\n            throughput *= matColor;\r\n        }else if (type == 2) { // Specular (mirror)\r\n            rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in\r\n            throughput *= vec3(0.8); // decrease brightness a bit\r\n            hasMirror = bounce;\r\n        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular\r\n            vec3 perfect = normalize(reflect(rayDir, smoothNormal));\r\n            rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);\r\n            throughput *= matColor; //Switch to BDF later\r\n            //Consider fresnel in the future\r\n            hasMirror = bounce;\r\n        }else if (type == 4){ //Transmission (Glass)\r\n            float eta;\r\n            vec3 transmissionNormal;\r\n            if(didSwitch){ //exiting\r\n                eta = matRoughness / 1.0;\r\n                transmissionNormal = -smoothNormal; // Refract in the opposite direction\r\n            }else{ //entering\r\n                eta = 1.0 / matRoughness;\r\n                transmissionNormal = smoothNormal; // Refract in the same direction\r\n            }\r\n            vec3 refracted = refract(rayDir, transmissionNormal, eta);\r\n            if (length(refracted) < 0.001) {\r\n                // TIR: fall back to mirror reflection\r\n                rayDir = normalize(reflect(rayDir, transmissionNormal));\r\n                rayOrigin = hitPoint + geometricNormal * 0.01;\r\n            } else {\r\n                rayDir = normalize(refracted);\r\n                rayOrigin = hitPoint + rayDir * 0.01;\r\n            }\r\n            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce\r\n            vec3 absorption = (vec3(1.0) - matColor)*0.2;  // if matColor is tint\r\n            throughput *= exp(-absorption * (minHitDistance*0.2)); //Beer Lambert law\r\n        }else if (type == 5){ // Emissive\r\n            color += throughput * matColor;\r\n            break;\r\n        }\r\n    }\r\n    return min(color, vec3(10.0));\r\n}\r\n\r\nvoid main() {\r\n    //Random Hash\r\n    uint pixel_x = uint(v_uv.x * u_resolution.x); \r\n    uint pixel_y = uint(v_uv.y * u_resolution.y);\r\n    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);\r\n    uint rng_state = hash(seed + uint(u_frameNumber));\r\n    rng_state = hash(rng_state + uint(u_frameNumber));\r\n\r\n    //Load terrains\r\n    /*for(int i = 0; i < NUM_TERRAINS; i++){\r\n        Terrains[i] = getTerrainType(i);\r\n    }*/\r\n    \r\n    // Jitter calculation for Anti-Alising\r\n    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one\r\n    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].\r\n\r\n    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;\r\n    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC\r\n\r\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\r\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \r\n    // Transform from clip space to world space\r\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\r\n    // Perform perspective divide\r\n    rayWorld /= rayWorld.w;\r\n    // The ray direction is the vector from the camera to this point in the world\r\n    vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);\r\n    vec3 rayOrigin = u_cameraPos;\r\n\r\n    vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color\r\n    vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color\r\n    vec3 newSum = lastSum + newSampleColor; // New sum\r\n\r\n    fragColor = vec4(newSum,1.0); \r\n}";
+
+/***/ }),
+
+/***/ "./src/Pathtracing/glsl/pathtracerShader/path.vert":
+/*!*********************************************************!*\
+  !*** ./src/Pathtracing/glsl/pathtracerShader/path.vert ***!
+  \*********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(location = 0) in vec2 a_position;\r\nout vec2 v_uv;\r\n\r\nvoid main() {\r\n    v_uv = a_position * 0.5 + 0.5; // map [-1, 1] → [0, 1]\r\n    gl_Position = vec4(a_position, 0.0, 1.0);\r\n}";
+
+/***/ }),
+
+/***/ "./src/Settings.ts":
+/*!*************************!*\
+  !*** ./src/Settings.ts ***!
+  \*************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   pathTracingFragmentShaderCode: () => (/* binding */ pathTracingFragmentShaderCode),
-/* harmony export */   pathTracingVertexShaderCode: () => (/* binding */ pathTracingVertexShaderCode)
+/* harmony export */   SettingsSection: () => (/* binding */ SettingsSection)
 /* harmony export */ });
-var pathTracingVertexShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\n\nlayout(location = 0) in vec2 a_position;\nout vec2 v_uv;\n\nvoid main() {\n    v_uv = a_position * 0.5 + 0.5; // map [-1, 1] \u2192 [0, 1]\n    gl_Position = vec4(a_position, 0.0, 1.0);\n}\n";
-var pathTracingFragmentShaderCode = /* glsl */ "#version 300 es\nprecision highp float;\n\n#define MAX_LIGHTS 30\n#define PI 3.1415926\n//#define NUM_TERRAINS 1000 \n\n//Note: \nuniform sampler2D u_lastFrame;\nuniform float u_frameNumber;\nuniform int numBounces;\n\n\nuniform sampler2D u_vertices;\nuniform sampler2D u_terrains;\nuniform sampler2D u_normals;\nuniform sampler2D u_boundingBox;\nuniform sampler2D u_nodesTex;\nuniform sampler2D u_leafsTex;\nuniform sampler2D u_terrainTypes;\nuniform vec3 u_cameraPos;\nuniform mat4 u_invViewProjMatrix;\nuniform vec2 u_resolution;\n\nstruct Light {\n    vec3 position;\n    vec3 color;\n    vec3 showColor;\n    float intensity;\n    float radius;\n};\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\n\nin vec2 v_uv;\nout vec4 fragColor;\n\nstruct BVH{\n    vec3 min;\n    vec3 max;\n    int right;\n    int left;\n    int[4] triangles;\n};\n\nstruct Triangle{\n    vec3[3] vertices; \n    int[3] types;\n    vec3 min;\n    vec3 max;\n    vec3 center;\n    vec3 triNormal;\n    vec3[3] normals;\n};\n\nstruct TerrainType{\n    vec3 color;\n    float reflectiveness; // Decimal 0-1   \n    float roughness; // Decimal 0-1\n    int type; //Type. See terrains.ts\n};\n\n//TerrainType[NUM_TERRAINS] Terrains;\n\n// Provides a high quality 32-bit hash function to generate pseudo-random numbers\n// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins\nuint hash(uint state) {\n    state ^= 2747636419u;\n    state *= 2654435769u;\n    state ^= state >> 16;\n    state *= 2654435769u;\n    state ^= state >> 16;\n    state *= 2654435769u;\n    return state;\n}\n\n// Generates a random float in the [0, 1] range\nfloat rand(inout uint state) {\n    state = hash(state);\n    return float(state) / 4294967295.0; // 2^32 - 1\n}\n\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\n    ivec2 size = textureSize(tex, 0);\n    int texWidth = size.x;\n    \n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\n\n    // Calculate 2D coordinates of the texel\n    int y_coord = texelIndex / texWidth;\n    int x_coord = texelIndex % texWidth;\n\n    // Convert to UV coordinates [0, 1] for sampling\n    // Add 0.5 to sample the center of the texel\n    float u = (float(x_coord) + 0.5) / float(texWidth);\n    float v = (float(y_coord) + 0.5) / float(size.y);\n\n    vec4 texel = texture(tex, vec2(u, v));\n\n    if (componentIndex == 0) return texel.r;\n    else if (componentIndex == 1) return texel.g;\n    else if (componentIndex == 2) return texel.b;\n    else return texel.a;\n}\n\nBVH getBVH(int i){\n    BVH r;\n    int bbBoxSize = 6;\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\n\n    int nodeSize = 2;\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\n\n    int leafSize = 4;\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\n    \n    return r;\n}\n\nTriangle getTriangle(int i){\n    Triangle tri;\n    int triVertexSize = 9;\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\n\n    int typeSize = 3;\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\n\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\n    tri.center = (tri.min + tri.max) * 0.5;\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\n\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\n\n    return tri;\n}\n\nTerrainType getTerrainType(int i){\n    TerrainType t;\n    int terrainTypeSize = 6;\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \n    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));\n\n    return t;\n}\n\nbool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\n    vec3 invDir = 1.0 / rayDir;\n    vec3 t0s = (boxMin - rayOrigin) * invDir;\n    vec3 t1s = (boxMax - rayOrigin) * invDir;\n\n    vec3 tSmalls = min(t0s, t1s);\n    vec3 tBigs = max(t0s, t1s);\n\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\n\n    return tMax >= max(tMin, 0.0);\n}\n\n//AI written; Returns distance to intersection with triangle\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\n    const float EPSILON = 0.000001;\n    vec3 v0 = tri.vertices[0];\n    vec3 v1 = tri.vertices[1];\n    vec3 v2 = tri.vertices[2];\n    vec3 edge1 = v1 - v0;\n    vec3 edge2 = v2 - v0;\n\n    vec3 h = cross(rayDir, edge2);\n    float a = dot(edge1, h);\n\n    if (a > -EPSILON && a < EPSILON) {\n        return -1.0; // Ray is parallel to the triangle\n    }\n\n    float f = 1.0 / a;\n    vec3 s = rayOrigin - v0;\n    float u = f * dot(s, h);\n\n    if (u < 0.0 || u > 1.0) {\n        return -1.0;\n    }\n\n    vec3 q = cross(s, edge1);\n    float v = f * dot(rayDir, q);\n\n    if (v < 0.0 || u + v > 1.0) {\n        return -1.0;\n    }\n\n    // At this stage we can compute t to find out where the intersection point is on the line.\n    float t = f * dot(edge2, q);\n    if (t > EPSILON) { // ray intersection\n        barycentric = vec3(1.0 - u - v, u, v);\n        return t;\n    }\n    \n    return -1.0; // This means that there is a line intersection but not a ray intersection.\n}\n\n//AI written; Returns distance to intersection with light sphere\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\n    vec3 oc = rayOrigin - light.position; \n\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\n    float b = 2.0 * dot(oc, rayDir);\n    float c = dot(oc, oc) - light.radius * light.radius;\n\n    float discriminant = b*b - 4.0*a*c;\n\n    // If the discriminant is negative, the ray misses the sphere.\n    if (discriminant < 0.0) {\n        return -1.0;\n    }\n\n    float sqrt_d = sqrt(discriminant);\n\n    // Calculate the two potential intersection distances (solutions for t)\n    float t0 = (-b - sqrt_d) / (2.0 * a);\n    float t1 = (-b + sqrt_d) / (2.0 * a);\n\n    // We need the smallest, positive t value.\n    // Check the closer intersection point (t0) first.\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\n        hitNormal = normalize(hitPoint - light.position);\n        return t0;\n    }\n    // If t0 was behind the ray, check the farther intersection point (t1).\n    // This case occurs if the ray starts inside the sphere.\n    else if (t1 > 0.001) {\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\n        hitNormal = normalize(hitPoint - light.position);\n        return t1;\n    }\n\n    // Both intersection points are behind the ray's origin.\n    return -1.0;\n}\n\n/**\n * Returns TRIANGLE index\n */\nint traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {\n    int closestHitIndex = -1;\n    minHitDistance = 1.0/0.0; // Infinity\n\n    int stack[64]; // Stack of 64 - May need to change for larger BVH later\n    int stackPtr = 0;\n    stack[stackPtr++] = 0; // Push root node index\n\n    while (stackPtr > 0) {\n        int nodeIndex = stack[--stackPtr];\n        BVH node = getBVH(nodeIndex);\n\n        float tMin, tMax;\n        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {\n            continue;\n        }\n\n        if (tMin >= minHitDistance) {\n            continue;\n        }\n\n        if (node.left == -1) { // Leaf Node\n            for (int j = 0; j < 4; j++) {\n                int triIdx = node.triangles[j];\n                if (triIdx == -1) continue;\n\n                Triangle tri = getTriangle(triIdx);\n                vec3 currentBarycentric;\n                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);\n\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\n                    minHitDistance = hitDist;\n                    closestHitIndex = triIdx;\n                    closestBarycentric = currentBarycentric;\n                }\n            }\n        } else { // Internal Node\n            // Check for space for two children to prevent stack overflow\n            if (stackPtr < 63) { \n                stack[stackPtr++] = node.left;\n                stack[stackPtr++] = node.right;\n            }\n        }\n    }\n\n    return closestHitIndex;\n}\n\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\n    return (\n        baryCentric.x * a[0] + \n        baryCentric.y * a[1] +\n        baryCentric.z * a[2]\n    );\n}\nfloat smoothItem(float[3] a, vec3 baryCentric){\n    return(\n        baryCentric.x * a[0] + \n        baryCentric.y * a[1] +\n        baryCentric.z * a[2]\n    );\n}\n\nvoid getInfo(Triangle tri, TerrainType tt1, TerrainType tt2, TerrainType tt3, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){\n    vec3[3] colors = vec3[3](\n        tt1.color,\n        tt2.color,\n        tt3.color\n    );\n    float[3] reflectivities = float[3](\n        tt1.reflectiveness,\n        tt2.reflectiveness,\n        tt3.reflectiveness\n    );\n    float[3] roughness = float[3](\n        tt1.roughness,\n        tt2.roughness,\n        tt3.roughness\n    );\n\n    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));\n    matColor = smoothItem(colors,baryCentric);\n    matRoughness = smoothItem(roughness,baryCentric);\n    reflectiveness = smoothItem(reflectivities,baryCentric);\n}\n\n/**\nReturn random direction based on given via cosine\n*/\nvec3 weightedDIR(vec3 normal, inout uint rng_state){\n    float r1 = rand(rng_state);\n    float r2 = rand(rng_state);\n\n    float phi = 2.0 * PI * r1;\n    float cos_theta = sqrt(1.0 - r2);\n    float sin_theta = sqrt(r2);\n    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);\n    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\n    vec3 tangent = normalize(cross(up, normal));\n    vec3 bitangent = cross(normal, tangent);\n    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;\n    return normalize(dirWorld);\n}\n\nvec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {\n    float r1 = rand(rng_state);\n    float r2 = rand(rng_state);\n\n    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed\n\n    float phi = 2.0 * PI * r1;\n    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));\n    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\n\n    vec3 localDir = vec3(\n        cos(phi) * sinTheta,\n        sin(phi) * sinTheta,\n        cosTheta\n    );\n\n    // Construct tangent space around the perfect reflection direction\n    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\n    vec3 tangent = normalize(cross(up, perfectDir));\n    vec3 bitangent = cross(perfectDir, tangent);\n\n    vec3 worldDir = normalize(\n        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z\n    );\n\n    return worldDir;\n}\n\nbool isValidVec3(vec3 v) {\n    return all(greaterThanEqual(v, vec3(-1e20))) &&\n           all(lessThanEqual(v, vec3(1e20))) &&\n           !any(isnan(v));\n}\n\nvec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {\n    vec3 rayOrigin = OGrayOrigin;\n    vec3 rayDir = OGrayDir;\n\n    vec3 color = vec3(0.0);\n    vec3 throughput = vec3(1.0);\n\n    int hasMirror = -2;\n    for (int bounce = 0; bounce < numBounces; bounce++) {\n        vec3 baryCentric;\n        float minHitDistance;\n        \n        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);\n        \n        int hitLightIndex = -1;\n        for (int i = 0; i < numActiveLights; i++) {\n            vec3 lightHitNormal;\n            float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);\n            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {\n                hitLightIndex = i;\n                minHitDistance = lightHitDistance;\n            }\n        }\n\n        if (hitLightIndex != -1) {\n            // Ray hit light source\n            if(bounce != 0){\n                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;\n            }else{\n                color = lights[hitLightIndex].showColor;\n            }\n            \n            break; // Path terminates.\n        }\n\n        if (triIndex == -1) {\n            // Ray missed everything and flew into space.\n            if(bounce == 0 || bounce == hasMirror + 1){\n                color = throughput * vec3(0.54,0.824,0.94);\n            }else{\n                color += throughput * 0.00001; // light sky!\n            }\n            break;\n        }\n\n        // The ray hit a triangle \n        //Get information\n        vec3 hitPoint = rayOrigin + rayDir * minHitDistance;\n        Triangle tri = getTriangle(triIndex);\n\n        TerrainType t1 = getTerrainType(tri.types[0]);\n        TerrainType t2 = getTerrainType(tri.types[1]);\n        TerrainType t3 = getTerrainType(tri.types[2]);\n\n        vec3 smoothNormal, matColor;\n        float matRoughness, reflectiveness;\n        int type = 2;\n        type = getTerrainType(tri.types[0]).type;\n        getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);\n        \n\n        vec3 geometricNormal = tri.triNormal;\n        bool didSwitch = false;\n        if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;\n        if (dot(smoothNormal, geometricNormal) < 0.0) {\n            smoothNormal = -smoothNormal;\n            didSwitch = true;\n        }\n\n        vec3 BRDF = matColor / PI;\n        \n        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy\n\n\n        // INDIRECT LIGHTING (Prepare for the NEXT bounce)\n        // Create the next bounce ray\n        if(type != 4) //Transmission goes through\n            rayOrigin = hitPoint + geometricNormal * 0.01;\n        if(type == 1){ //Diffuse\n            rayDir = weightedDIR(smoothNormal, rng_state);\n            throughput *= matColor;\n        }else if (type == 2) { // Specular (mirror)\n            rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in\n            throughput *= vec3(0.8); // decrease brightness a bit\n            hasMirror = bounce;\n        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular\n            vec3 perfect = normalize(reflect(rayDir, smoothNormal));\n            rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);\n            throughput *= matColor; //Switch to BDF later\n            //Consider fresnel in the future\n            hasMirror = bounce;\n        }else if (type == 4){ //Transmission (Glass)\n            float eta;\n            vec3 transmissionNormal;\n            if(didSwitch){ //exiting\n                eta = matRoughness / 1.0;\n                transmissionNormal = -smoothNormal; // Refract in the opposite direction\n            }else{ //entering\n                eta = 1.0 / matRoughness;\n                transmissionNormal = smoothNormal; // Refract in the same direction\n            }\n            vec3 refracted = refract(rayDir, transmissionNormal, eta);\n            if (length(refracted) < 0.001) {\n                // TIR: fall back to mirror reflection\n                rayDir = normalize(reflect(rayDir, transmissionNormal));\n                rayOrigin = hitPoint + geometricNormal * 0.01;\n            } else {\n                rayDir = normalize(refracted);\n                rayOrigin = hitPoint + rayDir * 0.01;\n            }\n            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce\n            vec3 absorption = (vec3(1.0) - matColor)*0.2;  // if matColor is tint\n            throughput *= exp(-absorption * (minHitDistance*0.2)); //Beer Lambert law\n        }else if (type == 5){ // Emissive\n            color += throughput * matColor;\n            break;\n        }\n    }\n    return min(color, vec3(10.0));\n}\n\nvoid main() {\n    //Random Hash\n    uint pixel_x = uint(v_uv.x * u_resolution.x); \n    uint pixel_y = uint(v_uv.y * u_resolution.y);\n    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);\n    uint rng_state = hash(seed + uint(u_frameNumber));\n    rng_state = hash(rng_state + uint(u_frameNumber));\n\n    //Load terrains\n    /*for(int i = 0; i < NUM_TERRAINS; i++){\n        Terrains[i] = getTerrainType(i);\n    }*/\n    \n    // Jitter calculation for Anti-Alising\n    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one\n    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\n    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\n    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].\n\n    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;\n    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC\n\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \n    // Transform from clip space to world space\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\n    // Perform perspective divide\n    rayWorld /= rayWorld.w;\n    // The ray direction is the vector from the camera to this point in the world\n    vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);\n    vec3 rayOrigin = u_cameraPos;\n\n    vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color\n    vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color\n    vec3 newSum = lastSum + newSampleColor; // New sum\n\n    fragColor = vec4(newSum,1.0); \n}\n";
+var __assign = (undefined && undefined.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
+var SettingsSection = /** @class */ (function () {
+    function SettingsSection(parentContainer, title, program) {
+        this.settings = new Map();
+        this.program = null;
+        // Create section with heading
+        this.sectionElement = document.createElement("div");
+        this.sectionElement.className = "settings-section";
+        this.sectionElement.style.margin = "20px 0";
+        var heading = document.createElement("h3");
+        heading.textContent = title;
+        heading.style.marginBottom = "12px";
+        this.sectionElement.appendChild(heading);
+        this.container = document.createElement("div");
+        this.container.className = "settings-container";
+        this.sectionElement.appendChild(this.container);
+        parentContainer.appendChild(this.sectionElement);
+        this.program = program || null;
+    }
+    /**
+     * Add a slider setting
+     */
+    SettingsSection.prototype.addSlider = function (config) {
+        var _a, _b, _c;
+        var setting = __assign(__assign({}, config), { type: "slider", value: (_a = config.defaultValue) !== null && _a !== void 0 ? _a : 0, uniform: (_b = config.uniform) !== null && _b !== void 0 ? _b : true, numType: (_c = config.numType) !== null && _c !== void 0 ? _c : "float" });
+        this.settings.set(config.id, setting);
+        this.renderSlider(setting);
+    };
+    /**
+     * Add a checkbox setting
+     */
+    SettingsSection.prototype.addCheckbox = function (config) {
+        var _a, _b;
+        var setting = __assign(__assign({}, config), { type: "checkbox", value: (_a = config.defaultValue) !== null && _a !== void 0 ? _a : false, uniform: (_b = config.uniform) !== null && _b !== void 0 ? _b : true });
+        this.settings.set(config.id, setting);
+        this.renderCheckbox(setting);
+    };
+    /**
+     * Get a slider value
+     */
+    SettingsSection.prototype.getSliderValue = function (id) {
+        var setting = this.settings.get(id);
+        if (setting && setting.type === "slider") {
+            return setting.value;
+        }
+        throw new Error("Slider setting '".concat(id, "' not found"));
+    };
+    /**
+     * Get a checkbox value
+     */
+    SettingsSection.prototype.getCheckboxValue = function (id) {
+        var setting = this.settings.get(id);
+        if (setting && setting.type === "checkbox") {
+            return setting.value;
+        }
+        throw new Error("Checkbox setting '".concat(id, "' not found"));
+    };
+    /**
+     * Set a slider value programmatically
+     */
+    SettingsSection.prototype.setSliderValue = function (id, value) {
+        var setting = this.settings.get(id);
+        if (setting && setting.type === "slider") {
+            setting.value = value;
+            var sliderElement = document.getElementById("".concat(id, "-slider"));
+            var valueSpan = document.getElementById("".concat(id, "-value"));
+            if (sliderElement)
+                sliderElement.value = value.toString();
+            if (valueSpan)
+                valueSpan.textContent = value.toString();
+            if (setting.onChange)
+                setting.onChange(value);
+        }
+    };
+    /**
+     * Set a checkbox value programmatically
+     */
+    SettingsSection.prototype.setCheckboxValue = function (id, value) {
+        var setting = this.settings.get(id);
+        if (setting && setting.type === "checkbox") {
+            setting.value = value;
+            var checkboxElement = document.getElementById("".concat(id, "-checkbox"));
+            if (checkboxElement)
+                checkboxElement.checked = value;
+            if (setting.onChange)
+                setting.onChange(value);
+        }
+    };
+    /**
+     * Render a slider setting in the UI
+     */
+    SettingsSection.prototype.renderSlider = function (setting) {
+        var wrapper = document.createElement("div");
+        wrapper.style.margin = "16px 0";
+        var label = document.createElement("label");
+        label.htmlFor = "".concat(setting.id, "-slider");
+        var valueSpan = document.createElement("span");
+        valueSpan.id = "".concat(setting.id, "-value");
+        valueSpan.textContent = setting.value.toString();
+        label.innerHTML = "".concat(setting.label, ": ");
+        label.appendChild(valueSpan);
+        var slider = document.createElement("input");
+        slider.type = "range";
+        slider.id = "".concat(setting.id, "-slider");
+        slider.min = setting.min.toString();
+        slider.max = setting.max.toString();
+        slider.step = setting.step.toString();
+        slider.value = setting.value.toString();
+        slider.addEventListener("input", function () {
+            var value = parseFloat(slider.value);
+            setting.value = value;
+            valueSpan.textContent = slider.value;
+            if (setting.onChange) {
+                setting.onChange(value);
+            }
+        });
+        wrapper.appendChild(label);
+        wrapper.appendChild(document.createElement("br"));
+        wrapper.appendChild(slider);
+        this.container.appendChild(wrapper);
+    };
+    /**
+     * Render a checkbox setting in the UI
+     */
+    SettingsSection.prototype.renderCheckbox = function (setting) {
+        var wrapper = document.createElement("div");
+        wrapper.style.margin = "8px 0";
+        var label = document.createElement("label");
+        label.htmlFor = "".concat(setting.id, "-checkbox");
+        var checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = "".concat(setting.id, "-checkbox");
+        checkbox.checked = setting.value;
+        checkbox.addEventListener("change", function () {
+            setting.value = checkbox.checked;
+            if (setting.onChange) {
+                setting.onChange(checkbox.checked);
+            }
+        });
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(" ".concat(setting.label)));
+        wrapper.appendChild(label);
+        this.container.appendChild(wrapper);
+    };
+    SettingsSection.prototype.updateUniforms = function (gl) {
+        if (!this.program) {
+            console.warn("No program associated with this settings section.");
+            return;
+        }
+        var program = this.program;
+        this.settings.forEach(function (setting) {
+            if (setting.uniform === false)
+                return;
+            var loc = gl.getUniformLocation(program, setting.id);
+            if (!loc) {
+                console.warn("Uniform location for ".concat(setting.id, " not found."));
+                return;
+            }
+            if (setting.type === "slider") {
+                if (setting.numType === "int") {
+                    gl.uniform1i(loc, Math.floor(setting.value));
+                }
+                else {
+                    gl.uniform1f(loc, setting.value);
+                }
+            }
+            else if (setting.type === "checkbox") {
+                gl.uniform1i(loc, setting.value ? 1 : 0);
+            }
+        });
+    };
+    /**
+     * Get a setting by ID
+     */
+    SettingsSection.prototype.getSetting = function (id) {
+        return this.settings.get(id);
+    };
+    /**
+     * Remove all settings in this section
+     */
+    SettingsSection.prototype.clear = function () {
+        this.settings.clear();
+        this.container.innerHTML = "";
+    };
+    /**
+     * Remove the entire section
+     */
+    SettingsSection.prototype.remove = function () {
+        this.sectionElement.remove();
+    };
+    return SettingsSection;
+}());
+
 
 
 /***/ }),
@@ -7269,9 +7972,9 @@ var Camera = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/render/GlRenderer.ts":
+/***/ "./src/render/GLRenderer.ts":
 /*!**********************************!*\
-  !*** ./src/render/GlRenderer.ts ***!
+  !*** ./src/render/GLRenderer.ts ***!
   \**********************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
@@ -7280,13 +7983,18 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   GLRenderer: () => (/* binding */ GLRenderer)
 /* harmony export */ });
-/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
 /* harmony import */ var _renderSystem_RenderGraph__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./renderSystem/RenderGraph */ "./src/render/renderSystem/RenderGraph.ts");
-/* harmony import */ var _renderSystem_managers_VaoManager__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./renderSystem/managers/VaoManager */ "./src/render/renderSystem/managers/VaoManager.ts");
-/* harmony import */ var _passes_GeometryPass__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./passes/GeometryPass */ "./src/render/passes/GeometryPass.ts");
-/* harmony import */ var _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./passes/SSAOPass */ "./src/render/passes/SSAOPass.ts");
-/* harmony import */ var _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./passes/SSAOBlurPass */ "./src/render/passes/SSAOBlurPass.ts");
-/* harmony import */ var _passes_LightingPass__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./passes/LightingPass */ "./src/render/passes/LightingPass.ts");
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _renderSystem_managers_VaoManager__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./renderSystem/managers/VaoManager */ "./src/render/renderSystem/managers/VaoManager.ts");
+/* harmony import */ var _passes_GeometryPass__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./passes/GeometryPass */ "./src/render/passes/GeometryPass.ts");
+/* harmony import */ var _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./passes/SSAOPass */ "./src/render/passes/SSAOPass.ts");
+/* harmony import */ var _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./passes/SSAOBlurPass */ "./src/render/passes/SSAOBlurPass.ts");
+/* harmony import */ var _passes_LightingPass__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./passes/LightingPass */ "./src/render/passes/LightingPass.ts");
+/* harmony import */ var _passes_CloudsPass__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./passes/CloudsPass */ "./src/render/passes/CloudsPass.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+
+
 
 
 
@@ -7304,11 +8012,9 @@ var GLRenderer = /** @class */ (function () {
         this.world = world;
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.depthFunc(gl.LEQUAL);
-        this.resourceCache = new _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_0__.ResourceCache(gl);
+        this.resourceCache = new _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_0__.ResourceCache(gl);
         this.renderGraph = new _renderSystem_RenderGraph__WEBPACK_IMPORTED_MODULE_1__.RenderGraph();
-        this.passes = [];
-        this._vaoManager = new _renderSystem_managers_VaoManager__WEBPACK_IMPORTED_MODULE_2__.VAOManager(gl);
-        this._uniformsManager = new _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_0__.UniformsManager(gl, canvas, this.resourceCache, this.camera);
+        this._vaoManager = new _renderSystem_managers_VaoManager__WEBPACK_IMPORTED_MODULE_3__.VAOManager(gl);
         this.init();
     }
     Object.defineProperty(GLRenderer.prototype, "vaoManager", {
@@ -7319,108 +8025,77 @@ var GLRenderer = /** @class */ (function () {
         enumerable: false,
         configurable: true
     });
-    Object.defineProperty(GLRenderer.prototype, "uniformsManager", {
-        get: function () {
-            return this._uniformsManager;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Object.defineProperty(GLRenderer.prototype, "radius", {
-        // SSAO controls - expose through resource cache
-        get: function () {
-            var _a;
-            return ((_a = this.resourceCache.getUniformData("SSAOInfo")) === null || _a === void 0 ? void 0 : _a.radius) || 5.0;
-        },
-        set: function (val) {
-            var ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
-            if (ssaoInfo) {
-                ssaoInfo.radius = val;
-            }
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Object.defineProperty(GLRenderer.prototype, "bias", {
-        get: function () {
-            var _a;
-            return ((_a = this.resourceCache.getUniformData("SSAOInfo")) === null || _a === void 0 ? void 0 : _a.bias) || 0.025;
-        },
-        set: function (val) {
-            var ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
-            if (ssaoInfo) {
-                ssaoInfo.bias = val;
-            }
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Object.defineProperty(GLRenderer.prototype, "enableSSAOBlur", {
-        get: function () {
-            var _a;
-            return ((_a = this.resourceCache.getUniformData("SSAOInfo")) === null || _a === void 0 ? void 0 : _a.SSAOBlur) || true;
-        },
-        set: function (val) {
-            var ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
-            if (ssaoInfo) {
-                ssaoInfo.SSAOBlur = val;
-            }
-        },
-        enumerable: false,
-        configurable: true
-    });
     GLRenderer.prototype.init = function () {
-        var geometryPass = new _passes_GeometryPass__WEBPACK_IMPORTED_MODULE_3__.GeometryPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
-        var ssaoPass = new _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_4__.SSAOPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
-        var ssaoBlurPass = new _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_5__.SSAOBlurPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
-        var lightingPass = new _passes_LightingPass__WEBPACK_IMPORTED_MODULE_6__.LightingPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
-        this.passes.push(geometryPass);
-        this.passes.push(ssaoPass);
-        this.passes.push(ssaoBlurPass);
-        this.passes.push(lightingPass);
-        // Set up render graph dependencies
-        this.renderGraph.add(geometryPass, ssaoPass);
-        this.renderGraph.add(ssaoPass, ssaoBlurPass);
-        this.renderGraph.add(geometryPass, ssaoBlurPass);
-        this.renderGraph.add(geometryPass, lightingPass);
-        this.renderGraph.add(ssaoBlurPass, lightingPass);
+        var geometryPass = new _passes_GeometryPass__WEBPACK_IMPORTED_MODULE_4__.GeometryPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        var ssaoPass = new _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_5__.SSAOPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        var ssaoBlurPass = new _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_6__.SSAOBlurPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        var lightingPass = new _passes_LightingPass__WEBPACK_IMPORTED_MODULE_7__.LightingPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        var cloudsPass = new _passes_CloudsPass__WEBPACK_IMPORTED_MODULE_8__.CloudsPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        // Build render graph tree structure
+        this.renderGraph.addRoot(geometryPass);
+        this.renderGraph.add(ssaoPass, geometryPass);
+        this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
+        this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
+        this.renderGraph.add(cloudsPass, geometryPass);
     };
-    GLRenderer.prototype.render = function () {
-        this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
-        this._uniformsManager.calculateCameraInfo();
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    GLRenderer.prototype.render = function (pathtracerOn) {
+        if (pathtracerOn === void 0) { pathtracerOn = false; }
+        if (!pathtracerOn) {
+            this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
+            this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        }
+        this.calculateCameraInfo();
         var vaosToRender = this._vaoManager.getVaosToRender();
         var screenQuadVAO = this._vaoManager.getScreenQuadVAO();
         this.resourceCache.setUniformData("lights", this.world.lights);
-        // Render geometry pass with all VAOs
-        this.passes[0].render(vaosToRender);
-        // Render post-processing passes with screen quad
-        for (var i = 1; i < this.passes.length; i++) {
-            if (screenQuadVAO) {
-                this.passes[i].render(screenQuadVAO);
+        // Get passes in correct execution order
+        var sortedPasses = this.renderGraph.getSortedPasses();
+        for (var _i = 0, sortedPasses_1 = sortedPasses; _i < sortedPasses_1.length; _i++) {
+            var pass = sortedPasses_1[_i];
+            if (pass.VAOInputType === _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.FULLSCREENQUAD) {
+                if (!screenQuadVAO) {
+                    console.warn("No screen quad VAO available for fullscreen pass");
+                    continue;
+                }
+                if (!pathtracerOn || pass.pathtracerRender) {
+                    pass.render(screenQuadVAO, pathtracerOn);
+                }
+            }
+            else if (pass.VAOInputType === _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.SCENE) {
+                if (!pathtracerOn || pass.pathtracerRender) {
+                    pass.render(vaosToRender, pathtracerOn);
+                }
             }
         }
+    };
+    GLRenderer.prototype.calculateCameraInfo = function () {
+        var matViewAndProj = this.camera.calculateProjectionMatrices(this.canvas.width, this.canvas.height);
+        var cameraInfo = {
+            matView: matViewAndProj.matView,
+            matProj: matViewAndProj.matProj,
+            matViewProj: gl_matrix__WEBPACK_IMPORTED_MODULE_9__.multiply(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), matViewAndProj.matProj, matViewAndProj.matView),
+            matViewInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_9__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), matViewAndProj.matView),
+            matProjInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_9__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), matViewAndProj.matProj)
+        };
+        this.resourceCache.setUniformData("CameraInfo", cameraInfo);
+        this.resourceCache.setUniformData("cameraPosition", this.camera.position);
     };
     GLRenderer.prototype.resizeGBuffer = function (width, height) {
         this.canvas.width = width;
         this.canvas.height = height;
         this.gl.viewport(0, 0, width, height);
         // Resize all render passes
-        for (var _i = 0, _a = this.passes; _i < _a.length; _i++) {
-            var pass = _a[_i];
+        var allPasses = this.renderGraph.getSortedPasses();
+        for (var _i = 0, allPasses_1 = allPasses; _i < allPasses_1.length; _i++) {
+            var pass = allPasses_1[_i];
             pass.resize(width, height);
         }
     };
-    GLRenderer.prototype.GenerateTerrainBuffers = function (triangleMeshes) {
-        this._vaoManager.createTerrainVAO(triangleMeshes);
-    };
-    GLRenderer.prototype.GenerateWorldObjectVAOs = function () {
-        this._vaoManager.createWorldObjectVAOs(this.world.worldObjects);
-    };
     GLRenderer.prototype.dispose = function () {
         this._vaoManager.dispose();
-        for (var _i = 0, _a = this.passes; _i < _a.length; _i++) {
-            var pass = _a[_i];
+        var allPasses = this.renderGraph.getSortedPasses();
+        for (var _i = 0, allPasses_2 = allPasses; _i < allPasses_2.length; _i++) {
+            var pass = allPasses_2[_i];
             pass.dispose();
         }
     };
@@ -7431,6 +8106,28 @@ var GLRenderer = /** @class */ (function () {
 
 /***/ }),
 
+/***/ "./src/render/glsl/Clouds/Clouds.frag":
+/*!********************************************!*\
+  !*** ./src/render/glsl/Clouds/Clouds.frag ***!
+  \********************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\nprecision highp float;\nprecision highp sampler3D;\n#define PI 3.14159265359\nin vec2 fragUV;\nuniform vec3 cameraPosition;\nuniform vec3 cubeMin;\nuniform vec3 cubeMax;\nuniform mat4 viewInverse;\nuniform mat4 projInverse;\nuniform sampler3D noiseTexture;\nuniform sampler2D weatherMap;\nuniform sampler2D depthTexture;\nuniform vec3 sunPos;\nuniform vec3 sunColor;\n\n//settings\nuniform bool enableClouds;\nuniform float absorption;\nuniform float densityThreshold;\nuniform float baseFrequency;\nuniform float detailFrequency;\nuniform float lightAbsorption;\nuniform float lightIntensity;\nuniform float darknessThreshold;\nuniform float ambientIntensity;\nuniform float phaseG;\nuniform float phaseMultiplier;\nuniform float weatherMapOffsetX;\nuniform float weatherMapOffsetY;\nuniform int MAX_STEPS;\nuniform int MAX_STEPS_LIGHT;\n\nuniform float time;\nuniform float windDirectionX;\nuniform float windDirectionZ;\nuniform float windSpeed;\nout vec4 fragColor;\n\n// Add early exit constants\nconst float DENSITY_THRESHOLD_SKIP = 0.01f;\nconst float ALPHA_THRESHOLD = 0.99f;\nvec3 skyColor = vec3(1.0f);\n// Stolen from Sebastian Lague\nvec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {\n// Adapted from: http://jcgt.org/published/0007/03/04/\n    vec3 t0 = (boundsMin - rayOrigin) * invRaydir;\n    vec3 t1 = (boundsMax - rayOrigin) * invRaydir;\n    vec3 tmin = min(t0, t1);\n    vec3 tmax = max(t0, t1);\n\n    float dstA = max(max(tmin.x, tmin.y), tmin.z);\n    float dstB = min(tmax.x, min(tmax.y, tmax.z));\n\n    // CASE 1: ray intersects box from outside (0 <= dstA <= dstB)\n    // dstA is dst to nearest intersection, dstB dst to far intersection\n\n    // CASE 2: ray intersects box from inside (dstA < 0 < dstB)\n    // dstA is the dst to intersection behind the ray, dstB is dst to forward intersection\n\n    // CASE 3: ray misses box (dstA > dstB)\n\n    float dstToBox = max(0.0f, dstA);\n    float dstInsideBox = max(0.0f, dstB - dstToBox);\n    return vec2(dstToBox, dstInsideBox);\n}\nfloat sampleBaseNoise(vec3 pos) {\n    float noise = texture(noiseTexture, pos).r;\n    return noise;\n}\nfloat fbm(vec3 pos, int octaves, float persistence, float lacunarity) {\n    float total = 0.0f;\n    float amplitude = 1.0f;\n    float maxValue = 0.0f;\n    for(int i = 0; i < octaves; i++) {\n        total += sampleBaseNoise(pos) * amplitude;\n        maxValue += amplitude;\n        amplitude *= persistence;\n        pos *= lacunarity;\n    }\n    return total / maxValue;\n}\nfloat sampleDetailNoise(vec3 p) {\n    vec3 worley = texture(noiseTexture, p * 2.0f).gba;\n    return (worley.r * 0.625f + worley.g * 0.25f + worley.b * 0.125f);\n}\n\nfloat sampleDensity(vec3 pos) {\n    vec3 windDirection = normalize(vec3(windDirectionX, 0.0f, windDirectionZ));\n    vec3 windOffset = windDirection * windSpeed * time;\n    vec3 animatedPos = pos + windOffset;\n\n    vec3 localPos = (animatedPos - cubeMin) / (cubeMax - cubeMin);\n    // Weather map (right now idk if this is the best implementation and it needs some improvement)\n\n    vec2 weatherUV = (animatedPos.xz - cubeMin.xz) / (cubeMax.xz - cubeMin.xz);\n    vec2 weatherMapOffset = vec2(weatherMapOffsetX, weatherMapOffsetY);\n    vec2 weatherWindOffset = windDirection.xz * windSpeed * time * 0.001f;\n    vec4 weather = texture(weatherMap, weatherUV + weatherMapOffset + weatherWindOffset);\n    float coverage = weather.r;\n    if(coverage < 0.01f)\n        return 0.0f;\n\n    float height01 = (animatedPos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);\n    if(height01 < 0.1f || height01 > 1.0f)\n        return 0.0f;\n\n    float base = fbm(localPos * baseFrequency, 5, 0.5f, 2.0f);\n    float density = base * coverage;\n    if(density < densityThreshold)\n        return 0.0f;\n\n    vec3 detailWindOffset = windOffset * 0.5f;\n    vec3 detailPos = (pos + detailWindOffset - cubeMin) / (cubeMax - cubeMin);\n    float detail = sampleDetailNoise(detailPos * detailFrequency);\n    density *= mix(0.5f, 1.0f, detail);\n\n    // Height falloff and edge fade (stolen from Sebastian Lague)\n    float originalHeight = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);\n    float heightWeight = smoothstep(0.1f, 0.5f, originalHeight) * (1.0f - smoothstep(0.6f, 1.0f, originalHeight));\n    float containerEdgeFadeDst = 50.0f;\n    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - cubeMin.x, cubeMax.x - pos.x));\n    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - cubeMin.z, cubeMax.z - pos.z));\n    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;\n    heightWeight *= edgeWeight;\n\n    density = (density - densityThreshold) * heightWeight;\n    return clamp(density, 0.0f, 1.0f);\n}\n\nfloat sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {\n    float distInsideBox = rayBoxDst(cubeMin, cubeMax, pos, 1.0f / lightDir).y;\n\n    int lightSteps = rayDensity > 0.5f ? MAX_STEPS_LIGHT : MAX_STEPS_LIGHT / 2;\n\n    float lightTransmittance = 1.0f;\n    float tStep = distInsideBox / float(lightSteps);\n\n    for(int i = 0; i < lightSteps; i++) {\n        if(lightTransmittance < 0.01f) {\n            return darknessThreshold;\n        }\n\n        float t = tStep * (float(i) + 0.5f);\n        vec3 samplePos = pos + lightDir * t;\n        float rawDensity = sampleDensity(samplePos);\n        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);\n        lightTransmittance *= exp(-density * tStep * lightAbsorption);\n    }\n    return darknessThreshold + (1.0f - darknessThreshold) * lightTransmittance;\n}\nfloat PhaseFunction(float cosTheta, float g) {\n    float g2 = g * g;\n    float denom = pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f);\n    return (1.0f - g2) / (4.0f * PI * denom);\n}\n\n// Add function to reconstruct world position from depth\nvec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {\n    vec2 ndc = texCoord * 2.0f - 1.0f;\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\n    vec4 viewSpacePos = projInverse * clipSpacePos;\n    viewSpacePos /= viewSpacePos.w;\n    vec4 worldPos = viewInverse * viewSpacePos;\n    return worldPos.xyz;\n}\n\nvoid main() {\n    if(!enableClouds) {\n        fragColor = vec4(0.0f);\n        return;\n    }\n    vec2 uv = fragUV * 2.0f - 1.0f;\n    vec4 rayClip = vec4(uv, -1.0f, 1.0f);\n    vec4 rayEye = projInverse * rayClip;\n    rayEye = vec4(rayEye.xy, -1.0f, 0.0f);\n    vec3 rayDirWorld = normalize((viewInverse * rayEye).xyz);\n    vec3 rayOriginWorld = cameraPosition;\n\n    // Read scene depth\n    float sceneDepth = texture(depthTexture, fragUV).r;\n\n    // Calculate world position of terrain from depth buffer\n    vec3 terrainWorldPos = getWorldPositionFromDepth(fragUV, sceneDepth);\n    float distanceToTerrain = length(terrainWorldPos - rayOriginWorld);\n\n    // If depth is at far plane (sky), set to very large distance\n    if(sceneDepth >= 1.0f) {\n        distanceToTerrain = 1000000.0f;\n    }\n\n    // Ray-box intersection\n    vec2 dsts = rayBoxDst(cubeMin, cubeMax, rayOriginWorld, 1.0f / rayDirWorld);\n\n    if(dsts.y <= 0.0f) {\n        fragColor = vec4(0.0f);\n        return;\n    }\n\n    float tNear = dsts.x;\n    float tFar = min(dsts.x + dsts.y, distanceToTerrain); // Clip at terrain depth\n\n    // If terrain is in front of cloud box, don't render clouds\n    if(tNear >= distanceToTerrain) {\n        fragColor = vec4(0.0f);\n        return;\n    }\n\n    float tStep = (tFar - tNear) / float(MAX_STEPS);\n\n    vec4 accumulatedColor = vec4(0.0f);\n\n    // Blue noise offset to reduce banding\n    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);\n\n    for(int i = 0; i < MAX_STEPS; i++) {\n        float t = tNear + tStep * (float(i) + blueNoiseOffset);\n\n        // Stop raymarching if we've reached the terrain\n        if(t >= distanceToTerrain) {\n            break;\n        }\n\n        vec3 samplePos = rayOriginWorld + rayDirWorld * t;\n\n        // Sample density\n        float rawDensity = sampleDensity(samplePos);\n        if(rawDensity < DENSITY_THRESHOLD_SKIP) {\n            i += 1; // Skip next sample\n            continue;\n        }\n        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);\n\n        // Calculate lighting with adaptive quality\n        vec3 lightDir = normalize(sunPos - samplePos);\n        float lightTransmittance = sampleLight(samplePos, lightDir, density);\n\n        // Phase function for silver lining\n        float cosTheta = dot(rayDirWorld, lightDir);\n        float phaseVal = PhaseFunction(cosTheta, phaseG);\n        phaseVal = mix(1.0f, phaseVal, phaseMultiplier);\n\n        // Final light color\n        vec3 sunLight = sunColor * lightTransmittance * lightIntensity * phaseVal;\n\n        // Powder effect\n        float powderEffect = 1.0f - exp(-density * 2.0f);\n        sunLight *= mix(1.0f, powderEffect, 0.5f);\n\n        // Ambient and bounce light\n        float height = (samplePos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);\n        float groundFactor = 1.0f - height;\n        vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;\n        vec3 ambientLight = skyColor * ambientIntensity;\n\n        //Final light color\n        vec3 lightColor = sunLight + ambientLight + bounceLight;\n\n        float stepOpacity = 1.0f - exp(-density * tStep * absorption);\n\n        // Accumulate color using front-to-back compositing and premultiplied alpha\n        vec4 color = vec4(lightColor * stepOpacity, stepOpacity);\n        accumulatedColor += color * (1.0f - accumulatedColor.a);\n\n        if(accumulatedColor.a > ALPHA_THRESHOLD)\n            break;\n    }\n    fragColor = accumulatedColor;\n\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/Clouds/Clouds.vert":
+/*!********************************************!*\
+  !*** ./src/render/glsl/Clouds/Clouds.vert ***!
+  \********************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0f);\n}";
+
+/***/ }),
+
 /***/ "./src/render/glsl/DeferredRendering/Geometry.frag":
 /*!*********************************************************!*\
   !*** ./src/render/glsl/DeferredRendering/Geometry.frag ***!
@@ -7438,7 +8135,7 @@ var GLRenderer = /** @class */ (function () {
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es \r\nprecision highp float;\r\n\r\nin vec3 viewNormal;\r\nin vec3 albedo;\r\nin vec4 viewPos;\r\n\r\nlayout(location = 0) out vec4 outNormal;\r\nlayout(location = 1) out vec4 outAlbedo;\r\n\r\nvoid main() {\r\n    outNormal = vec4(normalize(viewNormal), 1.0);\r\n    outAlbedo = vec4(albedo, 1.0);\r\n}";
+module.exports = "#version 300 es \nprecision highp float;\n\nin vec3 viewNormal;\nin vec3 albedo;\nin vec4 viewPos;\n\nlayout(location = 0) out vec4 outNormal;\nlayout(location = 1) out vec4 outAlbedo;\n\nvoid main() {\n    outNormal = vec4(normalize(viewNormal), 1.0);\n    outAlbedo = vec4(albedo, 1.0);\n}";
 
 /***/ }),
 
@@ -7449,7 +8146,7 @@ module.exports = "#version 300 es \r\nprecision highp float;\r\n\r\nin vec3 view
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nin vec3 position;\r\nin vec3 normal;\r\nin vec3 color;\r\n\r\nuniform mat4 model;\r\nuniform mat4 view;\r\nuniform mat4 proj;\r\n\r\nout vec3 viewNormal;\r\nout vec3 albedo;\r\nout vec4 viewPos;\r\n\r\nvoid main() {\r\n    vec4 worldPos = model * vec4(position, 1.0f);\r\n    viewPos = view * worldPos;\r\n\r\n    mat3 normalMatrix = mat3(transpose(inverse(view * model)));\r\n    viewNormal = normalize(normalMatrix * normal);\r\n\r\n    albedo = color;\r\n\r\n    gl_Position = proj * viewPos;\r\n}";
+module.exports = "#version 300 es\nprecision highp float;\n\nin vec3 position;\nin vec3 normal;\nin vec3 color;\n\nuniform mat4 model;\nuniform mat4 view;\nuniform mat4 proj;\n\nout vec3 viewNormal;\nout vec3 albedo;\nout vec4 viewPos;\n\nvoid main() {\n    vec4 worldPos = model * vec4(position, 1.0f);\n    viewPos = view * worldPos;\n\n    mat3 normalMatrix = mat3(transpose(inverse(view * model)));\n    viewNormal = normalize(normalMatrix * normal);\n\n    albedo = color;\n\n    gl_Position = proj * viewPos;\n}";
 
 /***/ }),
 
@@ -7460,7 +8157,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nin vec3 posit
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r\nout vec4 outputColor;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D albedoTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D ssaoTexture;\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\nstruct Light {\r\n  vec3 position;\r\n  vec3 color;\r\n  vec3 showColor;\r\n  float intensity;\r\n  float radius;\r\n};\r\n#define MAX_LIGHTS 100\r\n\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\nuniform vec3 cameraPosition;\r\n\r\nvec3 getViewPosition(vec2 texCoord) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0 - 1.0;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0 - 1.0, 1.0);\r\n    vec4 viewSpacePos = projInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos) {\r\n    vec4 worldPos = viewInverse * vec4(viewPos, 1.0);\r\n    return worldPos.xyz;\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos);\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 skyColor = vec3(0.5, 0.7, 1.0);\r\n    \r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n    \r\n    vec3 albedo = texture(albedoTexture, fragUV).rgb;\r\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\r\n    \r\n    vec3 ambient = (vec3(0.3) * albedo) * ambientOcclusion;\r\n    vec3 lighting = ambient;\r\n    \r\n    for(int i = 0; i < numActiveLights; i++) {\r\n        vec3 lightDir = normalize(lights[i].position - fragWorldPos);\r\n        float diff = max(dot(lightDir, worldNormal), 0.0);\r\n        vec3 diffuse = diff * lights[i].color * lights[i].intensity;\r\n\r\n        vec3 viewDir = normalize(cameraPosition - fragWorldPos);\r\n        vec3 reflectDir = reflect(-lightDir, worldNormal);\r\n        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0);\r\n        vec3 specular = spec * lights[i].color * lights[i].intensity;\r\n        \r\n        float distance = length(lights[i].position - fragWorldPos);\r\n        float attenuation = 1.0 / (1.0 + (distance / lights[i].radius) * (distance / lights[i].radius));\r\n        diffuse *= attenuation;\r\n        specular *= attenuation;\r\n\r\n        lighting += (diffuse + specular) * ambient;\r\n    }\r\n\r\n    if(texture(depthTexture, fragUV).r>=1.0) {\r\n        outputColor = vec4(skyColor,1.0);\r\n    }\r\n    else{\r\n        outputColor = vec4(lighting, 1.0);\r\n    }\r\n}";
+module.exports = "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout vec4 outputColor;\nuniform sampler2D normalTexture;\nuniform sampler2D albedoTexture;\nuniform sampler2D depthTexture;\nuniform sampler2D ssaoTexture;\nuniform mat4 viewInverse;\nuniform mat4 projInverse;\nstruct Light {\n    vec3 position;\n    vec3 color;\n    vec3 showColor;\n    float intensity;\n    float radius;\n};\n#define MAX_LIGHTS 100\n\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 cameraPosition;\n\nvec3 getViewPosition(vec2 texCoord) {\n    float depth = texture(depthTexture, texCoord).r;\n    vec2 ndc = texCoord * 2.0f - 1.0f;\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\n    vec4 viewSpacePos = projInverse * clipSpacePos;\n    return viewSpacePos.xyz / viewSpacePos.w;\n}\n\nvec3 getWorldPosition(vec3 viewPos) {\n    vec4 worldPos = viewInverse * vec4(viewPos, 1.0f);\n    return worldPos.xyz;\n}\n\nvoid main() {\n    vec3 fragViewPos = getViewPosition(fragUV);\n    vec3 fragWorldPos = getWorldPosition(fragViewPos);\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\n    vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);\n\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\n\n    vec3 albedo = texture(albedoTexture, fragUV).rgb;\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\n\n    vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;\n    vec3 lighting = ambient;\n\n    for(int i = 0; i < numActiveLights; i++) {\n        vec3 lightDir = normalize(lights[i].position - fragWorldPos);\n        float diff = max(dot(lightDir, worldNormal), 0.0f);\n        vec3 diffuse = diff * lights[i].color * lights[i].intensity;\n\n        vec3 viewDir = normalize(cameraPosition - fragWorldPos);\n        vec3 reflectDir = reflect(-lightDir, worldNormal);\n        float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);\n        vec3 specular = spec * lights[i].color * lights[i].intensity;\n\n        float distance = length(lights[i].position - fragWorldPos);\n        float attenuation = 1.0f / (1.0f + (distance / lights[i].radius) * (distance / lights[i].radius));\n        diffuse *= attenuation;\n        specular *= attenuation;\n\n        lighting += (diffuse + specular) * ambient;\n    }\n\n    if(texture(depthTexture, fragUV).r >= 1.0f) {\n        outputColor = vec4(skyColor, 1.0f);\n    } else {\n        outputColor = vec4(lighting, 1.0f);\n    }\n}";
 
 /***/ }),
 
@@ -7471,7 +8168,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0f);\n}";
 
 /***/ }),
 
@@ -7482,7 +8179,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location =
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\n#define NUM_SAMPLES 64\r\nin vec2 fragUV;\r\nout float ssao;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D noiseTexture;\r\nuniform float noiseSize;\r\nuniform vec3 samples[64];\r\nuniform mat4 proj;\r\nuniform mat4 projInverse;\r\nuniform float radius;\r\nuniform float bias;\r\n\r\nvec3 getViewPosition(vec2 texCoord) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0 - 1.0;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0 - 1.0, 1.0);\r\n    vec4 viewSpacePos = projInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvoid main() {\r\n    vec2 noiseScale = vec2(textureSize(depthTexture, 0)) / noiseSize;\r\n    \r\n    vec3 fragPos = getViewPosition(fragUV);\r\n    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 randomVec = normalize(texture(noiseTexture, fragUV * noiseScale).xyz);\r\n\r\n    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\r\n    vec3 bitangent = cross(normal, tangent);\r\n    mat3 TBN = mat3(tangent, bitangent, normal);\r\n    \r\n    float occlusion = 0.0;\r\n    \r\n    for(int i = 0; i < NUM_SAMPLES; i++) {\r\n        vec3 samplePos = TBN * samples[i];\r\n        samplePos = fragPos + samplePos * radius;\r\n\r\n        vec4 offset = proj * vec4(samplePos, 1.0);\r\n        offset.xyz /= offset.w;\r\n        offset.xyz = offset.xyz * 0.5 + 0.5;\r\n\r\n        if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) {\r\n            continue;\r\n        }\r\n\r\n        float sampleDepth = getViewPosition(offset.xy).z;\r\n        if(texture(depthTexture, offset.xy).r>=1.0) continue;\r\n        float rangeCheck= abs(fragPos.z - sampleDepth) < radius ? 1.0 : 0.0;\r\n        occlusion += (sampleDepth >= samplePos.z+bias ? 1.0 : 0.0) * rangeCheck;\r\n    }\r\n    \r\n    occlusion = 1.0 - (occlusion / float(NUM_SAMPLES));\r\n    ssao = occlusion;\r\n}";
+module.exports = "#version 300 es\nprecision highp float;\n#define NUM_SAMPLES 64\nin vec2 fragUV;\nout float ssao;\nuniform sampler2D normalTexture;\nuniform sampler2D depthTexture;\nuniform sampler2D noiseTexture;\nuniform float noiseSize;\nuniform vec3 samples[64];\nuniform mat4 proj;\nuniform mat4 projInverse;\nuniform float radius;\nuniform float bias;\nuniform bool enableSSAO;\nvec3 getViewPosition(vec2 texCoord) {\n    float depth = texture(depthTexture, texCoord).r;\n    vec2 ndc = texCoord * 2.0f - 1.0f;\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\n    vec4 viewSpacePos = projInverse * clipSpacePos;\n    return viewSpacePos.xyz / viewSpacePos.w;\n}\n\nvoid main() {\n    if(!enableSSAO) {\n        ssao = 1.0f;\n        return;\n    }\n    vec2 noiseScale = vec2(textureSize(depthTexture, 0)) / noiseSize;\n\n    vec3 fragPos = getViewPosition(fragUV);\n    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);\n    vec3 randomVec = normalize(texture(noiseTexture, fragUV * noiseScale).xyz);\n\n    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\n    vec3 bitangent = cross(normal, tangent);\n    mat3 TBN = mat3(tangent, bitangent, normal);\n\n    float occlusion = 0.0f;\n\n    for(int i = 0; i < NUM_SAMPLES; i++) {\n        vec3 samplePos = TBN * samples[i];\n        samplePos = fragPos + samplePos * radius;\n\n        vec4 offset = proj * vec4(samplePos, 1.0f);\n        offset.xyz /= offset.w;\n        offset.xyz = offset.xyz * 0.5f + 0.5f;\n\n        if(offset.x < 0.0f || offset.x > 1.0f || offset.y < 0.0f || offset.y > 1.0f) {\n            continue;\n        }\n\n        float sampleDepth = getViewPosition(offset.xy).z;\n        if(texture(depthTexture, offset.xy).r >= 1.0f)\n            continue;\n        float rangeCheck = abs(fragPos.z - sampleDepth) < radius ? 1.0f : 0.0f;\n        occlusion += (sampleDepth >= samplePos.z + bias ? 1.0f : 0.0f) * rangeCheck;\n    }\n\n    occlusion = 1.0f - (occlusion / float(NUM_SAMPLES));\n    ssao = occlusion;\n}";
 
 /***/ }),
 
@@ -7493,7 +8190,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\n#define NUM_SAMPL
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0f);\n}";
 
 /***/ }),
 
@@ -7504,7 +8201,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location =
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r\nout float ssaoBlur;\r\nuniform sampler2D ssaoTexture;\r\nuniform sampler2D depthTexture;\r\nuniform bool enableBlur;\r\n\r\nconst int KERNEL_RADIUS = 2;\r\nconst float sigma_spatial = 2.0;\r\nconst float sigma_depth = 0.1;\r\n\r\nvoid main() {\r\n    if (!enableBlur) {\r\n        ssaoBlur = texture(ssaoTexture, fragUV).r;\r\n        return;\r\n    }\r\n\r\n    float centerSSAO = texture(ssaoTexture, fragUV).r;\r\n    float centerDepth = texture(depthTexture, fragUV).r;\r\n    vec2 texelSize = 1.0 / vec2(textureSize(ssaoTexture, 0));\r\n\r\n    float sum = 0.0;\r\n    float weightSum = 0.0;\r\n\r\n    for (int y = -KERNEL_RADIUS; y <= KERNEL_RADIUS; ++y) {\r\n        for (int x = -KERNEL_RADIUS; x <= KERNEL_RADIUS; ++x) {\r\n            vec2 offset = vec2(float(x), float(y)) * texelSize;\r\n            float sampleSSAO = texture(ssaoTexture, fragUV + offset).r;\r\n            float sampleDepth = texture(depthTexture, fragUV + offset).r;\r\n\r\n            float spatialWeight = exp(-float(x * x + y * y) / (2.0 * sigma_spatial * sigma_spatial));\r\n            float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0) / (2.0 * sigma_depth * sigma_depth));\r\n            float weight = spatialWeight * depthWeight;\r\n\r\n            sum += sampleSSAO * weight;\r\n            weightSum += weight;\r\n        }\r\n    }\r\n    ssaoBlur = sum / weightSum;\r\n}";
+module.exports = "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout float ssaoBlur;\nuniform sampler2D ssaoTexture;\nuniform sampler2D depthTexture;\n\nconst int KERNEL_RADIUS = 2;\nconst float sigma_spatial = 2.0f;\nconst float sigma_depth = 0.1f;\n\nvoid main() {\n\n    float centerDepth = texture(depthTexture, fragUV).r;\n    vec2 texelSize = 1.0f / vec2(textureSize(ssaoTexture, 0));\n\n    float sum = 0.0f;\n    float weightSum = 0.0f;\n\n    for(int y = -KERNEL_RADIUS; y <= KERNEL_RADIUS; ++y) {\n        for(int x = -KERNEL_RADIUS; x <= KERNEL_RADIUS; ++x) {\n            vec2 offset = vec2(float(x), float(y)) * texelSize;\n            float sampleSSAO = texture(ssaoTexture, fragUV + offset).r;\n            float sampleDepth = texture(depthTexture, fragUV + offset).r;\n\n            float spatialWeight = exp(-float(x * x + y * y) / (2.0f * sigma_spatial * sigma_spatial));\n            float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0f) / (2.0f * sigma_depth * sigma_depth));\n            float weight = spatialWeight * depthWeight;\n\n            sum += sampleSSAO * weight;\n            weightSum += weight;\n        }\n    }\n    ssaoBlur = sum / weightSum;\n}";
 
 /***/ }),
 
@@ -7515,7 +8212,594 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0f);\n}";
+
+/***/ }),
+
+/***/ "./src/render/passes/CloudsPass.ts":
+/*!*****************************************!*\
+  !*** ./src/render/passes/CloudsPass.ts ***!
+  \*****************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   CloudsPass: () => (/* binding */ CloudsPass)
+/* harmony export */ });
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../Settings */ "./src/Settings.ts");
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
+/* harmony import */ var _glsl_Clouds_Clouds_vert__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/Clouds/Clouds.vert */ "./src/render/glsl/Clouds/Clouds.vert");
+/* harmony import */ var _glsl_Clouds_Clouds_frag__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../glsl/Clouds/Clouds.frag */ "./src/render/glsl/Clouds/Clouds.frag");
+/* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+var __extends = (undefined && undefined.__extends) || (function () {
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    };
+    return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+
+
+
+
+
+
+
+
+
+var CloudsPass = /** @class */ (function (_super) {
+    __extends(CloudsPass, _super);
+    function CloudsPass(gl, resourceCache, canvas, renderGraph) {
+        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.VAOInputType.FULLSCREENQUAD;
+        _this.pathtracerRender = true;
+        _this.settingsSection = null;
+        _this.noiseTexture = null;
+        _this.weatherMapTexture = null;
+        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__.RenderUtils.CreateProgram(gl, _glsl_Clouds_Clouds_vert__WEBPACK_IMPORTED_MODULE_4__, _glsl_Clouds_Clouds_frag__WEBPACK_IMPORTED_MODULE_5__);
+        _this.renderTarget = _this.initRenderTarget();
+        _this.InitSettings();
+        _this.noiseGenerator = new NoiseGenerator(gl);
+        _this.noiseTexture = _this.noiseGenerator.generateCloudNoiseTex(32);
+        _this.weatherMapTexture = _this.noiseGenerator.generateWeatherMap(128);
+        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_3__.getUniformLocations)(gl, _this.program, [
+            "viewInverse",
+            "projInverse",
+            "cameraPosition"
+        ]);
+        return _this;
+    }
+    CloudsPass.prototype.initRenderTarget = function () {
+        return { fbo: null, textures: {} };
+    };
+    CloudsPass.prototype.render = function (vao_info, pathtracerOn) {
+        var _a;
+        var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.enable(this.gl.BLEND);
+        this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+        this.gl.depthMask(false);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.useProgram(this.program);
+        this.gl.bindVertexArray(vao.vao);
+        var gBuffer = this.renderGraph.getOutputs(this);
+        var depthTexture = gBuffer["depth"];
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "cubeMin"), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(-300, 100, -300));
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "cubeMax"), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(300, 160, 300));
+        // Bind 3D texture
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_3D, this.noiseTexture);
+        this.gl.uniform1i(this.gl.getUniformLocation(this.program, "noiseTexture"), 0);
+        // Bind weather map texture
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.bindTex(this.gl, this.program, this.weatherMapTexture, "weatherMap", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 2);
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "sunPos"), this.resourceCache.getUniformData("lights")[0].position);
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "sunColor"), this.resourceCache.getUniformData("lights")[0].color.createVec3());
+        var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+        this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
+        this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
+        this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getUniformData("cameraPosition"));
+        this.gl.uniform1f(this.gl.getUniformLocation(this.program, "time"), performance.now() * 0.001 // Convert to seconds
+        );
+        (_a = this.settingsSection) === null || _a === void 0 ? void 0 : _a.updateUniforms(this.gl);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        }
+        this.gl.bindVertexArray(null);
+        this.gl.useProgram(null);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.depthMask(true);
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.activeTexture(this.gl.TEXTURE0);
+        this.gl.bindTexture(this.gl.TEXTURE_3D, null);
+        this.gl.activeTexture(this.gl.TEXTURE1);
+        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+    };
+    CloudsPass.prototype.InitSettings = function () {
+        this.settingsSection = new _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsSection(document.getElementById("settings-section"), "Clouds Settings", this.program);
+        this.settingsSection.addCheckbox({
+            id: "enableClouds",
+            label: "Enable Clouds",
+            defaultValue: true
+        });
+        this.settingsSection.addSlider({
+            id: "MAX_STEPS",
+            label: "Cloud Ray Marching Max Steps",
+            min: 8,
+            max: 128,
+            step: 1,
+            defaultValue: 32,
+            numType: "int"
+        });
+        this.settingsSection.addSlider({
+            id: "MAX_STEPS_LIGHT",
+            label: "Cloud Light Ray Marching Max Steps",
+            min: 4,
+            max: 32,
+            step: 1,
+            defaultValue: 8,
+            numType: "int"
+        });
+        this.settingsSection.addSlider({
+            id: "absorption",
+            label: "Cloud Absorption",
+            min: 0,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 1.0,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "densityThreshold",
+            label: "Cloud Density Threshold",
+            min: -2.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.09,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "baseFrequency",
+            label: "Cloud Base Frequency",
+            min: 0.01,
+            max: 0.5,
+            step: 0.001,
+            defaultValue: 0.45,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "detailFrequency",
+            label: "Cloud Detail Frequency",
+            min: 0.1,
+            max: 0.5,
+            step: 0.001,
+            defaultValue: 0.46,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "lightAbsorption",
+            label: "Cloud Light Absorption",
+            min: 0,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 1.0,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "lightIntensity",
+            label: "Cloud Light Intensity",
+            min: 0,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 2.4,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "ambientIntensity",
+            label: "Cloud Ambient Intensity",
+            min: 0,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 0.5,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "darknessThreshold",
+            label: "Cloud Darkness Threshold",
+            min: 0.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.2,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "phaseG",
+            label: "Cloud Phase Function g",
+            min: -1.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.5,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "phaseMultiplier",
+            label: "Cloud Phase Function Multiplier",
+            min: 0.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.5,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "weatherMapOffsetX",
+            label: "Cloud Weather Map Offset X",
+            min: 0.0,
+            max: 10.0,
+            step: 0.01,
+            defaultValue: 0.0,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "weatherMapOffsetY",
+            label: "Cloud Weather Map Offset Y",
+            min: 0.0,
+            max: 10.0,
+            step: 0.01,
+            defaultValue: 0.0,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "windSpeed",
+            label: "Cloud Wind Speed",
+            min: 0.0,
+            max: 10.0,
+            step: 0.01,
+            defaultValue: 3.0,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "windDirectionX",
+            label: "Cloud Wind Direction X",
+            min: -1.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 1.0,
+            numType: "float"
+        });
+        this.settingsSection.addSlider({
+            id: "windDirectionZ",
+            label: "Cloud Wind Direction Z",
+            min: -1.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 1.0,
+            numType: "float"
+        });
+    };
+    CloudsPass.prototype.resize = function (width, height) {
+        // LightingPass renders to default framebuffer, no resize needed
+        // But we need to update viewport
+        this.gl.viewport(0, 0, width, height);
+    };
+    return CloudsPass;
+}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.RenderPass));
+
+var NoiseGenerator = /** @class */ (function () {
+    function NoiseGenerator(gl) {
+        this.simplex = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_6__.createNoise3D)();
+        this.dataR = new Uint8Array();
+        this.dataG = new Uint8Array();
+        this.dataB = new Uint8Array();
+        this.dataA = new Uint8Array();
+        this.coverageData = new Uint8Array();
+        this.densityData = new Uint8Array();
+        this.typeData = new Uint8Array();
+        this.gl = gl;
+    }
+    NoiseGenerator.prototype.worleyNoise3D = function (width, height, depth, gridSize, pointsPerCell) {
+        if (pointsPerCell === void 0) { pointsPerCell = 1; }
+        var gridCols = Math.ceil(width / gridSize);
+        var gridRows = Math.ceil(height / gridSize);
+        var gridDepts = Math.ceil(depth / gridSize);
+        // Store feature points by grid cell for fast lookup
+        var grid = Array.from({ length: gridCols }, function () {
+            return Array.from({ length: gridRows }, function () {
+                return Array.from({ length: gridDepts }, function () { return []; });
+            });
+        });
+        // Generate random feature points for each grid cell
+        for (var gx = 0; gx < gridCols; gx++) {
+            for (var gy = 0; gy < gridRows; gy++) {
+                for (var gz = 0; gz < gridDepts; gz++) {
+                    for (var i = 0; i < pointsPerCell; i++) {
+                        grid[gx][gy][gz].push({
+                            x: gx * gridSize + Math.random() * gridSize,
+                            y: gy * gridSize + Math.random() * gridSize,
+                            z: gz * gridSize + Math.random() * gridSize
+                        });
+                    }
+                }
+            }
+        }
+        // Flattened Uint8Array for output
+        var data = new Uint8Array(width * height * depth);
+        var maxDist = 0;
+        var distArr = new Float32Array(width * height * depth);
+        // For each voxel, only consider feature points from neighboring cells
+        for (var z = 0; z < depth; z++) {
+            for (var y = 0; y < height; y++) {
+                for (var x = 0; x < width; x++) {
+                    var minDist = Infinity;
+                    var gx = Math.floor(x / gridSize);
+                    var gy = Math.floor(y / gridSize);
+                    var gz = Math.floor(z / gridSize);
+                    // Check current cell and 26 neighbors (3x3x3 cube, with wrapping)
+                    for (var dx = -1; dx <= 1; dx++) {
+                        for (var dy = -1; dy <= 1; dy++) {
+                            for (var dz = -1; dz <= 1; dz++) {
+                                var ngx = (gx + dx + gridCols) % gridCols;
+                                var ngy = (gy + dy + gridRows) % gridRows;
+                                var ngz = (gz + dz + gridDepts) % gridDepts;
+                                for (var _i = 0, _a = grid[ngx][ngy][ngz]; _i < _a.length; _i++) {
+                                    var p = _a[_i];
+                                    var dxp = Math.abs(p.x - x);
+                                    dxp = Math.min(dxp, width - dxp);
+                                    var dyp = Math.abs(p.y - y);
+                                    dyp = Math.min(dyp, height - dyp);
+                                    var dzp = Math.abs(p.z - z);
+                                    dzp = Math.min(dzp, depth - dzp);
+                                    var dist = dxp * dxp + dyp * dyp + dzp * dzp;
+                                    if (dist < minDist)
+                                        minDist = dist;
+                                }
+                            }
+                        }
+                    }
+                    var idx = x + y * width + z * width * height;
+                    distArr[idx] = minDist;
+                    if (minDist > maxDist)
+                        maxDist = minDist;
+                }
+            }
+        }
+        // Normalize distances and convert to Uint8
+        for (var z = 0; z < depth; z++) {
+            for (var y = 0; y < height; y++) {
+                for (var x = 0; x < width; x++) {
+                    var idx = x + y * width + z * width * height;
+                    var norm = (Math.sqrt(distArr[idx]) / Math.sqrt(maxDist)) * 255;
+                    data[idx] = Math.floor(norm);
+                }
+            }
+        }
+        return data;
+    };
+    NoiseGenerator.prototype.simplexNoise3D = function (width, height, depth, frequency) {
+        var data = new Uint8Array(width * height * depth);
+        for (var z = 0; z < depth; z++) {
+            for (var y = 0; y < height; y++) {
+                for (var x = 0; x < width; x++) {
+                    var value = this.simplex(x * frequency, y * frequency, z * frequency);
+                    var normalized = Math.floor(((value + 1) / 2) * 255);
+                    data[x + y * width + z * width * height] = normalized;
+                }
+            }
+        }
+        return data;
+    };
+    NoiseGenerator.prototype.simplexWorleyNoise3D = function (width, height, depth, frequency) {
+        var worelyData = this.worleyNoise3D(width, height, depth, Math.min(width, height, depth) / frequency);
+        var simplexData = this.simplexNoise3D(width, height, depth, frequency);
+        var data = new Uint8Array(width * height * depth);
+        for (var i = 0; i < data.length; i++) {
+            var worleyNorm = worelyData[i] / 255.0;
+            var simplexNorm = simplexData[i] / 255.0;
+            var hybrid = 1.0 - Math.pow(1.0 - worleyNorm, simplexNorm);
+            data[i] = Math.floor(hybrid * 255);
+        }
+        return data;
+    };
+    NoiseGenerator.prototype.generateCloudNoiseTex = function (size) {
+        var frequency = 8;
+        this.dataR = this.simplexWorleyNoise3D(size, size, size, frequency);
+        this.dataG = this.worleyNoise3D(size, size, size, size / (frequency * 2));
+        this.dataB = this.worleyNoise3D(size, size, size, (frequency * 4) / 2);
+        this.dataA = this.worleyNoise3D(size, size, size, size / (frequency * 8));
+        // Interleave RGBA channels
+        var data = new Uint8Array(size * size * size * 4);
+        for (var i = 0; i < size * size * size; i++) {
+            data[i * 4 + 0] = this.dataR[i];
+            data[i * 4 + 1] = this.dataG[i];
+            data[i * 4 + 2] = this.dataB[i];
+            data[i * 4 + 3] = this.dataA[i];
+        }
+        var texture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.createTexture3D(this.gl, size, size, size, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE, data, this.gl.LINEAR, this.gl.LINEAR, this.gl.REPEAT, this.gl.REPEAT, this.gl.REPEAT);
+        return texture;
+    };
+    NoiseGenerator.prototype.worleyNoise2D = function (width, height, gridSize, pointsPerCell) {
+        if (pointsPerCell === void 0) { pointsPerCell = 1; }
+        var gridCols = Math.ceil(width / gridSize);
+        var gridRows = Math.ceil(height / gridSize);
+        // Store feature points by grid cell for fast lookup
+        var grid = Array.from({ length: gridCols }, function () { return Array.from({ length: gridRows }, function () { return []; }); });
+        // Generate random feature points for each grid cell
+        for (var gx = 0; gx < gridCols; gx++) {
+            for (var gy = 0; gy < gridRows; gy++) {
+                for (var i = 0; i < pointsPerCell; i++) {
+                    grid[gx][gy].push({
+                        x: gx * gridSize + Math.random() * gridSize,
+                        y: gy * gridSize + Math.random() * gridSize
+                    });
+                }
+            }
+        }
+        // Flattened Uint8Array for output
+        var data = new Uint8Array(width * height);
+        var maxDist = 0;
+        var distArr = new Float32Array(width * height);
+        // For each pixel, only consider feature points from neighboring cells
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                var minDist = Infinity;
+                var gx = Math.floor(x / gridSize);
+                var gy = Math.floor(y / gridSize);
+                // Check current cell and 8 neighbors (3x3 grid, with wrapping)
+                for (var dx = -1; dx <= 1; dx++) {
+                    for (var dy = -1; dy <= 1; dy++) {
+                        var ngx = (gx + dx + gridCols) % gridCols;
+                        var ngy = (gy + dy + gridRows) % gridRows;
+                        for (var _i = 0, _a = grid[ngx][ngy]; _i < _a.length; _i++) {
+                            var p = _a[_i];
+                            var dxp = Math.abs(p.x - x);
+                            dxp = Math.min(dxp, width - dxp);
+                            var dyp = Math.abs(p.y - y);
+                            dyp = Math.min(dyp, height - dyp);
+                            var dist = dxp * dxp + dyp * dyp;
+                            if (dist < minDist)
+                                minDist = dist;
+                        }
+                    }
+                }
+                var idx = x + y * width;
+                distArr[idx] = minDist;
+                if (minDist > maxDist)
+                    maxDist = minDist;
+            }
+        }
+        // Normalize distances and convert to Uint8
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                var idx = x + y * width;
+                var norm = (Math.sqrt(distArr[idx]) / Math.sqrt(maxDist)) * 255;
+                data[idx] = Math.floor(norm);
+            }
+        }
+        return data;
+    };
+    NoiseGenerator.prototype.simplexNoise2D = function (width, height, frequency) {
+        var data = new Uint8Array(width * height);
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                var value = this.simplex(x * frequency, y * frequency, 10);
+                var normalized = Math.floor(((value + 1) / 2) * 255);
+                data[x + y * width] = normalized;
+            }
+        }
+        return data;
+    };
+    NoiseGenerator.prototype.generateWeatherMap = function (size) {
+        var worely = this.worleyNoise2D(size, size, size / 4);
+        var simplex = this.simplexNoise2D(size, size, 0.08);
+        this.coverageData = new Uint8Array(size * size);
+        for (var i = 0; i < size * size; i++) {
+            var worelyNorm = 1 - worely[i] / 255.0;
+            var simplexNorm = simplex[i] / 255.0;
+            var coverage = Math.pow(worelyNorm, 1.2) - simplexNorm * 0.3;
+            coverage = Math.min(Math.max(coverage, 0.0), 1.0);
+            this.coverageData[i] = coverage * 255;
+        }
+        // Right now I have no idea what to put in density and type maps, so just fill with zeros
+        this.densityData = new Uint8Array(size * size);
+        this.typeData = new Uint8Array(size * size);
+        // Interleave RGB channels
+        var data = new Uint8Array(size * size * 3);
+        for (var i = 0; i < size * size; i++) {
+            data[i * 3 + 0] = this.coverageData[i];
+            data[i * 3 + 1] = this.densityData[i];
+            data[i * 3 + 2] = this.typeData[i];
+        }
+        var texture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.createTexture2D(this.gl, size, size, this.gl.RGB8, this.gl.RGB, this.gl.UNSIGNED_BYTE, data, this.gl.LINEAR, this.gl.LINEAR, this.gl.REPEAT, this.gl.REPEAT);
+        this.visualizeWeatherMap(document.getElementById("noisePreview"), "R");
+        return texture;
+    };
+    NoiseGenerator.prototype.visualizeWeatherMap = function (canvas, channel) {
+        if (channel === void 0) { channel = "RGB"; }
+        var size = Math.sqrt(this.coverageData.length);
+        var ctx = canvas.getContext("2d");
+        if (!ctx)
+            return;
+        var scale = canvas.width / size;
+        var imageData = ctx.createImageData(canvas.width, canvas.height);
+        for (var y = 0; y < canvas.height; y++) {
+            for (var x = 0; x < canvas.width; x++) {
+                var scaledX = ((Math.floor(x / scale) % size) + size) % size;
+                var scaledY = ((Math.floor(y / scale) % size) + size) % size;
+                var idx = scaledX + scaledY * size;
+                var idx2D = (x + y * canvas.width) * 4;
+                var r = this.coverageData[idx];
+                var g = this.densityData[idx];
+                var b = this.typeData[idx];
+                if (channel === "R") {
+                    g = b = r;
+                }
+                else if (channel === "G") {
+                    r = b = g;
+                }
+                else if (channel === "B") {
+                    r = g = b;
+                }
+                imageData.data[idx2D + 0] = r;
+                imageData.data[idx2D + 1] = g;
+                imageData.data[idx2D + 2] = b;
+                imageData.data[idx2D + 3] = 255;
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+    };
+    NoiseGenerator.prototype.visualizeSlice = function (sliceZ, canvas, channel) {
+        var size = Math.cbrt(this.dataR.length);
+        var ctx = canvas.getContext("2d");
+        var scale = canvas.width / size;
+        if (!ctx)
+            return;
+        var imageData = ctx.createImageData(canvas.width, canvas.height);
+        for (var y = 0; y < canvas.height; y++) {
+            for (var x = 0; x < canvas.width; x++) {
+                // Wrap and tile based on scale
+                var scaledX = ((Math.floor(x / scale) % size) + size) % size;
+                var scaledY = ((Math.floor(y / scale) % size) + size) % size;
+                var wrappedZ = ((sliceZ % size) + size) % size;
+                var idx3D = scaledX + scaledY * size + wrappedZ * size * size;
+                var idx2D = (x + y * canvas.width) * 4;
+                var value = 0;
+                switch (channel) {
+                    case "R":
+                        value = this.dataR[idx3D];
+                        break;
+                    case "G":
+                        value = this.dataG[idx3D];
+                        break;
+                    case "B":
+                        value = this.dataB[idx3D];
+                        break;
+                    case "A":
+                        value = this.dataA[idx3D];
+                        break;
+                }
+                imageData.data[idx2D + 0] = value;
+                imageData.data[idx2D + 1] = value;
+                imageData.data[idx2D + 2] = value;
+                imageData.data[idx2D + 3] = 255;
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+    };
+    return NoiseGenerator;
+}());
+
 
 /***/ }),
 
@@ -7535,7 +8819,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
 /* harmony import */ var _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/Geometry.vert */ "./src/render/glsl/DeferredRendering/Geometry.vert");
 /* harmony import */ var _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/Geometry.frag */ "./src/render/glsl/DeferredRendering/Geometry.frag");
-/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
 var __extends = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -7561,10 +8845,16 @@ var GeometryPass = /** @class */ (function (_super) {
     __extends(GeometryPass, _super);
     function GeometryPass(gl, resourceCache, canvas, renderGraph) {
         var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.SCENE;
+        _this.pathtracerRender = false;
         _this.canvas = canvas;
         _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__);
         _this.renderTarget = _this.initRenderTarget();
-        _this.uniforms = (0,_renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["view", "proj", "model"]);
+        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, [
+            "view",
+            "proj",
+            "model"
+        ]);
         return _this;
     }
     GeometryPass.prototype.initRenderTarget = function (width, height) {
@@ -7574,9 +8864,9 @@ var GeometryPass = /** @class */ (function (_super) {
         }
         var w = width || this.canvas.width;
         var h = height || this.canvas.height;
-        var normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture(this.gl, w, h, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
-        var albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
-        var depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture(this.gl, w, h, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
+        var normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        var albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        var depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
         var fbo = this.gl.createFramebuffer();
         if (!fbo) {
             throw new Error("Failed to create framebuffer");
@@ -7600,10 +8890,12 @@ var GeometryPass = /** @class */ (function (_super) {
             }
         };
     };
-    GeometryPass.prototype.render = function (vaosToRender) {
+    GeometryPass.prototype.render = function (vaosToRender, pathtracerOn) {
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        }
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.depthMask(true);
@@ -7616,7 +8908,9 @@ var GeometryPass = /** @class */ (function (_super) {
             var vaoInfo = vaosToRender_1[_i];
             this.gl.bindVertexArray(vaoInfo.vao);
             this.gl.uniformMatrix4fv(this.uniforms["model"], false, vaoInfo.modelMatrix);
-            this.gl.drawElements(this.gl.TRIANGLES, vaoInfo.indexCount, this.gl.UNSIGNED_INT, 0);
+            if (!pathtracerOn || this.pathtracerRender) {
+                this.gl.drawElements(this.gl.TRIANGLES, vaoInfo.indexCount, this.gl.UNSIGNED_INT, 0);
+            }
         }
         this.gl.bindVertexArray(null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
@@ -7660,7 +8954,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
 /* harmony import */ var _glsl_DeferredRendering_Lighting_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/Lighting.vert */ "./src/render/glsl/DeferredRendering/Lighting.vert");
 /* harmony import */ var _glsl_DeferredRendering_Lighting_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/Lighting.frag */ "./src/render/glsl/DeferredRendering/Lighting.frag");
-/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
 /* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../utils/WorldUtils */ "./src/utils/WorldUtils.ts");
 var __extends = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
@@ -7688,15 +8982,21 @@ var LightingPass = /** @class */ (function (_super) {
     __extends(LightingPass, _super);
     function LightingPass(gl, resourceCache, canvas, renderGraph) {
         var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
+        _this.pathtracerRender = false;
         _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Lighting_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Lighting_frag__WEBPACK_IMPORTED_MODULE_4__);
         _this.renderTarget = _this.initRenderTarget();
-        _this.uniforms = (0,_renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["viewInverse", "projInverse", "cameraPosition"]);
+        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, [
+            "viewInverse",
+            "projInverse",
+            "cameraPosition"
+        ]);
         return _this;
     }
     LightingPass.prototype.initRenderTarget = function () {
         return { fbo: null, textures: {} };
     };
-    LightingPass.prototype.render = function (vao_info) {
+    LightingPass.prototype.render = function (vao_info, pathtracerOn) {
         var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
         var textures = this.renderGraph.getOutputs(this);
         var normalTexture = textures["normal"];
@@ -7705,7 +9005,9 @@ var LightingPass = /** @class */ (function (_super) {
         var ssaoTexture = textures["ssaoBlur"];
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        }
         this.gl.disable(this.gl.DEPTH_TEST);
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
@@ -7719,7 +9021,9 @@ var LightingPass = /** @class */ (function (_super) {
         this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
         this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getUniformData("cameraPosition"));
         _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__.WorldUtils.updateLights(this.gl, this.program, this.resourceCache.getUniformData("lights"));
-        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        }
         this.gl.bindVertexArray(null);
     };
     LightingPass.prototype.resize = function (width, height) {
@@ -7750,7 +9054,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
 /* harmony import */ var _glsl_DeferredRendering_SSAOBlur_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/SSAOBlur.vert */ "./src/render/glsl/DeferredRendering/SSAOBlur.vert");
 /* harmony import */ var _glsl_DeferredRendering_SSAOBlur_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/SSAOBlur.frag */ "./src/render/glsl/DeferredRendering/SSAOBlur.frag");
-/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
 var __extends = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -7776,9 +9080,11 @@ var SSAOBlurPass = /** @class */ (function (_super) {
     __extends(SSAOBlurPass, _super);
     function SSAOBlurPass(gl, resourceCache, canvas, renderGraph) {
         var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
+        _this.pathtracerRender = false;
         _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_SSAOBlur_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_SSAOBlur_frag__WEBPACK_IMPORTED_MODULE_4__);
         _this.renderTarget = _this.initRenderTarget();
-        _this.uniforms = (0,_renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["enableBlur"]);
+        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["enableBlur"]);
         return _this;
     }
     SSAOBlurPass.prototype.initRenderTarget = function (width, height) {
@@ -7789,13 +9095,14 @@ var SSAOBlurPass = /** @class */ (function (_super) {
             throw new Error("Failed to create SSAO Blur framebuffer");
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-        var ssaoBlurTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        var ssaoBlurTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, ssaoBlurTexture, 0);
         this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
         return { fbo: framebuffer, textures: { ssaoBlur: ssaoBlurTexture } };
     };
-    SSAOBlurPass.prototype.render = function (vao_info) {
+    SSAOBlurPass.prototype.render = function (vao_info, pathtracerOn) {
+        var _a;
         var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
         // Get textures from render graph
         var textures = this.renderGraph.getOutputs(this);
@@ -7804,15 +9111,19 @@ var SSAOBlurPass = /** @class */ (function (_super) {
         var depthTexture = textures["depth"];
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        }
         this.gl.disable(this.gl.DEPTH_TEST);
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
         this.gl.bindVertexArray(vao.vao);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, ssaoTexture, "ssaoTexture", 0);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 1);
-        this.gl.uniform1i(this.uniforms["enableBlur"], this.resourceCache.getUniformData("SSAOInfo").SSAOBlur ? 1 : 0);
-        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        (_a = this.settingsSection) === null || _a === void 0 ? void 0 : _a.updateUniforms(this.gl);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        }
         this.gl.bindVertexArray(null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     };
@@ -7855,7 +9166,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
 /* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
 /* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
-/* harmony import */ var _renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/UniformsManager */ "./src/render/renderSystem/managers/UniformsManager.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../Settings */ "./src/Settings.ts");
 var __extends = (undefined && undefined.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -7877,19 +9190,56 @@ var __extends = (undefined && undefined.__extends) || (function () {
 
 
 
+
+
 var SSAOPass = /** @class */ (function (_super) {
     __extends(SSAOPass, _super);
     function SSAOPass(gl, resourceCache, canvas, renderGraph) {
         var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
+        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.FULLSCREENQUAD;
+        _this.pathtracerRender = false;
+        _this.kernelSize = 64;
+        _this.noiseSize = 4;
+        _this.kernels = [];
+        _this.noiseTexture = null;
         _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_SSAO_vert__WEBPACK_IMPORTED_MODULE_0__, _glsl_DeferredRendering_SSAO_frag__WEBPACK_IMPORTED_MODULE_1__);
         _this.renderTarget = _this.initRenderTarget();
-        _this.uniforms = (0,_renderSystem_managers_UniformsManager__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["radius", "bias", "proj", "projInverse", "noiseSize"]);
+        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, [
+            "proj",
+            "projInverse",
+            "noiseSize"
+        ]);
+        // Initialize settings manager for SSAO settings
+        _this.settingsSection = new _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsSection(document.getElementById("settings-section"), "SSAO Settings", _this.program);
+        _this.settingsSection.addSlider({
+            id: "radius",
+            label: "SSAO Radius",
+            min: 0.1,
+            max: 10.0,
+            step: 0.01,
+            defaultValue: 5.0
+        });
+        _this.settingsSection.addSlider({
+            id: "bias",
+            label: "SSAO Bias",
+            min: 0.0,
+            max: 11,
+            step: 0.001,
+            defaultValue: 0.025
+        });
+        _this.settingsSection.addCheckbox({
+            id: "enableSSAO",
+            label: "Enable SSAO",
+            defaultValue: true
+        });
+        _this.generateKernels();
+        _this.generateNoiseTexture();
         return _this;
     }
     SSAOPass.prototype.initRenderTarget = function (width, height) {
         var w = width || this.canvas.width;
         var h = height || this.canvas.height;
-        var ssaoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        var ssaoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
         var fbo = this.gl.createFramebuffer();
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, ssaoTexture, 0);
@@ -7899,33 +9249,36 @@ var SSAOPass = /** @class */ (function (_super) {
             textures: { ssao: ssaoTexture }
         };
     };
-    SSAOPass.prototype.render = function (vao_info) {
+    SSAOPass.prototype.render = function (vao_info, pathtracerOn) {
+        var _a;
         var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
         var gBuffer = this.renderGraph.getOutputs(this);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        }
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.gl.disable(this.gl.DEPTH_TEST);
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
         this.gl.bindVertexArray(vao.vao);
+        (_a = this.settingsSection) === null || _a === void 0 ? void 0 : _a.updateUniforms(this.gl);
         // Get textures from geometry pass using named keys
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, gBuffer["normal"], "normalTexture", 0);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, gBuffer["depth"], "depthTexture", 1);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, this.resourceCache.getUniformData("SSAOInfo").NoiseTexture, "noiseTexture", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, this.noiseTexture, "noiseTexture", 2);
         var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
-        this.gl.uniform1f(this.uniforms["radius"], this.resourceCache.getUniformData("SSAOInfo").radius);
-        this.gl.uniform1f(this.uniforms["bias"], this.resourceCache.getUniformData("SSAOInfo").bias);
         this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
         this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
-        this.gl.uniform1f(this.uniforms["noiseSize"], this.resourceCache.getUniformData("SSAOInfo").NoiseSize);
+        this.gl.uniform1f(this.uniforms["noiseSize"], this.noiseSize);
         // Upload kernel samples
-        var ssaoInfo = this.resourceCache.getUniformData("SSAOInfo");
-        for (var i = 0; i < ssaoInfo.KernelSize; i++) {
-            this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "samples[".concat(i, "]")), ssaoInfo.Kernels[i]);
+        for (var i = 0; i < this.kernelSize; i++) {
+            this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "samples[".concat(i, "]")), this.kernels[i]);
         }
-        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        }
         this.gl.bindVertexArray(null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     };
@@ -7944,6 +9297,29 @@ var SSAOPass = /** @class */ (function (_super) {
         }
         // Recreate render target with new dimensions
         this.renderTarget = this.initRenderTarget(width, height);
+    };
+    SSAOPass.prototype.generateKernels = function () {
+        this.kernels = [];
+        for (var i = 0; i < this.kernelSize; i++) {
+            var sample = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(Math.random() * 2.0 - 1.0, Math.random() * 2.0 - 1.0, Math.random());
+            gl_matrix__WEBPACK_IMPORTED_MODULE_7__.normalize(sample, sample);
+            var scale = i / this.kernelSize;
+            scale = 0.1 + scale * scale * 0.9;
+            gl_matrix__WEBPACK_IMPORTED_MODULE_7__.scale(sample, sample, scale);
+            this.kernels.push(sample);
+        }
+    };
+    SSAOPass.prototype.generateNoiseTexture = function () {
+        var noiseData = new Float32Array(this.noiseSize * this.noiseSize * 3);
+        for (var i = 0; i < this.noiseSize; i++) {
+            for (var j = 0; j < this.noiseSize; j++) {
+                var index = (i * this.noiseSize + j) * 3;
+                noiseData[index] = Math.random() * 2.0 - 1.0;
+                noiseData[index + 1] = Math.random() * 2.0 - 1.0;
+                noiseData[index + 2] = 0.0;
+            }
+        }
+        this.noiseTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, this.noiseSize, this.noiseSize, this.gl.RGB32F, this.gl.RGB, this.gl.FLOAT, noiseData, this.gl.NEAREST, this.gl.NEAREST, this.gl.REPEAT, this.gl.REPEAT);
     };
     return SSAOPass;
 }(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.RenderPass));
@@ -7965,27 +9341,94 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 var RenderGraph = /** @class */ (function () {
     function RenderGraph() {
-        this.passes = new Map();
+        this.roots = new Set();
+        this.dependencies = new Map();
+        this.children = new Map();
     }
-    RenderGraph.prototype.add = function (prevPass, nextPass) {
-        if (!this.passes.has(nextPass)) {
-            this.passes.set(nextPass, []);
+    /**
+     * Add a root pass that has no dependencies
+     */
+    RenderGraph.prototype.addRoot = function (pass) {
+        this.roots.add(pass);
+        if (!this.dependencies.has(pass)) {
+            this.dependencies.set(pass, new Set());
         }
-        this.passes.get(nextPass).push(prevPass);
+        if (!this.children.has(pass)) {
+            this.children.set(pass, new Set());
+        }
+    };
+    /**
+     * Add a pass that depends on one or more parent passes
+     */
+    RenderGraph.prototype.add = function (childPass) {
+        var parentPasses = [];
+        for (var _i = 1; _i < arguments.length; _i++) {
+            parentPasses[_i - 1] = arguments[_i];
+        }
+        if (!this.dependencies.has(childPass)) {
+            this.dependencies.set(childPass, new Set());
+        }
+        if (!this.children.has(childPass)) {
+            this.children.set(childPass, new Set());
+        }
+        for (var _a = 0, parentPasses_1 = parentPasses; _a < parentPasses_1.length; _a++) {
+            var parent_1 = parentPasses_1[_a];
+            this.dependencies.get(childPass).add(parent_1);
+            if (!this.children.has(parent_1)) {
+                this.children.set(parent_1, new Set());
+            }
+            this.children.get(parent_1).add(childPass);
+        }
+    };
+    /**
+     * Get all passes in topologically sorted order
+     */
+    RenderGraph.prototype.getSortedPasses = function () {
+        var _this = this;
+        var sorted = [];
+        var visited = new Set();
+        var temp = new Set();
+        var visit = function (pass) {
+            if (temp.has(pass)) {
+                throw new Error("Circular dependency detected in render graph");
+            }
+            if (visited.has(pass)) {
+                return;
+            }
+            temp.add(pass);
+            var deps = _this.dependencies.get(pass) || new Set();
+            deps.forEach(visit);
+            temp.delete(pass);
+            visited.add(pass);
+            sorted.push(pass);
+        };
+        // Visit all roots first
+        this.roots.forEach(visit);
+        // Visit any remaining passes (shouldn't happen in well-formed graph)
+        this.dependencies.forEach(function (_, pass) {
+            if (!visited.has(pass))
+                visit(pass);
+        });
+        return sorted;
     };
     RenderGraph.prototype.getOutputs = function (renderPass) {
-        var prevPasses = this.passes.get(renderPass);
-        if (!prevPasses) {
-            throw new Error("No outputs found for render pass");
+        var deps = this.dependencies.get(renderPass);
+        if (!deps || deps.size === 0) {
+            return {};
         }
-        // Merge texture dictionaries from all previous passes
+        // Merge texture dictionaries from all dependencies
         var mergedTextures = {};
-        for (var _i = 0, prevPasses_1 = prevPasses; _i < prevPasses_1.length; _i++) {
-            var pass = prevPasses_1[_i];
-            var passTextures = pass.getRenderTarget().textures;
-            Object.assign(mergedTextures, passTextures);
-        }
+        deps.forEach(function (pass) {
+            var _a;
+            var passTextures = (_a = pass.getRenderTarget()) === null || _a === void 0 ? void 0 : _a.textures;
+            if (passTextures) {
+                Object.assign(mergedTextures, passTextures);
+            }
+        });
         return mergedTextures;
+    };
+    RenderGraph.prototype.getRoots = function () {
+        return Array.from(this.roots);
     };
     return RenderGraph;
 }());
@@ -8003,11 +9446,18 @@ var RenderGraph = /** @class */ (function () {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   RenderPass: () => (/* binding */ RenderPass)
+/* harmony export */   RenderPass: () => (/* binding */ RenderPass),
+/* harmony export */   VAOInputType: () => (/* binding */ VAOInputType)
 /* harmony export */ });
+var VAOInputType;
+(function (VAOInputType) {
+    VAOInputType[VAOInputType["SCENE"] = 0] = "SCENE";
+    VAOInputType[VAOInputType["FULLSCREENQUAD"] = 1] = "FULLSCREENQUAD";
+})(VAOInputType || (VAOInputType = {}));
 var RenderPass = /** @class */ (function () {
     function RenderPass(gl, resourceCache, canvas, renderGraph) {
         this.uniforms = {};
+        this.settingsSection = null;
         this.gl = gl;
         this.canvas = canvas;
         this.program = null;
@@ -8058,35 +9508,18 @@ var RenderPass = /** @class */ (function () {
 
 /***/ }),
 
-/***/ "./src/render/renderSystem/managers/UniformsManager.ts":
-/*!*************************************************************!*\
-  !*** ./src/render/renderSystem/managers/UniformsManager.ts ***!
-  \*************************************************************/
+/***/ "./src/render/renderSystem/managers/ResourceCache.ts":
+/*!***********************************************************!*\
+  !*** ./src/render/renderSystem/managers/ResourceCache.ts ***!
+  \***********************************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   ResourceCache: () => (/* binding */ ResourceCache),
-/* harmony export */   UniformsManager: () => (/* binding */ UniformsManager),
 /* harmony export */   getUniformLocations: () => (/* binding */ getUniformLocations)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
-var __assign = (undefined && undefined.__assign) || function () {
-    __assign = Object.assign || function(t) {
-        for (var s, i = 1, n = arguments.length; i < n; i++) {
-            s = arguments[i];
-            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                t[p] = s[p];
-        }
-        return t;
-    };
-    return __assign.apply(this, arguments);
-};
-
-
 var ResourceCache = /** @class */ (function () {
     function ResourceCache(gl) {
         this.uniformsCache = new Map();
@@ -8110,72 +9543,6 @@ function getUniformLocations(gl, program, names) {
     }
     return locations;
 }
-var UniformsManager = /** @class */ (function () {
-    function UniformsManager(gl, canvas, resourceCache, camera) {
-        this.kernelSize = 64;
-        this.kernels = [];
-        this.noiseTexture = null;
-        this.noiseSize = 64;
-        this.gl = gl;
-        this.SSAOParameters = {
-            radius: 5.0,
-            bias: 0.025,
-            SSAOBlur: true,
-        };
-        this.generateKernels();
-        this.generateNoiseTexture();
-        this.resourceCache = resourceCache;
-        this.canvas = canvas;
-        this.camera = camera;
-        this.resourceCache.setUniformData("SSAOInfo", this.getSSAOInfo());
-    }
-    UniformsManager.prototype.getSSAOInfo = function () {
-        return __assign(__assign({}, this.SSAOParameters), { KernelSize: this.kernelSize, Kernels: this.kernels, NoiseTexture: this.noiseTexture, NoiseSize: this.noiseSize });
-    };
-    UniformsManager.prototype.setSSAOParameters = function (radius, bias, SSAOBlur) {
-        this.SSAOParameters.radius = radius;
-        this.SSAOParameters.bias = bias;
-        this.SSAOParameters.SSAOBlur = SSAOBlur;
-        this.resourceCache.setUniformData("SSAOInfo", this.getSSAOInfo());
-    };
-    UniformsManager.prototype.generateKernels = function () {
-        this.kernels = [];
-        for (var i = 0; i < this.kernelSize; i++) {
-            var sample = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(Math.random() * 2.0 - 1.0, Math.random() * 2.0 - 1.0, Math.random());
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.normalize(sample, sample);
-            var scale = i / this.kernelSize;
-            scale = 0.1 + scale * scale * 0.9;
-            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.scale(sample, sample, scale);
-            this.kernels.push(sample);
-        }
-    };
-    UniformsManager.prototype.generateNoiseTexture = function () {
-        var noiseData = new Float32Array(this.noiseSize * this.noiseSize * 3);
-        for (var i = 0; i < this.noiseSize; i++) {
-            for (var j = 0; j < this.noiseSize; j++) {
-                var index = (i * this.noiseSize + j) * 3;
-                noiseData[index] = Math.random() * 2.0 - 1.0;
-                noiseData[index + 1] = Math.random() * 2.0 - 1.0;
-                noiseData[index + 2] = 0.0;
-            }
-        }
-        this.noiseTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture(this.gl, this.noiseSize, this.noiseSize, this.gl.RGB32F, this.gl.RGB, this.gl.FLOAT, noiseData, this.gl.NEAREST, this.gl.NEAREST, this.gl.REPEAT, this.gl.REPEAT);
-    };
-    UniformsManager.prototype.calculateCameraInfo = function () {
-        var matViewAndProj = this.camera.calculateProjectionMatrices(this.canvas.width, this.canvas.height);
-        var cameraInfo = {
-            matView: matViewAndProj.matView,
-            matProj: matViewAndProj.matProj,
-            matViewProj: gl_matrix__WEBPACK_IMPORTED_MODULE_2__.multiply(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), matViewAndProj.matProj, matViewAndProj.matView),
-            matViewInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_2__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), matViewAndProj.matView),
-            matProjInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_2__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), matViewAndProj.matProj),
-        };
-        this.resourceCache.setUniformData("CameraInfo", cameraInfo);
-        this.resourceCache.setUniformData("cameraPosition", this.camera.position);
-    };
-    return UniformsManager;
-}());
-
 
 
 /***/ }),
@@ -8599,7 +9966,7 @@ var TextureUtils = /** @class */ (function () {
      * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
      * @returns The created WebGLTexture object.
      */
-    TextureUtils.createTexture = function (gl, width, height, internalFormat, format, type, data, minFilter, magFilter, wrapS, wrapT) {
+    TextureUtils.createTexture2D = function (gl, width, height, internalFormat, format, type, data, minFilter, magFilter, wrapS, wrapT) {
         if (data === void 0) { data = null; }
         if (minFilter === void 0) { minFilter = gl.NEAREST; }
         if (magFilter === void 0) { magFilter = gl.NEAREST; }
@@ -8612,6 +9979,38 @@ var TextureUtils = /** @class */ (function () {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrapS);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        return texture;
+    };
+    /**
+     * Creates and initializes a WebGL 2D texture with the specified parameters.
+     *
+     * @param gl - The WebGL2 rendering context.
+     * @param width - The width of the texture in pixels.
+     * @param height - The height of the texture in pixels.
+     * @param internalFormat - The internal format of the texture (e.g., `gl.RGBA8`).
+     * @param format - The format of the pixel data (e.g., `gl.RGBA`).
+     * @param type - The data type of the pixel data (e.g., `gl.UNSIGNED_BYTE`).
+     * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
+     * @returns The created WebGLTexture object.
+     */
+    TextureUtils.createTexture3D = function (gl, width, height, depth, internalFormat, format, type, data, minFilter, magFilter, wrapS, wrapT, wrapR) {
+        if (data === void 0) { data = null; }
+        if (minFilter === void 0) { minFilter = gl.NEAREST; }
+        if (magFilter === void 0) { magFilter = gl.NEAREST; }
+        if (wrapS === void 0) { wrapS = gl.CLAMP_TO_EDGE; }
+        if (wrapT === void 0) { wrapT = gl.CLAMP_TO_EDGE; }
+        if (wrapR === void 0) { wrapR = gl.CLAMP_TO_EDGE; }
+        var texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_3D, texture);
+        gl.texImage3D(gl.TEXTURE_3D, 0, internalFormat, width, height, depth, 0, format, type, data);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, minFilter);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, wrapS);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, wrapT);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, wrapR);
+        gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, wrapR);
+        gl.bindTexture(gl.TEXTURE_3D, null);
         return texture;
     };
     return TextureUtils;
@@ -8780,7 +10179,7 @@ var WorldUtils = /** @class */ (function () {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("87ec9602bc74b36e5f92")
+/******/ 		__webpack_require__.h = () => ("d1571baa60d4714526e6")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */

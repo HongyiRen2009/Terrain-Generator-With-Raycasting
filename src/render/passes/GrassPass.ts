@@ -20,6 +20,7 @@ interface LODLevel {
 
 export class GrassPass extends RenderPass {
   public VAOInputType = VAOInputType.NONE;
+  public pathtracerRender: boolean = true;
 
   private lodLevels: LODLevel[] = [];
   private instanceVBO: WebGLBuffer | null = null;
@@ -289,9 +290,11 @@ export class GrassPass extends RenderPass {
     return { vertices, indices };
   }
 
-  public render(_: VaoInfo | VaoInfo[]): void {
+  public render(_: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const gl = this.gl;
     gl.useProgram(this.program);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["depth"];
     // Set camera matrix
@@ -352,25 +355,25 @@ export class GrassPass extends RenderPass {
       | vec3
       | undefined;
     if (!cameraPos) return;
-
-    for (let i = 0; i < this.lodLevels.length; i++) {
-      const lod = this.lodLevels[i];
-      // Calculate distance from camera to patch center
-      const patchCenter = vec3.fromValues(0, 20, 33);
-      const distance = vec3.distance(cameraPos, patchCenter);
-      if (distance <= lod.maxDistance) {
-        gl.bindVertexArray(lod.vao);
-        gl.drawElementsInstanced(
-          gl.TRIANGLES,
-          lod.indexCount,
-          gl.UNSIGNED_SHORT,
-          0,
-          this.numInstances
-        );
-        break; // Render only the highest detail LOD that fits
+    if (!pathtracerOn || this.pathtracerRender) {
+      for (let i = 0; i < this.lodLevels.length; i++) {
+        const lod = this.lodLevels[i];
+        // Calculate distance from camera to patch center
+        const patchCenter = vec3.fromValues(0, 20, 33);
+        const distance = vec3.distance(cameraPos, patchCenter);
+        if (distance <= lod.maxDistance) {
+          gl.bindVertexArray(lod.vao);
+          gl.drawElementsInstanced(
+            gl.TRIANGLES,
+            lod.indexCount,
+            gl.UNSIGNED_SHORT,
+            0,
+            this.numInstances
+          );
+          break; // Render only the highest detail LOD that fits
+        }
       }
     }
-
     gl.bindVertexArray(null);
   }
   private generateNoiseTexture(size: number): WebGLTexture {

@@ -20,7 +20,11 @@ export class VAOManager {
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
     this.vaoCache = new Map();
-    this.geometryProgram = RenderUtils.CreateProgram(this.gl, GeometryVertexShaderSource, GeometryFragmentShaderSource)!;
+    this.geometryProgram = RenderUtils.CreateProgram(
+      this.gl,
+      GeometryVertexShaderSource,
+      GeometryFragmentShaderSource
+    )!;
     this.initializeScreenQuad();
   }
 
