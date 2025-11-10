@@ -67,6 +67,12 @@ export class DebugPass extends RenderPass {
         0.5,
         0.0
     ];
+    private static readonly LIGHT_FRUSTUM_NEAR_PLANE_COLOR: [number, number, number] = [
+        1.0,
+        0.2,
+        0.2
+    ];
+    private static readonly NEAR_PLANE_EDGE_COUNT = 4;
 
     constructor(gl: WebGL2RenderingContext, resourceCache: ResourceCache, canvas: HTMLCanvasElement, renderGraph?: RenderGraph) {
         super(gl, resourceCache, canvas, renderGraph);
@@ -159,22 +165,30 @@ export class DebugPass extends RenderPass {
         const positions: number[] = [];
         const colors: number[] = [];
 
-        const pushFrustum = (corners: number[][] | undefined, color: [number, number, number]) => {
+        const pushFrustum = (
+            corners: number[][] | undefined,
+            color: [number, number, number],
+            nearPlaneColor?: [number, number, number]
+        ) => {
             if (!corners || corners.length < 8) {
                 return;
             }
-            for (const [startIndex, endIndex] of DebugPass.FRUSTUM_EDGES) {
+            DebugPass.FRUSTUM_EDGES.forEach(([startIndex, endIndex], edgeIndex) => {
                 const start = corners[startIndex];
                 const end = corners[endIndex];
                 if (!start || !end) {
-                    continue;
+                    return;
                 }
                 positions.push(start[0], start[1], start[2]);
                 positions.push(end[0], end[1], end[2]);
 
-                colors.push(color[0], color[1], color[2]);
-                colors.push(color[0], color[1], color[2]);
-            }
+                const edgeColor =
+                    nearPlaneColor && edgeIndex < DebugPass.NEAR_PLANE_EDGE_COUNT
+                        ? nearPlaneColor
+                        : color;
+                colors.push(edgeColor[0], edgeColor[1], edgeColor[2]);
+                colors.push(edgeColor[0], edgeColor[1], edgeColor[2]);
+            });
         };
 
         const cameraFrustum = this.resourceCache.getUniformData("cameraFrustumCorners") as number[][] | undefined;
@@ -198,7 +212,11 @@ export class DebugPass extends RenderPass {
                 )
             );
             const cascadeCorners = this.computeCascadeWorldCorners(lightSpaceMatrices[cascadeIndex]);
-            pushFrustum(cascadeCorners, DebugPass.LIGHT_FRUSTUM_COLOR);
+            pushFrustum(
+                cascadeCorners,
+                DebugPass.LIGHT_FRUSTUM_COLOR,
+                DebugPass.LIGHT_FRUSTUM_NEAR_PLANE_COLOR
+            );
         }
 
         if (positions.length === 0) {

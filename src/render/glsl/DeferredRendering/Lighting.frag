@@ -15,8 +15,7 @@ uniform sampler2D cascadeDepthTexture2;
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
 
-uniform mat4 pausedViewInverse;
-uniform mat4 pausedProjInverse;
+
 uniform mat4 pausedView;
 
 //Shadow Uniforms

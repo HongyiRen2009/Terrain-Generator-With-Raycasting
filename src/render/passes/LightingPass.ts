@@ -30,11 +30,9 @@ export class LightingPass extends RenderPass {
     this.uniforms = getUniformLocations(gl, this.program!, [
       "viewInverse",
       "projInverse",
-      "pausedViewInverse",
-      "pausedProjInverse",
       "pausedView",
       "cameraPosition",
-      "lightSpaceMatrices",
+      "lightSpaceMatrices[0]",
       "cascadeSplits",
       "usingPCF",
       "shadowBias",
@@ -147,16 +145,6 @@ export class LightingPass extends RenderPass {
       cameraInfo.matProjInverse
     );
     this.gl.uniformMatrix4fv(
-      this.uniforms["pausedViewInverse"],
-      false,
-      pausedCameraInfo.matViewInverse
-    );
-    this.gl.uniformMatrix4fv(
-      this.uniforms["pausedProjInverse"],
-      false,
-      pausedCameraInfo.matProjInverse
-    );
-    this.gl.uniformMatrix4fv(
       this.uniforms["pausedView"],
       false,
       pausedCameraInfo.matView
@@ -175,7 +163,7 @@ export class LightingPass extends RenderPass {
         flattened.set(lightSpaceMatrices[i], i * 16);
       }
       this.gl.uniformMatrix4fv(
-        this.uniforms["lightSpaceMatrices"],
+        this.uniforms["lightSpaceMatrices[0]"],
         false,
         flattened
       );
@@ -208,7 +196,7 @@ export class LightingPass extends RenderPass {
     );
     this.gl.uniform1i(this.uniforms["showShadowMap"], showShadowMap ? 1 : 0);
     this.gl.uniform1i(this.uniforms["shadowMapCascade"], shadowMapCascade);
-    this.gl.uniform1i(this.uniforms["shadowMapSize"], shadowMapSize);
+    this.gl.uniform1f(this.uniforms["shadowMapSize"], shadowMapSize);
     this.gl.uniform1i(this.uniforms["showCameraDepth"], showCameraDepth ? 1 : 0);
 
     WorldUtils.updateLights(

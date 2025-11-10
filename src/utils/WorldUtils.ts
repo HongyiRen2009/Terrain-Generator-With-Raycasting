@@ -59,7 +59,7 @@ export class WorldUtils {
 
     // Update point lights
     pointLights.forEach((light, index) => {
-      const baseUniform = `lights[${index}]`;
+      const baseUniform = `pointLights[${index}]`;
 
       const posLocation = gl.getUniformLocation(
         program,
@@ -112,11 +112,11 @@ export class WorldUtils {
     });
 
     if (camera) {
-      const viewPositionLocation = gl.getUniformLocation(
+      const cameraPositionLocation = gl.getUniformLocation(
         program,
-        "viewPosition"
+        "cameraPosition"
       );
-      gl.uniform3fv(viewPositionLocation, camera.getPosition());
+      gl.uniform3fv(cameraPositionLocation, camera.getPosition());
     }
   }
 }
