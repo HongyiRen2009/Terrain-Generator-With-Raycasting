@@ -7,20 +7,17 @@ layout(location = 2) in float randomLean;
 layout(location = 3) in float rotAngle;
 uniform mat4 viewMatrix;
 uniform mat4 projMatrix;
-uniform vec3 viewDir;
 uniform sampler2D windStrengthNoiseTex;
 uniform sampler2D windDirectionNoiseTex;
 uniform float time;
-uniform float grassThickness;
 uniform float windStrength;
 uniform float windSpeed;
 uniform float windFrequency;
 out vec3 vWorldPos;
 out float vHeight;
 out vec3 vNormal;
-out float fragCurveAngle;
 out vec3 vCurveDirection;
-out float vFragDepth; // Add this for depth checking in fragment shader
+out float vFragDepth;
 
 const float PI = 3.14159265359f;
 mat3 rotateAxisAngle(vec3 axis, float angle) {
@@ -49,7 +46,6 @@ void main() {
     float curveAmount = randomLean * localPosition.y;
 
     float curveAngle = rotAngle + PI / 2.0f;
-    fragCurveAngle = curveAngle * sign(curveAmount);
     vec3 curveAxis = vec3(-sin(curveAngle), 0.0f, cos(curveAngle));
     mat3 rotCurve = rotateAxisAngle(curveAxis, curveAmount) + windRotation;
 

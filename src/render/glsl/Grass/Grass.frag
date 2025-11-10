@@ -5,7 +5,6 @@ uniform sampler2D depthTexture;
 in vec3 vWorldPos;
 in float vHeight;
 in vec3 vNormal;
-in float fragCurveAngle;
 in vec3 vCurveDirection;
 in float vFragDepth;
 
@@ -40,7 +39,9 @@ void main() {
     float curveViewDot = dot(curveDirection, toCamera);
     bool isInnerCurve = curveViewDot > 0.0f;
 
-    vec3 lightDir = vec3(0.0f, 1.0f, 0.0f);
+    vec3 lightDir = vWorldPos - sunPos;
+
+    // Simple gradient color from base to tip
     vec3 baseColor = vec3(0.1f, 0.4f, 0.1f);
     vec3 tipColor = vec3(0.3f, 0.8f, 0.3f);
 
