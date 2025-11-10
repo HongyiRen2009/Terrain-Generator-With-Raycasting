@@ -22,7 +22,6 @@ export class CSMPass extends RenderPass {
         renderGraph?: RenderGraph
     ){
         super(gl, resourceCache, canvas, renderGraph);
-        this.canvas = canvas;
         this.program = RenderUtils.CreateProgram(
             gl,
             CSMVertexShaderSource,
@@ -166,7 +165,7 @@ export class CSMPass extends RenderPass {
             id: "zMultiplier",
             label: "Z Multiplier",
             min: 0.0,
-            max: 100.0,
+            max: 15.0,
             step: 0.1,
             defaultValue: 10.0,
             numType: "float"
@@ -329,6 +328,8 @@ function getSubfrustumCorners(resourceCache: ResourceCache, lambda: number) : ve
 
 function getLightSpaceMatrices(resourceCache: ResourceCache, light: DirectionalLight, lambda: number, zMultiplier : number) : mat4[] {
     const lightSpaceMatrices : mat4[] = [];
+    const normalizedLightDir = vec3.normalize(vec3.create(), light.direction);
+    const parallelThreshold = 0.99;
     for (let i = 0; i < 3; i++){
         const LightViewMatrix = mat4.create();
         const subFrustumCorners = getSubfrustumCorners(resourceCache, lambda);
@@ -337,7 +338,15 @@ function getLightSpaceMatrices(resourceCache: ResourceCache, light: DirectionalL
             vec3.add(center, center, vec3.fromValues(corner[0], corner[1], corner[2]));
         }
         vec3.scale(center, center, 1.0 / subFrustumCorners[i].length);
-        mat4.lookAt(LightViewMatrix, vec3.subtract(vec3.create(), center, light.direction), center, vec3.fromValues(0.0, 1.0, 0.0));
+        let upDirection = vec3.fromValues(0.0, 1.0, 0.0);
+        if (Math.abs(vec3.dot(normalizedLightDir, upDirection)) > parallelThreshold) {
+            upDirection = vec3.fromValues(1.0, 0.0, 0.0);
+            if (Math.abs(vec3.dot(normalizedLightDir, upDirection)) > parallelThreshold) {
+                upDirection = vec3.fromValues(0.0, 0.0, 1.0);
+            }
+        }
+        const lightEye = vec3.subtract(vec3.create(), center, light.direction);
+        mat4.lookAt(LightViewMatrix, lightEye, center, upDirection);
 
         const LightProjectionMatrix = mat4.create();
         let minX : number = Number.MAX_VALUE;

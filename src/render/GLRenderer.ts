@@ -11,6 +11,7 @@ import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
 import { CSMPass } from "./passes/CSMPass";
+import { DebugPass } from "./passes/DebugPass";
 import { mat4 } from "gl-matrix";
 interface Matrices {
   matView: mat4;
@@ -92,11 +93,19 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const debugPass = new DebugPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     // Build render graph tree structure
     this.renderGraph.addRoot(geometryPass);
+    this.renderGraph.add(csmPass, geometryPass);
     this.renderGraph.add(ssaoPass, geometryPass);
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
     this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass, csmPass);
+    this.renderGraph.add(debugPass, lightingPass);
 
     //this.renderGraph.add(cloudsPass, geometryPass);
   }
@@ -125,6 +134,9 @@ export class GLRenderer {
           pass.render(screenQuadVAO);
         } else if (pass.VAOInputType === VAOInputType.SCENE) {
           pass.render(vaosToRender);
+        }
+        else {
+          pass.render();
         }
       }
     }

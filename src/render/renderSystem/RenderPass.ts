@@ -16,7 +16,7 @@ export abstract class RenderPass {
   protected renderGraph?: RenderGraph;
   protected uniforms: { [key: string]: WebGLUniformLocation } = {};
   protected settingsSection: SettingsSection | null = null;
-  public abstract VAOInputType: VAOInputType;
+  public VAOInputType?: VAOInputType;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -50,7 +50,7 @@ export abstract class RenderPass {
     return this.renderTarget;
   }
 
-  public abstract render(vao_info: VaoInfo | VaoInfo[]): void;
+  public abstract render(vao_info?: VaoInfo | VaoInfo[] | null): void;
 
   public resize(width: number, height: number): void {
     // Delete old resources

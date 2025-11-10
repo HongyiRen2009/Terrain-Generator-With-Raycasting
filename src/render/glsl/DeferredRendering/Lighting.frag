@@ -170,54 +170,40 @@ void main() {
         return;
     }
     
-    // Shadow Map Visualization Mode - Display the raw shadow map texture directly
+    vec3 fragViewPos = getViewPosition(fragUV);
+    vec3 fragWorldPos = getWorldPosition(fragViewPos);
+
+    // Shadow Map Visualization Mode - Display the shadow map sample at the fragment's light-space location
     if (showShadowMap && csmEnabled) {
-        // Directly visualize the shadow map texture at screen coordinates
-        // This shows what the light "sees" - the entire shadow map texture
-        vec2 shadowUV = fragUV;
-        
-        float shadowDepth;
-        if (shadowMapCascade == 0) {
-            shadowDepth = texture(cascadeDepthTexture0, shadowUV).r;
-        } else if (shadowMapCascade == 1) {
-            shadowDepth = texture(cascadeDepthTexture1, shadowUV).r;
-        } else {
-            shadowDepth = texture(cascadeDepthTexture2, shadowUV).r;
-        }
-        
-        // Check if depth is exactly 0.0 or 1.0 (not written)
-        // Shadow maps are cleared to 1.0, so if they're all 1.0, nothing is being written
-        const float epsilon = 0.0001;
-        
+        int cascadeIndex = clamp(shadowMapCascade, 0, 2);
+        vec4 lightSpacePos = lightSpaceMatrices[cascadeIndex] * vec4(fragWorldPos, 1.0);
+        vec3 shadowCoords = lightSpacePos.xyz / lightSpacePos.w;
+        shadowCoords = shadowCoords * 0.5 + 0.5;
+
+        bool outsideShadowMap = shadowCoords.x < 0.0 || shadowCoords.x > 1.0 ||
+                                shadowCoords.y < 0.0 || shadowCoords.y > 1.0;
+
         vec3 color;
-        if (shadowDepth == 0.0) {
-            // Exactly 0.0 - likely means depth isn't being written (red to indicate error)
-            color = vec3(1.0, 0.0, 0.0); // Red
-        } else if (shadowDepth == 1.0) {
-            // Exactly 1.0 - shadow map cleared but not written to (stays at clear value)
-            color = vec3(1.0, 0.0, 0.0); // Red to indicate error
+        if (outsideShadowMap) {
+            color = vec3(1.0, 0.0, 0.0);
         } else {
-            // Depth is being written - create a visible gradient
-            // Note: White = near plane, Black = far plane (depth values are inverted)
-            // Invert for proper visualization (black=near, white=far)
+            float shadowDepth;
+            if (cascadeIndex == 0) {
+                shadowDepth = texture(cascadeDepthTexture0, shadowCoords.xy).r;
+            } else if (cascadeIndex == 1) {
+                shadowDepth = texture(cascadeDepthTexture1, shadowCoords.xy).r;
+            } else {
+                shadowDepth = texture(cascadeDepthTexture2, shadowCoords.xy).r;
+            }
             float depthToUse = 1.0 - shadowDepth;
-            
-            // The depth values are clustered at extremes (very close to 0 or 1)
-            // To create a visible gradient, we need to expand the range
-            // Use a power curve to stretch the middle values
-            float normalizedDepth = pow(depthToUse, 0.5); // Square root to expand middle range
-            
-            // Visualize as grayscale gradient
-            // Black = near plane, White = far plane
+            float normalizedDepth = pow(depthToUse, 0.5);
             color = vec3(normalizedDepth);
         }
-        
+
         outputColor = vec4(color, 1.0);
         return;
     }
     
-    vec3 fragViewPos = getViewPosition(fragUV);
-    vec3 fragWorldPos = getWorldPosition(fragViewPos);
     vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);
     vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);
 

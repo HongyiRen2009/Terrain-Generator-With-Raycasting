@@ -284,9 +284,27 @@ export const CASES: [number, number, number][][] = [[],
  []];
 
 export const cubeVertices = new Float32Array([
-  // x, y, z, r, g, b
-  0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0,
-  1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0
+  // x, y, z in clip space
+  -1, -1, -1, // 0: near-bottom-left
+  1, -1, -1, // 1: near-bottom-right
+  1, 1, -1, // 2: near-top-right
+  -1, 1, -1, // 3: near-top-left
+  -1, -1, 1, // 4: far-bottom-left
+  1, -1, 1, // 5: far-bottom-right
+  1, 1, 1, // 6: far-top-right
+  -1, 1, 1 // 7: far-top-left
+]);
+
+export const cubeColors = new Float32Array([
+  // r, g, b
+  1, 0, 0, // near face highlighted
+  1, 0, 0,
+  1, 0, 0,
+  1, 0, 0,
+  0.2, 0.7, 1.0, // far face default color
+  0.2, 0.7, 1.0,
+  0.2, 0.7, 1.0,
+  0.2, 0.7, 1.0
 ]);
 
 export const cubeWireframeIndices: number[] = [
