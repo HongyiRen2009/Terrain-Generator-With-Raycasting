@@ -15,6 +15,10 @@ uniform sampler2D cascadeDepthTexture2;
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
 
+uniform mat4 pausedViewInverse;
+uniform mat4 pausedProjInverse;
+uniform mat4 pausedView;
+
 //Shadow Uniforms
 uniform mat4 lightSpaceMatrices[3];
 uniform float cascadeSplits[3];
@@ -24,6 +28,7 @@ uniform int shadowMapSize;
 
 uniform bool csmEnabled;
 uniform bool cascadeDebug;
+uniform bool debugPauseMode;
 uniform bool showShadowMap;
 uniform int shadowMapCascade;
 uniform bool showCameraDepth;
@@ -49,16 +54,16 @@ uniform int numActivePointLights;
 uniform int numActiveDirectionalLights;
 uniform vec3 cameraPosition;
 
-vec3 getViewPosition(vec2 texCoord) {
+vec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {
     float depth = texture(depthTexture, texCoord).r;
     vec2 ndc = texCoord * 2.0f - 1.0f;
     vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);
-    vec4 viewSpacePos = projInverse * clipSpacePos;
+    vec4 viewSpacePos = projectionInverse * clipSpacePos;
     return viewSpacePos.xyz / viewSpacePos.w;
 }
 
-vec3 getWorldPosition(vec3 viewPos) {
-    vec4 worldPos = viewInverse * vec4(viewPos, 1.0f);
+vec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {
+    vec4 worldPos = viewInverseMatrix * vec4(viewPos, 1.0f);
     return worldPos.xyz;
 }
 
@@ -143,9 +148,6 @@ void main() {
         // Read depth directly from texture
         float depth = texture(depthTexture, fragUV).r;
         
-        // Check if depth is exactly 0.0 or 1.0 (not written)
-        const float epsilon = 0.0001;
-        
         vec3 color;
         if (depth == 0.0 || depth == 1.0) {
             // Exactly 0.0 or 1.0 - likely means depth isn't being written (red to indicate error)
@@ -170,8 +172,14 @@ void main() {
         return;
     }
     
-    vec3 fragViewPos = getViewPosition(fragUV);
-    vec3 fragWorldPos = getWorldPosition(fragViewPos);
+    vec3 fragViewPos = getViewPosition(fragUV, projInverse);
+    vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);
+
+    float cascadeViewDepth = abs(fragViewPos.z);
+    if (debugPauseMode) {
+        vec4 pausedViewPos = pausedView * vec4(fragWorldPos, 1.0f);
+        cascadeViewDepth = abs(pausedViewPos.z);
+    }
 
     // Shadow Map Visualization Mode - Display the shadow map sample at the fragment's light-space location
     if (showShadowMap && csmEnabled) {
@@ -212,7 +220,7 @@ void main() {
     vec3 albedo = texture(albedoTexture, fragUV).rgb;
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
-    int cascadeIndex = chooseCascade(fragViewPos.z);
+    int cascadeIndex = chooseCascade(cascadeViewDepth);
     float shadow = computeShadow(fragWorldPos, cascadeIndex);
 
     // Replace albedo with debug colors when cascade debug is enabled

@@ -199,6 +199,14 @@ export class CSMPass extends RenderPass {
             }
         });
         this.settingsSection.addCheckbox({
+            id: "debugPause",
+            label: "Debug Pause Mode",
+            defaultValue: false,
+            onChange: (value: boolean) => {
+                this.resourceCache.setUniformData("debugPauseMode", value);
+            }
+        });
+        this.settingsSection.addCheckbox({
             id: "showShadowMap",
             label: "Show Shadow Map",
             defaultValue: false,
@@ -218,20 +226,12 @@ export class CSMPass extends RenderPass {
                 this.resourceCache.setUniformData("shadowMapCascade", Math.floor(value));
             }
         });
-        
-        // Initialize default values in resourceCache
-        this.resourceCache.setUniformData("csmEnabled", true);
-        this.resourceCache.setUniformData("usingPCF", true);
-        this.resourceCache.setUniformData("shadowBias", 0.001);
-        this.resourceCache.setUniformData("cascadeDebug", false);
-        this.resourceCache.setUniformData("showShadowMap", false);
-        this.resourceCache.setUniformData("shadowMapCascade", 0);
     }
 }
 
 function getCascadeSplits(resourceCache: ResourceCache, lambda: number) : number[] {
     const cascadeSplits : number[] = [];
-    const nearFarPlanes = resourceCache.getUniformData("nearFarPlanes");
+    const nearFarPlanes = resourceCache.getUniformData("pausedNearFarPlanes");
     const nearPlane = nearFarPlanes.near;
     const farPlane = nearFarPlanes.far;
     const clipRange = farPlane - nearPlane;
@@ -274,16 +274,18 @@ function computeFrustumCornersFromViewProj(invViewProjMatrix: mat4): vec4[] {
 }
 
 function getWorldSpaceFrustumCorners(resourceCache: ResourceCache) : vec4[] {
-    const cameraInfo = resourceCache.getUniformData("CameraInfo");
-    // Use the precomputed matViewProj instead of recomputing it
+    const cameraInfo = resourceCache.getUniformData("pausedCameraInfo");
     const invViewProjMatrix = mat4.create();
     mat4.invert(invViewProjMatrix, cameraInfo.matViewProj);
-    return computeFrustumCornersFromViewProj(invViewProjMatrix);
+    const corners = computeFrustumCornersFromViewProj(invViewProjMatrix);
+    const serialized = corners.map((corner) => Array.from(corner));
+    resourceCache.setUniformData("cameraFrustumCorners", serialized);
+    return corners;
 }
     
 function getSubfrustumCorners(resourceCache: ResourceCache, lambda: number) : vec4[][] {
     const subFrustumCorners : vec4[][] = [];
-    const nearFarPlanes = resourceCache.getUniformData("nearFarPlanes");
+    const nearFarPlanes = resourceCache.getUniformData("pausedNearFarPlanes");
     const cascadeSplits = getCascadeSplits(resourceCache, lambda);
     const nearPlane = nearFarPlanes.near;
     const farPlane = nearFarPlanes.far;
@@ -323,6 +325,10 @@ function getSubfrustumCorners(resourceCache: ResourceCache, lambda: number) : ve
         }
         subFrustumCorners.push(cascadeCorners);
     }
+    const serialized = subFrustumCorners.map((cascadeCorners) =>
+        cascadeCorners.map((corner) => Array.from(corner))
+    );
+    resourceCache.setUniformData("cameraSubFrusta", serialized);
     return subFrustumCorners;
 }
 

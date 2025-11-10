@@ -30,6 +30,9 @@ export class LightingPass extends RenderPass {
     this.uniforms = getUniformLocations(gl, this.program!, [
       "viewInverse",
       "projInverse",
+      "pausedViewInverse",
+      "pausedProjInverse",
+      "pausedView",
       "cameraPosition",
       "lightSpaceMatrices",
       "cascadeSplits",
@@ -37,6 +40,7 @@ export class LightingPass extends RenderPass {
       "shadowBias",
       "csmEnabled",
       "cascadeDebug",
+      "debugPauseMode",
       "showShadowMap",
       "shadowMapCascade",
       "shadowMapSize",
@@ -126,6 +130,12 @@ export class LightingPass extends RenderPass {
     );
 
     const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const pausedCameraInfo =
+      this.resourceCache.getUniformData("pausedCameraInfo") ?? cameraInfo;
+    const debugPauseMode =
+      this.resourceCache.getUniformData("debugPauseMode") ??
+      this.resourceCache.getUniformData("debugPause") ??
+      false;
     this.gl.uniformMatrix4fv(
       this.uniforms["viewInverse"],
       false,
@@ -135,6 +145,21 @@ export class LightingPass extends RenderPass {
       this.uniforms["projInverse"],
       false,
       cameraInfo.matProjInverse
+    );
+    this.gl.uniformMatrix4fv(
+      this.uniforms["pausedViewInverse"],
+      false,
+      pausedCameraInfo.matViewInverse
+    );
+    this.gl.uniformMatrix4fv(
+      this.uniforms["pausedProjInverse"],
+      false,
+      pausedCameraInfo.matProjInverse
+    );
+    this.gl.uniformMatrix4fv(
+      this.uniforms["pausedView"],
+      false,
+      pausedCameraInfo.matView
     );
     this.gl.uniform3fv(
       this.uniforms["cameraPosition"],
@@ -177,6 +202,10 @@ export class LightingPass extends RenderPass {
     this.gl.uniform1f(this.uniforms["shadowBias"], shadowBias);
     this.gl.uniform1i(this.uniforms["csmEnabled"], csmEnabled ? 1 : 0);
     this.gl.uniform1i(this.uniforms["cascadeDebug"], cascadeDebug ? 1 : 0);
+    this.gl.uniform1i(
+      this.uniforms["debugPauseMode"],
+      debugPauseMode ? 1 : 0
+    );
     this.gl.uniform1i(this.uniforms["showShadowMap"], showShadowMap ? 1 : 0);
     this.gl.uniform1i(this.uniforms["shadowMapCascade"], shadowMapCascade);
     this.gl.uniform1i(this.uniforms["shadowMapSize"], shadowMapSize);

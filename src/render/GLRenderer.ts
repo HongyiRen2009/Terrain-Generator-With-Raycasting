@@ -160,6 +160,16 @@ export class GLRenderer {
     this.resourceCache.setUniformData("CameraInfo", cameraInfo);
     this.resourceCache.setUniformData("nearFarPlanes", this.camera.getNearFarPlanes());
     this.resourceCache.setUniformData("cameraPosition", this.camera.position);
+
+    const debugPauseActive =
+      this.resourceCache.getUniformData("debugPauseMode") ??
+      this.resourceCache.getUniformData("debugPause") ??
+      false;
+    if (!debugPauseActive) {
+        this.resourceCache.setUniformData("pausedCameraInfo", cameraInfo);
+        this.resourceCache.setUniformData("pausedNearFarPlanes", this.camera.getNearFarPlanes());
+        this.resourceCache.setUniformData("pausedCameraPosition", this.camera.position);
+    }
   }
   public resizeGBuffer(width: number, height: number): void {
     this.canvas.width = width;
