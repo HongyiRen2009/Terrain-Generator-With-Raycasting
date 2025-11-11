@@ -250,14 +250,17 @@ export class PathTracer {
   }
 
   public init(showAccumulation: boolean = true) {
-    if (showAccumulation)
+    if (showAccumulation){
       this.debug.addElement("Accumulation Frame", () => this.frameNumber);
+      this.camera.farPlane = this.camera.pathtracingFarPlane;
+    }
     this.initPathtracing();
     this.makeVao();
     this.resetAccumulation();
   }
   public leave() {
     this.debug.removeElement("Accumulation Frame");
+    this.camera.farPlane = this.camera.rayTracingFarPlane;
   }
 
   private initPathtracing() {
