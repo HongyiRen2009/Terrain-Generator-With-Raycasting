@@ -16,9 +16,10 @@ export class SSAOBlurPass extends RenderPass {
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
     canvas: HTMLCanvasElement,
-    renderGraph?: RenderGraph
+    renderGraph?: RenderGraph,
+    name?: string
   ) {
-    super(gl, resourceCache, canvas, renderGraph);
+    super(gl, resourceCache, canvas, renderGraph, name);
     this.program = RenderUtils.CreateProgram(
       gl,
       SSAOBlurVertexShaderSource,

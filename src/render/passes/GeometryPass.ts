@@ -17,9 +17,10 @@ export class GeometryPass extends RenderPass {
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
     canvas: HTMLCanvasElement,
-    renderGraph?: RenderGraph
+    renderGraph?: RenderGraph,
+    name?: string
   ) {
-    super(gl, resourceCache, canvas, renderGraph);
+    super(gl, resourceCache, canvas, renderGraph, name);
     this.canvas = canvas;
     this.program = RenderUtils.CreateProgram(
       gl,

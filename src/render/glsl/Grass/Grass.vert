@@ -57,18 +57,19 @@ void main() {
 
     // Pass the curve direction to fragment shader
     vCurveDirection = vec3(cos(curveAngle), 0.0f, sin(curveAngle)) * sign(curveAmount);
+    // Calculate tangent along the blade (derivative of curved position)
+    // The tangent represents the direction the blade is pointing at this height
+    float heightStep = 0.01f; // Small delta for numerical derivative
+    float curveAmountNext = randomLean * (localPosition.y + heightStep);
+    mat3 rotCurveNext = rotateAxisAngle(curveAxis, curveAmountNext);
+    vec3 nextLocalPos = vec3(localPosition.x, localPosition.y + heightStep, localPosition.z);
+    vec3 nextPos = rotCurveNext * nextLocalPos;
 
-    vec3 normalCurveAxis = vec3(-sin(rotAngle), 0.0f, cos(rotAngle));
-    mat3 normalCurve = rotateAxisAngle(normalCurveAxis, curveAmount);
-    // Calculate the tangent along the blade's height
-    // For a curved blade, the tangent changes along its length
-    vec3 up = vec3(0.0f, 1.0f, 0.0f);
-    vec3 tangentUp = normalCurve * up;
+    vec3 tangent = normalize(nextPos - Pos);
 
-    // The normal is perpendicular to both the tangent and the blade direction
-    vec3 bladeDirection = vec3(cos(rotAngle), 0.0f, sin(rotAngle));
-    vNormal = normalize(cross(tangentUp, bladeDirection));
-
+    // The normal is perpendicular to both the tangent and the blade width direction
+    vec3 bladeWidthDirection = vec3(cos(rotAngle), 0.0f, sin(rotAngle));
+    vNormal = normalize(cross(tangent, bladeWidthDirection));
     gl_Position = projMatrix * viewMatrix * vec4(worldPosition, 1.0f);
 
     // Output depth for fragment shader

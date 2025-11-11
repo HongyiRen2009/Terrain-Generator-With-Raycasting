@@ -79,7 +79,20 @@ export class RenderGraph {
 
     return sorted;
   }
-
+  getUnmergedOutputs(renderPass: RenderPass): { [passId: string]: TextureMap } {
+    const deps = this.dependencies.get(renderPass);
+    const outputObj: { [passId: string]: TextureMap } = {};
+    if (!deps || deps.size === 0) {
+      return outputObj;
+    }
+    deps.forEach((pass) => {
+      const passTextures = pass.getRenderTarget()?.textures;
+      if (passTextures) {
+        outputObj[pass.name!] = passTextures; // assuming pass has an 'id' property
+      }
+    });
+    return outputObj;
+  }
   getOutputs(renderPass: RenderPass): { [key: string]: WebGLTexture } {
     const deps = this.dependencies.get(renderPass);
     if (!deps || deps.size === 0) {
@@ -99,5 +112,16 @@ export class RenderGraph {
 
   getRoots(): RenderPass[] {
     return Array.from(this.roots);
+  }
+
+  /** Get a pass by its name */
+  getPass(name: string): RenderPass | undefined {
+    for (const pass of Array.from(this.dependencies.keys())) {
+      if (pass.name === name) return pass;
+    }
+    for (const pass of Array.from(this.roots.keys())) {
+      if (pass.name === name) return pass;
+    }
+    return undefined;
   }
 }

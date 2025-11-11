@@ -17,9 +17,10 @@ export class LightingPass extends RenderPass {
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
     canvas: HTMLCanvasElement,
-    renderGraph?: RenderGraph
+    renderGraph?: RenderGraph,
+    name?: string
   ) {
-    super(gl, resourceCache, canvas, renderGraph);
+    super(gl, resourceCache, canvas, renderGraph, name);
     this.program = RenderUtils.CreateProgram(
       gl,
       LightingVertexShaderSource,
@@ -34,7 +35,33 @@ export class LightingPass extends RenderPass {
   }
 
   protected initRenderTarget(): RenderTarget {
-    return { fbo: null, textures: {} };
+    // Create framebuffer and texture for lit scene
+    const fbo = this.gl.createFramebuffer();
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+
+    const litSceneTexture = TextureUtils.createTexture2D(
+      this.gl,
+      this.canvas.width,
+      this.canvas.height,
+      this.gl.RGBA8,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE,
+      null,
+      this.gl.LINEAR,
+      this.gl.LINEAR,
+      this.gl.CLAMP_TO_EDGE,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.TEXTURE_2D,
+      litSceneTexture,
+      0
+    );
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+
+    return { fbo, textures: { litSceneTexture } };
   }
 
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
@@ -45,7 +72,8 @@ export class LightingPass extends RenderPass {
     const depthTexture = textures["depth"];
     const ssaoTexture = textures["ssaoBlur"];
 
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    // Bind lighting framebuffer
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
@@ -104,6 +132,7 @@ export class LightingPass extends RenderPass {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
     this.gl.bindVertexArray(null);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
 
   public resize(width: number, height: number): void {

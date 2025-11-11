@@ -19,11 +19,13 @@ export abstract class RenderPass {
   protected settingsSection: SettingsSection | null = null;
   public abstract pathtracerRender: boolean; // Do you render while pathtracing
   public abstract VAOInputType: VAOInputType;
+  public name?: string;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
     canvas: HTMLCanvasElement,
-    renderGraph?: RenderGraph
+    renderGraph?: RenderGraph,
+    name?: string
   ) {
     this.gl = gl;
     this.canvas = canvas;
@@ -32,6 +34,7 @@ export abstract class RenderPass {
     this.uniforms = {};
     this.resourceCache = resourceCache;
     this.renderGraph = renderGraph;
+    this.name = name;
   }
   protected abstract initRenderTarget(): RenderTarget;
 
