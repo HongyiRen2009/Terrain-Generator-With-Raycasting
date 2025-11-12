@@ -29,6 +29,9 @@ export class PathTracer {
   private meshProgram: WebGLProgram;
   private copyProgram: WebGLProgram;
 
+  private fullscreenVAO: WebGLVertexArrayObject | null = null;
+  private fullscreenVBO: WebGLBuffer | null = null;
+
   //Information
   private vertices: Float32Array = null!;
   private terrains: Float32Array = null!;
@@ -140,7 +143,7 @@ export class PathTracer {
 
   public drawMesh() {
     this.initPathtracing();
-    this.makeVao();
+    this.gl.bindVertexArray(this.fullscreenVAO);
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
@@ -227,26 +230,30 @@ export class PathTracer {
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-
+    this.gl.bindVertexArray(null);
     //draw other shaders
     this.glRenderer.render(true);
   }
 
   public makeVao() {
+    if (this.fullscreenVAO) return; // Already created once
+
     const fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
     const vao = this.gl.createVertexArray();
     this.gl.bindVertexArray(vao);
 
     const vbo = this.gl.createBuffer();
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
-    this.gl.bufferData(
-      this.gl.ARRAY_BUFFER,
-      fullscreenTriangle,
-      this.gl.STATIC_DRAW
-    );
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenTriangle, this.gl.STATIC_DRAW);
 
     this.gl.enableVertexAttribArray(0);
     this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+
+    this.fullscreenVAO = vao;
+    this.fullscreenVBO = vbo;
+
+    // Unbind to avoid polluting other pipelines
+    this.gl.bindVertexArray(null);
   }
 
   public init(showAccumulation: boolean = true) {

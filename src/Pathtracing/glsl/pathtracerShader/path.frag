@@ -520,7 +520,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
                 rayOrigin = hitPoint + rayDir * 0.01;
             }
             hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
-            vec3 absorption = -log(matColor);  // if matColor is tint
+            vec3 absorption = -log(matColor)*0.1;  // if matColor is tint
             throughput *= exp(-absorption * (minHitDistance)); //Beer Lambert law
         }else if (type == 5){ // Emissive
             color += throughput * matColor;
