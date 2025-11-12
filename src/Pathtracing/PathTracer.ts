@@ -49,6 +49,15 @@ export class PathTracer {
   private debug: DebugMenu;
   private glRenderer: GLRenderer;
 
+  private vertexTex?: WebGLTexture;
+  private terrainTex?: WebGLTexture;
+  private boundingBoxesTex?: WebGLTexture;
+  private nodesTex?: WebGLTexture;
+  private leafsTex?: WebGLTexture;
+  private terrainTypeTex?: WebGLTexture;
+  private vertexNormalsTex?: WebGLTexture;
+
+
   public constructor(
     canvas: HTMLCanvasElement,
     context: WebGL2RenderingContext,
@@ -142,8 +151,7 @@ export class PathTracer {
   }
 
   public drawMesh() {
-    this.initPathtracing();
-    this.gl.bindVertexArray(this.fullscreenVAO);
+    this.setupFrame();
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
@@ -261,7 +269,8 @@ export class PathTracer {
       this.debug.addElement("Accumulation Frame", () => this.frameNumber);
       this.camera.farPlane = this.camera.pathtracingFarPlane;
     }
-    this.initPathtracing();
+    this.initBVHTextures();
+    this.setupFrame();
     this.makeVao();
     this.resetAccumulation();
   }
@@ -269,70 +278,31 @@ export class PathTracer {
     this.debug.removeElement("Accumulation Frame");
     this.camera.farPlane = this.camera.rayTracingFarPlane;
   }
+  private initBVHTextures() {
+    if (this.vertexTex) return; // Already uploaded
 
-  private initPathtracing() {
+    this.vertexTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+    this.terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    this.boundingBoxesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+    this.nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+    this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+    this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+    this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+  }
+
+  private setupFrame() {
     this.gl.useProgram(this.meshProgram);
     //Textures
-    let verticeTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.vertices
-    );
-    let terrainTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.terrains
-    );
-    let boundingBoxesTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.boundingBoxes
-    );
-    let nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
-    let leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
-    let terrainTypeTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.terrainTypes
-    );
-    let vertexNormalsTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.vertexNormals
-    );
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex!, "u_vertices", 0);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex!, "u_terrains", 1);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.boundingBoxesTex!, "u_boundingBox", 2);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.nodesTex!, "u_nodesTex", 3);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, "u_leafsTex", 4);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, "u_terrainTypes", 5);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, "u_normals", 6);
 
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      verticeTex,
-      "u_vertices",
-      0
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      terrainTex,
-      "u_terrains",
-      1
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      boundingBoxesTex,
-      "u_boundingBox",
-      2
-    );
-    TextureUtils.bindTex(this.gl, this.meshProgram, nodesTex, "u_nodesTex", 3);
-    TextureUtils.bindTex(this.gl, this.meshProgram, leafsTex, "u_leafsTex", 4);
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      terrainTypeTex,
-      "u_terrainTypes",
-      5
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      vertexNormalsTex,
-      "u_normals",
-      6
-    );
+    //VAO
+    this.gl.bindVertexArray(this.fullscreenVAO);
   }
 
   private initBuffers() {
