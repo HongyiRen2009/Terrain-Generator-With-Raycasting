@@ -487,7 +487,9 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             throughput *= vec3(0.8); // decrease brightness a bit
             hasMirror = bounce;
         }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular
-            vec3 perfect = normalize(reflect(rayDir, smoothNormal));
+            vec3 useNormal = smoothNormal;
+            if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
+            vec3 perfect = normalize(reflect(rayDir, useNormal));
             rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);
             throughput *= matColor; //Switch to BDF later
             //Consider fresnel in the future
@@ -496,24 +498,30 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             float eta;
             vec3 transmissionNormal;
             if(didSwitch){ //exiting
-                eta = matRoughness / 1.0;
+                eta = reflectiveness / 1.0;
                 transmissionNormal = -smoothNormal; // Refract in the opposite direction
             }else{ //entering
-                eta = 1.0 / matRoughness;
+                eta = 1.0 / reflectiveness;
                 transmissionNormal = smoothNormal; // Refract in the same direction
             }
             vec3 refracted = refract(rayDir, transmissionNormal, eta);
             if (length(refracted) < 0.001) {
                 // TIR: fall back to mirror reflection
-                rayDir = normalize(reflect(rayDir, transmissionNormal));
+                vec3 useNormal = smoothNormal;
+                if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
+                rayDir = normalize(reflect(rayDir, useNormal));
                 rayOrigin = hitPoint + geometricNormal * 0.01;
             } else {
-                rayDir = normalize(refracted);
+                //Do microfacet
+                vec3 useNormal = smoothNormal;
+                if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
+                rayDir = sampleGlossyDirection(normalize(refracted), matRoughness, rng_state);
+
                 rayOrigin = hitPoint + rayDir * 0.01;
             }
             hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
-            vec3 absorption = (vec3(1.0) - matColor)*0.2;  // if matColor is tint
-            throughput *= exp(-absorption * (minHitDistance*0.2)); //Beer Lambert law
+            vec3 absorption = -log(matColor);  // if matColor is tint
+            throughput *= exp(-absorption * (minHitDistance)); //Beer Lambert law
         }else if (type == 5){ // Emissive
             color += throughput * matColor;
             break;

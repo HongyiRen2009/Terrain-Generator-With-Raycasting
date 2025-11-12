@@ -92,8 +92,10 @@ export interface Terrain {
     //Color doesn't matter
   3. Glossy (Microfacet Reflection)
     //Note: roughness 0 = perfect mirror, roughness 1 = diffuse
-  4. Transmission (Dielectric/Glass; Tinted Glass)
-    //Note: roughness refers to index of refraction
+    NOTE: COLORS MATTER A LOT. If "black spots" are showing up, increase brightness of other colors
+  4. Transmission (Dielectric/Glass; Tinted Glass, microfacet transmission)
+    // Roughness refers to the blurriness of the transmission. 0 = perfect clear glass, 1 = frosted glass 
+    //Note: reflectiveness refers to index of refraction
   5. Emission; Emissive surface (not as strong as regular light)
 
 
@@ -124,16 +126,16 @@ export const Terrains: { [id: number]: Terrain } = {
   },
   2: {
     // Glossy surface
-    color: new Color(255, 0, 0),
-    reflectiveness: 0.2,
-    roughness: 0.0,
+    color: new Color(255, 50, 50),
+    reflectiveness: 0.2,// Doesn't affect pathtracing
+    roughness: 0.5,
     type: 3
   },
   3: {
     // Tinted glass
-    color: new Color(100, 0, 0), //red tint
-    reflectiveness: 0.2,
-    roughness: 1.5, //Index of refraction (look up)
+    color: new Color(200, 0, 0), //red tint
+    reflectiveness: 1.5,//Index of refraction (look up)
+    roughness: 0.5, // Microfacet roughness
     type: 4
   },
   4: {
