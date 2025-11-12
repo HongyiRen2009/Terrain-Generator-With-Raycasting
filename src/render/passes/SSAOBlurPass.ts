@@ -25,7 +25,6 @@ export class SSAOBlurPass extends RenderPass {
       SSAOBlurVertexShaderSource,
       SSAOBlurFragmentShaderSource
     )!;
-    this.renderTarget = this.initRenderTarget();
     this.uniforms = getUniformLocations(gl, this.program!, ["enableBlur"]);
   }
 

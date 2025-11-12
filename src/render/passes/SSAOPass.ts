@@ -31,7 +31,6 @@ export class SSAOPass extends RenderPass {
       SSAOVertexShaderSource,
       SSAOFragmentShaderSource
     )!;
-    this.renderTarget = this.initRenderTarget();
     this.uniforms = getUniformLocations(gl, this.program!, [
       "proj",
       "projInverse",

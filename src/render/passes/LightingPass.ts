@@ -26,7 +26,6 @@ export class LightingPass extends RenderPass {
       LightingVertexShaderSource,
       LightingFragmentShaderSource
     )!;
-    this.renderTarget = this.initRenderTarget();
     this.uniforms = getUniformLocations(gl, this.program!, [
       "viewInverse",
       "projInverse",
@@ -59,9 +58,25 @@ export class LightingPass extends RenderPass {
       litSceneTexture,
       0
     );
+    const depthTexture = TextureUtils.createTexture2D(
+      this.gl,
+      this.canvas.width,
+      this.canvas.height,
+      this.gl.DEPTH_COMPONENT24,
+      this.gl.DEPTH_COMPONENT,
+      this.gl.UNSIGNED_INT
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.DEPTH_ATTACHMENT,
+      this.gl.TEXTURE_2D,
+      depthTexture,
+      0
+    );
+    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
 
-    return { fbo, textures: { litSceneTexture } };
+    return { fbo, textures: { litSceneTexture, lightingDepth: depthTexture } };
   }
 
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
@@ -136,8 +151,18 @@ export class LightingPass extends RenderPass {
   }
 
   public resize(width: number, height: number): void {
-    // LightingPass renders to default framebuffer, no resize needed
-    // But we need to update viewport
-    this.gl.viewport(0, 0, width, height);
+    // Delete old resources
+    if (this.renderTarget) {
+      if (this.renderTarget.fbo) {
+        this.gl.deleteFramebuffer(this.renderTarget.fbo);
+      }
+      if (this.renderTarget.textures) {
+        for (const texture of Object.values(this.renderTarget.textures)) {
+          this.gl.deleteTexture(texture);
+        }
+      }
+    }
+    // Recreate render target with new dimensions
+    this.renderTarget = this.initRenderTarget();
   }
 }

@@ -30,7 +30,7 @@ export abstract class RenderPass {
     this.gl = gl;
     this.canvas = canvas;
     this.program = null;
-    this.renderTarget = null;
+    this.renderTarget = this.initRenderTarget();
     this.uniforms = {};
     this.resourceCache = resourceCache;
     this.renderGraph = renderGraph;

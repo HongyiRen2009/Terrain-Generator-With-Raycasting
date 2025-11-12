@@ -12,6 +12,7 @@ import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
 import { mat4 } from "gl-matrix";
 import { GrassPass } from "./passes/GrassPass";
+import { FinalPass } from "./passes/FinalPass";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -78,7 +79,8 @@ export class GLRenderer {
       this.gl,
       this.resourceCache,
       this.canvas,
-      this.renderGraph
+      this.renderGraph,
+      "Terrain Lighting Pass"
     );
     const cloudsPass = new CloudsPass(
       this.gl,
@@ -92,14 +94,20 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const finalPass = new FinalPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     // Build render graph tree structure
     this.renderGraph.addRoot(geometryPass);
     this.renderGraph.add(ssaoPass, geometryPass);
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
     this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
-
-    this.renderGraph.add(grassPass, geometryPass);
-    this.renderGraph.add(cloudsPass, geometryPass, grassPass);
+    this.renderGraph.add(grassPass, lightingPass, geometryPass);
+    this.renderGraph.add(finalPass, lightingPass);
+    this.renderGraph.add(cloudsPass, lightingPass, geometryPass);
   }
 
   public render(pathtracerOn: boolean = false): void {

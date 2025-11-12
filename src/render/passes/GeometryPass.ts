@@ -27,7 +27,6 @@ export class GeometryPass extends RenderPass {
       geometryVertexShaderSource,
       geometryFragmentShaderSource
     )!;
-    this.renderTarget = this.initRenderTarget();
     this.uniforms = getUniformLocations(gl, this.program!, [
       "view",
       "proj",

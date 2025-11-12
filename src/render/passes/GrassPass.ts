@@ -297,6 +297,14 @@ export class GrassPass extends RenderPass {
     this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["depth"];
+    const lightingFBO = this.renderGraph!.getPass(
+      "Terrain Lighting Pass"
+    )?.getRenderTarget()?.fbo;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, lightingFBO!);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(true); // Write depth for grass
     // Set camera matrix
     const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
     if (cameraInfo) {
@@ -347,9 +355,6 @@ export class GrassPass extends RenderPass {
     TextureUtils.bindTex(gl, this.program!, depthTexture!, "depthTexture", 2);
 
     this.settingsSection?.updateUniforms(gl);
-
-    gl.enable(gl.DEPTH_TEST);
-    gl.depthFunc(gl.LEQUAL);
 
     const cameraPos = this.resourceCache.getUniformData("cameraPosition") as
       | vec3

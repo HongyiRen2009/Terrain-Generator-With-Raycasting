@@ -57,6 +57,7 @@ export class CloudsPass extends RenderPass {
     this.gl.bindVertexArray(vao.vao);
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["depth"];
+    const lightingDepthTexture = gBuffer["lightingDepth"];
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMin"),
       vec3.fromValues(-300, 100, -300)
@@ -86,6 +87,13 @@ export class CloudsPass extends RenderPass {
       depthTexture,
       "depthTexture",
       2
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      lightingDepthTexture,
+      "lightingDepthTexture",
+      3
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunPos"),
