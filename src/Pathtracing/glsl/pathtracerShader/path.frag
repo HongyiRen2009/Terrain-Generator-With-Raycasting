@@ -462,11 +462,11 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         vec3 geometricNormal = tri.triNormal;
         bool didSwitch = false;
-        if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;
+        if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal; //"same direction"
         if (dot(smoothNormal, geometricNormal) < 0.0) {
             smoothNormal = -smoothNormal;
             didSwitch = true;
-        }
+        } //If pointing in opposite directions, flip
 
         vec3 BRDF = matColor / PI;
         
@@ -476,12 +476,14 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
         if(type != 4) //Transmission goes through
-            rayOrigin = hitPoint + geometricNormal * 0.01;
+            rayOrigin = hitPoint + geometricNormal * 0.00001;
         if(type == 1){ //Diffuse
             rayDir = weightedDIR(smoothNormal, rng_state);
             throughput *= matColor;
         }else if (type == 2) { // Specular (mirror)
-            rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in
+            vec3 useNormal = smoothNormal;
+            if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
+            rayDir = normalize(reflect(useNormal,rayDir)); // Use built-in
             throughput *= vec3(0.8); // decrease brightness a bit
             hasMirror = bounce;
         }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular
