@@ -17,7 +17,6 @@ out vec3 vWorldPos;
 out float vHeight;
 out vec3 vNormal;
 out vec3 vCurveDirection;
-out float vFragDepth;
 
 const float PI = 3.14159265359f;
 mat3 rotateAxisAngle(vec3 axis, float angle) {
@@ -72,6 +71,4 @@ void main() {
     vNormal = normalize(cross(tangent, bladeWidthDirection));
     gl_Position = projMatrix * viewMatrix * vec4(worldPosition, 1.0f);
 
-    // Output depth for fragment shader
-    vFragDepth = gl_Position.z / gl_Position.w;
 }

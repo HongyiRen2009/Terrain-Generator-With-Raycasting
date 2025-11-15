@@ -119,6 +119,7 @@ export class GLRenderer {
 
     const vaosToRender = this._vaoManager.getVaosToRender();
     const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
+    const grassVAO = this._vaoManager.getGrassVAO();
 
     this.resourceCache.setUniformData("lights", this.world.lights);
 
@@ -135,6 +136,8 @@ export class GLRenderer {
         }
       } else if (pass.VAOInputType === VAOInputType.SCENE) {
         pass.render(vaosToRender, pathtracerOn);
+      } else if (pass.VAOInputType === VAOInputType.GRASS) {
+        pass.render(grassVAO!, pathtracerOn);
       } else if (pass.VAOInputType === VAOInputType.NONE) {
         pass.render([], pathtracerOn);
       }
@@ -160,6 +163,8 @@ export class GLRenderer {
     this.resourceCache.setUniformData("CameraInfo", cameraInfo);
     this.resourceCache.setUniformData("cameraPosition", this.camera.position);
     this.resourceCache.setUniformData("cameraDirection", this.camera.front);
+    this.resourceCache.setUniformData("nearPlane", this.camera.nearPlane);
+    this.resourceCache.setUniformData("farPlane", this.camera.farPlane);
   }
   public resizeGBuffer(width: number, height: number): void {
     this.canvas.width = width;

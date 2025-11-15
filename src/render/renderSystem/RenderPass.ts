@@ -1,4 +1,4 @@
-import { VaoInfo } from "./managers/VaoManager";
+import { GrassVAOInfo, VaoInfo } from "./managers/VaoManager";
 import { RenderTarget } from "./RenderTarget";
 import { ResourceCache } from "./managers/ResourceCache";
 import { RenderGraph } from "./RenderGraph";
@@ -6,6 +6,7 @@ import { SettingsSection } from "../../Settings";
 export enum VAOInputType {
   SCENE,
   FULLSCREENQUAD,
+  GRASS,
   NONE
 }
 export abstract class RenderPass {
@@ -43,7 +44,7 @@ export abstract class RenderPass {
   }
 
   public abstract render(
-    vao_info: VaoInfo | VaoInfo[],
+    vao_info: VaoInfo | VaoInfo[] | GrassVAOInfo,
     pathtracerOn: boolean
   ): void;
 

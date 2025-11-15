@@ -235,6 +235,7 @@ export class GameEngine {
     vec3.copy(oldCamPos, this.mainCamera.position);
 
     //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
+    if (this.keys["KeyF"]) velocity *= 4;
     if (this.keys["KeyW"])
       vec3.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
     if (this.keys["KeyS"])
@@ -247,6 +248,7 @@ export class GameEngine {
       vec3.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
     if (this.keys["ShiftLeft"])
       vec3.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
+
     vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
 
     if (!vec3.equals(this.mainCamera.position, oldCamPos)) {

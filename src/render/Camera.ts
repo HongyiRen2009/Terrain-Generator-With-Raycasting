@@ -11,6 +11,8 @@ export class Camera {
   right = vec3.fromValues(1, 0, 0);
   up = vec3.fromValues(0, 1, 0);
   speed: number;
+  nearPlane: number = 0.1;
+  farPlane: number = 100.0;
   constructor(position: vec3) {
     this.position = position;
 
@@ -55,8 +57,8 @@ export class Camera {
       matProj,
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
-      /* near, far= */ 0.1,
-      100.0
+      /* near, far= */ this.nearPlane,
+      this.farPlane
     );
     mat4.multiply(matViewProj, matProj, matView);
     return matViewProj;
@@ -69,8 +71,8 @@ export class Camera {
       matProj,
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
-      /* near, far= */ 0.1,
-      100.0
+      /* near, far= */ this.nearPlane,
+      this.farPlane
     );
     return { matView, matProj };
   }
