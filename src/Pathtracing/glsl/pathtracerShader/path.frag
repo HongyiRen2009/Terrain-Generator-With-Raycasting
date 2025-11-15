@@ -265,7 +265,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBaryc
     int closestHitIndex = -1;
     minHitDistance = 1.0/0.0; // Infinity
 
-    int stack[64]; // Stack of 64 - May need to change for larger BVH later
+    int stack[128]; // Stack of 64 - May need to change for larger BVH later
     int stackPtr = 0;
     stack[stackPtr++] = 0; // Push root node index
 
@@ -471,19 +471,27 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         vec3 BRDF = matColor / PI;
         
         //in the future consider NEE (Next Event Estimation) - Was removed cause buggy
-
+        //Next Event Estimation (Direct Lighting)]
+        if(type == 1){ //Diffuse only for now
+            Light lightSample = lights[0]; // Pick first light for now
+            vec3 toLight = lightSample.position - hitPoint;
+            float distToLight = length(toLight);
+            toLight = normalize(toLight);
+            
+        }
 
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
         if(type != 4) //Transmission goes through
-            rayOrigin = hitPoint + geometricNormal * 0.00001;
+            rayOrigin = hitPoint + geometricNormal * 0.1;
         if(type == 1){ //Diffuse
             rayDir = weightedDIR(smoothNormal, rng_state);
             throughput *= matColor;
         }else if (type == 2) { // Specular (mirror)
             vec3 useNormal = smoothNormal;
             if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
-            rayDir = normalize(reflect(useNormal,rayDir)); // Use built-in
+            vec3 perfect = normalize(reflect(rayDir, useNormal));
+            rayDir = perfect;
             throughput *= vec3(0.8); // decrease brightness a bit
             hasMirror = bounce;
         }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular
