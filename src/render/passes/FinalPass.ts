@@ -173,7 +173,7 @@ export class FinalPass extends RenderPass {
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const textures = this.renderGraph!.getOutputs(this);
-    const colorTexture = textures["litSceneTexture"];
+    const colorTexture = textures["finalTexture"];
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.program);

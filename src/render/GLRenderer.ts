@@ -106,8 +106,8 @@ export class GLRenderer {
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
     this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
     this.renderGraph.add(grassPass, lightingPass, geometryPass);
-    this.renderGraph.add(finalPass, lightingPass);
     this.renderGraph.add(cloudsPass, lightingPass, geometryPass);
+    this.renderGraph.add(finalPass, cloudsPass);
   }
 
   public render(pathtracerOn: boolean = false): void {

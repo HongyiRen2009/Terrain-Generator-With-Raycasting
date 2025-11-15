@@ -13,6 +13,7 @@ import { RenderGraph } from "../renderSystem/RenderGraph";
 import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { vec3 } from "gl-matrix";
+import { text } from "express";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = true;
@@ -44,13 +45,45 @@ export class CloudsPass extends RenderPass {
     ]);
   }
   protected initRenderTarget(): RenderTarget {
-    return { fbo: null, textures: {} };
+    const fbo = this.gl.createFramebuffer();
+    const colorTexture = TextureUtils.createTexture2D(
+      this.gl,
+      this.canvas.width,
+      this.canvas.height,
+      this.gl.RGBA8,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE,
+      null,
+      this.gl.LINEAR,
+      this.gl.LINEAR,
+      this.gl.CLAMP_TO_EDGE,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.TEXTURE_2D,
+      colorTexture,
+      0
+    );
+    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    return {
+      fbo: fbo,
+      textures: {
+        finalTexture: colorTexture!
+      }
+    };
   }
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    this.gl.enable(this.gl.BLEND);
-    this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
+    this.gl.disable(this.gl.BLEND);
+    if (this.pathtracerRender || !pathtracerOn) {
+      this.gl.clearColor(0, 0, 0, 1.0);
+      this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    }
     this.gl.depthMask(false);
     this.gl.disable(this.gl.DEPTH_TEST);
     this.gl.useProgram(this.program);
@@ -58,6 +91,7 @@ export class CloudsPass extends RenderPass {
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["depth"];
     const lightingDepthTexture = gBuffer["lightingDepth"];
+    const litSceneTexture = gBuffer["litSceneTexture"];
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMin"),
       vec3.fromValues(-300, 100, -300)
@@ -94,6 +128,13 @@ export class CloudsPass extends RenderPass {
       lightingDepthTexture,
       "lightingDepthTexture",
       3
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      litSceneTexture,
+      "litSceneTexture",
+      4
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunPos"),
@@ -322,10 +363,21 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
   }
-  public resize(width: number, height: number): void {
-    // LightingPass renders to default framebuffer, no resize needed
-    // But we need to update viewport
-    this.gl.viewport(0, 0, width, height);
+  public resize(): void {
+    // Delete old resources
+    if (this.renderTarget) {
+      if (this.renderTarget.fbo) {
+        this.gl.deleteFramebuffer(this.renderTarget.fbo);
+      }
+      if (this.renderTarget.textures) {
+        for (const texture of Object.values(this.renderTarget.textures)) {
+          this.gl.deleteTexture(texture);
+        }
+      }
+    }
+
+    // Recreate render target with new dimensions
+    this.renderTarget = this.initRenderTarget();
   }
 }
 class NoiseGenerator {

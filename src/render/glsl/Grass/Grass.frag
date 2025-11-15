@@ -12,6 +12,9 @@ out vec4 fragColor;
 uniform vec4 wireframeColor;
 uniform vec3 sunPos;
 uniform vec3 viewDir;
+uniform float specularStrength;
+uniform float shininess;
+uniform float translucencyStrength; // Add this uniform for control
 void main() {
     // Convert fragment coordinates to texture coordinates
     vec2 screenCoord = gl_FragCoord.xy / vec2(textureSize(depthTexture, 0));
@@ -39,7 +42,8 @@ void main() {
     float curveViewDot = dot(curveDirection, toCamera);
     bool isInnerCurve = curveViewDot > 0.0f;
 
-    vec3 lightDir = vWorldPos - sunPos;
+    vec3 lightDir = normalize(sunPos - vWorldPos);
+    vec3 viewDirection = normalize(-viewDir);
 
     // Simple gradient color from base to tip
     vec3 baseColor = vec3(0.1f, 0.4f, 0.1f);
@@ -51,11 +55,21 @@ void main() {
     // Flip normal based on which side we're viewing
     vec3 normal = normalize(vNormal) * (isInnerCurve ? -1.0f : 1.0f);
 
-    float diffuse = max(dot(normalize(normal), normalize(lightDir)), 0.0f);
+    // Diffuse lighting
+    float diffuse = max(dot(normal, lightDir), 0.0f);
     grassColor *= 0.7f + 0.3f * diffuse;
 
-    // Debug: show outer curve in green, inner in red
-    //fragColor = vec4(isInnerCurve ? vec3(1, 0, 0) : vec3(0, 1, 0), 1.0f);
+    // Specular lighting
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDirection, reflectDir), 0.0f), shininess);
+    vec3 specular = specularStrength * spec * vec3(1.0f);
+
+    grassColor += specular;
+
+    // Translucency (subsurface/backlight)
+    float translucency = max(dot(-lightDir, normal), 0.0f);
+    vec3 transColor = vec3(0.7f, 1.0f, 0.5f); // Bright greenish backlight
+    grassColor += transColor * translucency * translucencyStrength;
 
     fragColor = vec4(grassColor, 1.0f);
 }

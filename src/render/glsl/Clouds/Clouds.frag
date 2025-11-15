@@ -12,6 +12,7 @@ uniform sampler3D noiseTexture;
 uniform sampler2D weatherMap;
 uniform sampler2D depthTexture;
 uniform sampler2D lightingDepthTexture;
+uniform sampler2D litSceneTexture;
 uniform vec3 sunPos;
 uniform vec3 sunColor;
 
@@ -167,8 +168,10 @@ vec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {
 }
 
 void main() {
+    vec4 lit = vec4(texture(litSceneTexture, fragUV).rgb, 1.0f);
+
     if(!enableClouds) {
-        fragColor = vec4(0.0f);
+        fragColor = lit;
         return;
     }
     vec2 uv = fragUV * 2.0f - 1.0f;
@@ -194,7 +197,7 @@ void main() {
     vec2 dsts = rayBoxDst(cubeMin, cubeMax, rayOriginWorld, 1.0f / rayDirWorld);
 
     if(dsts.y <= 0.0f) {
-        fragColor = vec4(0.0f);
+        fragColor = lit;
         return;
     }
 
@@ -203,7 +206,7 @@ void main() {
 
     // If terrain is in front of cloud box, don't render clouds
     if(tNear >= distanceToTerrain) {
-        fragColor = vec4(0.0f);
+        fragColor = lit;
         return;
     }
 
@@ -266,6 +269,5 @@ void main() {
         if(accumulatedColor.a > ALPHA_THRESHOLD)
             break;
     }
-    fragColor = accumulatedColor;
-
+    fragColor = vec4(accumulatedColor.rgb + lit.rgb * (1.0f - accumulatedColor.a), 1.0f);
 }

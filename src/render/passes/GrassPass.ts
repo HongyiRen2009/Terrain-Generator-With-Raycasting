@@ -81,6 +81,30 @@ export class GrassPass extends RenderPass {
       this.program!
     );
     this.settingsSection.addSlider({
+      id: "specularStrength",
+      label: "Specular Strength",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.3
+    });
+    this.settingsSection.addSlider({
+      id: "shininess",
+      label: "Shininess",
+      min: 1,
+      max: 100,
+      step: 1,
+      defaultValue: 32
+    });
+    this.settingsSection.addSlider({
+      id: "translucencyStrength",
+      label: "Translucency Strength",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.25
+    });
+    this.settingsSection.addSlider({
       id: "windStrength",
       label: "Wind Strength",
       min: 0,
