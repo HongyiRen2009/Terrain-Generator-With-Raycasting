@@ -30,7 +30,6 @@ uniform bool debugPauseMode;
 uniform bool showShadowMap;
 uniform int shadowMapCascade;
 uniform bool showCameraDepth;
-uniform int useNormalEncoding;
 
 struct PointLight {
     vec3 position;
@@ -195,14 +194,7 @@ void main() {
         return;
     }
     
-    vec3 encodedNormal = texture(normalTexture, fragUV).rgb;
-    vec3 viewNormal;
-    if (useNormalEncoding == 1) {
-        // Decode normal from [0, 1] back to [-1, 1]
-        viewNormal = normalize(encodedNormal * 2.0 - 1.0);
-    } else {
-        viewNormal = normalize(encodedNormal);
-    }
+    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);
     vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);
 
     vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);

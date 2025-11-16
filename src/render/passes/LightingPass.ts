@@ -47,7 +47,6 @@ export class LightingPass extends RenderPass {
       "shadowMapCascade",
       "shadowMapSize",
       "showCameraDepth",
-      "useNormalEncoding",
       "numCascades"
     ]);
     this.InitSettings();
@@ -178,7 +177,6 @@ export class LightingPass extends RenderPass {
     const shadowMapCascade = this.resourceCache.getUniformData("shadowMapCascade") ?? 0;
     const shadowMapSize = this.resourceCache.getUniformData("shadowMapSize") ?? 4096;
     const showCameraDepth = this.resourceCache.getUniformData("showCameraDepth") ?? false;
-    const useNormalEncoding = this.resourceCache.getUniformData("useNormalEncoding") ?? false;
     
     this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
     // Upload shadowBias as array uniform
@@ -195,7 +193,6 @@ export class LightingPass extends RenderPass {
     this.gl.uniform1i(this.uniforms["shadowMapCascade"], shadowMapCascade);
     this.gl.uniform1i(this.uniforms["shadowMapSize"], shadowMapSize);
     this.gl.uniform1i(this.uniforms["showCameraDepth"], showCameraDepth ? 1 : 0);
-    this.gl.uniform1i(this.uniforms["useNormalEncoding"], useNormalEncoding ? 1 : 0);
     this.gl.uniform1i(this.uniforms["numCascades"], numCascades);
 
     WorldUtils.updateLights(

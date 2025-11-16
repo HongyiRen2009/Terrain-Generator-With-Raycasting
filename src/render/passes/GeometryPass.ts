@@ -12,7 +12,6 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 
 export class GeometryPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.SCENE;
-  private useNormalEncoding: boolean = false;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -30,8 +29,7 @@ export class GeometryPass extends RenderPass {
     this.uniforms = getUniformLocations(gl, this.program!, [
       "view",
       "proj",
-      "model",
-      "useNormalEncoding"
+      "model"
     ]);
   }
 
@@ -52,24 +50,14 @@ export class GeometryPass extends RenderPass {
       normalInternalFormat = this.gl.RGBA16F;
       normalFormat = this.gl.RGBA;
       normalType = this.gl.FLOAT;
-      this.useNormalEncoding = false;
     } else if (halfFloatExt) {
       // Use half float precision
       normalInternalFormat = this.gl.RGBA16F;
       normalFormat = this.gl.RGBA;
       normalType = this.gl.HALF_FLOAT;
-      this.useNormalEncoding = false;
     } else {
-      // Fallback to RGBA8 with normal encoding (normal * 0.5 + 0.5)
-      console.warn("[GeometryPass] Floating point render targets not supported. Using RGBA8 with normal encoding.");
-      normalInternalFormat = this.gl.RGBA8;
-      normalFormat = this.gl.RGBA;
-      normalType = this.gl.UNSIGNED_BYTE;
-      this.useNormalEncoding = true;
+      throw new Error("[GeometryPass] Floating point render targets not supported. EXT_color_buffer_float or EXT_color_buffer_half_float required.");
     }
-    
-    // Store in resource cache for other passes to use
-    this.resourceCache.setUniformData("useNormalEncoding", this.useNormalEncoding);
 
     const normalTexture = TextureUtils.createTexture2D(
       this.gl,
@@ -171,7 +159,6 @@ export class GeometryPass extends RenderPass {
     const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
     this.gl.uniformMatrix4fv(this.uniforms["view"], false, cameraInfo.matView);
     this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
-    this.gl.uniform1i(this.uniforms["useNormalEncoding"], this.useNormalEncoding ? 1 : 0);
 
     for (const vaoInfo of vaosToRender) {
       this.gl.bindVertexArray(vaoInfo.vao);

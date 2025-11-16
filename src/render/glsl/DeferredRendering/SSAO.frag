@@ -13,7 +13,6 @@ uniform mat4 projInverse;
 uniform float radius;
 uniform float bias;
 uniform bool enableSSAO;
-uniform int useNormalEncoding;
 vec3 getViewPosition(vec2 texCoord) {
     float depth = texture(depthTexture, texCoord).r;
     vec2 ndc = texCoord * 2.0f - 1.0f;
@@ -32,14 +31,8 @@ void main() {
     
     vec3 fragPos = getViewPosition(fragUV);
     
-    // Decode normal if it's encoded
-    vec3 encodedNormal = texture(normalTexture, fragUV).rgb;
-    vec3 normal;
-    if (useNormalEncoding == 1) {
-        normal = normalize(encodedNormal * 2.0f - 1.0f);
-    } else {
-        normal = normalize(encodedNormal);
-    }
+    // Read normal directly from floating point texture
+    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);
     
     // Use pixel coordinates with modulo to avoid floating point precision issues and grid artifacts
     // This ensures the noise texture tiles smoothly without visible patterns
