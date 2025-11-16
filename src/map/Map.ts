@@ -36,11 +36,11 @@ export class WorldMap {
   ];
 
   public height: number;
-  public resolution = 64; //#of vertices square size of chunk
+  public resolution = 16; //#of vertices square size of chunk
   public chunks: Chunk[];
   public fieldMap: Map<string, number>;
   public Workers: Worker[] = [];
-  public seed: number = 10; // Random seed for noise generation
+  public seed: number = Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
 
   public worldObjects: WorldObject[] = [];
   gl: WebGL2RenderingContext;
@@ -81,6 +81,26 @@ export class WorldMap {
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
   }
 
+  /**
+   * Clean up resources associated with the map (terminate workers, clear data).
+   */
+  public dispose(): void {
+    if (this.Workers && this.Workers.length > 0) {
+      for (const w of this.Workers) {
+        try {
+          w.terminate();
+        } catch (e) {
+          // ignore termination errors
+        }
+      }
+      this.Workers = [];
+    }
+    // Clear other large structures
+    this.chunks = [];
+    this.fieldMap.clear();
+    this.worldObjects = [];
+  }
+
   public populateFieldMap() {
     for (const chunk of this.chunks) {
       for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
@@ -96,14 +116,14 @@ export class WorldMap {
     this.chunks = [];
     let worker = 0;
 
-    for (let i = 0; i < 2; i++)
-      for (let j = 0; j < 2; j++) {
+    for (let i = 0; i < 7; i++)
+      for (let j = 0; j < 7; j++) {
         this.chunks.push(
           new Chunk(
             vec2.fromValues(i * this.resolution, j * this.resolution),
             vec3.fromValues(this.resolution, this.height, this.resolution),
             this.seed,
-            this.Workers[worker++]
+            this.Workers[worker++ % navigator.hardwareConcurrency]
           )
         );
       }
@@ -177,6 +197,7 @@ export class WorldMap {
   }
 
   public onObjectAdded?: (obj: WorldObject) => void;
+  public onObjectRemoved?: (id: number) => void;
 
   /**
    * Add an object to the game world

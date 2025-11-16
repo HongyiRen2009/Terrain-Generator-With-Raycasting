@@ -28,9 +28,14 @@ export class PathTracer {
   //Shaders
   private meshProgram: WebGLProgram;
   private copyProgram: WebGLProgram;
-
+  // VAO/VBO for fullscreen triangle
   private fullscreenVAO: WebGLVertexArrayObject | null = null;
   private fullscreenVBO: WebGLBuffer | null = null;
+
+  // bound event handlers so we can remove listeners
+  private boundHandleBounce: ((e: Event) => void) | null = null;
+  // Textures created for pathtracing data (vertices, bvh, etc.)
+  private pathDataTextures: WebGLTexture[] = [];
 
   //Information
   private vertices: Float32Array = null!;
@@ -97,7 +102,8 @@ export class PathTracer {
     //Slider
     const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
 
-    slider.addEventListener("input", this.handleBounceInput.bind(this));
+  this.boundHandleBounce = this.handleBounceInput.bind(this);
+  slider.addEventListener("input", this.boundHandleBounce);
     slider.value = this.numBounces.toString();
     const bounceValue = document.getElementById(
       "bounceValue"
@@ -151,7 +157,8 @@ export class PathTracer {
   }
 
   public drawMesh() {
-    this.setupFrame();
+    // initPathtracing and makeVao are done during init() / initBVH to avoid
+    // recreating GPU resources every frame.
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
@@ -211,6 +218,7 @@ export class PathTracer {
       this.gl.FRAMEBUFFER,
       this.framebuffers[nextFrameIndex]
     );
+    if (this.fullscreenVAO) this.gl.bindVertexArray(this.fullscreenVAO);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
 
@@ -234,17 +242,18 @@ export class PathTracer {
     );
     this.gl.uniform1f(frameLoc, this.frameNumber);
 
-    // We can reuse the same fullscreen triangle VAO
-    this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-    this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-    this.gl.bindVertexArray(null);
+  // We can reuse the same fullscreen triangle VAO
+  if (this.fullscreenVAO) this.gl.bindVertexArray(this.fullscreenVAO);
+  this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
+  this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+  this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+
     //draw other shaders
     this.glRenderer.render(true);
   }
 
   public makeVao() {
-    if (this.fullscreenVAO) return; // Already created once
+    if (this.fullscreenVAO) return; // already created
 
     const fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
     const vao = this.gl.createVertexArray();
@@ -292,22 +301,54 @@ export class PathTracer {
 
   private setupFrame() {
     this.gl.useProgram(this.meshProgram);
-    //Textures
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex!, "u_vertices", 0);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex!, "u_terrains", 1);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.boundingBoxesTex!, "u_boundingBox", 2);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.nodesTex!, "u_nodesTex", 3);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, "u_leafsTex", 4);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, "u_terrainTypes", 5);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, "u_normals", 6);
+    // Delete old path data textures if any
+    if (this.pathDataTextures.length > 0) {
+      for (const t of this.pathDataTextures) this.gl.deleteTexture(t);
+      this.pathDataTextures = [];
+    }
 
-    //VAO
-    this.gl.bindVertexArray(this.fullscreenVAO);
+    //Textures
+    const verticeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+    const terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    const boundingBoxesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+    const nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+    const leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+    const terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+    const vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+
+    this.pathDataTextures.push(
+      verticeTex,
+      terrainTex,
+      boundingBoxesTex,
+      nodesTex,
+      leafsTex,
+      terrainTypeTex,
+      vertexNormalsTex
+    );
+
+    TextureUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
+    TextureUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
+    TextureUtils.bindTex(this.gl, this.meshProgram, boundingBoxesTex, "u_boundingBox", 2);
+    TextureUtils.bindTex(this.gl, this.meshProgram, nodesTex, "u_nodesTex", 3);
+    TextureUtils.bindTex(this.gl, this.meshProgram, leafsTex, "u_leafsTex", 4);
+    TextureUtils.bindTex(this.gl, this.meshProgram, terrainTypeTex, "u_terrainTypes", 5);
+    TextureUtils.bindTex(this.gl, this.meshProgram, vertexNormalsTex, "u_normals", 6);
   }
 
   private initBuffers() {
-    this.accumulationTextures = [];
-    this.framebuffers = [];
+    // Delete old textures/framebuffers if present
+    if (this.accumulationTextures && this.accumulationTextures.length > 0) {
+      for (const tex of this.accumulationTextures) {
+        if (tex) this.gl.deleteTexture(tex);
+      }
+      this.accumulationTextures = [];
+    }
+    if (this.framebuffers && this.framebuffers.length > 0) {
+      for (const fbo of this.framebuffers) {
+        if (fbo) this.gl.deleteFramebuffer(fbo);
+      }
+      this.framebuffers = [];
+    }
     for (let i = 0; i < 2; ++i) {
       // Create a texture to store the accumulated image
       const texture = this.gl.createTexture();
@@ -363,5 +404,39 @@ export class PathTracer {
   public resetAccumulation() {
     this.frameNumber = 0;
     this.initBuffers();
+  }
+
+  public dispose() {
+    // delete accumulation textures/framebuffers
+    if (this.accumulationTextures) {
+      for (const tex of this.accumulationTextures) {
+        if (tex) this.gl.deleteTexture(tex);
+      }
+      this.accumulationTextures = [];
+    }
+    if (this.framebuffers) {
+      for (const fbo of this.framebuffers) {
+        if (fbo) this.gl.deleteFramebuffer(fbo);
+      }
+      this.framebuffers = [];
+    }
+    // delete programs
+    if (this.meshProgram) this.gl.deleteProgram(this.meshProgram);
+    if (this.copyProgram) this.gl.deleteProgram(this.copyProgram);
+    // delete fullscreen VAO/VBO
+    if (this.fullscreenVAO) {
+      this.gl.deleteVertexArray(this.fullscreenVAO);
+      this.fullscreenVAO = null;
+    }
+    if (this.fullscreenVBO) {
+      this.gl.deleteBuffer(this.fullscreenVBO);
+      this.fullscreenVBO = null;
+    }
+    // remove slider listener
+    const slider = document.getElementById("bounceSlider") as HTMLInputElement;
+    if (slider && this.boundHandleBounce) {
+      slider.removeEventListener("input", this.boundHandleBounce);
+      this.boundHandleBounce = null;
+    }
   }
 }

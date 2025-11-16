@@ -255,7 +255,6 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-console.log("Worker started");
 var WorldFieldMap = new Map();
 var globalChunkPosition;
 function chunkCoordinateToIndex(c, gridSize) {
@@ -263,28 +262,40 @@ function chunkCoordinateToIndex(c, gridSize) {
         c[1] * (gridSize[0] + 1) +
         c[2] * (gridSize[0] + 1) * (gridSize[1] + 1));
 }
-function noiseFunction(c, simplex) {
-    var frequency = 0.07;
-    var noiseValue = simplex(c[0] * frequency, c[1] * frequency, c[2] * frequency);
-    var normalizedNoise = (noiseValue + 1) / 2;
-    var heightParameter = 1 / Math.pow(1.07, c[1]);
-    var floor = +(c[1] === 0);
-    return Math.max(normalizedNoise * heightParameter, floor);
-}
-function GenerateCase(cubeCoordinates) {
-    /*
-        Given the coordinate of a cube in the world,
-        return the corresponding index into the marching cubes lookup.
-        Involves looking at each of the eight vertices.
-      */
-    var caseIndex = 0;
-    for (var i = 0; i < _geometry__WEBPACK_IMPORTED_MODULE_4__.VERTICES.length; i++) {
-        var vertexOffset = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues.apply(gl_matrix__WEBPACK_IMPORTED_MODULE_5__, _geometry__WEBPACK_IMPORTED_MODULE_4__.VERTICES[i]);
-        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(vertexOffset, vertexOffset, cubeCoordinates);
-        var isTerrain = Number(solidChecker(getFieldValue(vertexOffset)));
-        caseIndex += isTerrain << i;
+// FIXED — now takes simplex and simplexOverhang
+function noiseFunction(c, simplex, simplexOverhang) {
+    var hillFreq = 0.02;
+    var mountainFreq = 0.005;
+    var caveFreq = 0.05;
+    var waterLevel = 30;
+    function fractalNoise(c, oct, freq, amp) {
+        var total = 0;
+        var max = 0;
+        var f = freq;
+        var a = amp;
+        for (var i = 0; i < oct; i++) {
+            total += simplex(c[0] * f, c[1] * f, c[2] * f) * a;
+            max += a;
+            f *= 2;
+            a /= 2;
+        }
+        return total / max;
     }
-    return caseIndex;
+    var hillNoise = fractalNoise(c, 4, hillFreq, 1);
+    var hillHeight = hillNoise * 40 + 50;
+    var ridgeVal = 1 - Math.abs(fractalNoise(c, 3, mountainFreq, 1));
+    var mountainHeight = Math.pow(ridgeVal, 2) * 120;
+    var terrainHeight = hillHeight * 0.6 + mountainHeight * 0.4;
+    terrainHeight = Math.floor(terrainHeight / 5) * 5;
+    var density = terrainHeight - c[1];
+    var caveNoise = fractalNoise(c, 3, caveFreq, 1);
+    density -= Math.max(0, (caveNoise - 0.5) * 60 * Math.max(0, 1 - c[1] / 100));
+    var overhang = simplexOverhang(c[0] * 0.03, c[1] * 0.03, c[2] * 0.03);
+    if (overhang > 0.2)
+        density -= (overhang - 0.2) * 30;
+    if (c[1] < waterLevel)
+        density = Math.min(density, waterLevel - c[1]);
+    return Math.max(0, Math.min(1, (density + 100) / 200));
 }
 function solidChecker(a) {
     return a > 0.5;
@@ -295,21 +306,14 @@ function getFieldValue(c) {
     gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(newVector, c, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(globalChunkPosition[0], 0, globalChunkPosition[1]));
     return (_a = WorldFieldMap.get((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(newVector))) !== null && _a !== void 0 ? _a : 0;
 }
-function caseToMesh(c, caseNumber, gridSize) {
-    var caseMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
-    var caseLookup = _geometry__WEBPACK_IMPORTED_MODULE_4__.CASES[caseNumber];
-    for (var _i = 0, caseLookup_1 = caseLookup; _i < caseLookup_1.length; _i++) {
-        var triangleLookup = caseLookup_1[_i];
-        // each triangle is represented as list of the three edges which it is located on
-        // for now, place the actual triangle's vertices as the midpoint of the edge
-        var vertices = triangleLookup.map(function (edgeIndex) {
-            return edgeIndexToCoordinate(c, edgeIndex);
-        });
-        // Add triangle with both position and normal information
-        caseMesh.addTriangle(vertices.map(function (v) { return v.position; }), vertices.map(function (v) { return v.normal; }), [0, 0, 0] // Placeholder terrain types; will be updated later
-        );
+function GenerateCase(cube) {
+    var caseIndex = 0;
+    for (var i = 0; i < _geometry__WEBPACK_IMPORTED_MODULE_4__.VERTICES.length; i++) {
+        var v = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues.apply(gl_matrix__WEBPACK_IMPORTED_MODULE_5__, _geometry__WEBPACK_IMPORTED_MODULE_4__.VERTICES[i]);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(v, v, cube);
+        caseIndex += Number(solidChecker(getFieldValue(v))) << i;
     }
-    return caseMesh;
+    return caseIndex;
 }
 function edgeIndexToCoordinate(c, edgeIndex) {
     var _a = _geometry__WEBPACK_IMPORTED_MODULE_4__.EDGES[edgeIndex], a = _a[0], b = _a[1];
@@ -317,83 +321,80 @@ function edgeIndexToCoordinate(c, edgeIndex) {
     var v2 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues.apply(gl_matrix__WEBPACK_IMPORTED_MODULE_5__, _geometry__WEBPACK_IMPORTED_MODULE_4__.VERTICES[b]);
     gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(v1, v1, c);
     gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(v2, v2, c);
-    // Get terrain values using the field array
     var value1 = getFieldValue(v1);
     var value2 = getFieldValue(v2);
-    // Calculate normals using central differences and the noise function
     var normal1 = calculateNormal(v1);
     var normal2 = calculateNormal(v2);
-    var lerpAmount = (value1 - 0.5) / (value1 - 0.5 - (value2 - 0.5));
-    var position = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
-    var normal = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
-    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.lerp(position, v1, v2, lerpAmount);
-    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.lerp(normal, normal1, normal2, lerpAmount);
-    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(normal, normal);
-    return { position: position, normal: normal };
+    var t = (value1 - 0.5) / (value1 - 0.5 - (value2 - 0.5));
+    var p = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+    var n = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.lerp(p, v1, v2, t);
+    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.lerp(n, normal1, normal2, t);
+    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(n, n);
+    return { position: p, normal: n };
 }
-// Helper for normal calculation
-// Helper for normal calculation
-function calculateNormal(vertex) {
-    var delta = 1.0;
-    var normal = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
-    // Calculate gradients using central differences
-    // X gradient
-    var x1 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(vertex[0] + delta, vertex[1], vertex[2]);
-    var x2 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(vertex[0] - delta, vertex[1], vertex[2]);
-    normal[0] = getFieldValue(x1) - getFieldValue(x2);
-    // Y gradient
-    var y1 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(vertex[0], vertex[1] + delta, vertex[2]);
-    var y2 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(vertex[0], vertex[1] - delta, vertex[2]);
-    normal[1] = getFieldValue(y1) - getFieldValue(y2);
-    // Z gradient
-    var z1 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(vertex[0], vertex[1], vertex[2] + delta);
-    var z2 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(vertex[0], vertex[1], vertex[2] - delta);
-    normal[2] = getFieldValue(z1) - getFieldValue(z2);
-    // Negate and normalize the normal
-    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.negate(normal, normal);
-    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(normal, normal);
-    return normal;
+function calculateNormal(v) {
+    var d = 1.0;
+    var n = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+    n[0] =
+        getFieldValue(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(v[0] + d, v[1], v[2])) -
+            getFieldValue(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(v[0] - d, v[1], v[2]));
+    n[1] =
+        getFieldValue(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(v[0], v[1] + d, v[2])) -
+            getFieldValue(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(v[0], v[1] - d, v[2]));
+    n[2] =
+        getFieldValue(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(v[0], v[1], v[2] + d)) -
+            getFieldValue(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(v[0], v[1], v[2] - d));
+    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.negate(n, n);
+    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(n, n);
+    return n;
+}
+function caseToMesh(c, caseNumber, gridSize) {
+    var caseMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
+    var caseLookup = _geometry__WEBPACK_IMPORTED_MODULE_4__.CASES[caseNumber];
+    for (var _i = 0, caseLookup_1 = caseLookup; _i < caseLookup_1.length; _i++) {
+        var triangleLookup = caseLookup_1[_i];
+        var vertices = triangleLookup.map(function (edgeIndex) {
+            return edgeIndexToCoordinate(c, edgeIndex);
+        });
+        caseMesh.addTriangle(vertices.map(function (v) { return v.position; }), vertices.map(function (v) { return v.normal; }), [0, 0, 0]);
+    }
+    return caseMesh;
 }
 self.onmessage = function (event) {
     var _a = event.data, Seed = _a.Seed, GridSize = _a.GridSize, ChunkPosition = _a.ChunkPosition, generatingTerrain = _a.generatingTerrain, worldFieldMap = _a.worldFieldMap;
     globalChunkPosition = ChunkPosition;
     var prng = alea__WEBPACK_IMPORTED_MODULE_1___default()(Seed);
     var simplex = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_0__.createNoise3D)(prng);
+    var simplexOverhang = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_0__.createNoise3D)(prng); // FIXED — create 2nd noise field
     if (generatingTerrain) {
         var field = new Float32Array((GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1));
-        var fieldMap = new Map();
-        // Generate noise field
+        var map = new Map();
         for (var x = 0; x <= GridSize[0]; x++) {
             for (var y = 0; y <= GridSize[1]; y++) {
                 for (var z = 0; z <= GridSize[2]; z++) {
                     var c = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z);
-                    // Offset by chunk position
                     gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(c, c, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(ChunkPosition[0], 0, ChunkPosition[1]));
                     var idx = chunkCoordinateToIndex(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z), GridSize);
-                    var value = noiseFunction(c, simplex);
+                    var value = noiseFunction(c, simplex, simplexOverhang);
                     field[idx] = value;
-                    fieldMap.set((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(c), value);
+                    map.set((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(c), value);
                 }
             }
         }
-        var fieldMapArray = Array.from(fieldMap.entries());
-        self.postMessage({
-            field: field,
-            fieldMap: fieldMapArray
-        }, [field.buffer]);
-        return;
+        self.postMessage({ field: field, fieldMap: Array.from(map.entries()) }, [
+            field.buffer
+        ]);
     }
     else {
         WorldFieldMap = worldFieldMap;
-        //Generate mesh with marching cubes
         var mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
         for (var x = 0; x < GridSize[0]; x++) {
             for (var y = 0; y < GridSize[1]; y++) {
                 for (var z = 0; z < GridSize[2]; z++) {
                     var c = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z);
                     var cubeCase = GenerateCase(c);
-                    var newMesh = caseToMesh(c, cubeCase, GridSize);
-                    mesh.merge(newMesh);
+                    mesh.merge(caseToMesh(c, cubeCase, GridSize));
                 }
             }
         }
@@ -1089,7 +1090,7 @@ var Terrains = {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("e2167ed0bf55d91b6029")
+/******/ 		__webpack_require__.h = () => ("a2148925925ec791e73a")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

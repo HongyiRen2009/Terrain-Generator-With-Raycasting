@@ -38,47 +38,59 @@ export class Chunk {
   }
   async generateTerrain(): Promise<Float32Array> {
     return new Promise((resolve) => {
+      const requestId = Math.random().toString(36).slice(2);
+      const handler = (
+        event: MessageEvent<{
+          requestId?: string;
+          field: Float32Array;
+          fieldMap: [string, number][];
+        }>
+      ) => {
+        if (event.data.requestId !== requestId) return;
+        this.Field = event.data.field;
+        this.FieldMap = new Map<string, number>(event.data.fieldMap);
+        this.Worker.removeEventListener("message", handler as EventListener);
+        resolve(this.Field);
+      };
+      this.Worker.addEventListener("message", handler as EventListener);
       this.Worker.postMessage({
+        requestId,
         GridSize: this.GridSize,
         ChunkPosition: this.ChunkPosition,
         Seed: this.seed,
         generatingTerrain: true,
         worldFieldMap: this.FieldMap
       });
-      this.Worker.onmessage = (
-        event: MessageEvent<{
-          field: Float32Array;
-          fieldMap: Map<string, number>;
-        }>
-      ) => {
-        this.Field = event.data.field;
-        this.FieldMap = new Map<string, number>(event.data.fieldMap);
-        resolve(this.Field);
-      };
     });
   }
   async generateMarchingCubes(): Promise<Mesh> {
     return new Promise((resolve) => {
+      const requestId = Math.random().toString(36).slice(2);
+      const handler = (
+        event: MessageEvent<{
+          requestId?: string;
+          meshVertices: Triangle[];
+          meshNormals: Triangle[];
+          meshTypes: [number, number, number][];
+        }>
+      ) => {
+        if (event.data.requestId !== requestId) return;
+        this.Mesh = new Mesh();
+        this.Mesh.setVertices(event.data.meshVertices);
+        this.Mesh.setNormals(event.data.meshNormals);
+        this.Mesh.setTypes(event.data.meshTypes);
+        this.Worker.removeEventListener("message", handler as EventListener);
+        resolve(this.Mesh);
+      };
+      this.Worker.addEventListener("message", handler as EventListener);
       this.Worker.postMessage({
+        requestId,
         GridSize: this.GridSize,
         ChunkPosition: this.ChunkPosition,
         Seed: this.seed,
         generatingTerrain: false,
         worldFieldMap: this.WorldFieldMap
       });
-      this.Worker.onmessage = (
-        event: MessageEvent<{
-          meshVertices: Triangle[];
-          meshNormals: Triangle[];
-          meshTypes: [number, number, number][];
-        }>
-      ) => {
-        this.Mesh = new Mesh();
-        this.Mesh.setVertices(event.data.meshVertices);
-        this.Mesh.setNormals(event.data.meshNormals);
-        this.Mesh.setTypes(event.data.meshTypes);
-        resolve(this.Mesh);
-      };
     });
   }
 

@@ -9,9 +9,10 @@ export type WorkerConstructor = new (
   stringUrl: string | URL,
   options?: WorkerOptions
 ) => Worker;
-console.log("Worker started");
+
 let WorldFieldMap: Map<string, number> = new Map<string, number>();
 let globalChunkPosition: vec2;
+
 type WorkerMessage = {
   Seed: string;
   GridSize: vec3;
@@ -28,20 +29,23 @@ function chunkCoordinateToIndex(c: vec3, gridSize: vec3): number {
   );
 }
 
-function noiseFunction(c: vec3, simplex: NoiseFunction3D): number {
+function noiseFunction(
+  c: vec3,
+  simplex: NoiseFunction3D,
+  simplexOverhang: NoiseFunction3D,
+  simplexRiver: NoiseFunction3D
+): number {
   const hillFreq = 0.02;
   const mountainFreq = 0.005;
   const caveFreq = 0.05;
   const waterLevel = 30;
-  const hillWeight = 0.6;
-  const mountainWeight = 0.4;
 
-  function fractalNoise(c: vec3, octaves: number, freq: number, amp: number) {
-    let total = 0;
-    let max = 0;
-    let f = freq;
-    let a = amp;
-    for (let i = 0; i < octaves; i++) {
+  function fractalNoise(c: vec3, oct: number, freq: number, amp: number) {
+    let total = 0,
+      max = 0,
+      f = freq,
+      a = amp;
+    for (let i = 0; i < oct; i++) {
       total += simplex(c[0] * f, c[1] * f, c[2] * f) * a;
       max += a;
       f *= 2;
@@ -52,49 +56,37 @@ function noiseFunction(c: vec3, simplex: NoiseFunction3D): number {
 
   const hillNoise = fractalNoise(c, 4, hillFreq, 1);
   const hillHeight = hillNoise * 40 + 50;
-
   const ridgeVal = 1 - Math.abs(fractalNoise(c, 3, mountainFreq, 1));
   const mountainHeight = Math.pow(ridgeVal, 2) * 120;
-
-  let terrainHeight = hillHeight * hillWeight + mountainHeight * mountainWeight;
+  let terrainHeight = hillHeight * 0.6 + mountainHeight * 0.4;
   terrainHeight = Math.floor(terrainHeight / 5) * 5;
 
   let density = terrainHeight - c[1];
 
+  // Caves
   const caveNoise = fractalNoise(c, 3, caveFreq, 1);
   density -= Math.max(0, (caveNoise - 0.5) * 60 * Math.max(0, 1 - c[1] / 100));
 
-  if (c[1] < waterLevel) {
-    density = Math.min(density, waterLevel - c[1]);
+  // Overhangs
+  const overhang = simplexOverhang(c[0] * 0.03, c[1] * 0.03, c[2] * 0.03);
+  if (overhang > 0.2) density -= (overhang - 0.2) * 30;
+
+  // Rivers
+  const riverNoise = simplexRiver(c[0] * 0.01, c[2] * 0.01, 0);
+  const riverThreshold = 0.1;
+  if (riverNoise < riverThreshold) {
+    density -= (riverThreshold - riverNoise) * 50; // riverbed depth
   }
 
-  const normalized = (density + 100) / 200;
-  return Math.max(0, Math.min(1, normalized));
+  if (c[1] < waterLevel) density = Math.min(density, waterLevel - c[1]);
+
+  return Math.max(0, Math.min(1, (density + 100) / 200));
 }
 
-function GenerateCase(cubeCoordinates: vec3): number {
-  /*
-      Given the coordinate of a cube in the world,
-      return the corresponding index into the marching cubes lookup.
-      Involves looking at each of the eight vertices.
-    */
-
-  let caseIndex = 0;
-
-  for (let i = 0; i < VERTICES.length; i++) {
-    let vertexOffset = vec3.fromValues(...VERTICES[i]);
-
-    vec3.add(vertexOffset, vertexOffset, cubeCoordinates);
-
-    const isTerrain = Number(solidChecker(getFieldValue(vertexOffset)));
-    caseIndex += isTerrain << i;
-  }
-
-  return caseIndex;
-}
 function solidChecker(a: number) {
   return a > 0.5;
 }
+
 function getFieldValue(c: vec3) {
   const newVector = vec3.fromValues(0, 0, 0);
   vec3.add(
@@ -104,25 +96,17 @@ function getFieldValue(c: vec3) {
   );
   return WorldFieldMap.get(vertexKey(newVector)) ?? 0;
 }
-function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
-  const caseMesh: Mesh = new Mesh();
-  const caseLookup = CASES[caseNumber];
-  for (const triangleLookup of caseLookup) {
-    // each triangle is represented as list of the three edges which it is located on
-    // for now, place the actual triangle's vertices as the midpoint of the edge
-    const vertices = triangleLookup.map((edgeIndex) =>
-      edgeIndexToCoordinate(c, edgeIndex)
-    );
 
-    // Add triangle with both position and normal information
-    caseMesh.addTriangle(
-      vertices.map((v) => v.position) as Triangle,
-      vertices.map((v) => v.normal) as Triangle,
-      [0,0,0] // Placeholder terrain types; will be updated later
-    );
+function GenerateCase(cube: vec3): number {
+  let caseIndex = 0;
+  for (let i = 0; i < VERTICES.length; i++) {
+    let v = vec3.fromValues(...VERTICES[i]);
+    vec3.add(v, v, cube);
+    caseIndex += Number(solidChecker(getFieldValue(v))) << i;
   }
-  return caseMesh;
+  return caseIndex;
 }
+
 function edgeIndexToCoordinate(
   c: vec3,
   edgeIndex: number
@@ -131,114 +115,129 @@ function edgeIndexToCoordinate(
 
   const v1 = vec3.fromValues(...VERTICES[a]);
   const v2 = vec3.fromValues(...VERTICES[b]);
-
   vec3.add(v1, v1, c);
   vec3.add(v2, v2, c);
 
-  // Get terrain values using the field array
   const value1 = getFieldValue(v1);
   const value2 = getFieldValue(v2);
 
-  // Calculate normals using central differences and the noise function
   const normal1 = calculateNormal(v1);
   const normal2 = calculateNormal(v2);
 
-  const lerpAmount = (value1 - 0.5) / (value1 - 0.5 - (value2 - 0.5));
+  const t = (value1 - 0.5) / (value1 - 0.5 - (value2 - 0.5));
+  const p = vec3.create();
+  const n = vec3.create();
 
-  let position = vec3.create();
-  let normal = vec3.create();
+  vec3.lerp(p, v1, v2, t);
+  vec3.lerp(n, normal1, normal2, t);
+  vec3.normalize(n, n);
 
-  vec3.lerp(position, v1, v2, lerpAmount);
-  vec3.lerp(normal, normal1, normal2, lerpAmount);
-  vec3.normalize(normal, normal);
-
-  return { position, normal };
+  return { position: p, normal: n };
 }
-// Helper for normal calculation
-// Helper for normal calculation
-function calculateNormal(vertex: vec3): vec3 {
-  const delta = 1.0;
-  const normal = vec3.create();
 
-  // Calculate gradients using central differences
-  // X gradient
-  const x1 = vec3.fromValues(vertex[0] + delta, vertex[1], vertex[2]);
-  const x2 = vec3.fromValues(vertex[0] - delta, vertex[1], vertex[2]);
-  normal[0] = getFieldValue(x1) - getFieldValue(x2);
+function calculateNormal(v: vec3): vec3 {
+  const d = 1.0;
+  const n = vec3.create();
 
-  // Y gradient
-  const y1 = vec3.fromValues(vertex[0], vertex[1] + delta, vertex[2]);
-  const y2 = vec3.fromValues(vertex[0], vertex[1] - delta, vertex[2]);
-  normal[1] = getFieldValue(y1) - getFieldValue(y2);
+  n[0] =
+    getFieldValue(vec3.fromValues(v[0] + d, v[1], v[2])) -
+    getFieldValue(vec3.fromValues(v[0] - d, v[1], v[2]));
+  n[1] =
+    getFieldValue(vec3.fromValues(v[0], v[1] + d, v[2])) -
+    getFieldValue(vec3.fromValues(v[0], v[1] - d, v[2]));
+  n[2] =
+    getFieldValue(vec3.fromValues(v[0], v[1], v[2] + d)) -
+    getFieldValue(vec3.fromValues(v[0], v[1], v[2] - d));
 
-  // Z gradient
-  const z1 = vec3.fromValues(vertex[0], vertex[1], vertex[2] + delta);
-  const z2 = vec3.fromValues(vertex[0], vertex[1], vertex[2] - delta);
-  normal[2] = getFieldValue(z1) - getFieldValue(z2);
+  vec3.negate(n, n);
+  vec3.normalize(n, n);
 
-  // Negate and normalize the normal
-  vec3.negate(normal, normal);
-  vec3.normalize(normal, normal);
-
-  return normal;
+  return n;
 }
-self.onmessage = (event: MessageEvent<WorkerMessage>) => {
-  const { Seed, GridSize, ChunkPosition, generatingTerrain, worldFieldMap } =
+
+function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
+  const caseMesh: Mesh = new Mesh();
+  const caseLookup = CASES[caseNumber];
+
+  for (const triangleLookup of caseLookup) {
+    const vertices = triangleLookup.map((edgeIndex) =>
+      edgeIndexToCoordinate(c, edgeIndex)
+    );
+
+    caseMesh.addTriangle(
+      vertices.map((v) => v.position) as Triangle,
+      vertices.map((v) => v.normal) as Triangle,
+      [0, 0, 0]
+    );
+  }
+
+  return caseMesh;
+}
+
+self.onmessage = (event: MessageEvent<WorkerMessage & { requestId?: string }>) => {
+  const { Seed, GridSize, ChunkPosition, generatingTerrain, worldFieldMap, requestId } =
     event.data;
+
   globalChunkPosition = ChunkPosition;
+
   const prng = alea(Seed);
   const simplex = createNoise3D(prng);
+  const simplexOverhang = createNoise3D(prng);
+  const simplexRiver = createNoise3D(prng); // new noise for rivers
+
   if (generatingTerrain) {
     const field = new Float32Array(
       (GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1)
     );
-    const fieldMap = new Map<string, number>();
+    const map = new Map<string, number>();
 
-    // Generate noise field
     for (let x = 0; x <= GridSize[0]; x++) {
       for (let y = 0; y <= GridSize[1]; y++) {
         for (let z = 0; z <= GridSize[2]; z++) {
           let c = vec3.fromValues(x, y, z);
-          // Offset by chunk position
           vec3.add(
             c,
             c,
             vec3.fromValues(ChunkPosition[0], 0, ChunkPosition[1])
           );
+
           const idx = chunkCoordinateToIndex(
             vec3.fromValues(x, y, z),
             GridSize
           );
-          const value = noiseFunction(c, simplex);
+          const value = noiseFunction(
+            c,
+            simplex,
+            simplexOverhang,
+            simplexRiver
+          );
+
           field[idx] = value;
-          fieldMap.set(vertexKey(c), value);
+          map.set(vertexKey(c), value);
         }
       }
     }
-    const fieldMapArray = Array.from(fieldMap.entries());
-    self.postMessage(
-      {
-        field,
-        fieldMap: fieldMapArray
-      },
-      [field.buffer]
-    );
-    return;
+
+    self.postMessage({ requestId, field, fieldMap: Array.from(map.entries()) }, [
+      field.buffer
+    ]);
   } else {
     WorldFieldMap = worldFieldMap;
-    //Generate mesh with marching cubes
-    const mesh: Mesh = new Mesh();
+
+    const mesh = new Mesh();
+
     for (let x = 0; x < GridSize[0]; x++) {
       for (let y = 0; y < GridSize[1]; y++) {
         for (let z = 0; z < GridSize[2]; z++) {
-          let c = vec3.fromValues(x, y, z);
+          const c = vec3.fromValues(x, y, z);
           const cubeCase = GenerateCase(c);
-          const newMesh = caseToMesh(c, cubeCase, GridSize);
-          mesh.merge(newMesh);
+          mesh.merge(caseToMesh(c, cubeCase, GridSize));
         }
       }
     }
+
     self.postMessage({
+      requestId,
       meshVertices: mesh.getVertices(),
       meshNormals: mesh.getNormals(),
       meshTypes: mesh.getTypes()

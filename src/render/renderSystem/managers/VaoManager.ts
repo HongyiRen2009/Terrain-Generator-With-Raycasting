@@ -15,6 +15,21 @@ export class VAOManager {
   private vaoCache: Map<number, VaoInfo>;
   private terrainVAOInfo: VaoInfo | null = null;
   private screenQuadVAOInfo: VaoInfo | null = null;
+  // Keep references to buffers so we can delete them later
+  private terrainBuffers:
+    | {
+        vertex: WebGLBuffer;
+        normal: WebGLBuffer;
+        color: WebGLBuffer;
+        indices: WebGLBuffer;
+      }
+    | null = null;
+  private screenQuadBuffers:
+    | {
+        vbo: WebGLBuffer | null;
+        ebo: WebGLBuffer | null;
+      }
+    | null = null;
   private geometryProgram: WebGLProgram | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
@@ -72,6 +87,13 @@ export class VAOManager {
       },
       indices: RenderUtils.CreateIndexBuffer(this.gl, triangleIndices)
     };
+    // Save buffers so we can delete them later
+    this.terrainBuffers = {
+      vertex: TerrainTriangleBuffer.vertex.position,
+      normal: TerrainTriangleBuffer.vertex.normal,
+      color: TerrainTriangleBuffer.vertex.color,
+      indices: TerrainTriangleBuffer.indices
+    };
     const terrainVAO = RenderUtils.createNonInterleavedVao(
       this.gl,
       {
@@ -127,6 +149,8 @@ export class VAOManager {
       quadIndices,
       this.gl.STATIC_DRAW
     );
+    // store quad buffers for cleanup
+    this.screenQuadBuffers = { vbo, ebo };
 
     this.gl.enableVertexAttribArray(0);
     this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 20, 0);
@@ -156,14 +180,40 @@ export class VAOManager {
     return this.screenQuadVAOInfo;
   }
 
+  /**
+   * Remove VAO for a world object and delete the vertex array.
+   */
+  public removeWorldObjectVAO(id: number): void {
+    const info = this.vaoCache.get(id);
+    if (info) {
+      this.gl.deleteVertexArray(info.vao);
+      this.vaoCache.delete(id);
+    }
+  }
+
   dispose(): void {
     if (this.terrainVAOInfo) {
       this.gl.deleteVertexArray(this.terrainVAOInfo.vao);
       this.terrainVAOInfo = null;
     }
     this.vaoCache.forEach((vao) => {
-      this.gl.deleteVertexArray(vao);
+      // vao is VaoInfo
+      this.gl.deleteVertexArray(vao.vao);
     });
     this.vaoCache.clear();
+    // delete terrain attribute/index buffers if present
+    if (this.terrainBuffers) {
+      if (this.terrainBuffers.vertex) this.gl.deleteBuffer(this.terrainBuffers.vertex);
+      if (this.terrainBuffers.normal) this.gl.deleteBuffer(this.terrainBuffers.normal);
+      if (this.terrainBuffers.color) this.gl.deleteBuffer(this.terrainBuffers.color);
+      if (this.terrainBuffers.indices) this.gl.deleteBuffer(this.terrainBuffers.indices);
+      this.terrainBuffers = null;
+    }
+    // delete screen quad buffers
+    if (this.screenQuadBuffers) {
+      if (this.screenQuadBuffers.vbo) this.gl.deleteBuffer(this.screenQuadBuffers.vbo);
+      if (this.screenQuadBuffers.ebo) this.gl.deleteBuffer(this.screenQuadBuffers.ebo);
+      this.screenQuadBuffers = null;
+    }
   }
 }

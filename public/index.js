@@ -5005,7 +5005,7 @@ var GameEngine = /** @class */ (function () {
         this.addKeys();
         this.updatePathracing = function () { };
         //Initialize world
-        this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 64, 1000, this.gl, function () { return _this.updatePathracing; });
+        this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 500, 1000, this.gl, function () { return _this.updatePathracing; });
         //Initialize Camera
         this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(-22, 20, 33));
         //Initialize Renderer
@@ -5930,9 +5930,9 @@ var WorldMap = /** @class */ (function () {
         this.lights = [
             new _Light__WEBPACK_IMPORTED_MODULE_1__.Light(gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0, 500, 0), new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 255, 255), 1, 200, new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 228, 132))
         ];
-        this.resolution = 64; //#of vertices square size of chunk
+        this.resolution = 16; //#of vertices square size of chunk
         this.Workers = [];
-        this.seed = 10; // Random seed for noise generation
+        this.seed = 727; // Random seed for noise generation
         this.worldObjects = [];
         this.nextWorldObjectId = 0;
         this.tracerUpdateSupplier = updateTracer;
@@ -5963,28 +5963,12 @@ var WorldMap = /** @class */ (function () {
     };
     //Generates map
     WorldMap.prototype.generate = function () {
-        this.chunks = [
-            // Row 1
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[0]),
-            /*new Chunk(
-              vec2.fromValues(this.resolution, 0),
-              vec3.fromValues(this.resolution, this.height, this.resolution),
-              this.seed,
-              this.Workers[1]
-            ),
-            new Chunk(
-              vec2.fromValues(2 * this.resolution, 0),
-              vec3.fromValues(this.resolution, this.height, this.resolution),
-              this.seed,
-              this.Workers[2]
-            ),
-            new Chunk(
-              vec2.fromValues(3 * this.resolution, 0),
-              vec3.fromValues(this.resolution, this.height, this.resolution),
-              this.seed,
-              this.Workers[3]
-            )*/
-        ];
+        this.chunks = [];
+        var worker = 0;
+        for (var i = 0; i < 3; i++)
+            for (var j = 0; j < 10; j++) {
+                this.chunks.push(new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(i * this.resolution, j * this.resolution), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[worker++]));
+            }
     };
     WorldMap.prototype.combinedMesh = function () {
         var CombinedMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
@@ -10215,7 +10199,7 @@ var WorldUtils = /** @class */ (function () {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("e2167ed0bf55d91b6029")
+/******/ 		__webpack_require__.h = () => ("a2148925925ec791e73a")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */

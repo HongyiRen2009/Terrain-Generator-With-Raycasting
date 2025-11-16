@@ -197,6 +197,17 @@ export class ObjectUI {
     deleteBtn.textContent = "Delete Object";
     deleteBtn.style.marginBottom = "10px";
     deleteBtn.addEventListener("click", () => {
+      // Delete GPU buffers associated with this object (if any)
+      try {
+        if ((obj as any).buffer) {
+          const b = (obj as any).buffer;
+          if (world.gl && b.vertex) world.gl.deleteBuffer(b.vertex);
+          if (world.gl && b.indices) world.gl.deleteBuffer(b.indices);
+        }
+      } catch (e) {
+        // ignore
+      }
+
       // Remove from world
       world.worldObjects = world.worldObjects.filter((o) => o.id !== obj.id);
 
@@ -205,6 +216,8 @@ export class ObjectUI {
 
       // Trigger re-trace/update if needed
       if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
+      // Notify external systems that an object was removed (so they can cleanup VAOs, buffers, etc.)
+      if (world.onObjectRemoved) world.onObjectRemoved(obj.id);
     });
     wrapper.appendChild(deleteBtn);
 
