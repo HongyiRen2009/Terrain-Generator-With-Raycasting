@@ -33,7 +33,8 @@ export class SSAOPass extends RenderPass {
     this.uniforms = getUniformLocations(gl, this.program!, [
       "proj",
       "projInverse",
-      "noiseSize"
+      "noiseSize",
+      "useNormalEncoding"
     ]);
     // Initialize settings manager for SSAO settings
     this.settingsSection = new SettingsSection(
@@ -140,6 +141,10 @@ export class SSAOPass extends RenderPass {
       cameraInfo.matProjInverse
     );
     this.gl.uniform1f(this.uniforms["noiseSize"], this.noiseSize);
+    
+    // Get normal encoding setting
+    const useNormalEncoding = this.resourceCache.getUniformData("useNormalEncoding") ?? false;
+    this.gl.uniform1i(this.uniforms["useNormalEncoding"], useNormalEncoding ? 1 : 0);
 
     // Upload kernel samples
     for (let i = 0; i < this.kernelSize; i++) {

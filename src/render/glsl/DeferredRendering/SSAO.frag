@@ -13,6 +13,7 @@ uniform mat4 projInverse;
 uniform float radius;
 uniform float bias;
 uniform bool enableSSAO;
+uniform int useNormalEncoding;
 vec3 getViewPosition(vec2 texCoord) {
     float depth = texture(depthTexture, texCoord).r;
     vec2 ndc = texCoord * 2.0f - 1.0f;
@@ -26,11 +27,24 @@ void main() {
         ssao = 1.0f;
         return;
     }
-    vec2 noiseScale = vec2(textureSize(depthTexture, 0)) / noiseSize;
-
+    // Calculate noise scale to tile noise texture across screen
+    vec2 screenSize = vec2(textureSize(depthTexture, 0));
+    
     vec3 fragPos = getViewPosition(fragUV);
-    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);
-    vec3 randomVec = normalize(texture(noiseTexture, fragUV * noiseScale).xyz);
+    
+    // Decode normal if it's encoded
+    vec3 encodedNormal = texture(normalTexture, fragUV).rgb;
+    vec3 normal;
+    if (useNormalEncoding == 1) {
+        normal = normalize(encodedNormal * 2.0f - 1.0f);
+    } else {
+        normal = normalize(encodedNormal);
+    }
+    
+    // Use pixel coordinates with modulo to avoid floating point precision issues and grid artifacts
+    // This ensures the noise texture tiles smoothly without visible patterns
+    ivec2 screenPos = ivec2(fragUV * screenSize);
+    vec3 randomVec = normalize(texture(noiseTexture, vec2(screenPos) / noiseSize).xyz);
 
     vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
     vec3 bitangent = cross(normal, tangent);
