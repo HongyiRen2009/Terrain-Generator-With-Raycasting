@@ -12,7 +12,8 @@ import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
 import { CSMPass } from "./passes/CSMPass";
 import { DebugPass } from "./passes/DebugPass";
-import { mat4 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
+import { DirectionalLight } from "../map/Light";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -79,7 +80,17 @@ export class GLRenderer {
       this.gl,
       this.resourceCache,
       this.canvas,
-      this.renderGraph
+      this.renderGraph,
+      (direction: vec3) => {
+        // Update the directional light direction in the world
+        const lights = this.world.lights;
+        for (const light of lights) {
+          if (light instanceof DirectionalLight) {
+            vec3.copy(light.direction, direction);
+            break;
+          }
+        }
+      }
     );
     const csmPass = new CSMPass(
       this.gl,

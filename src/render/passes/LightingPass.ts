@@ -10,17 +10,21 @@ import LightingFragmentShaderSource from "../glsl/DeferredRendering/Lighting.fra
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { WorldUtils } from "../../utils/WorldUtils";
 import { SettingsSection } from "../../Settings";
+import { vec3 } from "gl-matrix";
 
 export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   protected settingsSection: SettingsSection | null = null;
+  private updateSunDirectionCallback?: (direction: vec3) => void;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
     canvas: HTMLCanvasElement,
-    renderGraph?: RenderGraph
+    renderGraph?: RenderGraph,
+    updateSunDirection?: (direction: vec3) => void
   ) {
     super(gl, resourceCache, canvas, renderGraph);
+    this.updateSunDirectionCallback = updateSunDirection;
     this.program = RenderUtils.CreateProgram(
       gl,
       LightingVertexShaderSource,
@@ -227,5 +231,90 @@ export class LightingPass extends RenderPass {
     
     // Initialize default value in resourceCache
     this.resourceCache.setUniformData("showCameraDepth", false);
+
+    // Add sun direction sliders
+    if (this.updateSunDirectionCallback) {
+      // Get initial sun direction from lights
+      const lights = this.resourceCache.getUniformData("lights") as Array<any>;
+      let initialAzimuth = 180; // Default to south (180 degrees)
+      let initialElevation = -45; // Default to 45 degrees down
+
+      if (lights && lights.length > 0) {
+        const firstLight = lights[0];
+        if (firstLight && firstLight.direction) {
+          const dir = firstLight.direction;
+          // Convert direction vector to spherical coordinates
+          // azimuth: angle in XZ plane (0-360)
+          // elevation: angle above/below horizon (-90 to 90)
+          const horizontalLength = Math.sqrt(dir[0] * dir[0] + dir[2] * dir[2]);
+          if (horizontalLength > 0.0001) {
+            // Normal case: can compute azimuth
+            initialAzimuth = Math.atan2(dir[0], dir[2]) * (180 / Math.PI);
+            if (initialAzimuth < 0) initialAzimuth += 360;
+            initialElevation = Math.atan2(dir[1], horizontalLength) * (180 / Math.PI);
+          } else {
+            // Edge case: direction is straight up or down
+            // Azimuth doesn't matter, but elevation is ±90
+            initialElevation = dir[1] > 0 ? 90 : -90;
+            // Keep default azimuth of 180
+          }
+        }
+      }
+
+      // Function to convert spherical coordinates to direction vector
+      const updateSunDirection = (azimuth: number, elevation: number) => {
+        const azimuthRad = (azimuth * Math.PI) / 180;
+        const elevationRad = (elevation * Math.PI) / 180;
+        
+        // Convert to direction vector
+        // X = sin(azimuth) * cos(elevation)
+        // Y = sin(elevation)
+        // Z = cos(azimuth) * cos(elevation)
+        const dir = vec3.fromValues(
+          Math.sin(azimuthRad) * Math.cos(elevationRad),
+          Math.sin(elevationRad),
+          Math.cos(azimuthRad) * Math.cos(elevationRad)
+        );
+        vec3.normalize(dir, dir);
+        
+        if (this.updateSunDirectionCallback) {
+          this.updateSunDirectionCallback(dir);
+        }
+      };
+
+      // Store current values
+      let currentAzimuth = initialAzimuth;
+      let currentElevation = initialElevation;
+
+      // Sun azimuth slider (0-360 degrees)
+      this.settingsSection.addSlider({
+        id: "sunAzimuth",
+        label: "Sun Azimuth (degrees)",
+        min: 0,
+        max: 360,
+        step: 1,
+        defaultValue: initialAzimuth,
+        numType: "float",
+        onChange: (value: number) => {
+          currentAzimuth = value;
+          updateSunDirection(currentAzimuth, currentElevation);
+        }
+      });
+
+      // Sun elevation slider (-90 to 90 degrees)
+      this.settingsSection.addSlider({
+        id: "sunElevation",
+        label: "Sun Elevation (degrees)",
+        min: -90,
+        max: 90,
+        step: 1,
+        defaultValue: initialElevation,
+        numType: "float",
+        onChange: (value: number) => {
+          currentElevation = value;
+          updateSunDirection(currentAzimuth, currentElevation);
+        }
+      });
+    }
   }
 }
