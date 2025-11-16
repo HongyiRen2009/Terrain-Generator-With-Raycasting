@@ -7,9 +7,7 @@ uniform sampler2D albedoTexture;
 uniform sampler2D depthTexture;
 uniform sampler2D ssaoTexture;
 
-uniform sampler2D cascadeDepthTexture0;
-uniform sampler2D cascadeDepthTexture1;
-uniform sampler2D cascadeDepthTexture2;
+uniform highp sampler2DArray shadowDepthTextureArray;
 
 
 uniform mat4 viewInverse;
@@ -19,11 +17,12 @@ uniform mat4 projInverse;
 uniform mat4 pausedView;
 
 //Shadow Uniforms
-uniform mat4 lightSpaceMatrices[3];
-uniform float cascadeSplits[3];
+uniform mat4 lightSpaceMatrices[8]; // Support up to 8 cascades
+uniform float cascadeSplits[8]; // Support up to 8 cascades
 uniform bool usingPCF;
-uniform float shadowBias;
+uniform float shadowBias[8]; // One bias per cascade
 uniform int shadowMapSize;
+uniform int numCascades;
 
 uniform bool csmEnabled;
 uniform bool cascadeDebug;
@@ -31,6 +30,7 @@ uniform bool debugPauseMode;
 uniform bool showShadowMap;
 uniform int shadowMapCascade;
 uniform bool showCameraDepth;
+uniform int useNormalEncoding;
 
 struct PointLight {
     vec3 position;
@@ -69,9 +69,11 @@ vec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {
 int chooseCascade (float viewDepth) {
     // View depth is negative (camera looks down -Z), cascade splits are positive distances
     float depth = abs(viewDepth);
-    if (depth < cascadeSplits[0]) return 0;
-    else if (depth < cascadeSplits[1]) return 1;
-    else return 2;
+    for (int i = 0; i < 8; i++) {
+        if (i >= numCascades) break;
+        if (depth < cascadeSplits[i]) return i;
+    }
+    return numCascades - 1; // Return last cascade if beyond all splits
 }
 
 float computeShadow(vec3 worldPos, int cascadeIndex){
@@ -104,16 +106,10 @@ float computeShadow(vec3 worldPos, int cascadeIndex){
         for (int x = -1; x <= 1; ++x) {
             for (int y = -1; y <= 1; ++y) {
                 vec2 offset = vec2(x, y) * texelSize;
-                float depth;
-                if(cascadeIndex == 0) {
-                    depth = texture(cascadeDepthTexture0, projCoords.xy + offset).r;
-                } else if(cascadeIndex == 1) {
-                    depth = texture(cascadeDepthTexture1, projCoords.xy + offset).r;
-                } else {
-                    depth = texture(cascadeDepthTexture2, projCoords.xy + offset).r;
-                }
+                // Use texture array with layer index
+                float depth = texture(shadowDepthTextureArray, vec3(projCoords.xy + offset, float(cascadeIndex))).r;
                 // If current depth is greater than shadow map depth, fragment is in shadow
-                shadow += (projCoords.z - shadowBias > depth) ? 1.0 : 0.0;
+                shadow += (projCoords.z - shadowBias[cascadeIndex] > depth) ? 1.0 : 0.0;
                 samples++;
             }
         }
@@ -125,20 +121,14 @@ float computeShadow(vec3 worldPos, int cascadeIndex){
     }
 
     float currentDepth = projCoords.z;
-    float closestDepth;
-    if(cascadeIndex == 0) {
-        closestDepth = texture(cascadeDepthTexture0, projCoords.xy).r;
-    } else if(cascadeIndex == 1) {
-        closestDepth = texture(cascadeDepthTexture1, projCoords.xy).r;
-    } else {
-        closestDepth = texture(cascadeDepthTexture2, projCoords.xy).r;
-    }
+    // Use texture array with layer index
+    float closestDepth = texture(shadowDepthTextureArray, vec3(projCoords.xy, float(cascadeIndex))).r;
 
 
     // Shadow calculation: if current depth (point being tested) is greater than 
     // the closest depth in shadow map + bias, it's in shadow
     // Return 0.0 = in shadow, 1.0 = lit (for lighting multiplication)
-    return (currentDepth - shadowBias > closestDepth) ? 0.0 : 1.0;
+    return (currentDepth - shadowBias[cascadeIndex] > closestDepth) ? 0.0 : 1.0;
 }
 
 void main() {
@@ -182,7 +172,7 @@ void main() {
 
     // Shadow Map Visualization Mode - Display the shadow map sample at the fragment's light-space location
     if (showShadowMap && csmEnabled) {
-        int cascadeIndex = clamp(shadowMapCascade, 0, 2);
+        int cascadeIndex = clamp(shadowMapCascade, 0, numCascades - 1);
         vec4 lightSpacePos = lightSpaceMatrices[cascadeIndex] * vec4(fragWorldPos, 1.0);
         vec3 shadowCoords = lightSpacePos.xyz / lightSpacePos.w;
         shadowCoords = shadowCoords * 0.5 + 0.5;
@@ -194,14 +184,8 @@ void main() {
         if (outsideShadowMap) {
             color = vec3(1.0, 0.0, 0.0);
         } else {
-            float shadowDepth;
-            if (cascadeIndex == 0) {
-                shadowDepth = texture(cascadeDepthTexture0, shadowCoords.xy).r;
-            } else if (cascadeIndex == 1) {
-                shadowDepth = texture(cascadeDepthTexture1, shadowCoords.xy).r;
-            } else {
-                shadowDepth = texture(cascadeDepthTexture2, shadowCoords.xy).r;
-            }
+            // Use texture array with layer index
+            float shadowDepth = texture(shadowDepthTextureArray, vec3(shadowCoords.xy, float(cascadeIndex))).r;
             float depthToUse = 1.0 - shadowDepth;
             float normalizedDepth = pow(depthToUse, 0.5);
             color = vec3(normalizedDepth);
@@ -211,7 +195,14 @@ void main() {
         return;
     }
     
-    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);
+    vec3 encodedNormal = texture(normalTexture, fragUV).rgb;
+    vec3 viewNormal;
+    if (useNormalEncoding == 1) {
+        // Decode normal from [0, 1] back to [-1, 1]
+        viewNormal = normalize(encodedNormal * 2.0 - 1.0);
+    } else {
+        viewNormal = normalize(encodedNormal);
+    }
     vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);
 
     vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);
@@ -224,13 +215,18 @@ void main() {
 
     // Replace albedo with debug colors when cascade debug is enabled
     if (cascadeDebug && csmEnabled) {
-        if (cascadeIndex == 0) {
-            albedo = vec3(1.0, 0.0, 1.0); // Magenta
-        } else if (cascadeIndex == 1) {
-            albedo = vec3(0.0, 1.0, 1.0); // Cyan
-        } else {
-            albedo = vec3(1.0, 1.0, 0.0); // Yellow
-        }
+        // Cycle through colors for different cascades
+        vec3 cascadeColors[8] = vec3[](
+            vec3(1.0, 0.0, 1.0), // Magenta
+            vec3(0.0, 1.0, 1.0), // Cyan
+            vec3(1.0, 1.0, 0.0), // Yellow
+            vec3(1.0, 0.0, 0.0), // Red
+            vec3(0.0, 1.0, 0.0), // Green
+            vec3(0.0, 0.0, 1.0), // Blue
+            vec3(1.0, 0.5, 0.0), // Orange
+            vec3(0.5, 0.0, 1.0)  // Purple
+        );
+        albedo = cascadeColors[cascadeIndex % 8];
     }
 
     vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;

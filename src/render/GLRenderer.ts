@@ -106,8 +106,7 @@ export class GLRenderer {
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
     this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass, csmPass);
     this.renderGraph.add(debugPass, lightingPass);
-
-    //this.renderGraph.add(cloudsPass, geometryPass);
+    this.renderGraph.add(cloudsPass, geometryPass);
   }
 
   public render(): void {

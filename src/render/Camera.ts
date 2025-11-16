@@ -56,7 +56,7 @@ export class Camera {
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ 0.1,
-      100.0
+      300.0
     );
     mat4.multiply(matViewProj, matProj, matView);
     return matViewProj;
@@ -70,7 +70,7 @@ export class Camera {
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ 0.1,
-      100.0
+      300.0
     );
     return { matView, matProj };
   }
@@ -90,6 +90,6 @@ export class Camera {
   }
 
   getNearFarPlanes() : { near: number, far: number } {
-    return { near: 0.1, far: 100.0 };
+    return { near: 0.1, far: 300.0 };
   }
 }

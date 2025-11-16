@@ -12,6 +12,7 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 
 export class GeometryPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.SCENE;
+  private useNormalEncoding: boolean = false;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -29,28 +30,54 @@ export class GeometryPass extends RenderPass {
     this.uniforms = getUniformLocations(gl, this.program!, [
       "view",
       "proj",
-      "model"
+      "model",
+      "useNormalEncoding"
     ]);
   }
 
   protected initRenderTarget(width?: number, height?: number): RenderTarget {
-    const ext = this.gl.getExtension("EXT_color_buffer_float");
-    if (!ext) {
-      throw new Error(
-        "EXT_color_buffer_float is not supported on this device."
-      );
-    }
-
     const w = width || this.canvas.width;
     const h = height || this.canvas.height;
+
+    // Check for floating point render target support
+    const floatExt = this.gl.getExtension("EXT_color_buffer_float");
+    const halfFloatExt = this.gl.getExtension("EXT_color_buffer_half_float");
+    
+    let normalInternalFormat: number;
+    let normalFormat: number;
+    let normalType: number;
+
+    if (floatExt) {
+      // Use full float precision
+      normalInternalFormat = this.gl.RGBA16F;
+      normalFormat = this.gl.RGBA;
+      normalType = this.gl.FLOAT;
+      this.useNormalEncoding = false;
+    } else if (halfFloatExt) {
+      // Use half float precision
+      normalInternalFormat = this.gl.RGBA16F;
+      normalFormat = this.gl.RGBA;
+      normalType = this.gl.HALF_FLOAT;
+      this.useNormalEncoding = false;
+    } else {
+      // Fallback to RGBA8 with normal encoding (normal * 0.5 + 0.5)
+      console.warn("[GeometryPass] Floating point render targets not supported. Using RGBA8 with normal encoding.");
+      normalInternalFormat = this.gl.RGBA8;
+      normalFormat = this.gl.RGBA;
+      normalType = this.gl.UNSIGNED_BYTE;
+      this.useNormalEncoding = true;
+    }
+    
+    // Store in resource cache for other passes to use
+    this.resourceCache.setUniformData("useNormalEncoding", this.useNormalEncoding);
 
     const normalTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
-      this.gl.RGBA16F,
-      this.gl.RGBA,
-      this.gl.FLOAT
+      normalInternalFormat,
+      normalFormat,
+      normalType
     );
     const albedoTexture = TextureUtils.createTexture2D(
       this.gl,
@@ -144,6 +171,7 @@ export class GeometryPass extends RenderPass {
     const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
     this.gl.uniformMatrix4fv(this.uniforms["view"], false, cameraInfo.matView);
     this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
+    this.gl.uniform1i(this.uniforms["useNormalEncoding"], this.useNormalEncoding ? 1 : 0);
 
     for (const vaoInfo of vaosToRender) {
       this.gl.bindVertexArray(vaoInfo.vao);
@@ -165,19 +193,7 @@ export class GeometryPass extends RenderPass {
   }
 
   public resize(width: number, height: number): void {
-    // Delete old resources
-    if (this.renderTarget) {
-      if (this.renderTarget.fbo) {
-        this.gl.deleteFramebuffer(this.renderTarget.fbo);
-      }
-      if (this.renderTarget.textures) {
-        for (const texture of Object.values(this.renderTarget.textures)) {
-          this.gl.deleteTexture(texture);
-        }
-      }
-    }
-
-    // Recreate render target with new dimensions
+    this.disposeRenderTarget();
     this.renderTarget = this.initRenderTarget(width, height);
   }
 }

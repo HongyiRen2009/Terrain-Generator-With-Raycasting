@@ -27,47 +27,64 @@ export class CSMPass extends RenderPass {
             CSMVertexShaderSource,
             CSMFragmentShaderSource
         );
+        // Initialize default shadowMapSize before initRenderTarget() needs it
+        if (!this.resourceCache.getUniformData("shadowMapSize")) {
+            this.resourceCache.setUniformData("shadowMapSize", 4096);
+        }
         this.renderTarget = this.initRenderTarget();
         this.uniforms = getUniformLocations(gl, this.program!, ["lightSpaceMatrix", "model"]);
         this.InitSettings();
     }
-    public override getInvocationCount(): number { return 3; }
+    public override getInvocationCount(): number { 
+        const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
+        return numCascades;
+    }
     public override setInvocationIndex(index: number): void { this.currentCascadeIndex = index; }
     
     protected initRenderTarget(): RenderTarget {
         // Use DEPTH_COMPONENT32F for float depth, or DEPTH_COMPONENT24 with UNSIGNED_INT
         // For shadow maps, DEPTH_COMPONENT32F with FLOAT is more reliable
-        const shadowMapSize = 2048; // Higher resolution for shadow maps
-        this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
+        let shadowMapSize = this.resourceCache.getUniformData("shadowMapSize");
+        const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
+        const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
+        
+        // Clamp shadow map size to maximum supported texture size
+        if (shadowMapSize > maxTextureSize) {
+            console.warn(`[CSM] Shadow map size ${shadowMapSize} exceeds maximum texture size ${maxTextureSize}. Clamping to ${maxTextureSize}.`);
+            shadowMapSize = maxTextureSize;
+            this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
+        }
+        
         const depthInternalFormat = this.gl.DEPTH_COMPONENT32F;
         const depthFormat = this.gl.DEPTH_COMPONENT;
         const depthType = this.gl.FLOAT;
-        const shadowDepthTexture0 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, depthInternalFormat, depthFormat, depthType);
-        const shadowDepthTexture1 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, depthInternalFormat, depthFormat, depthType);
-        const shadowDepthTexture2 = TextureUtils.createTexture2D(this.gl, shadowMapSize, shadowMapSize, depthInternalFormat, depthFormat, depthType);
         
-        const textures = [shadowDepthTexture0, shadowDepthTexture1, shadowDepthTexture2];
-        for (const tex of textures) {
-            this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_COMPARE_MODE, this.gl.NONE);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-        }
-        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+        // Create a single texture array instead of individual textures
+        const shadowDepthTextureArray = TextureUtils.createTexture2DArray(
+            this.gl, 
+            shadowMapSize, 
+            shadowMapSize, 
+            numCascades,
+            depthInternalFormat, 
+            depthFormat, 
+            depthType
+        );
+        
+        // Set texture parameters for the array
+        this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, shadowDepthTextureArray);
+        this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_COMPARE_MODE, this.gl.NONE);
+
+        this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, null);
         
         const fbo = this.gl.createFramebuffer();
         if (!fbo) {
             throw new Error("Failed to create framebuffer");
         }
-        // Attachments are switched per-cascade during render()
+        // Attachments are switched per-cascade during render() using framebufferTextureLayer
         return {
             fbo: fbo,
             textures: {
-                shadowDepthTexture0: shadowDepthTexture0,
-                shadowDepthTexture1: shadowDepthTexture1,
-                shadowDepthTexture2: shadowDepthTexture2
+                shadowDepthTextureArray: shadowDepthTextureArray
             }
         }
     }
@@ -85,16 +102,16 @@ export class CSMPass extends RenderPass {
             return;
         }
         const textures = this.renderTarget.textures!;
-        const depthKey = `shadowDepthTexture${this.currentCascadeIndex}` as const;
-        const depthTex = (textures as any)[depthKey] as WebGLTexture;
+        const shadowDepthTextureArray = textures["shadowDepthTextureArray"] as WebGLTexture;
 
-        if (!depthTex) {
-            console.error(`[CSM] Shadow depth texture ${depthKey} not found!`);
+        if (!shadowDepthTextureArray) {
+            console.error(`[CSM] Shadow depth texture array not found!`);
             return;
         }
 
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
-        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depthTex, 0);
+        // Use framebufferTextureLayer to attach a specific layer of the texture array
+        this.gl.framebufferTextureLayer(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, shadowDepthTextureArray, 0, this.currentCascadeIndex);
         // Check framebuffer completeness
         const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
         if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
@@ -106,7 +123,7 @@ export class CSMPass extends RenderPass {
         }
         this.gl.colorMask(false, false, false, false);
 
-        const shadowMapSize = 2048;
+        const shadowMapSize = this.resourceCache.getUniformData("shadowMapSize");
         this.gl.viewport(0, 0, shadowMapSize, shadowMapSize);
         this.gl.clearDepth(1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
@@ -159,12 +176,68 @@ export class CSMPass extends RenderPass {
             }
         });
         this.settingsSection.addSlider({
+            id: "numCascades",
+            label: "Number of Cascades",
+            min: 1,
+            max: 8,
+            step: 1,
+            defaultValue: 3,
+            numType: "int",
+            onChange: (value: number) => {
+                const newNumCascades = Math.floor(value);
+                this.resourceCache.setUniformData("numCascades", newNumCascades);
+                
+                // Update shadowBias array to match new number of cascades
+                const currentBiasArray = this.resourceCache.getUniformData("shadowBias") as number[] | undefined;
+                const newBiasArray = Array.from({ length: newNumCascades }, (_, i) => {
+                    if (currentBiasArray && i < currentBiasArray.length) {
+                        // Keep existing values if available
+                        return currentBiasArray[i];
+                    }
+                    // Otherwise use default: 0.001 * 0.5^i
+                    return 0.001 * Math.pow(0.5, i);
+                });
+                this.resourceCache.setUniformData("shadowBias", newBiasArray);
+                
+                // Update the shadowBias slider array length if it exists
+                const shadowBiasSetting = this.settingsSection?.getSetting("shadowBias");
+                if (shadowBiasSetting && shadowBiasSetting.type === "slider" && shadowBiasSetting.isArray) {
+                    // We need to recreate the slider with new array length
+                    // For now, just update the array length property
+                    shadowBiasSetting.arrayLength = newNumCascades;
+                    shadowBiasSetting.value = newBiasArray as any;
+                }
+                
+                this.disposeRenderTarget();
+                this.renderTarget = this.initRenderTarget();
+            }
+        });
+        // Initialize the default value in resource cache
+        this.resourceCache.setUniformData("numCascades", 3);
+        const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
+        this.settingsSection.addSlider({
+            id: "shadowMapSize",
+            label: "Shadow Map Size",
+            min: 1024,
+            max: maxTextureSize,
+            step: 1,
+            defaultValue: 8192,
+            numType: "int",
+            onChange: (value: number) => {
+                this.resourceCache.setUniformData("shadowMapSize", value);
+                this.disposeRenderTarget();
+                this.renderTarget = this.initRenderTarget();
+            }
+        });
+        // Initialize the default value in resource cache since onChange is only called on user interaction
+        this.resourceCache.setUniformData("shadowMapSize", 4096);
+        this.settingsSection.addSlider({
             id: "lambda",
             label: "Lambda",
             min: 0.0,
             max: 1.0,
             step: 0.01,
-            defaultValue: 0.25,
+            defaultValue: 0.8,
             numType: "float"
         });
         this.settingsSection.addSlider({
@@ -184,16 +257,29 @@ export class CSMPass extends RenderPass {
                 this.resourceCache.setUniformData("usingPCF", value);
             }
         });
+        const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
+        // Initialize shadowBias array with decreasing values for further cascades
+        const defaultBiasArray = Array.from({ length: numCascades }, (_, i) => {
+            // Further cascades should have less bias
+            // Start with 0.001 for first cascade, reduce by 50% for each subsequent cascade
+            return 0.001 * Math.pow(0.5, i);
+        });
+        this.resourceCache.setUniformData("shadowBias", defaultBiasArray);
+        
         this.settingsSection.addSlider({
             id: "shadowBias",
             label: "Shadow Bias",
-            min: 0.0,
-            max: 0.1,
-            step: 0.001,
-            defaultValue: 0.01,
+            min: 0.0, // Same min for all cascades
+            max: 0.01, // Same max for all cascades
+            step: 0.0001, // Same step for all cascades
+            defaultValue: defaultBiasArray, // Array of default values - each cascade gets its own default
             numType: "float",
+            isArray: true,
+            arrayLength: numCascades,
+            arrayIndex: 0,
             onChange: (value: number) => {
-                this.resourceCache.setUniformData("shadowBias", value);
+                const biasArray = this.settingsSection?.getSliderArray("shadowBias") ?? defaultBiasArray;
+                this.resourceCache.setUniformData("shadowBias", biasArray);
             }
         });
         this.settingsSection.addCheckbox({
@@ -204,6 +290,16 @@ export class CSMPass extends RenderPass {
                 this.resourceCache.setUniformData("cascadeDebug", value);
             }
         });
+        this.settingsSection.addCheckbox({
+            id: "drawCascadeDebug",
+            label: "Draw Cascade Frusta",
+            defaultValue: false,
+            onChange: (value: boolean) => {
+                this.resourceCache.setUniformData("drawCascadeDebug", value);
+            }
+        });
+        // Initialize the default value in resource cache
+        this.resourceCache.setUniformData("drawCascadeDebug", false);
         this.settingsSection.addCheckbox({
             id: "debugPause",
             label: "Debug Pause Mode",
@@ -220,11 +316,13 @@ export class CSMPass extends RenderPass {
                 this.resourceCache.setUniformData("showShadowMap", value);
             }
         });
+        // Reuse numCascades from above (line 260)
+        const shadowMapCascadeMax = this.resourceCache.getUniformData("numCascades") ?? 3;
         this.settingsSection.addSlider({
             id: "shadowMapCascade",
-            label: "Shadow Map Cascade (0-2)",
+            label: `Shadow Map Cascade (0-${shadowMapCascadeMax - 1})`,
             min: 0,
-            max: 2,
+            max: shadowMapCascadeMax - 1,
             step: 1,
             defaultValue: 0,
             numType: "int",
@@ -237,13 +335,14 @@ export class CSMPass extends RenderPass {
 
 function getCascadeSplits(resourceCache: ResourceCache, lambda: number) : number[] {
     const cascadeSplits : number[] = [];
+    const numCascades = resourceCache.getUniformData("numCascades") ?? 3;
     const nearFarPlanes = resourceCache.getUniformData("pausedNearFarPlanes");
     const nearPlane = nearFarPlanes.near;
     const farPlane = nearFarPlanes.far;
     const clipRange = farPlane - nearPlane;
     const ratio = farPlane / nearPlane;
-    for (let i = 0; i < 3; ++i){
-        const p = (i+1) / 3.0;
+    for (let i = 0; i < numCascades; ++i){
+        const p = (i+1) / numCascades;
         const logSplit = nearPlane * Math.pow(ratio,p);
         const uniSplit = nearPlane + clipRange * p;
         cascadeSplits[i] = uniSplit * (1.0-lambda) + logSplit * lambda;
@@ -291,6 +390,7 @@ function getWorldSpaceFrustumCorners(resourceCache: ResourceCache) : vec4[] {
     
 function getSubfrustumCorners(resourceCache: ResourceCache, lambda: number) : vec4[][] {
     const subFrustumCorners : vec4[][] = [];
+    const numCascades = resourceCache.getUniformData("numCascades") ?? 3;
     const nearFarPlanes = resourceCache.getUniformData("pausedNearFarPlanes");
     const cascadeSplits = getCascadeSplits(resourceCache, lambda);
     const nearPlane = nearFarPlanes.near;
@@ -299,7 +399,7 @@ function getSubfrustumCorners(resourceCache: ResourceCache, lambda: number) : ve
     // Get the full camera frustum corners in world space (order: x, y, then z)
     const fullFrustumCorners = getWorldSpaceFrustumCorners(resourceCache);
 
-    for (let i = 0; i < 3; i++){
+    for (let i = 0; i < numCascades; i++){
         // Determine near and far distances for this cascade
         const cascadeNear = i === 0 ? nearPlane : cascadeSplits[i - 1];
         const cascadeFar = cascadeSplits[i];
@@ -340,9 +440,10 @@ function getSubfrustumCorners(resourceCache: ResourceCache, lambda: number) : ve
 
 function getLightSpaceMatrices(resourceCache: ResourceCache, light: DirectionalLight, lambda: number, zMultiplier : number) : mat4[] {
     const lightSpaceMatrices : mat4[] = [];
+    const numCascades = resourceCache.getUniformData("numCascades") ?? 3;
     const normalizedLightDir = vec3.normalize(vec3.create(), light.direction);
     const parallelThreshold = 0.99;
-    for (let i = 0; i < 3; i++){
+    for (let i = 0; i < numCascades; i++){
         const LightViewMatrix = mat4.create();
         const subFrustumCorners = getSubfrustumCorners(resourceCache, lambda);
         const center = vec3.fromValues(0.0, 0.0, 0.0);

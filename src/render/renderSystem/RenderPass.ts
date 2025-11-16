@@ -53,23 +53,11 @@ export abstract class RenderPass {
   public abstract render(vao_info?: VaoInfo | VaoInfo[] | null): void;
 
   public resize(width: number, height: number): void {
-    // Delete old resources
-    if (this.renderTarget) {
-      if (this.renderTarget.fbo) {
-        this.gl.deleteFramebuffer(this.renderTarget.fbo);
-      }
-      if (this.renderTarget.textures) {
-        for (const texture of Object.values(this.renderTarget.textures)) {
-          this.gl.deleteTexture(texture);
-        }
-      }
-    }
-
-    // Recreate render target with new dimensions
+    this.disposeRenderTarget();
     this.renderTarget = this.initRenderTarget();
   }
 
-  public dispose() {
+  public disposeRenderTarget(): void {
     if (this.renderTarget) {
       if (this.renderTarget.fbo) {
         this.gl.deleteFramebuffer(this.renderTarget.fbo);
@@ -79,7 +67,12 @@ export abstract class RenderPass {
           this.gl.deleteTexture(texture);
         }
       }
+      this.renderTarget = null;
     }
+  }
+
+  public dispose() {
+    this.disposeRenderTarget();
     if (this.program) {
       this.gl.deleteProgram(this.program);
     }

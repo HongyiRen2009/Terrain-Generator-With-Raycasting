@@ -59,7 +59,12 @@ export class DebugPass extends RenderPass {
     private static readonly CASCADE_COLORS: Array<[number, number, number]> = [
         [1.0, 0.0, 1.0], // magenta
         [0.0, 1.0, 1.0], // cyan
-        [1.0, 1.0, 0.0] // yellow
+        [1.0, 1.0, 0.0], // yellow
+        [1.0, 0.0, 0.0], // red
+        [0.0, 1.0, 0.0], // green
+        [0.0, 0.0, 1.0], // blue
+        [1.0, 0.5, 0.0], // orange
+        [0.5, 0.0, 1.0]  // purple
     ];
 
     private static readonly LIGHT_FRUSTUM_COLOR: [number, number, number] = [
@@ -120,8 +125,8 @@ export class DebugPass extends RenderPass {
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
     }
     public render(): void {
-        const cascadeDebug = this.resourceCache.getUniformData("cascadeDebug") as boolean | undefined;
-        if (!cascadeDebug) {
+        const drawCascadeDebug = this.resourceCache.getUniformData("drawCascadeDebug") as boolean | undefined;
+        if (!drawCascadeDebug) {
             return;
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
@@ -194,9 +199,11 @@ export class DebugPass extends RenderPass {
         const cameraFrustum = this.resourceCache.getUniformData("cameraFrustumCorners") as number[][] | undefined;
         pushFrustum(cameraFrustum, DebugPass.CAMERA_FRUSTUM_COLOR);
 
+        const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
         const cameraSubFrusta = this.resourceCache.getUniformData("cameraSubFrusta") as number[][][] | undefined;
         if (cameraSubFrusta && cameraSubFrusta.length > 0) {
-            for (let i = 0; i < cameraSubFrusta.length; i++) {
+            const maxCascades = Math.min(cameraSubFrusta.length, numCascades);
+            for (let i = 0; i < maxCascades; i++) {
                 const color = DebugPass.CASCADE_COLORS[i % DebugPass.CASCADE_COLORS.length];
                 pushFrustum(cameraSubFrusta[i], color);
             }

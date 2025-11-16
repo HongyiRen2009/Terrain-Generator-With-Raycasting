@@ -16,7 +16,8 @@ export class TextureUtils {
     program: WebGLProgram,
     tex: WebGLTexture,
     key: string,
-    unit: number
+    unit: number,
+    target: number = gl.TEXTURE_2D
   ) {
     const loc = gl.getUniformLocation(program, key);
     if (loc === null) {
@@ -25,7 +26,7 @@ export class TextureUtils {
     }
     // Bind to the specified texture unit
     gl.activeTexture(gl.TEXTURE0 + unit);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.bindTexture(target, tex);
     // Tell the shader's sampler to use this texture unit
     gl.uniform1i(loc, unit);
   }
@@ -174,6 +175,62 @@ export class TextureUtils {
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, wrapR);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, wrapR);
     gl.bindTexture(gl.TEXTURE_3D, null);
+    return texture;
+  }
+
+  /**
+   * Creates and initializes a WebGL 2D array texture with the specified parameters.
+   *
+   * @param gl - The WebGL2 rendering context.
+   * @param width - The width of each layer in pixels.
+   * @param height - The height of each layer in pixels.
+   * @param layers - The number of layers in the array.
+   * @param internalFormat - The internal format of the texture (e.g., `gl.DEPTH_COMPONENT32F`).
+   * @param format - The format of the pixel data (e.g., `gl.DEPTH_COMPONENT`).
+   * @param type - The data type of the pixel data (e.g., `gl.FLOAT`).
+   * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
+   * @param minFilter - The minification filter (default: gl.NEAREST).
+   * @param magFilter - The magnification filter (default: gl.NEAREST).
+   * @param wrapS - The wrap mode for S coordinate (default: gl.CLAMP_TO_EDGE).
+   * @param wrapT - The wrap mode for T coordinate (default: gl.CLAMP_TO_EDGE).
+   * @returns The created WebGLTexture object.
+   */
+  static createTexture2DArray(
+    gl: WebGL2RenderingContext,
+    width: number,
+    height: number,
+    layers: number,
+    internalFormat: number,
+    format: number,
+    type: number,
+    data: ArrayBufferView | null = null,
+    minFilter: number = gl.NEAREST,
+    magFilter: number = gl.NEAREST,
+    wrapS: number = gl.CLAMP_TO_EDGE,
+    wrapT: number = gl.CLAMP_TO_EDGE
+  ) {
+    const texture = gl.createTexture();
+    if (!texture) {
+      throw new Error("Failed to create texture");
+    }
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
+    gl.texImage3D(
+      gl.TEXTURE_2D_ARRAY,
+      0,
+      internalFormat,
+      width,
+      height,
+      layers,
+      0,
+      format,
+      type,
+      data
+    );
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, minFilter);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, magFilter);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, wrapS);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, wrapT);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
     return texture;
   }
 }
