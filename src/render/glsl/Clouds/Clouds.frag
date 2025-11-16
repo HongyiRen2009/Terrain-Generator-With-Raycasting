@@ -38,6 +38,7 @@ uniform float windDirectionX;
 uniform float windDirectionZ;
 uniform float windSpeed;
 out vec4 fragColor;
+uniform int pathtracerOn;
 
 // Add early exit constants
 const float DENSITY_THRESHOLD_SKIP = 0.01f;
@@ -171,7 +172,11 @@ void main() {
     vec4 lit = vec4(texture(litSceneTexture, fragUV).rgb, 1.0f);
 
     if(!enableClouds) {
-        fragColor = lit;
+        if(pathtracerOn == 1) {
+            discard;
+        } else {
+            fragColor = lit;
+        }
         return;
     }
     vec2 uv = fragUV * 2.0f - 1.0f;
@@ -183,6 +188,9 @@ void main() {
 
     // Read scene depth
     float sceneDepth = min(texture(depthTexture, fragUV).r, texture(lightingDepthTexture, fragUV).r);
+    if(pathtracerOn == 1) {
+        sceneDepth = texture(depthTexture, fragUV).r;
+    }
 
     // Calculate world position of terrain from depth buffer
     vec3 terrainWorldPos = getWorldPositionFromDepth(fragUV, sceneDepth);
@@ -197,7 +205,11 @@ void main() {
     vec2 dsts = rayBoxDst(cubeMin, cubeMax, rayOriginWorld, 1.0f / rayDirWorld);
 
     if(dsts.y <= 0.0f) {
-        fragColor = lit;
+        if(pathtracerOn == 1) {
+            discard;
+        } else {
+            fragColor = lit;
+        }
         return;
     }
 
@@ -206,7 +218,11 @@ void main() {
 
     // If terrain is in front of cloud box, don't render clouds
     if(tNear >= distanceToTerrain) {
-        fragColor = lit;
+        if(pathtracerOn == 1) {
+            discard;
+        } else {
+            fragColor = lit;
+        }
         return;
     }
 
@@ -269,5 +285,12 @@ void main() {
         if(accumulatedColor.a > ALPHA_THRESHOLD)
             break;
     }
-    fragColor = vec4(accumulatedColor.rgb + lit.rgb * (1.0f - accumulatedColor.a), 1.0f);
+
+    // When pathtracer is on, output premultiplied alpha for GL blending
+    // When pathtracer is off, manually blend with lit scene
+    if(pathtracerOn == 1) {
+        fragColor = accumulatedColor;
+    } else {
+        fragColor = vec4(accumulatedColor.rgb + lit.rgb * (1.0f - accumulatedColor.a), 1.0f);
+    }
 }

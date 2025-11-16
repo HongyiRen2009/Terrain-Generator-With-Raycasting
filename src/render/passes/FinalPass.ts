@@ -12,7 +12,7 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 
 export class FinalPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
-  public pathtracerRender: boolean = true;
+  public pathtracerRender: boolean = false;
 
   constructor(
     gl: WebGL2RenderingContext,

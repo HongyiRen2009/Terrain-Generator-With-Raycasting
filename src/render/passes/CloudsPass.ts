@@ -78,9 +78,23 @@ export class CloudsPass extends RenderPass {
   }
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
-    this.gl.disable(this.gl.BLEND);
-    if (this.pathtracerRender || !pathtracerOn) {
+
+    // Bind framebuffer or render to screen based on pathtracer state
+    if (pathtracerOn) {
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    } else {
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
+    }
+
+    // Configure blending based on pathtracer state
+    if (pathtracerOn) {
+      this.gl.enable(this.gl.BLEND);
+      this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+    } else {
+      this.gl.disable(this.gl.BLEND);
+    }
+
+    if (!pathtracerOn) {
       this.gl.clearColor(0, 0, 0, 1.0);
       this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     }
@@ -163,6 +177,13 @@ export class CloudsPass extends RenderPass {
       this.gl.getUniformLocation(this.program!, "time"),
       performance.now() * 0.001 // Convert to seconds
     );
+
+    // Pass pathtracer state to shader
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.program!, "pathtracerOn"),
+      pathtracerOn ? 1 : 0
+    );
+
     this.settingsSection?.updateUniforms(this.gl);
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);

@@ -113,10 +113,14 @@ export class GrassPass extends RenderPass {
     this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["depth"];
-    const lightingFBO = this.renderGraph!.getPass(
-      "Terrain Lighting Pass"
-    )?.getRenderTarget()?.fbo;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, lightingFBO!);
+    if (pathtracerOn) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    } else {
+      const lightingFBO = this.renderGraph!.getPass(
+        "Terrain Lighting Pass"
+      )?.getRenderTarget()?.fbo;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, lightingFBO!);
+    }
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
