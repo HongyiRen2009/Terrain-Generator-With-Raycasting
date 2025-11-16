@@ -275,6 +275,9 @@ void main() {
     } else {
         // Clamp lighting to prevent HDR overflow (white spots)
         // If you want HDR support, consider implementing tone mapping instead
-        outputColor = vec4(min(lighting, vec3(1.0f)), 1.0f);
+        vec3 finalColor = min(lighting, vec3(1.0f));
+        float gamma = 2.2;
+        finalColor = pow(finalColor, vec3(1.0f / gamma));
+        outputColor = vec4(finalColor, 1.0f);
     }
 }
