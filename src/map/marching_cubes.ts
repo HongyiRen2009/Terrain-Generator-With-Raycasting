@@ -2,8 +2,9 @@ import { vec2, vec3 } from "gl-matrix";
 import { VERTICES, EDGES, CASES } from "./geometry";
 import { Triangle, Mesh } from "./Mesh";
 import { vertexKey } from "./cubes_utils";
+import { WorldObject } from "./WorldObject";
+import { WorldMap } from "./Map";
 
-//!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 export class Chunk {
   ChunkPosition: vec2;
   GridSize: vec3;
@@ -13,6 +14,7 @@ export class Chunk {
   seed: number;
   Worker: Worker;
   Mesh: Mesh = null!;
+  gearObjects: vec3[];
   constructor(
     ChunkPosition: vec2,
     GridSize: vec3,
@@ -24,6 +26,7 @@ export class Chunk {
     this.seed = seed;
     this.Worker = Worker;
     this.FieldMap = new Map<string, number>();
+    this.gearObjects = [];
   }
 
   chunkCoordinateToIndex(c: vec3): number {
@@ -36,7 +39,10 @@ export class Chunk {
   setWorldFieldMap(worldFieldMap: Map<string, number>) {
     this.WorldFieldMap = worldFieldMap;
   }
-  async generateTerrain(): Promise<Float32Array> {
+  /**
+   * Generates the surface mesh and world objects, comprising a chunk
+   */
+  async generateTerrain(world: WorldMap): Promise<Float32Array> {
     return new Promise((resolve) => {
       const requestId = Math.random().toString(36).slice(2);
       const handler = (
@@ -72,6 +78,7 @@ export class Chunk {
           meshVertices: Triangle[];
           meshNormals: Triangle[];
           meshTypes: [number, number, number][];
+          justGearObjectsLol: vec3[];
         }>
       ) => {
         if (event.data.requestId !== requestId) return;
@@ -79,6 +86,7 @@ export class Chunk {
         this.Mesh.setVertices(event.data.meshVertices);
         this.Mesh.setNormals(event.data.meshNormals);
         this.Mesh.setTypes(event.data.meshTypes);
+        this.gearObjects = event.data.justGearObjectsLol;
         this.Worker.removeEventListener("message", handler as EventListener);
         resolve(this.Mesh);
       };

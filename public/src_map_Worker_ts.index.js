@@ -262,17 +262,13 @@ function chunkCoordinateToIndex(c, gridSize) {
         c[1] * (gridSize[0] + 1) +
         c[2] * (gridSize[0] + 1) * (gridSize[1] + 1));
 }
-// FIXED — now takes simplex and simplexOverhang
-function noiseFunction(c, simplex, simplexOverhang) {
+function noiseFunction(c, simplex, simplexOverhang, simplexRiver) {
     var hillFreq = 0.02;
     var mountainFreq = 0.005;
     var caveFreq = 0.05;
     var waterLevel = 30;
     function fractalNoise(c, oct, freq, amp) {
-        var total = 0;
-        var max = 0;
-        var f = freq;
-        var a = amp;
+        var total = 0, max = 0, f = freq, a = amp;
         for (var i = 0; i < oct; i++) {
             total += simplex(c[0] * f, c[1] * f, c[2] * f) * a;
             max += a;
@@ -288,11 +284,19 @@ function noiseFunction(c, simplex, simplexOverhang) {
     var terrainHeight = hillHeight * 0.6 + mountainHeight * 0.4;
     terrainHeight = Math.floor(terrainHeight / 5) * 5;
     var density = terrainHeight - c[1];
+    // Caves
     var caveNoise = fractalNoise(c, 3, caveFreq, 1);
     density -= Math.max(0, (caveNoise - 0.5) * 60 * Math.max(0, 1 - c[1] / 100));
+    // Overhangs
     var overhang = simplexOverhang(c[0] * 0.03, c[1] * 0.03, c[2] * 0.03);
     if (overhang > 0.2)
         density -= (overhang - 0.2) * 30;
+    // Rivers
+    var riverNoise = simplexRiver(c[0] * 0.01, c[2] * 0.01, 0);
+    var riverThreshold = 0.1;
+    if (riverNoise < riverThreshold) {
+        density -= (riverThreshold - riverNoise) * 50; // riverbed depth
+    }
     if (c[1] < waterLevel)
         density = Math.min(density, waterLevel - c[1]);
     return Math.max(0, Math.min(1, (density + 100) / 200));
@@ -362,11 +366,12 @@ function caseToMesh(c, caseNumber, gridSize) {
     return caseMesh;
 }
 self.onmessage = function (event) {
-    var _a = event.data, Seed = _a.Seed, GridSize = _a.GridSize, ChunkPosition = _a.ChunkPosition, generatingTerrain = _a.generatingTerrain, worldFieldMap = _a.worldFieldMap;
+    var _a = event.data, Seed = _a.Seed, GridSize = _a.GridSize, ChunkPosition = _a.ChunkPosition, generatingTerrain = _a.generatingTerrain, worldFieldMap = _a.worldFieldMap, requestId = _a.requestId;
     globalChunkPosition = ChunkPosition;
     var prng = alea__WEBPACK_IMPORTED_MODULE_1___default()(Seed);
     var simplex = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_0__.createNoise3D)(prng);
-    var simplexOverhang = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_0__.createNoise3D)(prng); // FIXED — create 2nd noise field
+    var simplexOverhang = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_0__.createNoise3D)(prng);
+    var simplexRiver = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_0__.createNoise3D)(prng); // new noise for rivers
     if (generatingTerrain) {
         var field = new Float32Array((GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1));
         var map = new Map();
@@ -376,13 +381,13 @@ self.onmessage = function (event) {
                     var c = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z);
                     gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(c, c, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(ChunkPosition[0], 0, ChunkPosition[1]));
                     var idx = chunkCoordinateToIndex(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z), GridSize);
-                    var value = noiseFunction(c, simplex, simplexOverhang);
+                    var value = noiseFunction(c, simplex, simplexOverhang, simplexRiver);
                     field[idx] = value;
                     map.set((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(c), value);
                 }
             }
         }
-        self.postMessage({ field: field, fieldMap: Array.from(map.entries()) }, [
+        self.postMessage({ requestId: requestId, field: field, fieldMap: Array.from(map.entries()) }, [
             field.buffer
         ]);
     }
@@ -399,6 +404,7 @@ self.onmessage = function (event) {
             }
         }
         self.postMessage({
+            requestId: requestId,
             meshVertices: mesh.getVertices(),
             meshNormals: mesh.getNormals(),
             meshTypes: mesh.getTypes()
@@ -1090,7 +1096,7 @@ var Terrains = {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("a2148925925ec791e73a")
+/******/ 		__webpack_require__.h = () => ("da2ece15a2ea2fcf6868")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

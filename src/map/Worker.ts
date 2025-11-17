@@ -174,9 +174,17 @@ function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
   return caseMesh;
 }
 
-self.onmessage = (event: MessageEvent<WorkerMessage & { requestId?: string }>) => {
-  const { Seed, GridSize, ChunkPosition, generatingTerrain, worldFieldMap, requestId } =
-    event.data;
+self.onmessage = (
+  event: MessageEvent<WorkerMessage & { requestId?: string }>
+) => {
+  const {
+    Seed,
+    GridSize,
+    ChunkPosition,
+    generatingTerrain,
+    worldFieldMap,
+    requestId
+  } = event.data;
 
   globalChunkPosition = ChunkPosition;
 
@@ -218,9 +226,10 @@ self.onmessage = (event: MessageEvent<WorkerMessage & { requestId?: string }>) =
       }
     }
 
-    self.postMessage({ requestId, field, fieldMap: Array.from(map.entries()) }, [
-      field.buffer
-    ]);
+    self.postMessage(
+      { requestId, field, fieldMap: Array.from(map.entries()) },
+      [field.buffer]
+    );
   } else {
     WorldFieldMap = worldFieldMap;
 
@@ -236,11 +245,19 @@ self.onmessage = (event: MessageEvent<WorkerMessage & { requestId?: string }>) =
       }
     }
 
+    // Generate a singular gear at the origin of the chunk
+    let localGearObjectPos = vec3.fromValues(
+      ChunkPosition[0],
+      0,
+      ChunkPosition[1]
+    );
+
     self.postMessage({
       requestId,
       meshVertices: mesh.getVertices(),
       meshNormals: mesh.getNormals(),
-      meshTypes: mesh.getTypes()
+      meshTypes: mesh.getTypes(),
+      justGearObjectsLol: [localGearObjectPos]
     });
   }
 };

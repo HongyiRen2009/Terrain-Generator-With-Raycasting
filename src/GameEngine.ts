@@ -176,13 +176,29 @@ export class GameEngine {
   public dispose(): void {
     // Remove event listeners
     try {
-      if (this.boundMouseDown) this.canvas.removeEventListener("mousedown", this.boundMouseDown);
-      if (this.boundMouseMove) this.canvas.removeEventListener("mousemove", this.boundMouseMove as any);
-      if (this.boundResize) window.removeEventListener("resize", this.boundResize);
-      if (this.boundRayClick) document.getElementById("raytracing")?.removeEventListener("click", this.boundRayClick);
-      if (this.boundPathClick) document.getElementById("pathtracing")?.removeEventListener("click", this.boundPathClick);
-      if (this.boundMenuClick) document.getElementById("menu-toggle")?.removeEventListener("click", this.boundMenuClick);
-      if (this.boundKeyDown) window.removeEventListener("keydown", this.boundKeyDown);
+      if (this.boundMouseDown)
+        this.canvas.removeEventListener("mousedown", this.boundMouseDown);
+      if (this.boundMouseMove)
+        this.canvas.removeEventListener(
+          "mousemove",
+          this.boundMouseMove as any
+        );
+      if (this.boundResize)
+        window.removeEventListener("resize", this.boundResize);
+      if (this.boundRayClick)
+        document
+          .getElementById("raytracing")
+          ?.removeEventListener("click", this.boundRayClick);
+      if (this.boundPathClick)
+        document
+          .getElementById("pathtracing")
+          ?.removeEventListener("click", this.boundPathClick);
+      if (this.boundMenuClick)
+        document
+          .getElementById("menu-toggle")
+          ?.removeEventListener("click", this.boundMenuClick);
+      if (this.boundKeyDown)
+        window.removeEventListener("keydown", this.boundKeyDown);
       if (this.boundKeyUp) window.removeEventListener("keyup", this.boundKeyUp);
     } catch (e) {
       // ignore
@@ -201,7 +217,7 @@ export class GameEngine {
   }
   public async initialize() {
     await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateTerrain())
+      this.world.chunks.map((chunk) => chunk.generateTerrain(this.world))
     );
     this.world.populateFieldMap();
 
@@ -230,10 +246,9 @@ export class GameEngine {
     };
 
     // Add a gear object
-    const mesh = await threemfToMesh(gearModelUrl);
-    const identity2 = mat4.create();
-    mat4.identity(identity2);
-    this.world.addObject(mesh, identity2, "Gear");
+    const gearMesh = await threemfToMesh(gearModelUrl);
+
+    WorldUtils.addChunkGears(this.world, gearMesh);
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);

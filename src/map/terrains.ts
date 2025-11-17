@@ -112,7 +112,7 @@ export const Terrains: { [id: number]: Terrain } = {
   //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
   0: {
     //Regular ground
-    color: new Color(0, 255, 0),
+    color: new Color(200, 100, 0),
     reflectiveness: 0.2,
     roughness: 0.8,
     type: 1
