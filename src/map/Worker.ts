@@ -245,11 +245,16 @@ self.onmessage = (
       }
     }
 
-    // Generate a singular gear at the origin of the chunk
+    // from the mesh, choose a random triangle
+    let meshTriangles: Readonly<Triangle[]> = mesh.mesh;
+    let randomTriangle: Triangle =
+      meshTriangles[Math.floor(Math.random() * meshTriangles.length)];
+
+    // Generate a singular gear at this triangle
     let localGearObjectPos = vec3.fromValues(
-      ChunkPosition[0],
-      0,
-      ChunkPosition[1]
+      randomTriangle[0][0] + ChunkPosition[0],
+      randomTriangle[0][1],
+      randomTriangle[0][2] + ChunkPosition[1]
     );
 
     self.postMessage({
