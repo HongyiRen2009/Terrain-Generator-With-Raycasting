@@ -40,16 +40,11 @@ export class Chunk {
   // Generate edge triangles in main thread
   generateEdgeTriangles(): void {
     const edgeMesh = new Mesh();
-    
-    for (let x = 0; x < this.GridSize[0]; x++) {
+
+    // Process X-axis edges (x = 0 and x = GridSize[0] - 1)
+    for (let x of [0, this.GridSize[0] - 1]) {
       for (let y = 0; y < this.GridSize[1]; y++) {
         for (let z = 0; z < this.GridSize[2]; z++) {
-          // Only process edge cubes
-          const isEdge = x === 0 || x === this.GridSize[0] - 1 ||
-                         y === 0 || y === this.GridSize[1] - 1 ||
-                         z === 0 || z === this.GridSize[2] - 1;
-          if (!isEdge) continue;
-          
           let c = vec3.fromValues(x, y, z);
           const cubeCase = this.GenerateCase(c);
           const newMesh = this.caseToMesh(c, cubeCase);
@@ -57,7 +52,34 @@ export class Chunk {
         }
       }
     }
-    
+
+    // Process Y-axis edges (y = 0 and y = GridSize[1] - 1)
+    for (let y of [0, this.GridSize[1] - 1]) {
+      for (let x = 1; x < this.GridSize[0] - 1; x++) {
+        // Skip corners already processed
+        for (let z = 0; z < this.GridSize[2]; z++) {
+          let c = vec3.fromValues(x, y, z);
+          const cubeCase = this.GenerateCase(c);
+          const newMesh = this.caseToMesh(c, cubeCase);
+          edgeMesh.merge(newMesh);
+        }
+      }
+    }
+
+    // Process Z-axis edges (z = 0 and z = GridSize[2] - 1)
+    for (let z of [0, this.GridSize[2] - 1]) {
+      for (let x = 1; x < this.GridSize[0] - 1; x++) {
+        // Skip edges already processed
+        for (let y = 1; y < this.GridSize[1] - 1; y++) {
+          // Skip edges already processed
+          let c = vec3.fromValues(x, y, z);
+          const cubeCase = this.GenerateCase(c);
+          const newMesh = this.caseToMesh(c, cubeCase);
+          edgeMesh.merge(newMesh);
+        }
+      }
+    }
+
     this.Mesh.merge(edgeMesh);
   }
 
@@ -66,7 +88,9 @@ export class Chunk {
     for (let i = 0; i < VERTICES.length; i++) {
       let vertexOffset = vec3.fromValues(...VERTICES[i]);
       vec3.add(vertexOffset, vertexOffset, cubeCoordinates);
-      const isTerrain = Number(this.solidChecker(this.getFieldValue(vertexOffset)));
+      const isTerrain = Number(
+        this.solidChecker(this.getFieldValue(vertexOffset))
+      );
       caseIndex += isTerrain << i;
     }
     return caseIndex;
@@ -149,36 +173,36 @@ export class Chunk {
   }
   // Generate terrain field and mesh (NEW)
   async generateTerrain(): Promise<void> {
-  return new Promise((resolve) => {
-    this.Worker.postMessage({
-      GridSize: this.GridSize,
-      ChunkPosition: this.ChunkPosition,
-      Seed: this.seed
+    return new Promise((resolve) => {
+      this.Worker.postMessage({
+        GridSize: this.GridSize,
+        ChunkPosition: this.ChunkPosition,
+        Seed: this.seed
+      });
+      this.Worker.onmessage = (
+        event: MessageEvent<{
+          field: Float32Array;
+          fieldMap: [string, number][];
+          meshVertices: Triangle[];
+          meshNormals: Triangle[];
+          meshTypes: [number, number, number][];
+        }>
+      ) => {
+        this.Field = event.data.field;
+        this.FieldMap = new Map<string, number>(event.data.fieldMap);
+
+        // Initialize mesh with interior triangles
+        this.Mesh = new Mesh();
+        this.Mesh.setVertices(event.data.meshVertices);
+        this.Mesh.setNormals(event.data.meshNormals);
+        this.Mesh.setTypes(event.data.meshTypes);
+
+        resolve();
+      };
     });
-    this.Worker.onmessage = (
-      event: MessageEvent<{
-        field: Float32Array;
-        fieldMap: [string, number][];
-        meshVertices: Triangle[];
-        meshNormals: Triangle[];
-        meshTypes: [number, number, number][];
-      }>
-    ) => {
-      this.Field = event.data.field;
-      this.FieldMap = new Map<string, number>(event.data.fieldMap);
-      
-      // Initialize mesh with interior triangles
-      this.Mesh = new Mesh();
-      this.Mesh.setVertices(event.data.meshVertices);
-      this.Mesh.setNormals(event.data.meshNormals);
-      this.Mesh.setTypes(event.data.meshTypes);
-      
-      resolve();
-    };
-  });
-}
-// Generate only edge cubes and merge into existing mesh (W AI commments)
-  
+  }
+  // Generate only edge cubes and merge into existing mesh (W AI commments)
+
   getMesh() {
     return this.Mesh;
   }
