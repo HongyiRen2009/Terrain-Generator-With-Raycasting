@@ -11,6 +11,7 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { WorldUtils } from "../../utils/WorldUtils";
 import { SettingsSection } from "../../Settings";
 import { vec3 } from "gl-matrix";
+import { Color } from "../../map/terrains";
 
 export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
@@ -199,7 +200,7 @@ export class LightingPass extends RenderPass {
       this.gl,
       this.program!,
       this.resourceCache.getUniformData("lights"),
-      this.resourceCache.getUniformData("sunLight")
+      this.resourceCache.getUniformData("disableSun") ? {direction: vec3.fromValues(0, -1, 0), color: new Color(255, 255, 255), intensity: 0} : this.resourceCache.getUniformData("sunLight")
     );
 
     this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
@@ -218,6 +219,14 @@ export class LightingPass extends RenderPass {
       "Lighting Settings",
       this.program!
     );
+    this.settingsSection.addCheckbox({
+      id: "disableSun",
+      label: "Disable Sun",
+      defaultValue: false,
+      onChange: (value: boolean) => {
+        this.resourceCache.setUniformData("disableSun", value);
+      }
+    });
     this.settingsSection.addCheckbox({
       id: "showCameraDepth",
       label: "Show Camera Depth",

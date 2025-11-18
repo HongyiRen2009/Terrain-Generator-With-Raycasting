@@ -10,6 +10,7 @@ import { RenderUtils } from "../utils/RenderUtils";
 import { WorldObject } from "./WorldObject";
 import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { ObjectUI } from "./ObjectUI";
+import { LightUI } from "./LightUI";
 
 interface ImportMapEntry {
   color: string;
@@ -55,6 +56,7 @@ export class WorldMap {
   private tracerUpdateSupplier: () => () => void;
 
   public objectUI: ObjectUI;
+  public lightUI: LightUI;
 
   /**
    * Constructs a world
@@ -84,6 +86,7 @@ export class WorldMap {
     this.fieldMap = new Map<string, number>();
 
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
+    this.lightUI = new LightUI(this, this.tracerUpdateSupplier);
   }
 
   public populateFieldMap() {

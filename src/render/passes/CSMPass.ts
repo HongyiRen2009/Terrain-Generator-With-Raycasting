@@ -118,6 +118,9 @@ export class CSMPass extends RenderPass {
     }
 
     render(vaosToRender: VaoInfo[]){
+        if (this.resourceCache.getUniformData("disableSun")){
+            return;
+        }
         // Check if CSM is enabled
         const csmEnabled = this.resourceCache.getUniformData("csmEnabled") ?? true;
         if (!csmEnabled) {

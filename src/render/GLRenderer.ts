@@ -124,6 +124,19 @@ export class GLRenderer {
 
     this.resourceCache.setUniformData("lights", this.world.lights);
     this.resourceCache.setUniformData("sunLight", this.world.sunLight);
+    const maxDebugIntensity = 5;
+    const lightDebugCubes = this.world.lights
+      .filter((light) => light.visualizerEnabled)
+      .map((light) => ({
+        center: [light.position[0], light.position[1], light.position[2]],
+        halfExtent: Math.max(1, light.radius * 0.15),
+        intensity: Math.min(
+          1,
+          Math.max(0, light.intensity / maxDebugIntensity)
+        ),
+        name: light.name ?? "Point Light"
+      }));
+    this.resourceCache.setUniformData("lightDebugCubes", lightDebugCubes);
 
     // Get passes in correct execution order
     const sortedPasses = this.renderGraph.getSortedPasses();

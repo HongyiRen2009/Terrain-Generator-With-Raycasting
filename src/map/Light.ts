@@ -11,19 +11,24 @@ export class PointLight {
   radius: number; // Default radius, can be adjusted
   showColor?: Color; //color of what the light looks
   direction?: vec3;
+  name: string;
+  visualizerEnabled: boolean;
 
   constructor(
     position: vec3,
     color: Color,
     intensity: number,
     radius: number,
-    showColor?: Color
+    showColor?: Color,
+    name: string = "Point Light"
   ) {
     this.position = position;
     this.color = color;
     this.intensity = intensity;
     this.radius = radius;
     this.showColor = showColor ? showColor : this.color;
+    this.name = name;
+    this.visualizerEnabled = false;
   }
   public setPosition(position: vec3) {
     this.position = position;

@@ -93,7 +93,7 @@ export class CloudsPass extends RenderPass {
     let sunPos: vec3;
     let sunColor: vec3;
     
-    if (sunLight instanceof DirectionalLight) {
+    if (sunLight instanceof DirectionalLight && !this.resourceCache.getUniformData("disableSun")) {
       // For directional light, use direction to determine sun position in sky
       // Scale the direction to represent sun position far away
       sunPos = vec3.create();

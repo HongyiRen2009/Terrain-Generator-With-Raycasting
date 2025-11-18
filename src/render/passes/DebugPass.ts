@@ -10,6 +10,13 @@ import DebugFragmentShaderSource from "../glsl/Debug/Debug.frag";
 import { RenderUtils } from "../../utils/RenderUtils";
 import { RenderTarget } from "../renderSystem/RenderTarget";
 
+interface LightDebugCube {
+    center: [number, number, number];
+    halfExtent: number;
+    intensity: number;
+    name?: string;
+}
+
 export class DebugPass extends RenderPass {
     private positionBuffer: WebGLBuffer | null = null;
     private colorBuffer: WebGLBuffer | null = null;
@@ -49,6 +56,32 @@ export class DebugPass extends RenderPass {
         }
         return corners;
     })();
+
+    private static readonly UNIT_CUBE_CORNERS: Array<[number, number, number]> = [
+        [-1, -1, -1],
+        [1, -1, -1],
+        [1, 1, -1],
+        [-1, 1, -1],
+        [-1, -1, 1],
+        [1, -1, 1],
+        [1, 1, 1],
+        [-1, 1, 1]
+    ];
+
+    private static readonly LIGHT_CUBE_EDGES: Array<[number, number]> = [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 0],
+        [4, 5],
+        [5, 6],
+        [6, 7],
+        [7, 4],
+        [0, 4],
+        [1, 5],
+        [2, 6],
+        [3, 7]
+    ];
 
     private static readonly CAMERA_FRUSTUM_COLOR: [number, number, number] = [
         0.0,
@@ -126,7 +159,9 @@ export class DebugPass extends RenderPass {
     }
     public render(): void {
         const drawCascadeDebug = this.resourceCache.getUniformData("drawCascadeDebug") as boolean | undefined;
-        if (!drawCascadeDebug) {
+        const lightDebugCubes = this.resourceCache.getUniformData("lightDebugCubes") as LightDebugCube[] | undefined;
+        const shouldRender = !!drawCascadeDebug || (lightDebugCubes && lightDebugCubes.length > 0);
+        if (!shouldRender) {
             return;
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
@@ -134,7 +169,7 @@ export class DebugPass extends RenderPass {
         this.gl.useProgram(this.program!);
         this.gl.bindVertexArray(this.vao!);
 
-        const lineData = this.buildLineBuffers();
+        const lineData = this.buildLineBuffers(drawCascadeDebug === true, lightDebugCubes);
         if (!lineData) {
             this.gl.bindVertexArray(null);
             return;
@@ -164,7 +199,10 @@ export class DebugPass extends RenderPass {
         this.gl.bindVertexArray(null);
     }
 
-    private buildLineBuffers():
+    private buildLineBuffers(
+        includeCascadeDebug: boolean,
+        lightDebugCubes?: LightDebugCube[]
+    ):
         | { positions: number[]; colors: number[]; vertexCount: number }
         | null {
         const positions: number[] = [];
@@ -196,33 +234,41 @@ export class DebugPass extends RenderPass {
             });
         };
 
-        const cameraFrustum = this.resourceCache.getUniformData("cameraFrustumCorners") as number[][] | undefined;
-        pushFrustum(cameraFrustum, DebugPass.CAMERA_FRUSTUM_COLOR);
+        if (includeCascadeDebug) {
+            const cameraFrustum = this.resourceCache.getUniformData("cameraFrustumCorners") as number[][] | undefined;
+            pushFrustum(cameraFrustum, DebugPass.CAMERA_FRUSTUM_COLOR);
 
-        const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
-        const cameraSubFrusta = this.resourceCache.getUniformData("cameraSubFrusta") as number[][][] | undefined;
-        if (cameraSubFrusta && cameraSubFrusta.length > 0) {
-            const maxCascades = Math.min(cameraSubFrusta.length, numCascades);
-            for (let i = 0; i < maxCascades; i++) {
-                const color = DebugPass.CASCADE_COLORS[i % DebugPass.CASCADE_COLORS.length];
-                pushFrustum(cameraSubFrusta[i], color);
+            const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
+            const cameraSubFrusta = this.resourceCache.getUniformData("cameraSubFrusta") as number[][][] | undefined;
+            if (cameraSubFrusta && cameraSubFrusta.length > 0) {
+                const maxCascades = Math.min(cameraSubFrusta.length, numCascades);
+                for (let i = 0; i < maxCascades; i++) {
+                    const color = DebugPass.CASCADE_COLORS[i % DebugPass.CASCADE_COLORS.length];
+                    pushFrustum(cameraSubFrusta[i], color);
+                }
+            }
+
+            const lightSpaceMatrices = this.resourceCache.getUniformData("lightSpaceMatrices") as mat4[] | undefined;
+            if (lightSpaceMatrices && lightSpaceMatrices.length > 0) {
+                const cascadeIndex = Math.max(
+                    0,
+                    Math.min(
+                        lightSpaceMatrices.length - 1,
+                        (this.resourceCache.getUniformData("shadowMapCascade") as number | undefined) ?? 0
+                    )
+                );
+                const cascadeCorners = this.computeCascadeWorldCorners(lightSpaceMatrices[cascadeIndex]);
+                pushFrustum(
+                    cascadeCorners,
+                    DebugPass.LIGHT_FRUSTUM_COLOR,
+                    DebugPass.LIGHT_FRUSTUM_NEAR_PLANE_COLOR
+                );
             }
         }
 
-        const lightSpaceMatrices = this.resourceCache.getUniformData("lightSpaceMatrices") as mat4[] | undefined;
-        if (lightSpaceMatrices && lightSpaceMatrices.length > 0) {
-            const cascadeIndex = Math.max(
-                0,
-                Math.min(
-                    lightSpaceMatrices.length - 1,
-                    (this.resourceCache.getUniformData("shadowMapCascade") as number | undefined) ?? 0
-                )
-            );
-            const cascadeCorners = this.computeCascadeWorldCorners(lightSpaceMatrices[cascadeIndex]);
-            pushFrustum(
-                cascadeCorners,
-                DebugPass.LIGHT_FRUSTUM_COLOR,
-                DebugPass.LIGHT_FRUSTUM_NEAR_PLANE_COLOR
+        if (lightDebugCubes && lightDebugCubes.length > 0) {
+            lightDebugCubes.forEach((cube) =>
+                this.pushWireCube(positions, colors, cube)
             );
         }
 
@@ -251,5 +297,36 @@ export class DebugPass extends RenderPass {
         }
 
         return corners;
+    }
+
+    private pushWireCube(
+        positions: number[],
+        colors: number[],
+        cube: LightDebugCube
+    ) {
+        const { center, halfExtent, intensity } = cube;
+        const colorValue = Math.min(1, Math.max(0, intensity));
+        const edgeColor: [number, number, number] = [
+            colorValue,
+            colorValue,
+            colorValue
+        ];
+        const corners = DebugPass.UNIT_CUBE_CORNERS.map(([x, y, z]) => [
+            center[0] + x * halfExtent,
+            center[1] + y * halfExtent,
+            center[2] + z * halfExtent
+        ]);
+
+        DebugPass.LIGHT_CUBE_EDGES.forEach(([startIndex, endIndex]) => {
+            const start = corners[startIndex];
+            const end = corners[endIndex];
+            if (!start || !end) {
+                return;
+            }
+            positions.push(start[0], start[1], start[2]);
+            positions.push(end[0], end[1], end[2]);
+            colors.push(edgeColor[0], edgeColor[1], edgeColor[2]);
+            colors.push(edgeColor[0], edgeColor[1], edgeColor[2]);
+        });
     }
 }

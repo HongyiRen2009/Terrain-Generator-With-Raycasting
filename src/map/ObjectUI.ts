@@ -220,10 +220,12 @@ export class ObjectUI {
       input.type = "number";
       input.value = value.toString();
       input.step = "0.1";
-      input.addEventListener("input", () => {
+      const commitValue = () => {
         const val = input.value === "" ? 0 : parseFloat(input.value);
         onChange(val);
-      });
+      };
+      input.addEventListener("change", commitValue);
+      input.addEventListener("blur", commitValue);
       label.appendChild(input);
       wrapper.appendChild(label);
     }
@@ -286,5 +288,42 @@ export class ObjectUI {
     );
 
     container.appendChild(wrapper);
+  }
+
+  private enableBlurOnOutside(element: HTMLInputElement) {
+    element.addEventListener("focus", () => {
+      const overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.background = "transparent";
+      overlay.style.zIndex = "2147483646";
+      overlay.style.pointerEvents = "auto";
+      overlay.className = "color-dismiss-overlay";
+
+      let overlayAppended = false;
+      const cleanup = () => {
+        overlay.removeEventListener("pointerdown", overlayHandler);
+        if (overlayAppended) {
+          overlay.remove();
+        }
+        element.removeEventListener("blur", cleanup);
+      };
+
+      const overlayHandler = (event: PointerEvent) => {
+        event.preventDefault();
+        cleanup();
+        element.blur();
+      };
+
+      overlay.addEventListener("pointerdown", overlayHandler);
+
+      setTimeout(() => {
+        if (!document.body.contains(overlay)) {
+          document.body.appendChild(overlay);
+          overlayAppended = true;
+        }
+      }, 0);
+      element.addEventListener("blur", cleanup);
+    });
   }
 }

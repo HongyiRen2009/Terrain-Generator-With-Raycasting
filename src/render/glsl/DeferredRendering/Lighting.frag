@@ -202,7 +202,7 @@ void main() {
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
     int cascadeIndex = chooseCascade(cascadeViewDepth);
-    float shadow = computeShadow(fragWorldPos, cascadeIndex);
+    float sunShadow = computeShadow(fragWorldPos, cascadeIndex);
 
     // Replace albedo with debug colors when cascade debug is enabled
     if (cascadeDebug && csmEnabled) {
@@ -236,7 +236,7 @@ void main() {
     vec3 specular = spec * SunLight.color * SunLight.intensity;
 
     // Directional lights have no attenuation
-    lighting += (diffuse+specular) * shadow;
+    lighting += (diffuse+specular) * sunShadow;
 
     // Process point lights
     for(int i = 0; i < numActivePointLights; i++) {
@@ -256,7 +256,7 @@ void main() {
         diffuse *= attenuation;
         specular *= attenuation;
 
-        lighting += (diffuse + specular) * shadow;
+        lighting += (diffuse + specular);
     }
 
     if(texture(depthTexture, fragUV).r >= 1.0f) {
