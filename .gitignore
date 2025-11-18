@@ -1,2 +1,7 @@
 node_modules
 dist
+src/render/passes/CubeShadowsPass.ts
+src/render/glsl/DeferredRendering/CubeShadows.frag
+.gitignore
+.npmignore
+src/render/glsl/DeferredRendering/CubeShadows.vert

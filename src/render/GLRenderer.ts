@@ -82,14 +82,8 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph,
       (direction: vec3) => {
-        // Update the directional light direction in the world
-        const lights = this.world.lights;
-        for (const light of lights) {
-          if (light instanceof DirectionalLight) {
-            vec3.copy(light.direction, direction);
-            break;
-          }
-        }
+        // Update the sun light direction in the world
+        vec3.copy(this.world.sunLight.direction, direction);
       }
     );
     const csmPass = new CSMPass(
@@ -129,6 +123,7 @@ export class GLRenderer {
     const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
 
     this.resourceCache.setUniformData("lights", this.world.lights);
+    this.resourceCache.setUniformData("sunLight", this.world.sunLight);
 
     // Get passes in correct execution order
     const sortedPasses = this.renderGraph.getSortedPasses();

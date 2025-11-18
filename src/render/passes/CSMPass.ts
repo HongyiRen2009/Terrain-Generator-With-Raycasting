@@ -27,10 +27,6 @@ export class CSMPass extends RenderPass {
             CSMVertexShaderSource,
             CSMFragmentShaderSource
         );
-        // Initialize default shadowMapSize before initRenderTarget() needs it
-        if (!this.resourceCache.getUniformData("shadowMapSize")) {
-            this.resourceCache.setUniformData("shadowMapSize", 4096);
-        }
         this.renderTarget = this.initRenderTarget();
         this.uniforms = getUniformLocations(gl, this.program!, ["lightSpaceMatrix", "model"]);
         this.InitSettings();
@@ -44,7 +40,11 @@ export class CSMPass extends RenderPass {
     protected initRenderTarget(): RenderTarget {
         // Use DEPTH_COMPONENT32F for float depth, or DEPTH_COMPONENT24 with UNSIGNED_INT
         // For shadow maps, DEPTH_COMPONENT32F with FLOAT is more reliable
-        let shadowMapSize = this.resourceCache.getUniformData("shadowMapSize");
+        let shadowMapSize = this.resourceCache.getUniformData("shadowMapSize") ?? 4096; // Default to 4096 if not set
+        // Store the default value if it wasn't set
+        if (!this.resourceCache.getUniformData("shadowMapSize")) {
+            this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
+        }
         const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
         const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
         
@@ -55,6 +55,34 @@ export class CSMPass extends RenderPass {
             this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
         }
         
+        // Calculate memory requirements for texture array
+        // DEPTH_COMPONENT32F with FLOAT uses 4 bytes per pixel
+        const bytesPerPixel = 4;
+        const totalMemoryBytes = shadowMapSize * shadowMapSize * numCascades * bytesPerPixel;
+        
+        // Conservative memory limit: 512MB (536,870,912 bytes)
+        // Many GPUs, especially integrated or older ones, can't allocate more than this for a single texture
+        const maxSafeMemoryBytes = 512 * 1024 * 1024; // 512 MB
+        
+        if (totalMemoryBytes > maxSafeMemoryBytes) {
+            // Calculate the maximum safe size based on memory limit
+            const maxSafeTexelsPerLayer = Math.floor(maxSafeMemoryBytes / (numCascades * bytesPerPixel));
+            const maxSafeSize = Math.floor(Math.sqrt(maxSafeTexelsPerLayer));
+            
+            // Ensure we don't exceed MAX_TEXTURE_SIZE
+            const clampedSize = Math.min(maxSafeSize, maxTextureSize);
+            
+            if (clampedSize < shadowMapSize) {
+                console.warn(
+                    `[CSM] Shadow map size ${shadowMapSize} would require ${(totalMemoryBytes / (1024 * 1024)).toFixed(2)}MB ` +
+                    `(${shadowMapSize}×${shadowMapSize}×${numCascades}×4 bytes), exceeding safe limit of ${(maxSafeMemoryBytes / (1024 * 1024)).toFixed(0)}MB. ` +
+                    `Clamping to ${clampedSize}×${clampedSize} (${((clampedSize * clampedSize * numCascades * bytesPerPixel) / (1024 * 1024)).toFixed(2)}MB).`
+                );
+                shadowMapSize = clampedSize;
+                this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
+            }
+        }
+        
         const depthInternalFormat = this.gl.DEPTH_COMPONENT32F;
         const depthFormat = this.gl.DEPTH_COMPONENT;
         const depthType = this.gl.FLOAT;
@@ -62,7 +90,7 @@ export class CSMPass extends RenderPass {
         // Create a single texture array instead of individual textures
         const shadowDepthTextureArray = TextureUtils.createTexture2DArray(
             this.gl, 
-            shadowMapSize, 
+            shadowMapSize,  
             shadowMapSize, 
             numCascades,
             depthInternalFormat, 
@@ -133,15 +161,14 @@ export class CSMPass extends RenderPass {
 
         this.gl.useProgram(this.program!);
 
-        const lights = this.resourceCache.getUniformData("lights");
-        if (!lights || lights.length === 0) {
-            console.warn("[CSM] No lights found!");
+        const sunLight = this.resourceCache.getUniformData("sunLight");
+        if (!sunLight) {
+            console.error("[CSM] No sun light found in resource cache!");
             this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
             this.gl.colorMask(true, true, true, true);
             return;
         }
-
-        const lightSpaceMatrices = getLightSpaceMatrices(this.resourceCache, lights[0], this.settingsSection?.getSliderValue("lambda") ?? 0.5, this.settingsSection?.getSliderValue("zMultiplier") ?? 10.0);
+        const lightSpaceMatrices = getLightSpaceMatrices(this.resourceCache, sunLight, this.settingsSection?.getSliderValue("lambda") ?? 0.5, this.settingsSection?.getSliderValue("zMultiplier") ?? 10.0);
         const lightSpaceMatrix = lightSpaceMatrices[this.currentCascadeIndex];
         this.gl.uniformMatrix4fv(this.uniforms["lightSpaceMatrix"], false, lightSpaceMatrix);
 
@@ -214,14 +241,13 @@ export class CSMPass extends RenderPass {
         });
         // Initialize the default value in resource cache
         this.resourceCache.setUniformData("numCascades", 3);
-        const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
         this.settingsSection.addSlider({
             id: "shadowMapSize",
             label: "Shadow Map Size",
             min: 1024,
-            max: maxTextureSize,
+            max: 6000,
             step: 1,
-            defaultValue: 8192,
+            defaultValue: 4096,
             numType: "int",
             onChange: (value: number) => {
                 this.resourceCache.setUniformData("shadowMapSize", value);

@@ -175,7 +175,7 @@ export class LightingPass extends RenderPass {
     const cascadeDebug = this.resourceCache.getUniformData("cascadeDebug") ?? false;
     const showShadowMap = this.resourceCache.getUniformData("showShadowMap") ?? false;
     const shadowMapCascade = this.resourceCache.getUniformData("shadowMapCascade") ?? 0;
-    const shadowMapSize = this.resourceCache.getUniformData("shadowMapSize") ?? 4096;
+    const shadowMapSize = this.resourceCache.getUniformData("shadowMapSize");
     const showCameraDepth = this.resourceCache.getUniformData("showCameraDepth") ?? false;
     
     this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
@@ -198,7 +198,8 @@ export class LightingPass extends RenderPass {
     WorldUtils.updateLights(
       this.gl,
       this.program!,
-      this.resourceCache.getUniformData("lights")
+      this.resourceCache.getUniformData("lights"),
+      this.resourceCache.getUniformData("sunLight")
     );
 
     this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
@@ -231,30 +232,27 @@ export class LightingPass extends RenderPass {
 
     // Add sun direction sliders
     if (this.updateSunDirectionCallback) {
-      // Get initial sun direction from lights
-      const lights = this.resourceCache.getUniformData("lights") as Array<any>;
+      // Get initial sun direction from sunLight
+      const sunLight = this.resourceCache.getUniformData("sunLight") as any;
       let initialAzimuth = 180; // Default to south (180 degrees)
       let initialElevation = -45; // Default to 45 degrees down
 
-      if (lights && lights.length > 0) {
-        const firstLight = lights[0];
-        if (firstLight && firstLight.direction) {
-          const dir = firstLight.direction;
-          // Convert direction vector to spherical coordinates
-          // azimuth: angle in XZ plane (0-360)
-          // elevation: angle above/below horizon (-90 to 90)
-          const horizontalLength = Math.sqrt(dir[0] * dir[0] + dir[2] * dir[2]);
-          if (horizontalLength > 0.0001) {
-            // Normal case: can compute azimuth
-            initialAzimuth = Math.atan2(dir[0], dir[2]) * (180 / Math.PI);
-            if (initialAzimuth < 0) initialAzimuth += 360;
-            initialElevation = Math.atan2(dir[1], horizontalLength) * (180 / Math.PI);
-          } else {
-            // Edge case: direction is straight up or down
-            // Azimuth doesn't matter, but elevation is ±90
-            initialElevation = dir[1] > 0 ? 90 : -90;
-            // Keep default azimuth of 180
-          }
+      if (sunLight && sunLight.direction) {
+        const dir = sunLight.direction;
+        // Convert direction vector to spherical coordinates
+        // azimuth: angle in XZ plane (0-360)
+        // elevation: angle above/below horizon (-90 to 90)
+        const horizontalLength = Math.sqrt(dir[0] * dir[0] + dir[2] * dir[2]);
+        if (horizontalLength > 0.0001) {
+          // Normal case: can compute azimuth
+          initialAzimuth = Math.atan2(dir[0], dir[2]) * (180 / Math.PI);
+          if (initialAzimuth < 0) initialAzimuth += 360;
+          initialElevation = Math.atan2(dir[1], horizontalLength) * (180 / Math.PI);
+        } else {
+          // Edge case: direction is straight up or down
+          // Azimuth doesn't matter, but elevation is ±90
+          initialElevation = dir[1] > 0 ? 90 : -90;
+          // Keep default azimuth of 180
         }
       }
 

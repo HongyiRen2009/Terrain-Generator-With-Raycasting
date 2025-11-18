@@ -30,18 +30,17 @@ export class WorldUtils {
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
     lights: Array<PointLight | DirectionalLight>,
+    sun?: DirectionalLight,
     camera?: Camera
   ) {
-    // Separate point lights and directional lights
+    // Separate point lights (directional lights in the array are ignored, use sun parameter instead)
     const pointLights: PointLight[] = [];
-    const directionalLights: DirectionalLight[] = [];
 
     lights.forEach((light) => {
       if (light instanceof PointLight) {
         pointLights.push(light);
-      } else if (light instanceof DirectionalLight) {
-        directionalLights.push(light);
       }
+      // Directional lights are now handled via the sun parameter
     });
 
     // Set number of active lights
@@ -55,7 +54,8 @@ export class WorldUtils {
       program,
       "numActiveDirectionalLights"
     );
-    gl.uniform1i(numDirectionalLightsLocation, directionalLights.length);
+    // Set to 1 if sun exists, 0 otherwise
+    gl.uniform1i(numDirectionalLightsLocation, sun ? 1 : 0);
 
     // Update point lights
     pointLights.forEach((light, index) => {
@@ -89,27 +89,25 @@ export class WorldUtils {
       gl.uniform1f(radiusLocation, light.radius);
     });
 
-    // Update directional lights
-    directionalLights.forEach((light, index) => {
-      const baseUniform = `directionalLights[${index}]`;
-
+    // Update sun (single directional light)
+    if (sun) {
       const directionLocation = gl.getUniformLocation(
         program,
-        `${baseUniform}.direction`
+        "SunLight.direction"
       );
       const colorLocation = gl.getUniformLocation(
         program,
-        `${baseUniform}.color`
+        "SunLight.color"
       );
       const intensityLocation = gl.getUniformLocation(
         program,
-        `${baseUniform}.intensity`
+        "SunLight.intensity"
       );
 
-      gl.uniform3fv(directionLocation, light.direction);
-      gl.uniform3fv(colorLocation, light.color.createVec3());
-      gl.uniform1f(intensityLocation, light.intensity);
-    });
+      if (directionLocation) gl.uniform3fv(directionLocation, sun.direction);
+      if (colorLocation) gl.uniform3fv(colorLocation, sun.color.createVec3());
+      if (intensityLocation) gl.uniform1f(intensityLocation, sun.intensity);
+    }
 
     if (camera) {
       const cameraPositionLocation = gl.getUniformLocation(
