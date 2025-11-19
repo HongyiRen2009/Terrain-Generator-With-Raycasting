@@ -29,6 +29,9 @@ export class PathTracer {
   private meshProgram: WebGLProgram;
   private copyProgram: WebGLProgram;
 
+  private fullscreenVAO: WebGLVertexArrayObject | null = null;
+  private fullscreenVBO: WebGLBuffer | null = null;
+
   //Information
   private vertices: Float32Array = null!;
   private terrains: Float32Array = null!;
@@ -45,6 +48,15 @@ export class PathTracer {
   private camera: Camera;
   private debug: DebugMenu;
   private glRenderer: GLRenderer;
+
+  private vertexTex?: WebGLTexture;
+  private terrainTex?: WebGLTexture;
+  private boundingBoxesTex?: WebGLTexture;
+  private nodesTex?: WebGLTexture;
+  private leafsTex?: WebGLTexture;
+  private terrainTypeTex?: WebGLTexture;
+  private vertexNormalsTex?: WebGLTexture;
+
 
   public constructor(
     canvas: HTMLCanvasElement,
@@ -139,8 +151,7 @@ export class PathTracer {
   }
 
   public drawMesh() {
-    this.initPathtracing();
-    this.makeVao();
+    this.setupFrame();
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
@@ -227,102 +238,71 @@ export class PathTracer {
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-
+    this.gl.bindVertexArray(null);
     //draw other shaders
     this.glRenderer.render(true);
   }
 
   public makeVao() {
+    if (this.fullscreenVAO) return; // Already created once
+
     const fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
     const vao = this.gl.createVertexArray();
     this.gl.bindVertexArray(vao);
 
     const vbo = this.gl.createBuffer();
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
-    this.gl.bufferData(
-      this.gl.ARRAY_BUFFER,
-      fullscreenTriangle,
-      this.gl.STATIC_DRAW
-    );
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenTriangle, this.gl.STATIC_DRAW);
 
     this.gl.enableVertexAttribArray(0);
     this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+
+    this.fullscreenVAO = vao;
+    this.fullscreenVBO = vbo;
+
+    // Unbind to avoid polluting other pipelines
+    this.gl.bindVertexArray(null);
   }
 
   public init(showAccumulation: boolean = true) {
-    if (showAccumulation)
+    if (showAccumulation){
       this.debug.addElement("Accumulation Frame", () => this.frameNumber);
-    this.initPathtracing();
+      this.camera.farPlane = this.camera.pathtracingFarPlane;
+    }
+    this.initBVHTextures();
+    this.setupFrame();
     this.makeVao();
     this.resetAccumulation();
   }
   public leave() {
     this.debug.removeElement("Accumulation Frame");
+    this.camera.farPlane = this.camera.rayTracingFarPlane;
+  }
+  private initBVHTextures() {
+    if (this.vertexTex) return; // Already uploaded
+
+    this.vertexTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+    this.terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    this.boundingBoxesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+    this.nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+    this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+    this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+    this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
   }
 
-  private initPathtracing() {
+  private setupFrame() {
     this.gl.useProgram(this.meshProgram);
     //Textures
-    let verticeTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.vertices
-    );
-    let terrainTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.terrains
-    );
-    let boundingBoxesTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.boundingBoxes
-    );
-    let nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
-    let leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
-    let terrainTypeTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.terrainTypes
-    );
-    let vertexNormalsTex = TextureUtils.packFloatArrayToTexture(
-      this.gl,
-      this.vertexNormals
-    );
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex!, "u_vertices", 0);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex!, "u_terrains", 1);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.boundingBoxesTex!, "u_boundingBox", 2);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.nodesTex!, "u_nodesTex", 3);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, "u_leafsTex", 4);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, "u_terrainTypes", 5);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, "u_normals", 6);
 
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      verticeTex,
-      "u_vertices",
-      0
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      terrainTex,
-      "u_terrains",
-      1
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      boundingBoxesTex,
-      "u_boundingBox",
-      2
-    );
-    TextureUtils.bindTex(this.gl, this.meshProgram, nodesTex, "u_nodesTex", 3);
-    TextureUtils.bindTex(this.gl, this.meshProgram, leafsTex, "u_leafsTex", 4);
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      terrainTypeTex,
-      "u_terrainTypes",
-      5
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.meshProgram,
-      vertexNormalsTex,
-      "u_normals",
-      6
-    );
+    //VAO
+    this.gl.bindVertexArray(this.fullscreenVAO);
   }
 
   private initBuffers() {

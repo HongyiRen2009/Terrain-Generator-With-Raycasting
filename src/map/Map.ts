@@ -101,7 +101,7 @@ export class WorldMap {
         this.seed,
         this.Workers[0]
       ),
-      new Chunk(
+      /*new Chunk(
         vec2.fromValues(this.resolution, 0),
         vec3.fromValues(this.resolution, this.height, this.resolution),
         this.seed,
@@ -118,7 +118,7 @@ export class WorldMap {
         vec3.fromValues(this.resolution, this.height, this.resolution),
         this.seed,
         this.Workers[3]
-      )
+      )*/
     ];
   }
   public combinedMesh(): Mesh {

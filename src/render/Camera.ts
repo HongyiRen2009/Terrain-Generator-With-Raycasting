@@ -10,12 +10,16 @@ export class Camera {
   front = vec3.fromValues(0, 0, -1);
   right = vec3.fromValues(1, 0, 0);
   up = vec3.fromValues(0, 1, 0);
+  rayTracingFarPlane = 1000;
+  pathtracingFarPlane = 10000000000;
+  farPlane: number;
   speed: number;
   constructor(position: vec3) {
     this.position = position;
 
     this.UpdateCameraVectors();
     this.speed = 0.02;
+    this.farPlane = this.rayTracingFarPlane;
   }
 
   //enables Camera.XPosition instead of Camera.position[0]
@@ -56,7 +60,7 @@ export class Camera {
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ 0.1,
-      100.0
+      this.farPlane
     );
     mat4.multiply(matViewProj, matProj, matView);
     return matViewProj;
@@ -70,7 +74,7 @@ export class Camera {
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ 0.1,
-      100.0
+      this.farPlane
     );
     return { matView, matProj };
   }
