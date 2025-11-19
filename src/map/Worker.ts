@@ -88,7 +88,7 @@ function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
     caseMesh.addTriangle(
       vertices.map((v) => v.position) as Triangle,
       vertices.map((v) => v.normal) as Triangle,
-      (vertices[0].position[0]< 10  && vertices[0].position[2] < 10) ? [3, 3, 3] : [0,0,0]
+      [0,0,0] // Placeholder terrain types; will be updated later
     );
   }
   return caseMesh;

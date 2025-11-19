@@ -306,7 +306,8 @@ function caseToMesh(c, caseNumber, gridSize) {
             return edgeIndexToCoordinate(c, edgeIndex);
         });
         // Add triangle with both position and normal information
-        caseMesh.addTriangle(vertices.map(function (v) { return v.position; }), vertices.map(function (v) { return v.normal; }), [0, 0, 0]);
+        caseMesh.addTriangle(vertices.map(function (v) { return v.position; }), vertices.map(function (v) { return v.normal; }), [0, 0, 0] // Placeholder terrain types; will be updated later
+        );
     }
     return caseMesh;
 }
@@ -917,16 +918,16 @@ var Terrains = {
     },
     2: {
         // Glossy surface
-        color: new Color(255, 0, 0),
-        reflectiveness: 0.2,
-        roughness: 0.0,
+        color: new Color(255, 50, 50),
+        reflectiveness: 0.2, // Doesn't affect pathtracing
+        roughness: 0.5,
         type: 3
     },
     3: {
         // Tinted glass
-        color: new Color(100, 0, 0), //red tint
-        reflectiveness: 0.2,
-        roughness: 1.5, //Index of refraction (look up)
+        color: new Color(200, 0, 0), //red tint
+        reflectiveness: 1.5, //Index of refraction (look up)
+        roughness: 0.5, // Microfacet roughness
         type: 4
     },
     4: {
@@ -1088,7 +1089,7 @@ var Terrains = {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("d1571baa60d4714526e6")
+/******/ 		__webpack_require__.h = () => ("e2167ed0bf55d91b6029")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */
