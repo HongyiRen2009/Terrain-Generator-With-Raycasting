@@ -1,5 +1,10 @@
 import { vec2, vec3 } from "gl-matrix";
-import { createNoise3D, NoiseFunction3D } from "simplex-noise";
+import {
+  createNoise2D,
+  createNoise3D,
+  NoiseFunction2D,
+  NoiseFunction3D
+} from "simplex-noise";
 import alea from "alea";
 import { vertexKey } from "./cubes_utils";
 import { Mesh, Triangle } from "./Mesh";
@@ -31,56 +36,62 @@ function chunkCoordinateToIndex(c: vec3, gridSize: vec3): number {
 
 function noiseFunction(
   c: vec3,
-  simplex: NoiseFunction3D,
-  simplexOverhang: NoiseFunction3D,
-  simplexRiver: NoiseFunction3D
+  simplex2D: NoiseFunction2D,
+  simplex3D: NoiseFunction3D,
+  simplexOverhang: NoiseFunction3D
 ): number {
-  const hillFreq = 0.02;
-  const mountainFreq = 0.005;
-  const caveFreq = 0.05;
   const waterLevel = 30;
 
-  function fractalNoise(c: vec3, oct: number, freq: number, amp: number) {
-    let total = 0,
-      max = 0,
-      f = freq,
-      a = amp;
+  function fractal2D(
+    x: number,
+    z: number,
+    oct: number,
+    freq: number,
+    amp: number
+  ) {
+    let total = 0;
+    let max = 0;
+
     for (let i = 0; i < oct; i++) {
-      total += simplex(c[0] * f, c[1] * f, c[2] * f) * a;
-      max += a;
-      f *= 2;
-      a /= 2;
+      total += simplex2D(x * freq, z * freq) * amp;
+      max += amp;
+      freq *= 2;
+      amp *= 0.5;
     }
     return total / max;
   }
 
-  const hillNoise = fractalNoise(c, 4, hillFreq, 1);
-  const hillHeight = hillNoise * 40 + 50;
-  const ridgeVal = 1 - Math.abs(fractalNoise(c, 3, mountainFreq, 1));
-  const mountainHeight = Math.pow(ridgeVal, 2) * 120;
-  let terrainHeight = hillHeight * 0.6 + mountainHeight * 0.4;
-  terrainHeight = Math.floor(terrainHeight / 5) * 5;
+  // Hills / plains (stronger)
+  const hillNoise = fractal2D(c[0], c[2], 4, 0.01, 1);
+  const hillHeight = hillNoise * 60 + 40; // increased amplitude
+
+  // Ridges / mountains (taller and sharper)
+  const ridge = Math.abs(fractal2D(c[0], c[2], 3, 0.004, 1));
+  const mountainHeight = Math.pow(1 - ridge, 2.2) * 300; // bigger peaks
+
+  // Combine 2D height layers (favor mountains)
+  let terrainHeight = hillHeight * 0.4 + mountainHeight * 0.6;
+
+  terrainHeight = Math.floor(terrainHeight / 2) * 2;
 
   let density = terrainHeight - c[1];
 
-  // Caves
-  const caveNoise = fractalNoise(c, 3, caveFreq, 1);
-  density -= Math.max(0, (caveNoise - 0.5) * 60 * Math.max(0, 1 - c[1] / 100));
+  const cave = simplex3D(c[0] * 0.03, c[1] * 0.04, c[2] * 0.03);
+  if (cave > 0.55) density -= (cave - 0.55) * 40;
 
-  // Overhangs
-  const overhang = simplexOverhang(c[0] * 0.03, c[1] * 0.03, c[2] * 0.03);
-  if (overhang > 0.2) density -= (overhang - 0.2) * 30;
+  const ov = simplexOverhang(c[0] * 0.02, c[1] * 0.02, c[2] * 0.02);
+  if (ov > 0.25 && c[1] > terrainHeight - 25) density -= (ov - 0.25) * 25;
 
-  // Rivers
-  const riverNoise = simplexRiver(c[0] * 0.01, c[2] * 0.01, 0);
-  const riverThreshold = 0.1;
-  if (riverNoise < riverThreshold) {
-    density -= (riverThreshold - riverNoise) * 50; // riverbed depth
+  const r = simplex2D(c[0] * 0.004, c[2] * 0.004);
+  const riverMask = Math.abs(r);
+  if (riverMask < 0.05) {
+    const depth = (0.05 - riverMask) * 80;
+    density -= depth;
   }
 
   if (c[1] < waterLevel) density = Math.min(density, waterLevel - c[1]);
 
-  return Math.max(0, Math.min(1, (density + 100) / 200));
+  return Math.max(0, Math.min(1, (density + 80) / 200));
 }
 
 function solidChecker(a: number) {
@@ -191,7 +202,7 @@ self.onmessage = (
   const prng = alea(Seed);
   const simplex = createNoise3D(prng);
   const simplexOverhang = createNoise3D(prng);
-  const simplexRiver = createNoise3D(prng); // new noise for rivers
+  const simplex2D = createNoise2D(prng);
 
   if (generatingTerrain) {
     const field = new Float32Array(
@@ -213,12 +224,7 @@ self.onmessage = (
             vec3.fromValues(x, y, z),
             GridSize
           );
-          const value = noiseFunction(
-            c,
-            simplex,
-            simplexOverhang,
-            simplexRiver
-          );
+          const value = noiseFunction(c, simplex2D, simplex, simplexOverhang);
 
           field[idx] = value;
           map.set(vertexKey(c), value);
@@ -262,7 +268,7 @@ self.onmessage = (
       meshVertices: mesh.getVertices(),
       meshNormals: mesh.getNormals(),
       meshTypes: mesh.getTypes(),
-      justGearObjectsLol: [localGearObjectPos]
+      justGearObjectsLol: []
     });
   }
 };

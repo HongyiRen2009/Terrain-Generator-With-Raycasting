@@ -81,9 +81,10 @@ export class GameEngine {
     this.updatePathracing = () => {};
 
     //Initialize world
+    // Increase world height to allow taller mountains (was 64)
     this.world = new WorldMap(
       1000,
-      64,
+      160,
       1000,
       this.gl,
       () => this.updatePathracing
