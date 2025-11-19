@@ -40,25 +40,25 @@ export class CSMPass extends RenderPass {
     protected initRenderTarget(): RenderTarget {
         // Use DEPTH_COMPONENT32F for float depth, or DEPTH_COMPONENT24 with UNSIGNED_INT
         // For shadow maps, DEPTH_COMPONENT32F with FLOAT is more reliable
-        let shadowMapSize = this.resourceCache.getUniformData("shadowMapSize") ?? 4096; // Default to 4096 if not set
+        let csmShadowMapSize = this.resourceCache.getUniformData("csmShadowMapSize") ?? 4096; // Default to 4096 if not set
         // Store the default value if it wasn't set
-        if (!this.resourceCache.getUniformData("shadowMapSize")) {
-            this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
+        if (!this.resourceCache.getUniformData("csmShadowMapSize")) {
+            this.resourceCache.setUniformData("csmShadowMapSize", csmShadowMapSize);
         }
         const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
         const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
         
         // Clamp shadow map size to maximum supported texture size
-        if (shadowMapSize > maxTextureSize) {
-            console.warn(`[CSM] Shadow map size ${shadowMapSize} exceeds maximum texture size ${maxTextureSize}. Clamping to ${maxTextureSize}.`);
-            shadowMapSize = maxTextureSize;
-            this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
+        if (csmShadowMapSize > maxTextureSize) {
+            console.warn(`[CSM] Shadow map size ${csmShadowMapSize} exceeds maximum texture size ${maxTextureSize}. Clamping to ${maxTextureSize}.`);
+            csmShadowMapSize = maxTextureSize;
+            this.resourceCache.setUniformData("csmShadowMapSize", csmShadowMapSize);
         }
         
         // Calculate memory requirements for texture array
         // DEPTH_COMPONENT32F with FLOAT uses 4 bytes per pixel
         const bytesPerPixel = 4;
-        const totalMemoryBytes = shadowMapSize * shadowMapSize * numCascades * bytesPerPixel;
+        const totalMemoryBytes = csmShadowMapSize * csmShadowMapSize * numCascades * bytesPerPixel;
         
         // Conservative memory limit: 512MB (536,870,912 bytes)
         // Many GPUs, especially integrated or older ones, can't allocate more than this for a single texture
@@ -72,14 +72,14 @@ export class CSMPass extends RenderPass {
             // Ensure we don't exceed MAX_TEXTURE_SIZE
             const clampedSize = Math.min(maxSafeSize, maxTextureSize);
             
-            if (clampedSize < shadowMapSize) {
+            if (clampedSize < csmShadowMapSize) {
                 console.warn(
-                    `[CSM] Shadow map size ${shadowMapSize} would require ${(totalMemoryBytes / (1024 * 1024)).toFixed(2)}MB ` +
-                    `(${shadowMapSize}×${shadowMapSize}×${numCascades}×4 bytes), exceeding safe limit of ${(maxSafeMemoryBytes / (1024 * 1024)).toFixed(0)}MB. ` +
+                    `[CSM] Shadow map size ${csmShadowMapSize} would require ${(totalMemoryBytes / (1024 * 1024)).toFixed(2)}MB ` +
+                    `(${csmShadowMapSize}×${csmShadowMapSize}×${numCascades}×4 bytes), exceeding safe limit of ${(maxSafeMemoryBytes / (1024 * 1024)).toFixed(0)}MB. ` +
                     `Clamping to ${clampedSize}×${clampedSize} (${((clampedSize * clampedSize * numCascades * bytesPerPixel) / (1024 * 1024)).toFixed(2)}MB).`
                 );
-                shadowMapSize = clampedSize;
-                this.resourceCache.setUniformData("shadowMapSize", shadowMapSize);
+                csmShadowMapSize = clampedSize;
+                this.resourceCache.setUniformData("csmShadowMapSize", csmShadowMapSize);
             }
         }
         
@@ -90,8 +90,8 @@ export class CSMPass extends RenderPass {
         // Create a single texture array instead of individual textures
         const shadowDepthTextureArray = TextureUtils.createTexture2DArray(
             this.gl, 
-            shadowMapSize,  
-            shadowMapSize, 
+            csmShadowMapSize,  
+            csmShadowMapSize, 
             numCascades,
             depthInternalFormat, 
             depthFormat, 
@@ -154,8 +154,8 @@ export class CSMPass extends RenderPass {
         }
         this.gl.colorMask(false, false, false, false);
 
-        const shadowMapSize = this.resourceCache.getUniformData("shadowMapSize");
-        this.gl.viewport(0, 0, shadowMapSize, shadowMapSize);
+        const csmShadowMapSize = this.resourceCache.getUniformData("csmShadowMapSize");
+        this.gl.viewport(0, 0, csmShadowMapSize, csmShadowMapSize);
         this.gl.clearDepth(1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
         this.gl.enable(this.gl.DEPTH_TEST);
@@ -217,8 +217,8 @@ export class CSMPass extends RenderPass {
                 const newNumCascades = Math.floor(value);
                 this.resourceCache.setUniformData("numCascades", newNumCascades);
                 
-                // Update shadowBias array to match new number of cascades
-                const currentBiasArray = this.resourceCache.getUniformData("shadowBias") as number[] | undefined;
+                // Update csmShadowBias array to match new number of cascades
+                const currentBiasArray = this.resourceCache.getUniformData("csmShadowBias") as number[] | undefined;
                 const newBiasArray = Array.from({ length: newNumCascades }, (_, i) => {
                     if (currentBiasArray && i < currentBiasArray.length) {
                         // Keep existing values if available
@@ -227,10 +227,10 @@ export class CSMPass extends RenderPass {
                     // Otherwise use default: 0.001 * 0.5^i
                     return 0.001 * Math.pow(0.5, i);
                 });
-                this.resourceCache.setUniformData("shadowBias", newBiasArray);
+                this.resourceCache.setUniformData("csmShadowBias", newBiasArray);
                 
-                // Update the shadowBias slider array length if it exists
-                const shadowBiasSetting = this.settingsSection?.getSetting("shadowBias");
+                // Update the csmShadowBias slider array length if it exists
+                const shadowBiasSetting = this.settingsSection?.getSetting("csmShadowBias");
                 if (shadowBiasSetting && shadowBiasSetting.type === "slider" && shadowBiasSetting.isArray) {
                     // We need to recreate the slider with new array length
                     // For now, just update the array length property
@@ -245,21 +245,21 @@ export class CSMPass extends RenderPass {
         // Initialize the default value in resource cache
         this.resourceCache.setUniformData("numCascades", 3);
         this.settingsSection.addSlider({
-            id: "shadowMapSize",
-            label: "Shadow Map Size",
+            id: "csmShadowMapSize",
+            label: "CSM Shadow Map Size",
             min: 1024,
             max: 6000,
             step: 1,
             defaultValue: 4096,
             numType: "int",
             onChange: (value: number) => {
-                this.resourceCache.setUniformData("shadowMapSize", value);
+                this.resourceCache.setUniformData("csmShadowMapSize", value);
                 this.disposeRenderTarget();
                 this.renderTarget = this.initRenderTarget();
             }
         });
         // Initialize the default value in resource cache since onChange is only called on user interaction
-        this.resourceCache.setUniformData("shadowMapSize", 4096);
+        this.resourceCache.setUniformData("csmShadowMapSize", 4096);
         this.settingsSection.addSlider({
             id: "lambda",
             label: "Lambda",
@@ -287,17 +287,17 @@ export class CSMPass extends RenderPass {
             }
         });
         const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
-        // Initialize shadowBias array with decreasing values for further cascades
+        // Initialize csmShadowBias array with decreasing values for further cascades
         const defaultBiasArray = Array.from({ length: numCascades }, (_, i) => {
             // Further cascades should have less bias
             // Start with 0.001 for first cascade, reduce by 50% for each subsequent cascade
             return 0.001 * Math.pow(0.5, i);
         });
-        this.resourceCache.setUniformData("shadowBias", defaultBiasArray);
+        this.resourceCache.setUniformData("csmShadowBias", defaultBiasArray);
         
         this.settingsSection.addSlider({
-            id: "shadowBias",
-            label: "Shadow Bias",
+            id: "csmShadowBias",
+            label: "CSM Shadow Bias",
             min: 0.0, // Same min for all cascades
             max: 0.01, // Same max for all cascades
             step: 0.0001, // Same step for all cascades
@@ -307,8 +307,8 @@ export class CSMPass extends RenderPass {
             arrayLength: numCascades,
             arrayIndex: 0,
             onChange: (value: number) => {
-                const biasArray = this.settingsSection?.getSliderArray("shadowBias") ?? defaultBiasArray;
-                this.resourceCache.setUniformData("shadowBias", biasArray);
+                const biasArray = this.settingsSection?.getSliderArray("csmShadowBias") ?? defaultBiasArray;
+                this.resourceCache.setUniformData("csmShadowBias", biasArray);
             }
         });
         this.settingsSection.addCheckbox({

@@ -40,17 +40,21 @@ export class LightingPass extends RenderPass {
       "lightSpaceMatrices[0]",
       "cascadeSplits",
       "usingPCF",
-      "shadowBias",
+      "csmShadowBias",
       "csmEnabled",
       "cascadeDebug",
       "debugPauseMode",
       "showShadowMap",
       "shadowMapCascade",
-      "shadowMapSize",
+      "csmShadowMapSize",
       "showCameraDepth",
-      "numCascades"
+      "numCascades",
+      "showPointShadowMap",
+      "pointShadowMapIndex",
+      "pointShadowBias"
     ]);
     this.InitSettings();
+
   }
 
   protected initRenderTarget(): RenderTarget {
@@ -65,13 +69,7 @@ export class LightingPass extends RenderPass {
     const depthTexture = textures["depth"];
     const ssaoTexture = textures["ssaoBlur"];
     const shadowDepthTextureArray = textures["shadowDepthTextureArray"];
-
-    // Debug: Check if shadow texture array is available
-    if (!shadowDepthTextureArray) {
-        console.warn("[Lighting] Missing shadow depth texture array:", {
-            availableTextures: Object.keys(textures)
-        });
-    }
+    const pointShadowTextures = textures["pointShadowTextures"] as WebGLTexture[];
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -87,21 +85,21 @@ export class LightingPass extends RenderPass {
       this.program!,
       normalTexture,
       "normalTexture",
-      0
+      12
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       albedoTexture,
       "albedoTexture",
-      1
+      13
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       depthTexture,
       "depthTexture",
-      2
+      14
     );
     TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 3);
     
@@ -111,9 +109,17 @@ export class LightingPass extends RenderPass {
       this.program!,
       shadowDepthTextureArray,
       "shadowDepthTextureArray",
-      4,
+      15,
       this.gl.TEXTURE_2D_ARRAY
     );
+    // Limit to 11 point shadow textures to stay within MAX_TEXTURE_IMAGE_UNITS (16) - 5 base textures = 11
+    const maxPointShadows = Math.min(11, pointShadowTextures?.length ?? 0);
+    for (let i = 0; i < maxPointShadows; i++) {
+      TextureUtils.bindTex(this.gl, this.program!, pointShadowTextures[i], `pointShadowTexture[${i}]`, i, this.gl.TEXTURE_CUBE_MAP);
+      if (!pointShadowTextures[i]) {
+        console.warn(`Point shadow texture ${i} is missing`);
+      }
+    }
 
     const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
     const pausedCameraInfo =
@@ -167,23 +173,26 @@ export class LightingPass extends RenderPass {
     }
 
     const usingPCF = this.resourceCache.getUniformData("usingPCF") ?? true;
-    const shadowBias = this.resourceCache.getUniformData("shadowBias");
+    const csmShadowBias = this.resourceCache.getUniformData("csmShadowBias");
     // Support both array and single value for backward compatibility
-    const shadowBiasArray = Array.isArray(shadowBias) 
-      ? shadowBias 
-      : [shadowBias ?? 0.001];
+    const csmShadowBiasArray = Array.isArray(csmShadowBias) 
+      ? csmShadowBias 
+      : [csmShadowBias ?? 0.001];
     const csmEnabled = this.resourceCache.getUniformData("csmEnabled") ?? true;
     const cascadeDebug = this.resourceCache.getUniformData("cascadeDebug") ?? false;
     const showShadowMap = this.resourceCache.getUniformData("showShadowMap") ?? false;
     const shadowMapCascade = this.resourceCache.getUniformData("shadowMapCascade") ?? 0;
-    const shadowMapSize = this.resourceCache.getUniformData("shadowMapSize");
+    const csmShadowMapSize = this.resourceCache.getUniformData("csmShadowMapSize");
     const showCameraDepth = this.resourceCache.getUniformData("showCameraDepth") ?? false;
+    const showPointShadowMap = this.resourceCache.getUniformData("showPointShadowMap") ?? false;
+    const pointShadowMapIndex = this.resourceCache.getUniformData("pointShadowMapIndex") ?? 0;
+    const pointShadowBias = this.resourceCache.getUniformData("pointShadowBias") ?? 0.01;
     
     this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
-    // Upload shadowBias as array uniform
-    const shadowBiasFloatArray = new Float32Array(8); // Support up to 8 cascades
-    shadowBiasFloatArray.set(shadowBiasArray.slice(0, 8), 0);
-    this.gl.uniform1fv(this.uniforms["shadowBias"], shadowBiasFloatArray);
+    // Upload csmShadowBias as array uniform
+    const csmShadowBiasFloatArray = new Float32Array(8); // Support up to 8 cascades
+    csmShadowBiasFloatArray.set(csmShadowBiasArray.slice(0, 8), 0);
+    this.gl.uniform1fv(this.uniforms["csmShadowBias"], csmShadowBiasFloatArray);
     this.gl.uniform1i(this.uniforms["csmEnabled"], csmEnabled ? 1 : 0);
     this.gl.uniform1i(this.uniforms["cascadeDebug"], cascadeDebug ? 1 : 0);
     this.gl.uniform1i(
@@ -192,9 +201,12 @@ export class LightingPass extends RenderPass {
     );
     this.gl.uniform1i(this.uniforms["showShadowMap"], showShadowMap ? 1 : 0);
     this.gl.uniform1i(this.uniforms["shadowMapCascade"], shadowMapCascade);
-    this.gl.uniform1i(this.uniforms["shadowMapSize"], shadowMapSize);
+    this.gl.uniform1i(this.uniforms["csmShadowMapSize"], csmShadowMapSize);
     this.gl.uniform1i(this.uniforms["showCameraDepth"], showCameraDepth ? 1 : 0);
     this.gl.uniform1i(this.uniforms["numCascades"], numCascades);
+    this.gl.uniform1i(this.uniforms["showPointShadowMap"], showPointShadowMap ? 1 : 0);
+    this.gl.uniform1i(this.uniforms["pointShadowMapIndex"], pointShadowMapIndex);
+    this.gl.uniform1f(this.uniforms["pointShadowBias"], pointShadowBias);
 
     WorldUtils.updateLights(
       this.gl,

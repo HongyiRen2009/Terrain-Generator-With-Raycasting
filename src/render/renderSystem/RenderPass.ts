@@ -64,7 +64,19 @@ export abstract class RenderPass {
       }
       if (this.renderTarget.textures) {
         for (const texture of Object.values(this.renderTarget.textures)) {
-          this.gl.deleteTexture(texture);
+          if (Array.isArray(texture)) {
+            // Handle array of textures
+            for (const tex of texture) {
+              if (tex) {
+                this.gl.deleteTexture(tex);
+              }
+            }
+          } else {
+            // Handle single texture
+            if (texture) {
+              this.gl.deleteTexture(texture);
+            }
+          }
         }
       }
       this.renderTarget = null;

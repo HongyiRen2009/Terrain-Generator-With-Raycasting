@@ -98,7 +98,7 @@ export class SSAOBlurPass extends RenderPass {
       }
       if (this.renderTarget.textures) {
         for (const texture of Object.values(this.renderTarget.textures)) {
-          this.gl.deleteTexture(texture);
+          this.gl.deleteTexture(texture as WebGLTexture);
         }
       }
     }

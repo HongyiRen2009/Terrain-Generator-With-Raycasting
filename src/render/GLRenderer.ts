@@ -14,6 +14,7 @@ import { CSMPass } from "./passes/CSMPass";
 import { DebugPass } from "./passes/DebugPass";
 import { mat4, vec3 } from "gl-matrix";
 import { DirectionalLight } from "../map/Light";
+import { CubeShadowsPass } from "./passes/CubeShadowsPass";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -58,6 +59,10 @@ export class GLRenderer {
   }
 
   private init(): void {
+    // Set lights in resource cache before initializing passes that depend on them
+    this.resourceCache.setUniformData("lights", this.world.lights);
+    this.resourceCache.setUniformData("sunLight", this.world.sunLight);
+    
     const geometryPass = new GeometryPass(
       this.gl,
       this.resourceCache,
@@ -104,12 +109,19 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const cubeShadowsPass = new CubeShadowsPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     // Build render graph tree structure
     this.renderGraph.addRoot(geometryPass);
     this.renderGraph.add(csmPass, geometryPass);
+    this.renderGraph.add(cubeShadowsPass, geometryPass);
     this.renderGraph.add(ssaoPass, geometryPass);
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
-    this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass, csmPass);
+    this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass, csmPass, cubeShadowsPass);
     this.renderGraph.add(debugPass, lightingPass);
     this.renderGraph.add(cloudsPass, geometryPass);
   }

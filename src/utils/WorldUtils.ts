@@ -29,36 +29,24 @@ export class WorldUtils {
   static updateLights(
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
-    lights: Array<PointLight | DirectionalLight>,
+    pointLights: Array<PointLight> | undefined | null,
     sun?: DirectionalLight,
     camera?: Camera
   ) {
-    // Separate point lights (directional lights in the array are ignored, use sun parameter instead)
-    const pointLights: PointLight[] = [];
+    // Note: The sun is the only directional light and is handled separately via the sun parameter
+    const lights = pointLights || [];
 
-    lights.forEach((light) => {
-      if (light instanceof PointLight) {
-        pointLights.push(light);
-      }
-      // Directional lights are now handled via the sun parameter
-    });
-
-    // Set number of active lights
+    // Set number of active point lights
     const numPointLightsLocation = gl.getUniformLocation(
       program,
       "numActivePointLights"
     );
-    gl.uniform1i(numPointLightsLocation, pointLights.length);
-
-    const numDirectionalLightsLocation = gl.getUniformLocation(
-      program,
-      "numActiveDirectionalLights"
-    );
-    // Set to 1 if sun exists, 0 otherwise
-    gl.uniform1i(numDirectionalLightsLocation, sun ? 1 : 0);
+    if (numPointLightsLocation !== null) {
+      gl.uniform1i(numPointLightsLocation, lights.length);
+    }
 
     // Update point lights
-    pointLights.forEach((light, index) => {
+    lights.forEach((light, index) => {
       const baseUniform = `pointLights[${index}]`;
 
       const posLocation = gl.getUniformLocation(
@@ -82,14 +70,14 @@ export class WorldUtils {
         `${baseUniform}.showColor`
       );
 
-      gl.uniform3fv(posLocation, light.position);
-      gl.uniform3fv(colorLocation, light.color.createVec3());
-      gl.uniform3fv(showColorLocation, light.showColor!.createVec3());
-      gl.uniform1f(intensityLocation, light.intensity);
-      gl.uniform1f(radiusLocation, light.radius);
+      if (posLocation !== null) gl.uniform3fv(posLocation, light.position);
+      if (colorLocation !== null) gl.uniform3fv(colorLocation, light.color.createVec3());
+      if (showColorLocation !== null) gl.uniform3fv(showColorLocation, light.showColor!.createVec3());
+      if (intensityLocation !== null) gl.uniform1f(intensityLocation, light.intensity);
+      if (radiusLocation !== null) gl.uniform1f(radiusLocation, light.radius);
     });
 
-    // Update sun (single directional light)
+    // Update sun (the only directional light in the system)
     if (sun) {
       const directionLocation = gl.getUniformLocation(
         program,
@@ -114,7 +102,9 @@ export class WorldUtils {
         program,
         "cameraPosition"
       );
-      gl.uniform3fv(cameraPositionLocation, camera.getPosition());
+      if (cameraPositionLocation !== null) {
+        gl.uniform3fv(cameraPositionLocation, camera.getPosition());
+      }
     }
   }
 }

@@ -1,14 +1,17 @@
 #version 300 es
 precision highp float;
+
+#define MAX_LIGHTS 100
+#define MAX_SHADOWED_POINT_LIGHTS 11
 in vec2 fragUV;
 out vec4 outputColor;
+uniform samplerCube pointShadowTexture[MAX_SHADOWED_POINT_LIGHTS];
 uniform sampler2D normalTexture;
 uniform sampler2D albedoTexture;
 uniform sampler2D depthTexture;
 uniform sampler2D ssaoTexture;
 
 uniform highp sampler2DArray shadowDepthTextureArray;
-
 
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
@@ -20,8 +23,8 @@ uniform mat4 pausedView;
 uniform mat4 lightSpaceMatrices[8]; // Support up to 8 cascades
 uniform float cascadeSplits[8]; // Support up to 8 cascades
 uniform bool usingPCF;
-uniform float shadowBias[8]; // One bias per cascade
-uniform int shadowMapSize;
+uniform float csmShadowBias[8]; // One bias per cascade for CSM
+uniform int csmShadowMapSize;
 uniform int numCascades;
 
 uniform bool csmEnabled;
@@ -30,6 +33,9 @@ uniform bool debugPauseMode;
 uniform bool showShadowMap;
 uniform int shadowMapCascade;
 uniform bool showCameraDepth;
+uniform bool showPointShadowMap;
+uniform int pointShadowMapIndex;
+uniform float pointShadowBias;
 
 struct PointLight {
     vec3 position;
@@ -45,7 +51,6 @@ struct DirectionalLight {
     float intensity;
 };
 
-#define MAX_LIGHTS 100
 uniform DirectionalLight SunLight;
 uniform PointLight pointLights[MAX_LIGHTS];
 uniform int numActivePointLights;
@@ -74,7 +79,43 @@ int chooseCascade (float viewDepth) {
     return numCascades - 1; // Return last cascade if beyond all splits
 }
 
-float computeShadow(vec3 worldPos, int cascadeIndex){
+float computePointShadow(vec3 worldPos, int lightIndex){
+    vec3 toFrag = worldPos - pointLights[lightIndex].position;
+    float currentDist = length(toFrag);
+    // Shadow map covers 3x radius, but we only apply shadows where light has meaningful contribution
+    // Beyond 3x radius, consider it fully lit (light attenuation is negligible anyway)
+    float shadowMapRange = pointLights[lightIndex].radius * 3.0;
+    if (currentDist > shadowMapRange) {
+        return 1.0;
+    }
+    
+    // Cannot dynamically index sampler arrays in GLSL ES 3.00
+    // Use switch with constant indices
+    float stored;
+    switch(lightIndex) {
+        case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
+        case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
+        case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
+        case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
+        case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
+        case 5: stored = texture(pointShadowTexture[5], toFrag).r; break;
+        case 6: stored = texture(pointShadowTexture[6], toFrag).r; break;
+        case 7: stored = texture(pointShadowTexture[7], toFrag).r; break;
+        case 8: stored = texture(pointShadowTexture[8], toFrag).r; break;
+        case 9: stored = texture(pointShadowTexture[9], toFrag).r; break;
+        case 10: stored = texture(pointShadowTexture[10], toFrag).r; break;
+        default: return 1.0; // No shadow for lights beyond supported range
+    }
+    
+    // Convert stored normalized depth back to world distance
+    // stored is normalized by 3x radius, so multiply by 3x radius
+    stored = stored * shadowMapRange;
+    
+    float shadow = (currentDist - pointShadowBias * shadowMapRange > stored) ? 0.0 : 1.0;
+    return shadow;
+}
+
+float computeSunShadow(vec3 worldPos, int cascadeIndex){
     // If CSM is disabled, return no shadow
     if (!csmEnabled) {
         return 1.0;
@@ -99,7 +140,7 @@ float computeShadow(vec3 worldPos, int cascadeIndex){
         float shadow = 0.0;
         int samples = 0;
 
-        float texelSize = 1.0 / float(shadowMapSize); 
+        float texelSize = 1.0 / float(csmShadowMapSize); 
 
         for (int x = -2; x <= 2; ++x) {
             for (int y = -2; y <= 2; ++y) {
@@ -107,7 +148,7 @@ float computeShadow(vec3 worldPos, int cascadeIndex){
                 // Use texture array with layer index
                 float depth = texture(shadowDepthTextureArray, vec3(projCoords.xy + offset, float(cascadeIndex))).r;
                 // If current depth is greater than shadow map depth, fragment is in shadow
-                shadow += (projCoords.z - shadowBias[cascadeIndex] > depth) ? 1.0 : 0.0;
+                shadow += (projCoords.z - csmShadowBias[cascadeIndex] > depth) ? 1.0 : 0.0;
                 samples++;
             }
         }
@@ -126,7 +167,7 @@ float computeShadow(vec3 worldPos, int cascadeIndex){
     // Shadow calculation: if current depth (point being tested) is greater than 
     // the closest depth in shadow map + bias, it's in shadow
     // Return 0.0 = in shadow, 1.0 = lit (for lighting multiplication)
-    return (currentDepth - shadowBias[cascadeIndex] > closestDepth) ? 0.0 : 1.0;
+    return (currentDepth - csmShadowBias[cascadeIndex] > closestDepth) ? 0.0 : 1.0;
 }
 
 void main() {
@@ -168,6 +209,47 @@ void main() {
         cascadeViewDepth = abs(pausedViewPos.z);
     }
 
+    // Point Shadow Map Visualization Mode - Display the point shadow cube map
+    if (showPointShadowMap && pointShadowMapIndex >= 0 && pointShadowMapIndex < numActivePointLights) {
+        vec3 toFrag = fragWorldPos - pointLights[pointShadowMapIndex].position;
+        float currentDist = length(toFrag);
+        float shadowMapRange = pointLights[pointShadowMapIndex].radius * 3.0;
+        
+        vec3 color;
+        if (currentDist > shadowMapRange) {
+            // Fragment is outside shadow map range - show red
+            color = vec3(1.0, 0.0, 0.0);
+        } else {
+            // Sample the cube map using the direction vector
+            float stored;
+            switch(pointShadowMapIndex) {
+                case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
+                case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
+                case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
+                case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
+                case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
+                case 5: stored = texture(pointShadowTexture[5], toFrag).r; break;
+                case 6: stored = texture(pointShadowTexture[6], toFrag).r; break;
+                case 7: stored = texture(pointShadowTexture[7], toFrag).r; break;
+                case 8: stored = texture(pointShadowTexture[8], toFrag).r; break;
+                case 9: stored = texture(pointShadowTexture[9], toFrag).r; break;
+                case 10: stored = texture(pointShadowTexture[10], toFrag).r; break;
+                default: stored = 1.0; break;
+            }
+            
+            // Convert stored depth (normalized by 3x radius) to visual representation
+            stored = stored * shadowMapRange;
+            
+            // Normalize depth for visualization (0 = near light, 1 = at shadow map range)
+            float normalizedDepth = stored / shadowMapRange;
+            normalizedDepth = pow(normalizedDepth, 0.5); // Expand middle range for better visibility
+            color = vec3(normalizedDepth);
+        }
+
+        outputColor = vec4(color, 1.0);
+        return;
+    }
+    
     // Shadow Map Visualization Mode - Display the shadow map sample at the fragment's light-space location
     if (showShadowMap && csmEnabled) {
         int cascadeIndex = clamp(shadowMapCascade, 0, numCascades - 1);
@@ -202,7 +284,7 @@ void main() {
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
     int cascadeIndex = chooseCascade(cascadeViewDepth);
-    float sunShadow = computeShadow(fragWorldPos, cascadeIndex);
+    float sunShadow = computeSunShadow(fragWorldPos, cascadeIndex);
 
     // Replace albedo with debug colors when cascade debug is enabled
     if (cascadeDebug && csmEnabled) {
@@ -240,6 +322,7 @@ void main() {
 
     // Process point lights
     for(int i = 0; i < numActivePointLights; i++) {
+        float pointLightShadow = computePointShadow(fragWorldPos, i);
         vec3 lightDir = normalize(pointLights[i].position - fragWorldPos);
         float diff = max(dot(lightDir, worldNormal), 0.0f);
         // Diffuse should be multiplied by albedo to get correct surface color
@@ -256,7 +339,7 @@ void main() {
         diffuse *= attenuation;
         specular *= attenuation;
 
-        lighting += (diffuse + specular);
+        lighting += (diffuse + specular) * pointLightShadow;
     }
 
     if(texture(depthTexture, fragUV).r >= 1.0f) {

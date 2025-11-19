@@ -32,13 +32,18 @@ export class WorldMap {
     0.138 //account for attenuation to be same as point light
   );
   public lights: (PointLight)[] = [
-    // new PointLight(
-    //   vec3.fromValues(0, 500, 0),
-    //   new Color(255, 255, 255),
-    //   1,
-    //   200,
-    //   new Color(255, 228, 132)
-    // )
+    new PointLight(
+      vec3.fromValues(150, 10, 30),
+       new Color(255, 255, 255),
+       1,
+       20,
+     ),
+     new PointLight(
+      vec3.fromValues(50, 20, 50),
+       new Color(255, 255, 255),
+       1,
+       20,
+     )
   ];
 
   public height: number;

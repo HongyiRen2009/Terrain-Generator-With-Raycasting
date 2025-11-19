@@ -14,14 +14,18 @@ export class TextureUtils {
   static bindTex(
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
-    tex: WebGLTexture,
+    tex: WebGLTexture | null | undefined,
     key: string,
     unit: number,
     target: number = gl.TEXTURE_2D
   ) {
+    if (!tex) {
+      console.warn(`[TextureUtils] Attempted to bind null/undefined texture to sampler "${key}" at texture unit ${unit}`);
+      return;
+    }
     const loc = gl.getUniformLocation(program, key);
     if (loc === null) {
-      console.warn(`Cannot find ${key} in fragmentShader`);
+      console.warn(`[TextureUtils] Cannot find sampler uniform "${key}" in shader program`);
       return;
     }
     // Bind to the specified texture unit
