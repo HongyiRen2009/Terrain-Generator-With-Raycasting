@@ -158,8 +158,8 @@ export class DebugPass extends RenderPass {
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
     }
     public render(): void {
-        const drawCascadeDebug = this.resourceCache.getUniformData("drawCascadeDebug") as boolean | undefined;
-        const lightDebugCubes = this.resourceCache.getUniformData("lightDebugCubes") as LightDebugCube[] | undefined;
+        const drawCascadeDebug = this.resourceCache.getData("drawCascadeDebug") as boolean | undefined;
+        const lightDebugCubes = this.resourceCache.getData("lightDebugCubes") as LightDebugCube[] | undefined;
         const shouldRender = !!drawCascadeDebug || (lightDebugCubes && lightDebugCubes.length > 0);
         if (!shouldRender) {
             return;
@@ -192,7 +192,7 @@ export class DebugPass extends RenderPass {
             this.gl.DYNAMIC_DRAW
         );
 
-        const viewProj = this.resourceCache.getUniformData("CameraInfo").matViewProj;
+        const viewProj = this.resourceCache.getData("CameraInfo").matViewProj;
         this.gl.uniformMatrix4fv(this.uniforms["viewProj"], false, viewProj);
 
         this.gl.drawArrays(this.gl.LINES, 0, this.vertexCount);
@@ -235,11 +235,11 @@ export class DebugPass extends RenderPass {
         };
 
         if (includeCascadeDebug) {
-            const cameraFrustum = this.resourceCache.getUniformData("cameraFrustumCorners") as number[][] | undefined;
+            const cameraFrustum = this.resourceCache.getData("cameraFrustumCorners") as number[][] | undefined;
             pushFrustum(cameraFrustum, DebugPass.CAMERA_FRUSTUM_COLOR);
 
-            const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
-            const cameraSubFrusta = this.resourceCache.getUniformData("cameraSubFrusta") as number[][][] | undefined;
+            const numCascades = this.resourceCache.getData("numCascades") ?? 3;
+            const cameraSubFrusta = this.resourceCache.getData("cameraSubFrusta") as number[][][] | undefined;
             if (cameraSubFrusta && cameraSubFrusta.length > 0) {
                 const maxCascades = Math.min(cameraSubFrusta.length, numCascades);
                 for (let i = 0; i < maxCascades; i++) {
@@ -248,13 +248,13 @@ export class DebugPass extends RenderPass {
                 }
             }
 
-            const lightSpaceMatrices = this.resourceCache.getUniformData("lightSpaceMatrices") as mat4[] | undefined;
+            const lightSpaceMatrices = this.resourceCache.getData("lightSpaceMatrices") as mat4[] | undefined;
             if (lightSpaceMatrices && lightSpaceMatrices.length > 0) {
                 const cascadeIndex = Math.max(
                     0,
                     Math.min(
                         lightSpaceMatrices.length - 1,
-                        (this.resourceCache.getUniformData("shadowMapCascade") as number | undefined) ?? 0
+                        (this.resourceCache.getData("shadowMapCascade") as number | undefined) ?? 0
                     )
                 );
                 const cascadeCorners = this.computeCascadeWorldCorners(lightSpaceMatrices[cascadeIndex]);

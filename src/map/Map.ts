@@ -33,18 +33,37 @@ export class WorldMap {
   );
   public lights: (PointLight)[] = [
     new PointLight(
-      vec3.fromValues(150, 10, 30),
+      vec3.fromValues(32, 10, 16),
        new Color(255, 255, 255),
        1,
        20,
      ),
      new PointLight(
-      vec3.fromValues(50, 20, 50),
+      vec3.fromValues(96, 10, 48),
+       new Color(255, 255, 255),
+       1,
+       20,
+     ),
+     new PointLight(
+      vec3.fromValues(128, 10, 32),
+       new Color(255, 255, 255),
+       1,
+       20,
+     ),
+     new PointLight(
+      vec3.fromValues(160, 10, 16),
+       new Color(255, 255, 255),
+       1,
+       20,
+     ),
+     new PointLight(
+      vec3.fromValues(224, 10, 48),
        new Color(255, 255, 255),
        1,
        20,
      )
   ];
+  public numShadowedLights: number = 5;
 
   public height: number;
   public resolution = 64; //#of vertices square size of chunk

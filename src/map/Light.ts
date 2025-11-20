@@ -13,6 +13,7 @@ export class PointLight {
   direction?: vec3;
   name: string;
   visualizerEnabled: boolean;
+  showShadowMap: boolean;
 
   constructor(
     position: vec3,
@@ -29,6 +30,7 @@ export class PointLight {
     this.showColor = showColor ? showColor : this.color;
     this.name = name;
     this.visualizerEnabled = false;
+    this.showShadowMap = false;
   }
   public setPosition(position: vec3) {
     this.position = position;
@@ -47,4 +49,29 @@ export class DirectionalLight {
     this.color = color;
     this.intensity = intensity;
   }
+}
+
+export function enableShadow(lights: PointLight[], lightIndex: number, numShadowedLights: number): {lights: PointLight[], numShadowedLights: number} {
+   if (lightIndex < numShadowedLights) return {lights, numShadowedLights};
+  const light = lights[lightIndex];
+  let newLights = [...lights];
+  newLights.splice(lightIndex, 1);
+  newLights.splice(numShadowedLights, 0, light);
+  return {lights: newLights, numShadowedLights: numShadowedLights + 1};
+}
+
+export function disableShadow(lights: PointLight[], lightIndex: number, numShadowedLights: number): {lights: PointLight[], numShadowedLights: number} {
+  if (lightIndex >= numShadowedLights) return {lights, numShadowedLights};
+  const light = lights[lightIndex];
+  let newLights = [...lights];
+  newLights.splice(lightIndex, 1);
+  newLights.push(light);
+  return {lights: newLights, numShadowedLights: numShadowedLights - 1};
+}
+
+export function addShadowedLight(lights: PointLight[], light: PointLight, numShadowedLights: number): {lights: PointLight[], numShadowedLights: number} {
+  if (numShadowedLights >= lights.length) return { lights, numShadowedLights };
+  let newLights = [...lights];
+  newLights.splice(numShadowedLights, 0, light);
+  return { lights: newLights, numShadowedLights: numShadowedLights + 1 };
 }

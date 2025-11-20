@@ -32,7 +32,7 @@ export class CSMPass extends RenderPass {
         this.InitSettings();
     }
     public override getInvocationCount(): number { 
-        const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
+        const numCascades = this.resourceCache.getData("numCascades") ?? 3;
         return numCascades;
     }
     public override setInvocationIndex(index: number): void { this.currentCascadeIndex = index; }
@@ -40,19 +40,19 @@ export class CSMPass extends RenderPass {
     protected initRenderTarget(): RenderTarget {
         // Use DEPTH_COMPONENT32F for float depth, or DEPTH_COMPONENT24 with UNSIGNED_INT
         // For shadow maps, DEPTH_COMPONENT32F with FLOAT is more reliable
-        let csmShadowMapSize = this.resourceCache.getUniformData("csmShadowMapSize") ?? 4096; // Default to 4096 if not set
+        let csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize") ?? 4096; // Default to 4096 if not set
         // Store the default value if it wasn't set
-        if (!this.resourceCache.getUniformData("csmShadowMapSize")) {
-            this.resourceCache.setUniformData("csmShadowMapSize", csmShadowMapSize);
+        if (!this.resourceCache.getData("csmShadowMapSize")) {
+            this.resourceCache.setData("csmShadowMapSize", csmShadowMapSize);
         }
-        const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
+        const numCascades = this.resourceCache.getData("numCascades") ?? 3;
         const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
         
         // Clamp shadow map size to maximum supported texture size
         if (csmShadowMapSize > maxTextureSize) {
             console.warn(`[CSM] Shadow map size ${csmShadowMapSize} exceeds maximum texture size ${maxTextureSize}. Clamping to ${maxTextureSize}.`);
             csmShadowMapSize = maxTextureSize;
-            this.resourceCache.setUniformData("csmShadowMapSize", csmShadowMapSize);
+            this.resourceCache.setData("csmShadowMapSize", csmShadowMapSize);
         }
         
         // Calculate memory requirements for texture array
@@ -79,7 +79,7 @@ export class CSMPass extends RenderPass {
                     `Clamping to ${clampedSize}×${clampedSize} (${((clampedSize * clampedSize * numCascades * bytesPerPixel) / (1024 * 1024)).toFixed(2)}MB).`
                 );
                 csmShadowMapSize = clampedSize;
-                this.resourceCache.setUniformData("csmShadowMapSize", csmShadowMapSize);
+                this.resourceCache.setData("csmShadowMapSize", csmShadowMapSize);
             }
         }
         
@@ -118,11 +118,11 @@ export class CSMPass extends RenderPass {
     }
 
     render(vaosToRender: VaoInfo[]){
-        if (this.resourceCache.getUniformData("disableSun")){
+        if (this.resourceCache.getData("disableSun")){
             return;
         }
         // Check if CSM is enabled
-        const csmEnabled = this.resourceCache.getUniformData("csmEnabled") ?? true;
+        const csmEnabled = this.resourceCache.getData("csmEnabled") ?? true;
         if (!csmEnabled) {
             console.log("[CSM] CSM is disabled");
             return;
@@ -154,7 +154,7 @@ export class CSMPass extends RenderPass {
         }
         this.gl.colorMask(false, false, false, false);
 
-        const csmShadowMapSize = this.resourceCache.getUniformData("csmShadowMapSize");
+        const csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize");
         this.gl.viewport(0, 0, csmShadowMapSize, csmShadowMapSize);
         this.gl.clearDepth(1.0);
         this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
@@ -164,7 +164,7 @@ export class CSMPass extends RenderPass {
 
         this.gl.useProgram(this.program!);
 
-        const sunLight = this.resourceCache.getUniformData("sunLight");
+        const sunLight = this.resourceCache.getData("sunLight");
         if (!sunLight) {
             console.error("[CSM] No sun light found in resource cache!");
             this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
@@ -202,7 +202,7 @@ export class CSMPass extends RenderPass {
             label: "Enable CSM",
             defaultValue: true,
             onChange: (value: boolean) => {
-                this.resourceCache.setUniformData("csmEnabled", value);
+                this.resourceCache.setData("csmEnabled", value);
             }
         });
         this.settingsSection.addSlider({
@@ -215,10 +215,10 @@ export class CSMPass extends RenderPass {
             numType: "int",
             onChange: (value: number) => {
                 const newNumCascades = Math.floor(value);
-                this.resourceCache.setUniformData("numCascades", newNumCascades);
+                this.resourceCache.setData("numCascades", newNumCascades);
                 
                 // Update csmShadowBias array to match new number of cascades
-                const currentBiasArray = this.resourceCache.getUniformData("csmShadowBias") as number[] | undefined;
+                const currentBiasArray = this.resourceCache.getData("csmShadowBias") as number[] | undefined;
                 const newBiasArray = Array.from({ length: newNumCascades }, (_, i) => {
                     if (currentBiasArray && i < currentBiasArray.length) {
                         // Keep existing values if available
@@ -227,7 +227,7 @@ export class CSMPass extends RenderPass {
                     // Otherwise use default: 0.001 * 0.5^i
                     return 0.001 * Math.pow(0.5, i);
                 });
-                this.resourceCache.setUniformData("csmShadowBias", newBiasArray);
+                this.resourceCache.setData("csmShadowBias", newBiasArray);
                 
                 // Update the csmShadowBias slider array length if it exists
                 const shadowBiasSetting = this.settingsSection?.getSetting("csmShadowBias");
@@ -243,7 +243,7 @@ export class CSMPass extends RenderPass {
             }
         });
         // Initialize the default value in resource cache
-        this.resourceCache.setUniformData("numCascades", 3);
+        this.resourceCache.setData("numCascades", 3);
         this.settingsSection.addSlider({
             id: "csmShadowMapSize",
             label: "CSM Shadow Map Size",
@@ -253,13 +253,13 @@ export class CSMPass extends RenderPass {
             defaultValue: 4096,
             numType: "int",
             onChange: (value: number) => {
-                this.resourceCache.setUniformData("csmShadowMapSize", value);
+                this.resourceCache.setData("csmShadowMapSize", value);
                 this.disposeRenderTarget();
                 this.renderTarget = this.initRenderTarget();
             }
         });
         // Initialize the default value in resource cache since onChange is only called on user interaction
-        this.resourceCache.setUniformData("csmShadowMapSize", 4096);
+        this.resourceCache.setData("csmShadowMapSize", 4096);
         this.settingsSection.addSlider({
             id: "lambda",
             label: "Lambda",
@@ -283,17 +283,17 @@ export class CSMPass extends RenderPass {
             label: "Using PCF",
             defaultValue: true,
             onChange: (value: boolean) => {
-                this.resourceCache.setUniformData("usingPCF", value);
+                this.resourceCache.setData("usingPCF", value);
             }
         });
-        const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
+        const numCascades = this.resourceCache.getData("numCascades") ?? 3;
         // Initialize csmShadowBias array with decreasing values for further cascades
         const defaultBiasArray = Array.from({ length: numCascades }, (_, i) => {
             // Further cascades should have less bias
             // Start with 0.001 for first cascade, reduce by 50% for each subsequent cascade
             return 0.001 * Math.pow(0.5, i);
         });
-        this.resourceCache.setUniformData("csmShadowBias", defaultBiasArray);
+        this.resourceCache.setData("csmShadowBias", defaultBiasArray);
         
         this.settingsSection.addSlider({
             id: "csmShadowBias",
@@ -308,7 +308,7 @@ export class CSMPass extends RenderPass {
             arrayIndex: 0,
             onChange: (value: number) => {
                 const biasArray = this.settingsSection?.getSliderArray("csmShadowBias") ?? defaultBiasArray;
-                this.resourceCache.setUniformData("csmShadowBias", biasArray);
+                this.resourceCache.setData("csmShadowBias", biasArray);
             }
         });
         this.settingsSection.addCheckbox({
@@ -316,7 +316,7 @@ export class CSMPass extends RenderPass {
             label: "Cascade Debug",
             defaultValue: false,
             onChange: (value: boolean) => {
-                this.resourceCache.setUniformData("cascadeDebug", value);
+                this.resourceCache.setData("cascadeDebug", value);
             }
         });
         this.settingsSection.addCheckbox({
@@ -324,17 +324,17 @@ export class CSMPass extends RenderPass {
             label: "Draw Cascade Frusta",
             defaultValue: false,
             onChange: (value: boolean) => {
-                this.resourceCache.setUniformData("drawCascadeDebug", value);
+                this.resourceCache.setData("drawCascadeDebug", value);
             }
         });
         // Initialize the default value in resource cache
-        this.resourceCache.setUniformData("drawCascadeDebug", false);
+        this.resourceCache.setData("drawCascadeDebug", false);
         this.settingsSection.addCheckbox({
             id: "debugPause",
             label: "Debug Pause Mode",
             defaultValue: false,
             onChange: (value: boolean) => {
-                this.resourceCache.setUniformData("debugPauseMode", value);
+                this.resourceCache.setData("debugPauseMode", value);
             }
         });
         this.settingsSection.addCheckbox({
@@ -342,11 +342,11 @@ export class CSMPass extends RenderPass {
             label: "Show Shadow Map",
             defaultValue: false,
             onChange: (value: boolean) => {
-                this.resourceCache.setUniformData("showShadowMap", value);
+                this.resourceCache.setData("showShadowMap", value);
             }
         });
         // Reuse numCascades from above (line 260)
-        const shadowMapCascadeMax = this.resourceCache.getUniformData("numCascades") ?? 3;
+        const shadowMapCascadeMax = this.resourceCache.getData("numCascades") ?? 3;
         this.settingsSection.addSlider({
             id: "shadowMapCascade",
             label: `Shadow Map Cascade (0-${shadowMapCascadeMax - 1})`,
@@ -356,7 +356,7 @@ export class CSMPass extends RenderPass {
             defaultValue: 0,
             numType: "int",
             onChange: (value: number) => {
-                this.resourceCache.setUniformData("shadowMapCascade", Math.floor(value));
+                this.resourceCache.setData("shadowMapCascade", Math.floor(value));
             }
         });
     }
@@ -364,8 +364,8 @@ export class CSMPass extends RenderPass {
 
 function getCascadeSplits(resourceCache: ResourceCache, lambda: number) : number[] {
     const cascadeSplits : number[] = [];
-    const numCascades = resourceCache.getUniformData("numCascades") ?? 3;
-    const nearFarPlanes = resourceCache.getUniformData("pausedNearFarPlanes");
+    const numCascades = resourceCache.getData("numCascades") ?? 3;
+    const nearFarPlanes = resourceCache.getData("pausedNearFarPlanes");
     const nearPlane = nearFarPlanes.near;
     const farPlane = nearFarPlanes.far;
     const clipRange = farPlane - nearPlane;
@@ -376,7 +376,7 @@ function getCascadeSplits(resourceCache: ResourceCache, lambda: number) : number
         const uniSplit = nearPlane + clipRange * p;
         cascadeSplits[i] = uniSplit * (1.0-lambda) + logSplit * lambda;
     }
-    resourceCache.setUniformData("cascadeSplits", cascadeSplits);
+    resourceCache.setData("cascadeSplits", cascadeSplits);
     return cascadeSplits;
 }
 
@@ -408,19 +408,19 @@ function computeFrustumCornersFromViewProj(invViewProjMatrix: mat4): vec4[] {
 }
 
 function getWorldSpaceFrustumCorners(resourceCache: ResourceCache) : vec4[] {
-    const cameraInfo = resourceCache.getUniformData("pausedCameraInfo");
+    const cameraInfo = resourceCache.getData("pausedCameraInfo");
     const invViewProjMatrix = mat4.create();
     mat4.invert(invViewProjMatrix, cameraInfo.matViewProj);
     const corners = computeFrustumCornersFromViewProj(invViewProjMatrix);
     const serialized = corners.map((corner) => Array.from(corner));
-    resourceCache.setUniformData("cameraFrustumCorners", serialized);
+    resourceCache.setData("cameraFrustumCorners", serialized);
     return corners;
 }
     
 function getSubfrustumCorners(resourceCache: ResourceCache, lambda: number) : vec4[][] {
     const subFrustumCorners : vec4[][] = [];
-    const numCascades = resourceCache.getUniformData("numCascades") ?? 3;
-    const nearFarPlanes = resourceCache.getUniformData("pausedNearFarPlanes");
+    const numCascades = resourceCache.getData("numCascades") ?? 3;
+    const nearFarPlanes = resourceCache.getData("pausedNearFarPlanes");
     const cascadeSplits = getCascadeSplits(resourceCache, lambda);
     const nearPlane = nearFarPlanes.near;
     const farPlane = nearFarPlanes.far;
@@ -463,13 +463,13 @@ function getSubfrustumCorners(resourceCache: ResourceCache, lambda: number) : ve
     const serialized = subFrustumCorners.map((cascadeCorners) =>
         cascadeCorners.map((corner) => Array.from(corner))
     );
-    resourceCache.setUniformData("cameraSubFrusta", serialized);
+    resourceCache.setData("cameraSubFrusta", serialized);
     return subFrustumCorners;
 }
 
 function getLightSpaceMatrices(resourceCache: ResourceCache, light: DirectionalLight, lambda: number, zMultiplier : number) : mat4[] {
     const lightSpaceMatrices : mat4[] = [];
-    const numCascades = resourceCache.getUniformData("numCascades") ?? 3;
+    const numCascades = resourceCache.getData("numCascades") ?? 3;
     const normalizedLightDir = vec3.normalize(vec3.create(), light.direction);
     const parallelThreshold = 0.99;
     for (let i = 0; i < numCascades; i++){
@@ -522,7 +522,7 @@ function getLightSpaceMatrices(resourceCache: ResourceCache, light: DirectionalL
         mat4.ortho(LightProjectionMatrix, minX, maxX, minY, maxY, minZ, maxZ);
         lightSpaceMatrices.push(mat4.multiply(mat4.create(), LightProjectionMatrix, LightViewMatrix));
     }
-    resourceCache.setUniformData("lightSpaceMatrices", lightSpaceMatrices);
+    resourceCache.setData("lightSpaceMatrices", lightSpaceMatrices);
     return lightSpaceMatrices;
 }
 

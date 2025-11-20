@@ -2,7 +2,7 @@
 precision highp float;
 
 #define MAX_LIGHTS 100
-#define MAX_SHADOWED_POINT_LIGHTS 11
+#define MAX_SHADOWED_POINT_LIGHTS 5
 in vec2 fragUV;
 out vec4 outputColor;
 uniform samplerCube pointShadowTexture[MAX_SHADOWED_POINT_LIGHTS];
@@ -33,9 +33,9 @@ uniform bool debugPauseMode;
 uniform bool showShadowMap;
 uniform int shadowMapCascade;
 uniform bool showCameraDepth;
-uniform bool showPointShadowMap;
-uniform int pointShadowMapIndex;
 uniform float pointShadowBias;
+uniform int numShadowedLights;
+uniform int pointLightShowShadowMap[MAX_LIGHTS];
 
 struct PointLight {
     vec3 position;
@@ -98,12 +98,6 @@ float computePointShadow(vec3 worldPos, int lightIndex){
         case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
         case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
         case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
-        case 5: stored = texture(pointShadowTexture[5], toFrag).r; break;
-        case 6: stored = texture(pointShadowTexture[6], toFrag).r; break;
-        case 7: stored = texture(pointShadowTexture[7], toFrag).r; break;
-        case 8: stored = texture(pointShadowTexture[8], toFrag).r; break;
-        case 9: stored = texture(pointShadowTexture[9], toFrag).r; break;
-        case 10: stored = texture(pointShadowTexture[10], toFrag).r; break;
         default: return 1.0; // No shadow for lights beyond supported range
     }
     
@@ -210,10 +204,19 @@ void main() {
     }
 
     // Point Shadow Map Visualization Mode - Display the point shadow cube map
-    if (showPointShadowMap && pointShadowMapIndex >= 0 && pointShadowMapIndex < numActivePointLights) {
-        vec3 toFrag = fragWorldPos - pointLights[pointShadowMapIndex].position;
+    // Find the first light with shadow map visualization enabled
+    int shadowMapVisualizationIndex = -1;
+    for (int i = 0; i < numShadowedLights && i < MAX_SHADOWED_POINT_LIGHTS; i++) {
+        if (i < numActivePointLights && pointLightShowShadowMap[i] != 0) {
+            shadowMapVisualizationIndex = i;
+            break;
+        }
+    }
+    
+    if (shadowMapVisualizationIndex >= 0 && shadowMapVisualizationIndex < numActivePointLights) {
+        vec3 toFrag = fragWorldPos - pointLights[shadowMapVisualizationIndex].position;
         float currentDist = length(toFrag);
-        float shadowMapRange = pointLights[pointShadowMapIndex].radius * 3.0;
+        float shadowMapRange = pointLights[shadowMapVisualizationIndex].radius * 3.0;
         
         vec3 color;
         if (currentDist > shadowMapRange) {
@@ -222,18 +225,12 @@ void main() {
         } else {
             // Sample the cube map using the direction vector
             float stored;
-            switch(pointShadowMapIndex) {
+            switch(shadowMapVisualizationIndex) {
                 case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
                 case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
                 case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
                 case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
                 case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
-                case 5: stored = texture(pointShadowTexture[5], toFrag).r; break;
-                case 6: stored = texture(pointShadowTexture[6], toFrag).r; break;
-                case 7: stored = texture(pointShadowTexture[7], toFrag).r; break;
-                case 8: stored = texture(pointShadowTexture[8], toFrag).r; break;
-                case 9: stored = texture(pointShadowTexture[9], toFrag).r; break;
-                case 10: stored = texture(pointShadowTexture[10], toFrag).r; break;
                 default: stored = 1.0; break;
             }
             
@@ -322,7 +319,7 @@ void main() {
 
     // Process point lights
     for(int i = 0; i < numActivePointLights; i++) {
-        float pointLightShadow = computePointShadow(fragWorldPos, i);
+        float pointLightShadow = (i < numShadowedLights) ? computePointShadow(fragWorldPos, i) : 1.0;
         vec3 lightDir = normalize(pointLights[i].position - fragWorldPos);
         float diff = max(dot(lightDir, worldNormal), 0.0f);
         // Diffuse should be multiplied by albedo to get correct surface color

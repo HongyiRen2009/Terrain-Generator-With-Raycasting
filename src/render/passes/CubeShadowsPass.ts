@@ -32,17 +32,17 @@ export class CubeShadowsPass extends RenderPass {
     }
 
     public override getInvocationCount(): number {
-        return this.resourceCache.getUniformData("lights")?.length ?? 0;
+        return this.resourceCache.getData("numShadowedLights") ?? 0;
     }
     public override setInvocationIndex(index: number): void {
         this.currentLightIndex = index;
     }
 
     public initRenderTarget(): RenderTarget {
-        let size = this.resourceCache.getUniformData("CubeShadowsMapSize") ?? 1024;
+        let size = this.resourceCache.getData("CubeShadowsMapSize") ?? 1024;
         // Store the default value if it wasn't set
-        if (!this.resourceCache.getUniformData("CubeShadowsMapSize")) {
-            this.resourceCache.setUniformData("CubeShadowsMapSize", size);
+        if (!this.resourceCache.getData("CubeShadowsMapSize")) {
+            this.resourceCache.setData("CubeShadowsMapSize", size);
         }
         const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
         
@@ -50,9 +50,9 @@ export class CubeShadowsPass extends RenderPass {
         if (size > maxTextureSize) {
             console.warn(`[Cube Shadows] Shadow map size ${size} exceeds maximum texture size ${maxTextureSize}. Clamping to ${maxTextureSize}.`);
             size = maxTextureSize;
-            this.resourceCache.setUniformData("CubeShadowsMapSize", size);
+            this.resourceCache.setData("CubeShadowsMapSize", size);
         }
-        const numLights = this.resourceCache.getUniformData("lights")?.length ?? 0;
+
         const cubeMaps: WebGLTexture[] = [];
         
         const fbo = this.gl.createFramebuffer();
@@ -76,7 +76,7 @@ export class CubeShadowsPass extends RenderPass {
         );
         
         // Create a cube map texture for each light
-        for (let lightIndex = 0; lightIndex < numLights; lightIndex++) {
+        for (let lightIndex = 0; lightIndex < this.resourceCache.getData("numShadowedLights"); lightIndex++) {
             const cubeMap = this.gl.createTexture();
             if (!cubeMap) {
                 throw new Error("Failed to create cube map texture");
@@ -124,7 +124,7 @@ export class CubeShadowsPass extends RenderPass {
             throw new Error("EXT_color_buffer_float not supported");
         }
 
-        const shadowMapSize = this.resourceCache.getUniformData("CubeShadowsMapSize")!;
+        const shadowMapSize = this.resourceCache.getData("CubeShadowsMapSize")!;
         
         // Set up render state once
         this.gl.enable(this.gl.DEPTH_TEST);
@@ -163,10 +163,10 @@ export class CubeShadowsPass extends RenderPass {
             this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
             
             // Set up uniforms for this face
-            const lightSpaceMatrix = getLightSpaceMatrix(this.resourceCache, this.resourceCache.getUniformData("lights")![this.currentLightIndex], i);
+            const lightSpaceMatrix = getLightSpaceMatrix(this.resourceCache, this.resourceCache.getData("lights")![this.currentLightIndex], i);
             this.gl.uniformMatrix4fv(this.uniforms["lightSpaceMatrix"], false, lightSpaceMatrix);
-            this.gl.uniform3fv(this.uniforms["lightPos"], this.resourceCache.getUniformData("lights")![this.currentLightIndex].position);
-            this.gl.uniform1f(this.uniforms["lightRadius"], this.resourceCache.getUniformData("lights")![this.currentLightIndex].radius);
+            this.gl.uniform3fv(this.uniforms["lightPos"], this.resourceCache.getData("lights")![this.currentLightIndex].position);
+            this.gl.uniform1f(this.uniforms["lightRadius"], this.resourceCache.getData("lights")![this.currentLightIndex].radius);
             
             // Render all geometry for this face
             for (const vaoInfo of vaosToRender) {
@@ -192,28 +192,6 @@ export class CubeShadowsPass extends RenderPass {
             this.program!
         );
         
-        this.settingsSection.addCheckbox({
-            id: "showPointShadowMap",
-            label: "Show Point Shadow Map",
-            defaultValue: false,
-            onChange: (value: boolean) => {
-                this.resourceCache.setUniformData("showPointShadowMap", value);
-            }
-        });
-    
-        
-        this.settingsSection.addSlider({
-            id: "pointShadowMapIndex",
-            label: "Point Shadow Map Index",
-            min: 0,
-            max: 11,
-            step: 1,
-            defaultValue: 0,
-            numType: "int",
-            onChange: (value: number) => {
-                this.resourceCache.setUniformData("pointShadowMapIndex", Math.floor(value));
-            }
-        });
         
         // Add point light shadow map size slider
         this.settingsSection.addSlider({
@@ -226,7 +204,7 @@ export class CubeShadowsPass extends RenderPass {
             numType: "int",
             onChange: (value: number) => {
                 const newSize = Math.floor(value);
-                this.resourceCache.setUniformData("CubeShadowsMapSize", newSize);
+                this.resourceCache.setData("CubeShadowsMapSize", newSize);
                 this.disposeRenderTarget();
                 this.renderTarget = this.initRenderTarget();
             }
@@ -242,14 +220,12 @@ export class CubeShadowsPass extends RenderPass {
             defaultValue: 0.05,
             numType: "float",
             onChange: (value: number) => {
-                this.resourceCache.setUniformData("pointShadowBias", value);
+                this.resourceCache.setData("pointShadowBias", value);
             }
         });
         
         // Initialize default values in resourceCache
-        this.resourceCache.setUniformData("showPointShadowMap", false);
-        this.resourceCache.setUniformData("pointShadowMapIndex", 0);
-        this.resourceCache.setUniformData("pointShadowBias", 0.01);
+        this.resourceCache.setData("pointShadowBias", 0.01);
     }
 }
 

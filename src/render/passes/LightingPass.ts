@@ -49,9 +49,9 @@ export class LightingPass extends RenderPass {
       "csmShadowMapSize",
       "showCameraDepth",
       "numCascades",
-      "showPointShadowMap",
-      "pointShadowMapIndex",
-      "pointShadowBias"
+      "pointShadowBias",
+      "numShadowedLights",
+      "pointLightShowShadowMap"
     ]);
     this.InitSettings();
 
@@ -85,23 +85,23 @@ export class LightingPass extends RenderPass {
       this.program!,
       normalTexture,
       "normalTexture",
-      12
+      11
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       albedoTexture,
       "albedoTexture",
-      13
+      12
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       depthTexture,
       "depthTexture",
-      14
+      13
     );
-    TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 3);
+    TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 14);
     
     // Bind cascade depth texture array
     TextureUtils.bindTex(
@@ -112,8 +112,8 @@ export class LightingPass extends RenderPass {
       15,
       this.gl.TEXTURE_2D_ARRAY
     );
-    // Limit to 11 point shadow textures to stay within MAX_TEXTURE_IMAGE_UNITS (16) - 5 base textures = 11
-    const maxPointShadows = Math.min(11, pointShadowTextures?.length ?? 0);
+
+    const maxPointShadows = Math.min(5, pointShadowTextures?.length ?? 0);
     for (let i = 0; i < maxPointShadows; i++) {
       TextureUtils.bindTex(this.gl, this.program!, pointShadowTextures[i], `pointShadowTexture[${i}]`, i, this.gl.TEXTURE_CUBE_MAP);
       if (!pointShadowTextures[i]) {
@@ -121,12 +121,12 @@ export class LightingPass extends RenderPass {
       }
     }
 
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
     const pausedCameraInfo =
-      this.resourceCache.getUniformData("pausedCameraInfo") ?? cameraInfo;
+      this.resourceCache.getData("pausedCameraInfo") ?? cameraInfo;
     const debugPauseMode =
-      this.resourceCache.getUniformData("debugPauseMode") ??
-      this.resourceCache.getUniformData("debugPause") ??
+      this.resourceCache.getData("debugPauseMode") ??
+      this.resourceCache.getData("debugPause") ??
       false;
     this.gl.uniformMatrix4fv(
       this.uniforms["viewInverse"],
@@ -145,12 +145,12 @@ export class LightingPass extends RenderPass {
     );
     this.gl.uniform3fv(
       this.uniforms["cameraPosition"],
-      this.resourceCache.getUniformData("cameraPosition")
+      this.resourceCache.getData("cameraPosition")
     );
 
     // Set CSM uniforms
-    const numCascades = this.resourceCache.getUniformData("numCascades") ?? 3;
-    const lightSpaceMatrices = this.resourceCache.getUniformData("lightSpaceMatrices");
+    const numCascades = this.resourceCache.getData("numCascades") ?? 3;
+    const lightSpaceMatrices = this.resourceCache.getData("lightSpaceMatrices");
     if (lightSpaceMatrices && Array.isArray(lightSpaceMatrices) && lightSpaceMatrices.length === numCascades) {
       // Flatten the array of matrices into a single Float32Array (numCascades matrices * 16 floats)
       const flattened = new Float32Array(numCascades * 16);
@@ -164,7 +164,7 @@ export class LightingPass extends RenderPass {
       );
     }
 
-    const cascadeSplits = this.resourceCache.getUniformData("cascadeSplits");
+    const cascadeSplits = this.resourceCache.getData("cascadeSplits");
     if (cascadeSplits && Array.isArray(cascadeSplits) && cascadeSplits.length === numCascades) {
       this.gl.uniform1fv(
         this.uniforms["cascadeSplits"],
@@ -172,21 +172,19 @@ export class LightingPass extends RenderPass {
       );
     }
 
-    const usingPCF = this.resourceCache.getUniformData("usingPCF") ?? true;
-    const csmShadowBias = this.resourceCache.getUniformData("csmShadowBias");
+    const usingPCF = this.resourceCache.getData("usingPCF") ?? true;
+    const csmShadowBias = this.resourceCache.getData("csmShadowBias");
     // Support both array and single value for backward compatibility
     const csmShadowBiasArray = Array.isArray(csmShadowBias) 
       ? csmShadowBias 
       : [csmShadowBias ?? 0.001];
-    const csmEnabled = this.resourceCache.getUniformData("csmEnabled") ?? true;
-    const cascadeDebug = this.resourceCache.getUniformData("cascadeDebug") ?? false;
-    const showShadowMap = this.resourceCache.getUniformData("showShadowMap") ?? false;
-    const shadowMapCascade = this.resourceCache.getUniformData("shadowMapCascade") ?? 0;
-    const csmShadowMapSize = this.resourceCache.getUniformData("csmShadowMapSize");
-    const showCameraDepth = this.resourceCache.getUniformData("showCameraDepth") ?? false;
-    const showPointShadowMap = this.resourceCache.getUniformData("showPointShadowMap") ?? false;
-    const pointShadowMapIndex = this.resourceCache.getUniformData("pointShadowMapIndex") ?? 0;
-    const pointShadowBias = this.resourceCache.getUniformData("pointShadowBias") ?? 0.01;
+    const csmEnabled = this.resourceCache.getData("csmEnabled") ?? true;
+    const cascadeDebug = this.resourceCache.getData("cascadeDebug") ?? false;
+    const showShadowMap = this.resourceCache.getData("showShadowMap") ?? false;
+    const shadowMapCascade = this.resourceCache.getData("shadowMapCascade") ?? 0;
+    const csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize");
+    const showCameraDepth = this.resourceCache.getData("showCameraDepth") ?? false;
+    const pointShadowBias = this.resourceCache.getData("pointShadowBias") ?? 0.01;
     
     this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
     // Upload csmShadowBias as array uniform
@@ -204,15 +202,21 @@ export class LightingPass extends RenderPass {
     this.gl.uniform1i(this.uniforms["csmShadowMapSize"], csmShadowMapSize);
     this.gl.uniform1i(this.uniforms["showCameraDepth"], showCameraDepth ? 1 : 0);
     this.gl.uniform1i(this.uniforms["numCascades"], numCascades);
-    this.gl.uniform1i(this.uniforms["showPointShadowMap"], showPointShadowMap ? 1 : 0);
-    this.gl.uniform1i(this.uniforms["pointShadowMapIndex"], pointShadowMapIndex);
     this.gl.uniform1f(this.uniforms["pointShadowBias"], pointShadowBias);
+    this.gl.uniform1i(this.uniforms["numShadowedLights"], this.resourceCache.getData("numShadowedLights") ?? 0);
+    
+    // Update point light shadow map visualization flags
+    const lights = this.resourceCache.getData("lights") as any[];
+    if (lights) {
+      const showShadowMapArray = lights.map((light: any) => light.showShadowMap ? 1 : 0);
+      this.gl.uniform1iv(this.uniforms["pointLightShowShadowMap"], showShadowMapArray);
+    }
 
     WorldUtils.updateLights(
       this.gl,
       this.program!,
-      this.resourceCache.getUniformData("lights"),
-      this.resourceCache.getUniformData("disableSun") ? {direction: vec3.fromValues(0, -1, 0), color: new Color(255, 255, 255), intensity: 0} : this.resourceCache.getUniformData("sunLight")
+      this.resourceCache.getData("lights"),
+      this.resourceCache.getData("disableSun") ? {direction: vec3.fromValues(0, -1, 0), color: new Color(255, 255, 255), intensity: 0} : this.resourceCache.getData("sunLight")
     );
 
     this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
@@ -236,7 +240,7 @@ export class LightingPass extends RenderPass {
       label: "Disable Sun",
       defaultValue: false,
       onChange: (value: boolean) => {
-        this.resourceCache.setUniformData("disableSun", value);
+        this.resourceCache.setData("disableSun", value);
       }
     });
     this.settingsSection.addCheckbox({
@@ -244,17 +248,17 @@ export class LightingPass extends RenderPass {
       label: "Show Camera Depth",
       defaultValue: false,
       onChange: (value: boolean) => {
-        this.resourceCache.setUniformData("showCameraDepth", value);
+        this.resourceCache.setData("showCameraDepth", value);
       }
     });
     
     // Initialize default value in resourceCache
-    this.resourceCache.setUniformData("showCameraDepth", false);
+    this.resourceCache.setData("showCameraDepth", false);
 
     // Add sun direction sliders
     if (this.updateSunDirectionCallback) {
       // Get initial sun direction from sunLight
-      const sunLight = this.resourceCache.getUniformData("sunLight") as any;
+      const sunLight = this.resourceCache.getData("sunLight") as any;
       let initialAzimuth = 180; // Default to south (180 degrees)
       let initialElevation = -45; // Default to 45 degrees down
 

@@ -77,6 +77,13 @@ export class WorldUtils {
       if (radiusLocation !== null) gl.uniform1f(radiusLocation, light.radius);
     });
 
+    // Update point light shadow map visualization flags
+    const showShadowMapArray = lights.map(light => light.showShadowMap ? 1 : 0);
+    const showShadowMapLocation = gl.getUniformLocation(program, "pointLightShowShadowMap");
+    if (showShadowMapLocation !== null) {
+      gl.uniform1iv(showShadowMapLocation, showShadowMapArray);
+    }
+
     // Update sun (the only directional light in the system)
     if (sun) {
       const directionLocation = gl.getUniformLocation(

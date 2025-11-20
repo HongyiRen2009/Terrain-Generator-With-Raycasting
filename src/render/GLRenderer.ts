@@ -60,9 +60,10 @@ export class GLRenderer {
 
   private init(): void {
     // Set lights in resource cache before initializing passes that depend on them
-    this.resourceCache.setUniformData("lights", this.world.lights);
-    this.resourceCache.setUniformData("sunLight", this.world.sunLight);
-    
+    this.resourceCache.setData("lights", this.world.lights);
+    this.resourceCache.setData("sunLight", this.world.sunLight);
+    this.resourceCache.setData("numShadowedLights", this.world.numShadowedLights);
+
     const geometryPass = new GeometryPass(
       this.gl,
       this.resourceCache,
@@ -134,8 +135,9 @@ export class GLRenderer {
     const vaosToRender = this._vaoManager.getVaosToRender();
     const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
 
-    this.resourceCache.setUniformData("lights", this.world.lights);
-    this.resourceCache.setUniformData("sunLight", this.world.sunLight);
+    this.resourceCache.setData("lights", this.world.lights);
+    this.resourceCache.setData("sunLight", this.world.sunLight);
+    this.resourceCache.setData("numShadowedLights", this.world.numShadowedLights);
     const maxDebugIntensity = 5;
     const lightDebugCubes = this.world.lights
       .filter((light) => light.visualizerEnabled)
@@ -148,7 +150,7 @@ export class GLRenderer {
         ),
         name: light.name ?? "Point Light"
       }));
-    this.resourceCache.setUniformData("lightDebugCubes", lightDebugCubes);
+    this.resourceCache.setData("lightDebugCubes", lightDebugCubes);
 
     // Get passes in correct execution order
     const sortedPasses = this.renderGraph.getSortedPasses();
@@ -187,18 +189,18 @@ export class GLRenderer {
       matViewInverse: mat4.invert(mat4.create(), matViewAndProj.matView),
       matProjInverse: mat4.invert(mat4.create(), matViewAndProj.matProj)
     };
-    this.resourceCache.setUniformData("CameraInfo", cameraInfo);
-    this.resourceCache.setUniformData("nearFarPlanes", this.camera.getNearFarPlanes());
-    this.resourceCache.setUniformData("cameraPosition", this.camera.position);
+    this.resourceCache.setData("CameraInfo", cameraInfo);
+    this.resourceCache.setData("nearFarPlanes", this.camera.getNearFarPlanes());
+    this.resourceCache.setData("cameraPosition", this.camera.position);
 
     const debugPauseActive =
-      this.resourceCache.getUniformData("debugPauseMode") ??
-      this.resourceCache.getUniformData("debugPause") ??
+      this.resourceCache.getData("debugPauseMode") ??
+      this.resourceCache.getData("debugPause") ??
       false;
     if (!debugPauseActive) {
-        this.resourceCache.setUniformData("pausedCameraInfo", cameraInfo);
-        this.resourceCache.setUniformData("pausedNearFarPlanes", this.camera.getNearFarPlanes());
-        this.resourceCache.setUniformData("pausedCameraPosition", this.camera.position);
+        this.resourceCache.setData("pausedCameraInfo", cameraInfo);
+        this.resourceCache.setData("pausedNearFarPlanes", this.camera.getNearFarPlanes());
+        this.resourceCache.setData("pausedCameraPosition", this.camera.position);
     }
   }
   public resizeGBuffer(width: number, height: number): void {

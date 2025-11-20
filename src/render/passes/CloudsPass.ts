@@ -87,13 +87,13 @@ export class CloudsPass extends RenderPass {
       "depthTexture",
       2
     );
-    const sunLight = this.resourceCache.getUniformData("sunLight") as DirectionalLight | null;
+    const sunLight = this.resourceCache.getData("sunLight") as DirectionalLight | null;
     
     // Use sunLight for sun position
     let sunPos: vec3;
     let sunColor: vec3;
     
-    if (sunLight instanceof DirectionalLight && !this.resourceCache.getUniformData("disableSun")) {
+    if (sunLight instanceof DirectionalLight && !this.resourceCache.getData("disableSun")) {
       // For directional light, use direction to determine sun position in sky
       // Scale the direction to represent sun position far away
       sunPos = vec3.create();
@@ -113,7 +113,7 @@ export class CloudsPass extends RenderPass {
       this.gl.getUniformLocation(this.program!, "sunColor"),
       sunColor
     );
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
     this.gl.uniformMatrix4fv(
       this.uniforms["viewInverse"],
       false,
@@ -126,7 +126,7 @@ export class CloudsPass extends RenderPass {
     );
     this.gl.uniform3fv(
       this.uniforms["cameraPosition"],
-      this.resourceCache.getUniformData("cameraPosition")
+      this.resourceCache.getData("cameraPosition")
     );
     this.gl.uniform1f(
       this.gl.getUniformLocation(this.program!, "time"),

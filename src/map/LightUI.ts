@@ -1,6 +1,6 @@
 import { vec3 } from "gl-matrix";
 import { WorldMap } from "./Map";
-import { PointLight } from "./Light";
+import { PointLight, enableShadow, disableShadow} from "./Light";
 import { Color } from "./terrains";
 
 export class LightUI {
@@ -8,6 +8,7 @@ export class LightUI {
   private addButton: HTMLButtonElement;
   private world: WorldMap;
   private tracerUpdateSupplier: () => () => void;
+  private displayOrder: PointLight[] = []; // Maintains stable display order
 
   constructor(world: WorldMap, updateTracer: () => () => void) {
     this.world = world;
@@ -19,7 +20,9 @@ export class LightUI {
 
     this.addButton.addEventListener("click", () => this.createDefaultLight());
     this.container.innerHTML = "";
-    this.world.lights.forEach((light) => this.createLightCard(light));
+    // Initialize display order with current lights
+    this.displayOrder = [...this.world.lights];
+    this.displayOrder.forEach((light) => this.createLightCard(light));
   }
 
   private ensureLightSection(): {
@@ -70,6 +73,7 @@ export class LightUI {
       `Point Light ${index}`
     );
     this.world.lights.push(newLight);
+    this.displayOrder.push(newLight); // Add to display order
     this.createLightCard(newLight);
     this.requestPathTracerUpdate();
   }
@@ -145,6 +149,33 @@ export class LightUI {
     radiusInput.addEventListener("blur", commitRadius);
     wrapper.appendChild(this.createLabeledInput("Radius", radiusInput));
 
+    const shadowInput = document.createElement("input");
+    shadowInput.type = "checkbox";
+    shadowInput.checked = this.world.lights.indexOf(light) < this.world.numShadowedLights;
+    shadowInput.addEventListener("change", () => {
+      // Recalculate the index each time, as the array may have been reordered
+      const currentIndex = this.world.lights.indexOf(light);
+      if (currentIndex === -1) return; // Light was removed
+      
+      if (shadowInput.checked) {
+        if (this.world.numShadowedLights >= 5) {
+            shadowInput.checked = false;
+            alert("You can only have up to 5 shadowed lights");
+            return;
+        }
+        const result = enableShadow(this.world.lights, currentIndex, this.world.numShadowedLights);
+        this.world.lights = result.lights;
+        this.world.numShadowedLights = result.numShadowedLights;
+      } else {
+        const result = disableShadow(this.world.lights, currentIndex, this.world.numShadowedLights);
+        this.world.lights = result.lights;
+        this.world.numShadowedLights = result.numShadowedLights;
+      }
+      this.refreshLightCards();
+      this.requestPathTracerUpdate();
+    });
+    wrapper.appendChild(this.createLabeledInput("Shadow", shadowInput));
+
     const visualizeLabel = document.createElement("label");
     visualizeLabel.className = "point-light__visualize-toggle";
     const visualizeInput = document.createElement("input");
@@ -157,13 +188,37 @@ export class LightUI {
     visualizeLabel.append(" Draw visualization cube");
     wrapper.appendChild(visualizeLabel);
 
+    // Only show shadow map visualization checkbox for shadowed lights
+    const currentLightIndex = this.world.lights.indexOf(light);
+    if (currentLightIndex < this.world.numShadowedLights) {
+      const shadowMapLabel = document.createElement("label");
+      shadowMapLabel.className = "point-light__shadow-map-toggle";
+      const shadowMapInput = document.createElement("input");
+      shadowMapInput.type = "checkbox";
+      shadowMapInput.checked = light.showShadowMap;
+      shadowMapInput.addEventListener("change", () => {
+        light.showShadowMap = shadowMapInput.checked;
+      });
+      shadowMapLabel.appendChild(shadowMapInput);
+      shadowMapLabel.append(" Show shadow map");
+      wrapper.appendChild(shadowMapLabel);
+    }
+
     const deleteButton = document.createElement("button");
     deleteButton.textContent = "Remove Light";
     deleteButton.className = "point-light__delete";
     deleteButton.addEventListener("click", () => {
-      this.world.lights = this.world.lights.filter((l) => l !== light);
-      wrapper.remove();
-      this.requestPathTracerUpdate();
+    const deleteIndex = this.world.lights.indexOf(light);
+    // If we're deleting a shadowed light, decrement the count
+    if (deleteIndex >= 0 && deleteIndex < this.world.numShadowedLights) {
+        this.world.numShadowedLights--;
+    }
+    this.world.lights = this.world.lights.filter((l) => l !== light);
+    // Remove from display order as well
+    this.displayOrder = this.displayOrder.filter((l) => l !== light);
+    wrapper.remove();
+    this.refreshLightCards();
+    this.requestPathTracerUpdate();
     });
     wrapper.appendChild(deleteButton);
 
@@ -219,48 +274,25 @@ export class LightUI {
     return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`;
   }
 
+  private refreshLightCards() {
+    this.container.innerHTML = "";
+    // Use display order for stable UI, but only show lights that still exist in the world
+    const lightsSet = new Set(this.world.lights);
+    this.displayOrder = this.displayOrder.filter(light => lightsSet.has(light));
+    // Add any new lights that aren't in display order yet
+    this.world.lights.forEach(light => {
+      if (!this.displayOrder.includes(light)) {
+        this.displayOrder.push(light);
+      }
+    });
+    this.displayOrder.forEach((light) => this.createLightCard(light));
+  }
+
   private requestPathTracerUpdate() {
     if (this.tracerUpdateSupplier) {
       const updater = this.tracerUpdateSupplier();
       if (updater) updater();
     }
-  }
-
-  private enableBlurOnOutside(element: HTMLInputElement) {
-    element.addEventListener("focus", () => {
-      const overlay = document.createElement("div");
-      overlay.style.position = "fixed";
-      overlay.style.inset = "0";
-      overlay.style.background = "transparent";
-      overlay.style.zIndex = "2147483646";
-      overlay.style.pointerEvents = "auto";
-      overlay.className = "color-dismiss-overlay";
-
-      let overlayAppended = false;
-      const cleanup = () => {
-        overlay.removeEventListener("pointerdown", overlayHandler);
-        if (overlayAppended) {
-          overlay.remove();
-        }
-        element.removeEventListener("blur", cleanup);
-      };
-
-      const overlayHandler = (event: PointerEvent) => {
-        event.preventDefault();
-        cleanup();
-        element.blur();
-      };
-
-      overlay.addEventListener("pointerdown", overlayHandler);
-
-      setTimeout(() => {
-        if (!document.body.contains(overlay)) {
-          document.body.appendChild(overlay);
-          overlayAppended = true;
-        }
-      }, 0);
-      element.addEventListener("blur", cleanup);
-    });
-  }
+  }  
 }
 

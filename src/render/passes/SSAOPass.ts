@@ -132,7 +132,7 @@ export class SSAOPass extends RenderPass {
       2
     );
 
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
     this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
     this.gl.uniformMatrix4fv(
       this.uniforms["projInverse"],

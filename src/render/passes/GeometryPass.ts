@@ -156,7 +156,7 @@ export class GeometryPass extends RenderPass {
 
     this.gl.useProgram(this.program);
 
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
     this.gl.uniformMatrix4fv(this.uniforms["view"], false, cameraInfo.matView);
     this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
 

@@ -7,7 +7,7 @@ export class ResourceCache {
     this.warnedKeys = new Set();
   }
 
-  public getUniformData(key: string, warnIfMissing: boolean = true) {
+  public getData(key: string, warnIfMissing: boolean = true) {
     if (warnIfMissing && !this.uniformsCache.has(key) && !this.warnedKeys.has(key)) {
       this.warnedKeys.add(key);
       const availableKeys = Array.from(this.uniformsCache.keys()).join(", ") || "none";
@@ -16,7 +16,7 @@ export class ResourceCache {
     return this.uniformsCache.get(key);
   }
 
-  public setUniformData(key: string, value: any) {
+  public setData(key: string, value: any) {
     this.uniformsCache.set(key, value);
   }
 }
