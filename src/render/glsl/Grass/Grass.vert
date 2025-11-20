@@ -42,33 +42,32 @@ void main() {
     windLeanAngle = easeOut(windLeanAngle, 2.0f);
     vec3 windAxis = vec3(-sin(windDir), 0.0f, cos(windDir));
     mat3 windRotation = rotateAxisAngle(windAxis, windLeanAngle);
-    float curveAmount = randomLean * localPosition.y;
+
+    // Rotate grass blade around Y-axis based on rotAngle
+    mat3 yRotation = rotateAxisAngle(vec3(0.0f, 1.0f, 0.0f), rotAngle);
+    vec3 rotatedLocal = yRotation * localPosition;
+
+    float curveAmount = randomLean * rotatedLocal.y;
 
     float curveAngle = rotAngle + PI / 2.0f;
     vec3 curveAxis = vec3(-sin(curveAngle), 0.0f, cos(curveAngle));
-    mat3 rotCurve = rotateAxisAngle(curveAxis, curveAmount) + windRotation;
+    mat3 rotCurve = rotateAxisAngle(curveAxis, curveAmount) * windRotation;
 
-    vec3 Pos = rotCurve * localPosition;
+    vec3 Pos = rotCurve * rotatedLocal;
 
     vec3 worldPosition = basePosition + Pos;
     vWorldPos = worldPosition;
-    vHeight = localPosition.y;
+    vHeight = rotatedLocal.y;
+    // Calculate normal
+    // Tangent along the blade (Y direction)
+    vec3 tangent = rotCurve * yRotation * vec3(0.0f, 1.0f, 0.0f);
+    // Bitangent perpendicular to the blade
+    vec3 bitangent = rotCurve * yRotation * vec3(1.0f, 0.0f, 0.0f);
+    // Normal is cross product
+    vNormal = normalize(cross(tangent, bitangent));
 
-    // Pass the curve direction to fragment shader
-    vCurveDirection = vec3(cos(curveAngle), 0.0f, sin(curveAngle)) * sign(curveAmount);
-    // Calculate tangent along the blade (derivative of curved position)
-    // The tangent represents the direction the blade is pointing at this height
-    float heightStep = 0.01f; // Small delta for numerical derivative
-    float curveAmountNext = randomLean * (localPosition.y + heightStep);
-    mat3 rotCurveNext = rotateAxisAngle(curveAxis, curveAmountNext);
-    vec3 nextLocalPos = vec3(localPosition.x, localPosition.y + heightStep, localPosition.z);
-    vec3 nextPos = rotCurveNext * nextLocalPos;
+    vCurveDirection = curveAxis;
 
-    vec3 tangent = normalize(nextPos - Pos);
-
-    // The normal is perpendicular to both the tangent and the blade width direction
-    vec3 bladeWidthDirection = vec3(cos(rotAngle), 0.0f, sin(rotAngle));
-    vNormal = normalize(cross(tangent, bladeWidthDirection));
     gl_Position = projMatrix * viewMatrix * vec4(worldPosition, 1.0f);
 
 }

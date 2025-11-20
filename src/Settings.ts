@@ -4,7 +4,7 @@ interface Setting<T> {
   value: T;
   uniform?: boolean;
   defaultValue?: T;
-  type: "slider" | "checkbox";
+  type: "slider" | "checkbox" | "color";
   onChange?: (value: T) => void;
 }
 
@@ -20,7 +20,11 @@ interface CheckboxSetting extends Setting<boolean> {
   type: "checkbox";
 }
 
-type AnySetting = SliderSetting | CheckboxSetting;
+interface ColorSetting extends Setting<string> {
+  type: "color";
+}
+
+type AnySetting = SliderSetting | CheckboxSetting | ColorSetting;
 
 export class SettingsSection {
   private settings: Map<string, AnySetting> = new Map();
@@ -81,6 +85,20 @@ export class SettingsSection {
   }
 
   /**
+   * Add a color picker setting
+   */
+  addColorPicker(config: Omit<ColorSetting, "type" | "value">): void {
+    const setting: ColorSetting = {
+      ...config,
+      type: "color",
+      value: config.defaultValue ?? "#ffffff",
+      uniform: config.uniform ?? true
+    };
+    this.settings.set(config.id, setting);
+    this.renderColorPicker(setting);
+  }
+
+  /**
    * Get a slider value
    */
   getSliderValue(id: string): number {
@@ -100,6 +118,17 @@ export class SettingsSection {
       return setting.value;
     }
     throw new Error(`Checkbox setting '${id}' not found`);
+  }
+
+  /**
+   * Get a color value
+   */
+  getColorValue(id: string): string {
+    const setting = this.settings.get(id);
+    if (setting && setting.type === "color") {
+      return setting.value;
+    }
+    throw new Error(`Color setting '${id}' not found`);
   }
 
   /**
@@ -130,6 +159,21 @@ export class SettingsSection {
         `${id}-checkbox`
       ) as HTMLInputElement;
       if (checkboxElement) checkboxElement.checked = value;
+      if (setting.onChange) setting.onChange(value);
+    }
+  }
+
+  /**
+   * Set a color value programmatically
+   */
+  setColorValue(id: string, value: string): void {
+    const setting = this.settings.get(id);
+    if (setting && setting.type === "color") {
+      setting.value = value;
+      const colorElement = document.getElementById(
+        `${id}-color`
+      ) as HTMLInputElement;
+      if (colorElement) colorElement.value = value;
       if (setting.onChange) setting.onChange(value);
     }
   }
@@ -204,6 +248,51 @@ export class SettingsSection {
     this.container.appendChild(wrapper);
   }
 
+  /**
+   * Render a color picker setting in the UI
+   */
+  private renderColorPicker(setting: ColorSetting): void {
+    const wrapper = document.createElement("div");
+    wrapper.style.margin = "16px 0";
+
+    const label = document.createElement("label");
+    label.htmlFor = `${setting.id}-color`;
+    label.textContent = `${setting.label}: `;
+
+    const colorInput = document.createElement("input");
+    colorInput.type = "color";
+    colorInput.id = `${setting.id}-color`;
+    colorInput.value = setting.value;
+    colorInput.style.marginLeft = "8px";
+    colorInput.style.cursor = "pointer";
+
+    colorInput.addEventListener("input", () => {
+      setting.value = colorInput.value;
+      if (setting.onChange) {
+        setting.onChange(colorInput.value);
+      }
+    });
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(colorInput);
+
+    this.container.appendChild(wrapper);
+  }
+
+  /**
+   * Convert hex color to RGB array (0-1 range)
+   */
+  private hexToRgb(hex: string): [number, number, number] {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result
+      ? [
+          parseInt(result[1], 16) / 255,
+          parseInt(result[2], 16) / 255,
+          parseInt(result[3], 16) / 255
+        ]
+      : [0, 0, 0];
+  }
+
   public updateUniforms(gl: WebGL2RenderingContext): void {
     if (!this.program) {
       console.warn("No program associated with this settings section.");
@@ -228,6 +317,9 @@ export class SettingsSection {
         }
       } else if (setting.type === "checkbox") {
         gl.uniform1i(loc, setting.value ? 1 : 0);
+      } else if (setting.type === "color") {
+        const rgb = this.hexToRgb(setting.value);
+        gl.uniform3f(loc, rgb[0], rgb[1], rgb[2]);
       }
     });
   }

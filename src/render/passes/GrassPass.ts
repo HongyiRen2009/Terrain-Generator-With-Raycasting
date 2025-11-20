@@ -49,13 +49,53 @@ export class GrassPass extends RenderPass {
       "Grass Settings",
       this.program!
     );
+
+    // Color settings
+    this.settingsSection.addColorPicker({
+      id: "baseColor",
+      label: "Base Color",
+      defaultValue: "#046204"
+    });
+    this.settingsSection.addColorPicker({
+      id: "tipColor",
+      label: "Tip Color",
+      defaultValue: "#00ff00"
+    });
+    this.settingsSection.addColorPicker({
+      id: "specularColor",
+      label: "Specular Color",
+      defaultValue: "#ffffff"
+    });
+    this.settingsSection.addColorPicker({
+      id: "translucencyColor",
+      label: "Translucency Color",
+      defaultValue: "#b3ff80"
+    });
+
+    // Lighting settings
+    this.settingsSection.addSlider({
+      id: "diffuseStrength",
+      label: "Diffuse Strength",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.3
+    });
+    this.settingsSection.addSlider({
+      id: "baseDarkness",
+      label: "Base Darkness",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.7
+    });
     this.settingsSection.addSlider({
       id: "specularStrength",
       label: "Specular Strength",
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.3
+      defaultValue: 0.25
     });
     this.settingsSection.addSlider({
       id: "shininess",
@@ -71,8 +111,36 @@ export class GrassPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.25
+      defaultValue: 0.7
     });
+
+    // Transition settings
+    this.settingsSection.addSlider({
+      id: "ambientTransitionPower",
+      label: "Ambient Transition Power",
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+      defaultValue: 1
+    });
+    this.settingsSection.addSlider({
+      id: "specularTransitionPower",
+      label: "Specular Transition Power",
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+      defaultValue: 2
+    });
+    this.settingsSection.addSlider({
+      id: "translucencyTransitionPower",
+      label: "Translucency Transition Power",
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+      defaultValue: 0.7
+    });
+
+    // Wind settings
     this.settingsSection.addSlider({
       id: "windStrength",
       label: "Wind Strength",
@@ -127,6 +195,10 @@ export class GrassPass extends RenderPass {
     gl.depthMask(true);
 
     const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraPos = this.resourceCache.getUniformData("cameraPosition") as
+      | vec3
+      | undefined;
+    if (!cameraPos) return;
     if (cameraInfo) {
       gl.uniformMatrix4fv(
         gl.getUniformLocation(this.program!, "viewMatrix"),
@@ -148,6 +220,7 @@ export class GrassPass extends RenderPass {
       gl.getUniformLocation(this.program!, "viewDir"),
       this.resourceCache.getUniformData("cameraDirection")
     );
+    gl.uniform3fv(gl.getUniformLocation(this.program!, "cameraPos"), cameraPos);
     gl.uniform1f(
       gl.getUniformLocation(this.program!, "grassThickness"),
       this.grassThickness
@@ -181,11 +254,6 @@ export class GrassPass extends RenderPass {
     TextureUtils.bindTex(gl, this.program!, depthTexture!, "depthTexture", 2);
 
     this.settingsSection?.updateUniforms(gl);
-
-    const cameraPos = this.resourceCache.getUniformData("cameraPosition") as
-      | vec3
-      | undefined;
-    if (!cameraPos) return;
 
     if (!pathtracerOn || this.pathtracerRender) {
       for (let i = 0; i < grassVAO.lodLevels.length; i++) {
