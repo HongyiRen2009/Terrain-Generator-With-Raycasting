@@ -225,7 +225,7 @@ export class CubeShadowsPass extends RenderPass {
         });
         
         // Initialize default values in resourceCache
-        this.resourceCache.setData("pointShadowBias", 0.01);
+        this.resourceCache.setData("pointShadowBias", 0.05);
     }
 }
 

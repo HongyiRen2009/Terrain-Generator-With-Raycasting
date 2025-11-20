@@ -51,7 +51,8 @@ export class LightingPass extends RenderPass {
       "numCascades",
       "pointShadowBias",
       "numShadowedLights",
-      "pointLightShowShadowMap"
+      "pointLightShowShadowMap",
+      "cubeMapSize",
     ]);
     this.InitSettings();
 
@@ -184,7 +185,7 @@ export class LightingPass extends RenderPass {
     const shadowMapCascade = this.resourceCache.getData("shadowMapCascade") ?? 0;
     const csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize");
     const showCameraDepth = this.resourceCache.getData("showCameraDepth") ?? false;
-    const pointShadowBias = this.resourceCache.getData("pointShadowBias") ?? 0.01;
+    const pointShadowBias = this.resourceCache.getData("pointShadowBias") ?? 0.05;
     
     this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
     // Upload csmShadowBias as array uniform
@@ -204,6 +205,7 @@ export class LightingPass extends RenderPass {
     this.gl.uniform1i(this.uniforms["numCascades"], numCascades);
     this.gl.uniform1f(this.uniforms["pointShadowBias"], pointShadowBias);
     this.gl.uniform1i(this.uniforms["numShadowedLights"], this.resourceCache.getData("numShadowedLights") ?? 0);
+    this.gl.uniform1i(this.uniforms["cubeMapSize"], this.resourceCache.getData("CubeShadowsMapSize") ?? 1024);
     
     // Update point light shadow map visualization flags
     const lights = this.resourceCache.getData("lights") as any[];

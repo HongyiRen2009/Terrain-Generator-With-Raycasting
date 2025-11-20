@@ -36,6 +36,7 @@ uniform bool showCameraDepth;
 uniform float pointShadowBias;
 uniform int numShadowedLights;
 uniform int pointLightShowShadowMap[MAX_LIGHTS];
+uniform int cubeMapSize;
 
 struct PointLight {
     vec3 position;
@@ -88,25 +89,58 @@ float computePointShadow(vec3 worldPos, int lightIndex){
     if (currentDist > shadowMapRange) {
         return 1.0;
     }
-    
-    // Cannot dynamically index sampler arrays in GLSL ES 3.00
-    // Use switch with constant indices
-    float stored;
-    switch(lightIndex) {
-        case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
-        case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
-        case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
-        case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
-        case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
-        default: return 1.0; // No shadow for lights beyond supported range
+
+    if (usingPCF){
+        float shadow = 0.0;
+
+        vec3 forward = normalize(toFrag);
+        vec3 right = normalize(cross(forward,vec3(0.0,1.0,0.0)));
+        vec3 up = normalize(cross(forward,right));
+        float texelSize = 1.0 / float(cubeMapSize);
+        for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+                vec3 offsetDir = forward 
+                    + right * (float(x)*texelSize)
+                    + up * (float(y)*texelSize);
+                float stored;
+                offsetDir = normalize(offsetDir);
+                switch(lightIndex) {
+                    case 0: stored = texture(pointShadowTexture[0], offsetDir).r; break;
+                    case 1: stored = texture(pointShadowTexture[1], offsetDir).r; break;
+                    case 2: stored = texture(pointShadowTexture[2], offsetDir).r; break;
+                    case 3: stored = texture(pointShadowTexture[3], offsetDir).r; break;
+                    case 4: stored = texture(pointShadowTexture[4], offsetDir).r; break;
+                    default: return 1.0;    
+                }
+                stored = stored * shadowMapRange;
+                if (currentDist - pointShadowBias * shadowMapRange > stored) shadow += 1.0;
+            }
+        }
+        shadow /= 9.0;
+        // shadow is 1.0 = fully shadowed, 0.0 = fully lit
+        // Return inverted: 1.0 = lit, 0.0 = shadowed (matching non-PCF behavior)
+        return 1.0 - shadow;
     }
-    
-    // Convert stored normalized depth back to world distance
-    // stored is normalized by 3x radius, so multiply by 3x radius
-    stored = stored * shadowMapRange;
-    
-    float shadow = (currentDist - pointShadowBias * shadowMapRange > stored) ? 0.0 : 1.0;
-    return shadow;
+    else{
+        // Cannot dynamically index sampler arrays in GLSL ES 3.00
+        // Use switch with constant indices
+        float stored;
+        switch(lightIndex) {
+            case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
+            case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
+            case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
+            case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
+            case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
+            default: return 1.0; // No shadow for lights beyond supported range
+        }
+        
+        // Convert stored normalized depth back to world distance
+        // stored is normalized by 3x radius, so multiply by 3x radius
+        stored = stored * shadowMapRange;
+        
+        float shadow = (currentDist - pointShadowBias * shadowMapRange > stored) ? 0.0 : 1.0;
+        return shadow;
+    }
 }
 
 float computeSunShadow(vec3 worldPos, int cascadeIndex){
