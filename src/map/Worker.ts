@@ -17,8 +17,6 @@ type WorkerMessage = {
   Seed: string;
   GridSize: vec3;
   ChunkPosition: vec2;
-  generatingTerrain: boolean;
-  worldFieldMap: Map<string, number>;
 };
 
 function chunkCoordinateToIndex(c: vec3, gridSize: vec3): number {
@@ -153,65 +151,51 @@ function calculateNormal(vertex: vec3): vec3 {
   return normal;
 }
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
-  const { Seed, GridSize, ChunkPosition, generatingTerrain, worldFieldMap } =
-    event.data;
+  const { Seed, GridSize, ChunkPosition } = event.data;
   globalChunkPosition = ChunkPosition;
   const prng = alea(Seed);
   const simplex = createNoise3D(prng);
-  if (generatingTerrain) {
-    const field = new Float32Array(
-      (GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1)
-    );
-    const fieldMap = new Map<string, number>();
 
-    // Generate noise field
-    for (let x = 0; x <= GridSize[0]; x++) {
-      for (let y = 0; y <= GridSize[1]; y++) {
-        for (let z = 0; z <= GridSize[2]; z++) {
-          let c = vec3.fromValues(x, y, z);
-          // Offset by chunk position
-          vec3.add(
-            c,
-            c,
-            vec3.fromValues(ChunkPosition[0], 0, ChunkPosition[1])
-          );
-          const idx = chunkCoordinateToIndex(
-            vec3.fromValues(x, y, z),
-            GridSize
-          );
-          const value = noiseFunction(c, simplex);
-          field[idx] = value;
-          fieldMap.set(vertexKey(c), value);
-        }
+  // Generate fieldmap
+  const field = new Float32Array(
+    (GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1)
+  );
+  const fieldMap = new Map<string, number>();
+
+  for (let x = 0; x <= GridSize[0]; x++) {
+    for (let y = 0; y <= GridSize[1]; y++) {
+      for (let z = 0; z <= GridSize[2]; z++) {
+        let c = vec3.fromValues(x, y, z);
+        vec3.add(c, c, vec3.fromValues(ChunkPosition[0], 0, ChunkPosition[1]));
+        const idx = chunkCoordinateToIndex(vec3.fromValues(x, y, z), GridSize);
+        const value = noiseFunction(c, simplex);
+        field[idx] = value;
+        fieldMap.set(vertexKey(c), value);
       }
     }
-    const fieldMapArray = Array.from(fieldMap.entries());
-    self.postMessage(
-      {
-        field,
-        fieldMap: fieldMapArray
-      },
-      [field.buffer]
-    );
-    return;
-  } else {
-    WorldFieldMap = worldFieldMap;
-    //Generate mesh with marching cubes
-    const mesh: Mesh = new Mesh();
-    for (let x = 0; x < GridSize[0]; x++) {
-      for (let y = 0; y < GridSize[1]; y++) {
-        for (let z = 0; z < GridSize[2]; z++) {
-          let c = vec3.fromValues(x, y, z);
-          const cubeCase = GenerateCase(c);
-          const newMesh = caseToMesh(c, cubeCase, GridSize);
-          mesh.merge(newMesh);
-        }
-      }
-    }
-    self.postMessage({
-      meshVertices: mesh.getVertices(),
-      meshNormals: mesh.getNormals(),
-      meshTypes: mesh.getTypes()
-    });
   }
+  
+  WorldFieldMap = fieldMap; // Use local fieldmap only
+  
+  // Generate ONLY interior mesh (skip edge cubes)
+  const mesh: Mesh = new Mesh();
+  for (let x = 1; x < GridSize[0] - 1; x++) {
+    for (let y = 1; y < GridSize[1] - 1; y++) {
+      for (let z = 1; z < GridSize[2] - 1; z++) {
+        let c = vec3.fromValues(x, y, z);
+        const cubeCase = GenerateCase(c);
+        const newMesh = caseToMesh(c, cubeCase, GridSize);
+        mesh.merge(newMesh);
+      }
+    }
+  }
+  
+  const fieldMapArray = Array.from(fieldMap.entries());
+  self.postMessage({
+    field,
+    fieldMap: fieldMapArray,
+    meshVertices: mesh.getVertices(),
+    meshNormals: mesh.getNormals(),
+    meshTypes: mesh.getTypes()
+  }, [field.buffer]);
 };

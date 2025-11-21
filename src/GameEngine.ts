@@ -163,7 +163,7 @@ export class GameEngine {
     this.world.populateFieldMap();
 
     await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
+      this.world.chunks.map((chunk) => chunk.generateEdgeTriangles())
     );
 
     this.renderer.vaoManager.createTerrainVAO(
