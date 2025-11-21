@@ -10,13 +10,14 @@ import LightingFragmentShaderSource from "../glsl/DeferredRendering/Lighting.fra
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { WorldUtils } from "../../utils/WorldUtils";
 import { SettingsSection } from "../../Settings";
-import { vec3 } from "gl-matrix";
+import { vec3} from "gl-matrix";
 import { Color } from "../../map/terrains";
 
 export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   protected settingsSection: SettingsSection | null = null;
   private updateSunDirectionCallback?: (direction: vec3) => void;
+  private jitterTexture: WebGLTexture | null = null;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -53,9 +54,23 @@ export class LightingPass extends RenderPass {
       "numShadowedLights",
       "pointLightShowShadowMap",
       "cubeMapSize",
+      "cubeShadowsOn",
+      "jitterSize",
+      "filterSize",
+      "pcfRadius",
     ]);
     this.InitSettings();
-
+    this.jitterTexture = createJitterTexture(
+      gl,
+      this.resourceCache.getData("jitterSize") ?? 8,
+      this.resourceCache.getData("filterSize") ?? 4
+    );
+    this.resourceCache.setData(
+      "updateJitterTexture",
+      (jitterSize: number, filterSize: number) => {
+        this.updateJitterTexture(jitterSize, filterSize);
+      }
+    );
   }
 
   protected initRenderTarget(): RenderTarget {
@@ -86,23 +101,23 @@ export class LightingPass extends RenderPass {
       this.program!,
       normalTexture,
       "normalTexture",
-      11
+      10
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       albedoTexture,
       "albedoTexture",
-      12
+      11
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       depthTexture,
       "depthTexture",
-      13
+      12
     );
-    TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 14);
+    TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 13);
     
     // Bind cascade depth texture array
     TextureUtils.bindTex(
@@ -110,9 +125,15 @@ export class LightingPass extends RenderPass {
       this.program!,
       shadowDepthTextureArray,
       "shadowDepthTextureArray",
-      15,
+      14,
       this.gl.TEXTURE_2D_ARRAY
     );
+    const jitterSize = this.resourceCache.getData("jitterSize") ?? 8;
+    const filterSize = this.resourceCache.getData("filterSize") ?? 4;
+    TextureUtils.bindTex(this.gl, this.program!, this.jitterTexture, "jitterTexture", 15, this.gl.TEXTURE_3D);
+    this.gl.uniform1i(this.uniforms["jitterSize"], jitterSize);
+    this.gl.uniform1i(this.uniforms["filterSize"], filterSize);
+    this.gl.uniform1f(this.uniforms["pcfRadius"], this.resourceCache.getData("pcfRadius") ?? 7.0);
 
     const maxPointShadows = Math.min(5, pointShadowTextures?.length ?? 0);
     for (let i = 0; i < maxPointShadows; i++) {
@@ -206,6 +227,7 @@ export class LightingPass extends RenderPass {
     this.gl.uniform1f(this.uniforms["pointShadowBias"], pointShadowBias);
     this.gl.uniform1i(this.uniforms["numShadowedLights"], this.resourceCache.getData("numShadowedLights") ?? 0);
     this.gl.uniform1i(this.uniforms["cubeMapSize"], this.resourceCache.getData("CubeShadowsMapSize") ?? 1024);
+    this.gl.uniform1i(this.uniforms["cubeShadowsOn"], this.resourceCache.getData("cubeShadowsOn") ? 1 : 0);
     
     // Update point light shadow map visualization flags
     const lights = this.resourceCache.getData("lights") as any[];
@@ -339,4 +361,36 @@ export class LightingPass extends RenderPass {
       });
     }
   }
+  public updateJitterTexture(jitterSize: number, filterSize: number): void {
+    this.jitterTexture = createJitterTexture(this.gl, jitterSize, filterSize);
+  }
+}
+
+function createJitterTexture(gl: WebGL2RenderingContext, size: number, filterSize: number): WebGLTexture {
+    const data = new Float32Array(size * size * filterSize * filterSize * 2);
+    let index = 0;
+    for (let texX = 0; texX < size; texX++) {
+      for (let texY = 0; texY < size; texY++) {
+        for (let filterX = filterSize - 1; filterX >= 0; filterX--) {
+          for (let filterY = 0; filterY < filterSize; filterY++) {
+              const x = (filterX + Math.random()) / filterSize;
+              const y = (filterY + Math.random()) / filterSize;
+
+              data[index] = Math.sqrt(y) * Math.cos(x * 2 * Math.PI);
+              data[index + 1] = Math.sqrt(y) * Math.sin(x * 2 * Math.PI);
+
+              index += 2;
+          }
+        }
+      }
+    }
+    const texture = gl.createTexture();
+    const layers = filterSize*filterSize/2;
+    gl.bindTexture(gl.TEXTURE_3D, texture);
+    gl.texStorage3D(gl.TEXTURE_3D, 1, gl.RGBA32F, layers, size, size);
+    gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0, layers, size, size, gl.RGBA, gl.FLOAT, data);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_3D, null);
+    return texture;
 }

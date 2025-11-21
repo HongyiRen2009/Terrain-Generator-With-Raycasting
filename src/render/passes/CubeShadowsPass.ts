@@ -116,6 +116,9 @@ export class CubeShadowsPass extends RenderPass {
     }
 
     public render(vaosToRender: VaoInfo[]): void {
+        if (!this.resourceCache.getData("cubeShadowsOn")) {
+            return;
+        }
         const cubeMaps = this.renderTarget!.textures!.pointShadowTextures as WebGLTexture[];
         const currentCubeMap = cubeMaps[this.currentLightIndex];
 
@@ -191,7 +194,15 @@ export class CubeShadowsPass extends RenderPass {
             "Cube Shadows Settings",
             this.program!
         );
-        
+        this.settingsSection.addCheckbox({
+            id: "cubeShadowsOn",
+            label: "Cube Shadows On",
+            defaultValue: true,
+            onChange: (value: boolean) => {
+                this.resourceCache.setData("cubeShadowsOn", value);
+            }
+        });
+        this.resourceCache.setData("cubeShadowsOn", true);
         
         // Add point light shadow map size slider
         this.settingsSection.addSlider({

@@ -278,6 +278,47 @@ export class CSMPass extends RenderPass {
             defaultValue: 10.0,
             numType: "float"
         });
+        this.settingsSection.addSlider({
+            id: "pcfRadius",
+            label: "PCF Radius",
+            min: 0.0,
+            max: 15.0,
+            step: 0.1,
+            defaultValue: 7.0,
+            numType: "float",
+            onChange: (value: number) => {
+                this.resourceCache.setData("pcfRadius", value);
+            }
+        });
+        this.resourceCache.setData("pcfRadius", 7.0);
+        this.settingsSection.addSlider({
+            id: "jitterSize",
+            label: "Jitter Size",
+            min: 5,
+            max: 32,
+            step: 1,
+            defaultValue: 8,
+            numType: "int",
+            onChange: (value: number) => {
+                this.resourceCache.setData("jitterSize", value);
+                this.requestJitterTextureUpdate();
+            }
+        });
+        this.resourceCache.setData("jitterSize", 8);
+        this.settingsSection.addSlider({
+            id: "filterSize",
+            label: "Filter Size",
+            min: 1,
+            max: 16,
+            step: 1,
+            defaultValue: 4,
+            numType: "int",
+            onChange: (value: number) => {
+                this.resourceCache.setData("filterSize", value);
+                this.requestJitterTextureUpdate();
+            }
+        });
+        this.resourceCache.setData("filterSize", 4);
         this.settingsSection.addCheckbox({
             id: "usingPCF",
             label: "Using PCF",
@@ -359,6 +400,22 @@ export class CSMPass extends RenderPass {
                 this.resourceCache.setData("shadowMapCascade", Math.floor(value));
             }
         });
+    }
+
+    private requestJitterTextureUpdate(): void {
+        const updateJitterTexture = this.resourceCache.getData("updateJitterTexture");
+        if (typeof updateJitterTexture !== "function") {
+            return;
+        }
+        const jitterSize =
+            this.settingsSection?.getSliderValue("jitterSize") ??
+            this.resourceCache.getData("jitterSize") ??
+            8;
+        const filterSize =
+            this.settingsSection?.getSliderValue("filterSize") ??
+            this.resourceCache.getData("filterSize") ??
+            4;
+        updateJitterTexture(jitterSize, filterSize);
     }
 }
 

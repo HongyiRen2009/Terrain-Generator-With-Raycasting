@@ -10,13 +10,10 @@ uniform sampler2D normalTexture;
 uniform sampler2D albedoTexture;
 uniform sampler2D depthTexture;
 uniform sampler2D ssaoTexture;
-
+uniform highp sampler3D jitterTexture;
 uniform highp sampler2DArray shadowDepthTextureArray;
-
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
-
-
 uniform mat4 pausedView;
 
 //Shadow Uniforms
@@ -26,7 +23,6 @@ uniform bool usingPCF;
 uniform float csmShadowBias[8]; // One bias per cascade for CSM
 uniform int csmShadowMapSize;
 uniform int numCascades;
-
 uniform bool csmEnabled;
 uniform bool cascadeDebug;
 uniform bool debugPauseMode;
@@ -37,6 +33,10 @@ uniform float pointShadowBias;
 uniform int numShadowedLights;
 uniform int pointLightShowShadowMap[MAX_LIGHTS];
 uniform int cubeMapSize;
+uniform bool cubeShadowsOn;
+uniform int jitterSize;
+uniform int filterSize;
+uniform float pcfRadius;
 
 struct PointLight {
     vec3 position;
@@ -80,12 +80,20 @@ int chooseCascade (float viewDepth) {
     return numCascades - 1; // Return last cascade if beyond all splits
 }
 
-float computePointShadow(vec3 worldPos, int lightIndex){
+float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex){
+
+    if (!cubeShadowsOn){
+        return 1.0;
+    }
     vec3 toFrag = worldPos - pointLights[lightIndex].position;
     float currentDist = length(toFrag);
     // Shadow map covers 3x radius, but we only apply shadows where light has meaningful contribution
     // Beyond 3x radius, consider it fully lit (light attenuation is negligible anyway)
     float shadowMapRange = pointLights[lightIndex].radius * 3.0;
+    vec3 lightDir = normalize(-toFrag);
+    float angleFactor = clamp(1.0 - max(dot(worldNormal, lightDir), 0.0), 0.0, 1.0);
+    float biasScalar = pointShadowBias * (1.5 + angleFactor * 3.0);
+    float depthBias = biasScalar * shadowMapRange;
     if (currentDist > shadowMapRange) {
         return 1.0;
     }
@@ -97,8 +105,9 @@ float computePointShadow(vec3 worldPos, int lightIndex){
         vec3 right = normalize(cross(forward,vec3(0.0,1.0,0.0)));
         vec3 up = normalize(cross(forward,right));
         float texelSize = 1.0 / float(cubeMapSize);
-        for (int x = -1; x <= 1; x++) {
-            for (int y = -1; y <= 1; y++) {
+        int samples = 0;
+        for (int x = -3; x <= 3; x++) {
+            for (int y = -3; y <= 3; y++) {
                 vec3 offsetDir = forward 
                     + right * (float(x)*texelSize)
                     + up * (float(y)*texelSize);
@@ -113,40 +122,48 @@ float computePointShadow(vec3 worldPos, int lightIndex){
                     default: return 1.0;    
                 }
                 stored = stored * shadowMapRange;
-                if (currentDist - pointShadowBias * shadowMapRange > stored) shadow += 1.0;
+                if (currentDist - depthBias > stored) shadow += 1.0;
+                samples++;
             }
         }
-        shadow /= 9.0;
+        shadow /= float(samples);
         // shadow is 1.0 = fully shadowed, 0.0 = fully lit
         // Return inverted: 1.0 = lit, 0.0 = shadowed (matching non-PCF behavior)
         return 1.0 - shadow;
     }
-    else{
-        // Cannot dynamically index sampler arrays in GLSL ES 3.00
-        // Use switch with constant indices
-        float stored;
-        switch(lightIndex) {
-            case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
-            case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
-            case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
-            case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
-            case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
-            default: return 1.0; // No shadow for lights beyond supported range
-        }
-        
-        // Convert stored normalized depth back to world distance
-        // stored is normalized by 3x radius, so multiply by 3x radius
-        stored = stored * shadowMapRange;
-        
-        float shadow = (currentDist - pointShadowBias * shadowMapRange > stored) ? 0.0 : 1.0;
-        return shadow;
+    // Cannot dynamically index sampler arrays in GLSL ES 3.00
+    // Use switch with constant indices
+    float stored;
+    switch(lightIndex) {
+        case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
+        case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
+        case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
+        case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
+        case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
+        default: return 1.0; // No shadow for lights beyond supported range
     }
+    
+    // Convert stored normalized depth back to world distance
+    // stored is normalized by 3x radius, so multiply by 3x radius
+    stored = stored * shadowMapRange;
+    
+    float shadow = (currentDist - depthBias > stored) ? 0.0 : 1.0;
+    return shadow;
 }
 
-float computeSunShadow(vec3 worldPos, int cascadeIndex){
+float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex){
     // If CSM is disabled, return no shadow
     if (!csmEnabled) {
         return 1.0;
+    }
+    
+    vec3 lightDir = normalize(-SunLight.direction);
+    float ndotl = max(dot(worldNormal, lightDir), 0.0);
+    float angleFactor = clamp(1.0 - ndotl, 0.0, 1.0);
+    float baseBias = csmShadowBias[cascadeIndex];
+    float cascadeBias = baseBias * (2.5 + angleFactor * 3.5);
+    if (usingPCF) {
+        cascadeBias += baseBias * (pcfRadius * 0.05);
     }
     
     //World Space to Light Space
@@ -165,26 +182,40 @@ float computeSunShadow(vec3 worldPos, int cascadeIndex){
     }
 
     if (usingPCF){
+        ivec3 offsetCoord;
+        vec2 f = mod(gl_FragCoord.xy, vec2(jitterSize));
+        offsetCoord.yz = ivec2(f);
         float shadow = 0.0;
-        int samples = 0;
-
-        float texelSize = 1.0 / float(csmShadowMapSize); 
-
-        for (int x = -2; x <= 2; ++x) {
-            for (int y = -2; y <= 2; ++y) {
-                vec2 offset = vec2(x, y) * texelSize;
-                // Use texture array with layer index
-                float depth = texture(shadowDepthTextureArray, vec3(projCoords.xy + offset, float(cascadeIndex))).r;
-                // If current depth is greater than shadow map depth, fragment is in shadow
-                shadow += (projCoords.z - csmShadowBias[cascadeIndex] > depth) ? 1.0 : 0.0;
-                samples++;
-            }
+        int samplesDiv2 = (filterSize * filterSize) / 2;
+        float texelSize = 1.0 / float(csmShadowMapSize);
+        vec4 sc = vec4(projCoords, 1.0);
+        float depth = 0.0;
+        for (int i = 0; i < 4; i++){
+            offsetCoord.x = i;
+            vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
+            sc.xy = projCoords.xy + Offsets.rg * texelSize;
+            depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
+            shadow += (projCoords.z - cascadeBias > depth) ? 0.0 : 1.0;
+            sc.xy = projCoords.xy + Offsets.ba * texelSize;
+            depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
+            shadow += (projCoords.z - cascadeBias > depth) ? 0.0 : 1.0;
         }
-
-        shadow /= float(samples);
-        // shadow is 1.0 = fully shadowed, 0.0 = fully lit
-        // Return inverted: 0.0 = in shadow, 1.0 = lit (for lighting multiplication)
-        return 1.0 - shadow;
+        shadow = shadow / 8.0;
+        
+        if (shadow != 0.0 && shadow != 1.0){
+            for(int i = 4; i < samplesDiv2; i++){
+                offsetCoord.x = i;
+                vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
+                sc.xy = projCoords.xy + Offsets.rg * texelSize;
+                depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
+                shadow += (projCoords.z - cascadeBias > depth) ? 0.0 : 1.0;
+                sc.xy = projCoords.xy + Offsets.ba * texelSize;
+                depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
+                shadow += (projCoords.z - cascadeBias > depth) ? 0.0 : 1.0;
+            }
+            shadow = shadow / float(samplesDiv2 * 2);
+        }
+        return shadow;
     }
 
     float currentDepth = projCoords.z;
@@ -195,7 +226,7 @@ float computeSunShadow(vec3 worldPos, int cascadeIndex){
     // Shadow calculation: if current depth (point being tested) is greater than 
     // the closest depth in shadow map + bias, it's in shadow
     // Return 0.0 = in shadow, 1.0 = lit (for lighting multiplication)
-    return (currentDepth - csmShadowBias[cascadeIndex] > closestDepth) ? 0.0 : 1.0;
+    return (currentDepth - cascadeBias > closestDepth) ? 0.0 : 1.0;
 }
 
 void main() {
@@ -315,7 +346,7 @@ void main() {
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
     int cascadeIndex = chooseCascade(cascadeViewDepth);
-    float sunShadow = computeSunShadow(fragWorldPos, cascadeIndex);
+    float sunShadow = computeSunShadow(fragWorldPos, worldNormal, cascadeIndex);
 
     // Replace albedo with debug colors when cascade debug is enabled
     if (cascadeDebug && csmEnabled) {
@@ -353,7 +384,7 @@ void main() {
 
     // Process point lights
     for(int i = 0; i < numActivePointLights; i++) {
-        float pointLightShadow = (i < numShadowedLights) ? computePointShadow(fragWorldPos, i) : 1.0;
+        float pointLightShadow = (i < numShadowedLights) ? computePointShadow(fragWorldPos, worldNormal, i) : 1.0;
         vec3 lightDir = normalize(pointLights[i].position - fragWorldPos);
         float diff = max(dot(lightDir, worldNormal), 0.0f);
         // Diffuse should be multiplied by albedo to get correct surface color
