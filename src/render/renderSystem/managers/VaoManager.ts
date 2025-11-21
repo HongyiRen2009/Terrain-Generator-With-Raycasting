@@ -431,3 +431,11 @@ export class VAOManager {
     }
   }
 }
+export class GrassManager {
+  private gl: WebGL2RenderingContext;
+  private grassProgram: WebGLProgram;
+  constructor(gl: WebGL2RenderingContext, grassProgram: WebGLProgram) {
+    this.gl = gl;
+    this.grassProgram = grassProgram;
+  }
+}

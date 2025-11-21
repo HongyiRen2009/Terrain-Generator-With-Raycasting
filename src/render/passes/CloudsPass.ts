@@ -106,13 +106,18 @@ export class CloudsPass extends RenderPass {
     const depthTexture = gBuffer["depth"];
     const lightingDepthTexture = gBuffer["lightingDepth"];
     const litSceneTexture = gBuffer["litSceneTexture"];
+    debugger;
+    let cameraPosition = this.resourceCache.getUniformData("cameraPosition");
+    if (!cameraPosition) {
+      cameraPosition = vec3.fromValues(0, 0, 0);
+    }
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMin"),
-      vec3.fromValues(-300, 100, -300)
+      vec3.fromValues(-200 + cameraPosition[0], 100, -200 + cameraPosition[2])
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMax"),
-      vec3.fromValues(300, 160, 300)
+      vec3.fromValues(200 + cameraPosition[0], 300, 200 + cameraPosition[2])
     );
     // Bind 3D texture
     this.gl.activeTexture(this.gl.TEXTURE0);
@@ -169,10 +174,7 @@ export class CloudsPass extends RenderPass {
       false,
       cameraInfo.matProjInverse
     );
-    this.gl.uniform3fv(
-      this.uniforms["cameraPosition"],
-      this.resourceCache.getUniformData("cameraPosition")
-    );
+    this.gl.uniform3fv(this.uniforms["cameraPosition"], cameraPosition);
     this.gl.uniform1f(
       this.gl.getUniformLocation(this.program!, "time"),
       performance.now() * 0.001 // Convert to seconds
@@ -250,7 +252,7 @@ export class CloudsPass extends RenderPass {
       min: -2.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.09,
+      defaultValue: 0.2,
       numType: "float"
     });
 
@@ -258,9 +260,9 @@ export class CloudsPass extends RenderPass {
       id: "baseFrequency",
       label: "Cloud Base Frequency",
       min: 0.01,
-      max: 0.5,
+      max: 2.0,
       step: 0.001,
-      defaultValue: 0.45,
+      defaultValue: 0.42,
       numType: "float"
     });
 
@@ -268,12 +270,20 @@ export class CloudsPass extends RenderPass {
       id: "detailFrequency",
       label: "Cloud Detail Frequency",
       min: 0.1,
-      max: 0.5,
+      max: 2.0,
       step: 0.001,
-      defaultValue: 0.46,
+      defaultValue: 1,
       numType: "float"
     });
-
+    this.settingsSection.addSlider({
+      id: "simplexMultiplier",
+      label: "Cloud Simplex Noise Multiplier",
+      min: 0.0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 0.5,
+      numType: "float"
+    });
     this.settingsSection.addSlider({
       id: "lightAbsorption",
       label: "Cloud Light Absorption",
@@ -502,57 +512,13 @@ class NoiseGenerator {
     }
     return data;
   }
-  simplexNoise3D(
-    width: number,
-    height: number,
-    depth: number,
-    frequency: number
-  ): Uint8Array {
-    const data = new Uint8Array(width * height * depth);
-    for (let z = 0; z < depth; z++) {
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const value = this.simplex(
-            x * frequency,
-            y * frequency,
-            z * frequency
-          );
-          const normalized = Math.floor(((value + 1) / 2) * 255);
-          data[x + y * width + z * width * height] = normalized;
-        }
-      }
-    }
-    return data;
-  }
-  simplexWorleyNoise3D(
-    width: number,
-    height: number,
-    depth: number,
-    frequency: number
-  ): Uint8Array {
-    const worelyData = this.worleyNoise3D(
-      width,
-      height,
-      depth,
-      Math.min(width, height, depth) / frequency
-    );
-    const simplexData = this.simplexNoise3D(width, height, depth, frequency);
-    const data = new Uint8Array(width * height * depth);
-    for (let i = 0; i < data.length; i++) {
-      const worleyNorm = worelyData[i] / 255.0;
-      const simplexNorm = simplexData[i] / 255.0;
-      const hybrid = 1.0 - Math.pow(1.0 - worleyNorm, simplexNorm);
-      data[i] = Math.floor(hybrid * 255);
-    }
-    return data;
-  }
+
   generateCloudNoiseTex(size: number): WebGLTexture {
-    const frequency = 8;
-    this.dataR = this.simplexWorleyNoise3D(size, size, size, frequency);
-    this.dataG = this.worleyNoise3D(size, size, size, size / (frequency * 2));
-    this.dataB = this.worleyNoise3D(size, size, size, (frequency * 4) / 2);
-    this.dataA = this.worleyNoise3D(size, size, size, size / (frequency * 8));
-    // Interleave RGBA channels
+    this.dataR = this.worleyNoise3D(size, size, size, size / 4);
+    this.dataG = this.worleyNoise3D(size, size, size, size / 32);
+    this.dataB = this.worleyNoise3D(size, size, size, size / 64);
+    this.dataA = this.simplexNoise3D(size, size, size, 4);
+
     const data = new Uint8Array(size * size * size * 4);
     for (let i = 0; i < size * size * size; i++) {
       data[i * 4 + 0] = this.dataR[i];
@@ -653,25 +619,62 @@ class NoiseGenerator {
     const data = new Uint8Array(width * height);
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const value = this.simplex(x * frequency, y * frequency, 10);
+        // Create tileable coordinates using sine/cosine remapping
+        const u = (x / width) * Math.PI * 2;
+        const v = (y / height) * Math.PI * 2;
+
+        const nx = Math.cos(u) * frequency;
+        const ny = Math.sin(u) * frequency;
+        const nz = Math.cos(v) * frequency;
+        const nw = Math.sin(v) * frequency;
+
+        // Sample 4D noise at these coordinates
+        const value1 = this.simplex(nx, ny, 0);
+        const value2 = this.simplex(nz, nw, 0);
+        const value = (value1 + value2) / 2;
+
         const normalized = Math.floor(((value + 1) / 2) * 255);
         data[x + y * width] = normalized;
       }
     }
     return data;
   }
-  generateWeatherMap(size: number): WebGLTexture {
-    const worely = this.worleyNoise2D(size, size, size / 4);
-    const simplex = this.simplexNoise2D(size, size, 0.08);
-    this.coverageData = new Uint8Array(size * size);
-    for (let i = 0; i < size * size; i++) {
-      const worelyNorm = 1 - worely[i] / 255.0;
-      const simplexNorm = simplex[i] / 255.0;
-      let coverage = Math.pow(worelyNorm, 1.2) - simplexNorm * 0.3;
-      coverage = Math.min(Math.max(coverage, 0.0), 1.0);
 
-      this.coverageData[i] = coverage * 255;
+  simplexNoise3D(
+    width: number,
+    height: number,
+    depth: number,
+    frequency: number
+  ): Uint8Array {
+    const data = new Uint8Array(width * height * depth);
+    for (let z = 0; z < depth; z++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          // Create tileable coordinates using sine/cosine remapping
+          const u = (x / width) * Math.PI * 2;
+          const v = (y / height) * Math.PI * 2;
+          const w = (z / depth) * Math.PI * 2;
+
+          const nx = Math.cos(u) * frequency;
+          const ny = Math.sin(u) * frequency;
+          const nz = Math.cos(v) * frequency;
+          const nw = Math.sin(v) * frequency;
+
+          // Sample noise - blend two 3D samples for better tiling
+          const value1 = this.simplex(nx, nz, Math.cos(w) * frequency);
+          const value2 = this.simplex(ny, nw, Math.sin(w) * frequency);
+          const value = (value1 + value2) / 2;
+
+          const normalized = Math.floor(((value + 1) / 2) * 255);
+          data[x + y * width + z * width * height] = normalized;
+        }
+      }
     }
+    return data;
+  }
+  generateWeatherMap(size: number): WebGLTexture {
+    const simplex = this.simplexNoise2D(size, size, 0.005);
+    this.coverageData = simplex;
     // Right now I have no idea what to put in density and type maps, so just fill with zeros
     this.densityData = new Uint8Array(size * size);
     this.typeData = new Uint8Array(size * size);

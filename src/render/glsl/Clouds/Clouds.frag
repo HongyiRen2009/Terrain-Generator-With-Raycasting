@@ -22,6 +22,7 @@ uniform float absorption;
 uniform float densityThreshold;
 uniform float baseFrequency;
 uniform float detailFrequency;
+uniform float simplexMultiplier;
 uniform float lightAbsorption;
 uniform float lightIntensity;
 uniform float darknessThreshold;
@@ -67,68 +68,43 @@ vec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {
     float dstInsideBox = max(0.0f, dstB - dstToBox);
     return vec2(dstToBox, dstInsideBox);
 }
-float sampleBaseNoise(vec3 pos) {
-    float noise = texture(noiseTexture, pos).r;
-    return noise;
-}
-float fbm(vec3 pos, int octaves, float persistence, float lacunarity) {
-    float total = 0.0f;
-    float amplitude = 1.0f;
-    float maxValue = 0.0f;
-    for(int i = 0; i < octaves; i++) {
-        total += sampleBaseNoise(pos) * amplitude;
-        maxValue += amplitude;
-        amplitude *= persistence;
-        pos *= lacunarity;
-    }
-    return total / maxValue;
-}
-float sampleDetailNoise(vec3 p) {
-    vec3 worley = texture(noiseTexture, p * 2.0f).gba;
-    return (worley.r * 0.625f + worley.g * 0.25f + worley.b * 0.125f);
-}
 
 float sampleDensity(vec3 pos) {
     vec3 windDirection = normalize(vec3(windDirectionX, 0.0f, windDirectionZ));
     vec3 windOffset = windDirection * windSpeed * time;
-    vec3 animatedPos = pos + windOffset;
+    vec3 animatedPos = pos + windOffset + vec3(cameraPosition.x, 0.0f, cameraPosition.z);
 
     vec3 localPos = (animatedPos - cubeMin) / (cubeMax - cubeMin);
-    // Weather map (right now idk if this is the best implementation and it needs some improvement)
+    vec2 weatherUV = vec2(localPos.x + weatherMapOffsetX, localPos.z + weatherMapOffsetY);
+    float coverage = texture(weatherMap, weatherUV).r;
 
-    vec2 weatherUV = (animatedPos.xz - cubeMin.xz) / (cubeMax.xz - cubeMin.xz);
-    vec2 weatherMapOffset = vec2(weatherMapOffsetX, weatherMapOffsetY);
-    vec2 weatherWindOffset = windDirection.xz * windSpeed * time * 0.001f;
-    vec4 weather = texture(weatherMap, weatherUV + weatherMapOffset + weatherWindOffset);
-    float coverage = weather.r;
-    if(coverage < 0.01f)
-        return 0.0f;
+    // Sample base Worley noise (inverted so high values = dense clouds)
+    float worley = 1.0f - texture(noiseTexture, localPos * baseFrequency).r;
 
-    float height01 = (animatedPos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
-    if(height01 < 0.1f || height01 > 1.0f)
-        return 0.0f;
+    // Sample Simplex noise for variation
+    float simplex = texture(noiseTexture, localPos * baseFrequency).a;
 
-    float base = fbm(localPos * baseFrequency, 5, 0.5f, 2.0f);
-    float density = base * coverage;
-    if(density < densityThreshold)
-        return 0.0f;
+    // Combine: Worley for structure, Simplex for billowy variation
+    // Use remapping to make Simplex centered around 0.5
+    float simplexRemapped = (simplex - 0.5f) * 2.0f; // Range: -1 to 1
+    float base = worley + simplexRemapped * simplexMultiplier * worley; // Modulate by worley
 
-    vec3 detailWindOffset = windOffset * 0.5f;
-    vec3 detailPos = (pos + detailWindOffset - cubeMin) / (cubeMax - cubeMin);
-    float detail = sampleDetailNoise(detailPos * detailFrequency);
-    density *= mix(0.5f, 1.0f, detail);
+    // Apply coverage from weather map
+    base *= (coverage);
 
-    // Height falloff and edge fade (stolen from Sebastian Lague)
-    float originalHeight = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
-    float heightWeight = smoothstep(0.1f, 0.5f, originalHeight) * (1.0f - smoothstep(0.6f, 1.0f, originalHeight));
-    float containerEdgeFadeDst = 50.0f;
-    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - cubeMin.x, cubeMax.x - pos.x));
-    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - cubeMin.z, cubeMax.z - pos.z));
-    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
-    heightWeight *= edgeWeight;
+    float density = base;
 
-    density = (density - densityThreshold) * heightWeight;
-    return clamp(density, 0.0f, 1.0f);
+    // Height gradient for natural cloud formation
+    float height01 = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
+    float heightWeight = smoothstep(0.15f, 0.5f, height01) * (1.0f - smoothstep(0.7f, 1.0f, height01));
+    density *= heightWeight;
+
+    // Add detail erosion using smaller-scale Worley noise
+    float detail = 1.0f - (texture(noiseTexture, localPos * detailFrequency).g * 0.5f +
+        texture(noiseTexture, localPos * (detailFrequency * 2.0f)).b * 0.25f);
+    density -= detail * 0.5f * density; // Erode proportionally
+
+    return clamp(density - densityThreshold, 0.0f, 1.0f);
 }
 
 float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
