@@ -387,8 +387,7 @@ function createJitterTexture(gl: WebGL2RenderingContext, size: number, filterSiz
     const texture = gl.createTexture();
     const layers = filterSize*filterSize/2;
     gl.bindTexture(gl.TEXTURE_3D, texture);
-    gl.texStorage3D(gl.TEXTURE_3D, 1, gl.RGBA32F, layers, size, size);
-    gl.texSubImage3D(gl.TEXTURE_3D, 0, 0, 0, 0, layers, size, size, gl.RGBA, gl.FLOAT, data);
+    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA32F, layers, size, size, 0, gl.RGBA, gl.FLOAT, data);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.bindTexture(gl.TEXTURE_3D, null);
