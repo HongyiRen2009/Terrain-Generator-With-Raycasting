@@ -63,7 +63,7 @@ export class LightingPass extends RenderPass {
     this.jitterTexture = createJitterTexture(
       gl,
       this.resourceCache.getData("jitterSize") ?? 8,
-      this.resourceCache.getData("filterSize") ?? 4
+      this.resourceCache.getData("filterSize") ?? 8
     );
     this.resourceCache.setData(
       "updateJitterTexture",
@@ -129,7 +129,7 @@ export class LightingPass extends RenderPass {
       this.gl.TEXTURE_2D_ARRAY
     );
     const jitterSize = this.resourceCache.getData("jitterSize") ?? 8;
-    const filterSize = this.resourceCache.getData("filterSize") ?? 4;
+    const filterSize = this.resourceCache.getData("filterSize") ?? 8;
     TextureUtils.bindTex(this.gl, this.program!, this.jitterTexture, "jitterTexture", 15, this.gl.TEXTURE_3D);
     this.gl.uniform1i(this.uniforms["jitterSize"], jitterSize);
     this.gl.uniform1i(this.uniforms["filterSize"], filterSize);

@@ -311,14 +311,14 @@ export class CSMPass extends RenderPass {
             min: 1,
             max: 16,
             step: 1,
-            defaultValue: 4,
+            defaultValue: 8,
             numType: "int",
             onChange: (value: number) => {
                 this.resourceCache.setData("filterSize", value);
                 this.requestJitterTextureUpdate();
             }
         });
-        this.resourceCache.setData("filterSize", 4);
+        this.resourceCache.setData("filterSize", 8);
         this.settingsSection.addCheckbox({
             id: "usingPCF",
             label: "Using PCF",
