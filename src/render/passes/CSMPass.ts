@@ -295,7 +295,7 @@ export class CSMPass extends RenderPass {
             id: "jitterSize",
             label: "Jitter Size",
             min: 5,
-            max: 32,
+            max: 128,
             step: 1,
             defaultValue: 8,
             numType: "int",

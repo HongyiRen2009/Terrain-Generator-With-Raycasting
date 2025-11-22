@@ -80,6 +80,19 @@ int chooseCascade (float viewDepth) {
     return numCascades - 1; // Return last cascade if beyond all splits
 }
 
+float pointShadowSample(int lightIndex, vec3 vector){
+    float stored;
+    switch(lightIndex) {
+        case 0: stored = texture(pointShadowTexture[0], vector).r; break;
+        case 1: stored = texture(pointShadowTexture[1], vector).r; break;
+        case 2: stored = texture(pointShadowTexture[2], vector).r; break;
+        case 3: stored = texture(pointShadowTexture[3], vector).r; break;
+        case 4: stored = texture(pointShadowTexture[4], vector).r; break;
+        default: return 1.0;    
+    }
+    return stored;
+}
+
 float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex){
 
     if (!cubeShadowsOn){
@@ -99,49 +112,67 @@ float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex){
     }
 
     if (usingPCF){
+        ivec3 offsetCoord;
+        vec2 f = mod(gl_FragCoord.xy, vec2(jitterSize));
+        offsetCoord.yz = ivec2(f);
         float shadow = 0.0;
-
+        int samplesDiv2 = (filterSize * filterSize) / 2;
+        // For cube maps, texel size in world space depends on distance from light
+        // Calculate world-space texel size based on current distance and cube map resolution
+        float texelSizeWorld = (currentDist / float(cubeMapSize)) * 2.0;
+        float depth = 0.0;
         vec3 forward = normalize(toFrag);
-        vec3 right = normalize(cross(forward,vec3(0.0,1.0,0.0)));
-        vec3 up = normalize(cross(forward,right));
-        float texelSize = 1.0 / float(cubeMapSize);
-        int samples = 0;
-        for (int x = -3; x <= 3; x++) {
-            for (int y = -3; y <= 3; y++) {
-                vec3 offsetDir = forward 
-                    + right * (float(x)*texelSize)
-                    + up * (float(y)*texelSize);
-                float stored;
-                offsetDir = normalize(offsetDir);
-                switch(lightIndex) {
-                    case 0: stored = texture(pointShadowTexture[0], offsetDir).r; break;
-                    case 1: stored = texture(pointShadowTexture[1], offsetDir).r; break;
-                    case 2: stored = texture(pointShadowTexture[2], offsetDir).r; break;
-                    case 3: stored = texture(pointShadowTexture[3], offsetDir).r; break;
-                    case 4: stored = texture(pointShadowTexture[4], offsetDir).r; break;
-                    default: return 1.0;    
-                }
-                stored = stored * shadowMapRange;
-                if (currentDist - depthBias > stored) shadow += 1.0;
-                samples++;
-            }
+        vec3 right = cross(forward, vec3(0,1,0));
+        if (length(right) < 0.001) {
+            // If forward is parallel to up vector, use different basis
+            right = cross(forward, vec3(1,0,0));
         }
-        shadow /= float(samples);
-        // shadow is 1.0 = fully shadowed, 0.0 = fully lit
-        // Return inverted: 1.0 = lit, 0.0 = shadowed (matching non-PCF behavior)
-        return 1.0 - shadow;
+        right = normalize(right);
+        vec3 up = normalize(cross(right, forward));
+        
+        for (int i = 0; i < 4; i++){
+            offsetCoord.x = i;
+            vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
+            // Scale offsets by world-space texel size
+            vec3 offset = right * Offsets.r * texelSizeWorld + up * Offsets.g * texelSizeWorld;
+            vec3 sc = normalize(toFrag + offset);
+            depth = pointShadowSample(lightIndex, sc);
+            // Convert stored depth back to world distance
+            depth = depth * shadowMapRange;
+            shadow += (currentDist - depthBias > depth) ? 0.0 : 1.0;
+            
+            offset = right * Offsets.b * texelSizeWorld + up * Offsets.a * texelSizeWorld;
+            sc = normalize(toFrag + offset);
+            depth = pointShadowSample(lightIndex, sc);
+            depth = depth * shadowMapRange;
+            shadow += (currentDist - depthBias > depth) ? 0.0 : 1.0;
+        }
+        shadow = shadow / 8.0;
+        
+        if (shadow != 0.0 && shadow != 1.0){
+            for(int i = 4; i < samplesDiv2; i++){
+                 offsetCoord.x = i;
+                vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
+                vec3 offset = right * Offsets.r * texelSizeWorld + up * Offsets.g * texelSizeWorld;
+                vec3 sc = normalize(toFrag + offset);
+                depth = pointShadowSample(lightIndex, sc);
+                depth = depth * shadowMapRange;
+                shadow += (currentDist - depthBias > depth) ? 0.0 : 1.0;
+                
+                offset = right * Offsets.b * texelSizeWorld + up * Offsets.a * texelSizeWorld;
+                sc = normalize(toFrag + offset);
+                depth = pointShadowSample(lightIndex, sc);
+                depth = depth * shadowMapRange;
+                 shadow += (currentDist - depthBias > depth) ? 0.0 : 1.0;
+
+            }
+            shadow = shadow / float(samplesDiv2 * 2);
+        }
+        return shadow;
     }
     // Cannot dynamically index sampler arrays in GLSL ES 3.00
     // Use switch with constant indices
-    float stored;
-    switch(lightIndex) {
-        case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
-        case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
-        case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
-        case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
-        case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
-        default: return 1.0; // No shadow for lights beyond supported range
-    }
+    float stored = pointShadowSample(lightIndex, toFrag);
     
     // Convert stored normalized depth back to world distance
     // stored is normalized by 3x radius, so multiply by 3x radius
