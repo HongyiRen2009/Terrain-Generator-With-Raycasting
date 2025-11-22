@@ -18,6 +18,7 @@ uniform vec3 sunColor;
 
 //settings
 uniform bool enableClouds;
+uniform vec3 baseCloudColor;
 uniform float absorption;
 uniform float densityThreshold;
 uniform float baseFrequency;
@@ -26,6 +27,8 @@ uniform float simplexMultiplier;
 uniform float lightAbsorption;
 uniform float lightIntensity;
 uniform float darknessThreshold;
+uniform float lightDarkSharpness;
+uniform float skyContribution;
 uniform float ambientIntensity;
 uniform float phaseG;
 uniform float phaseMultiplier;
@@ -44,7 +47,7 @@ uniform int pathtracerOn;
 // Add early exit constants
 const float DENSITY_THRESHOLD_SKIP = 0.01f;
 const float ALPHA_THRESHOLD = 0.99f;
-vec3 skyColor = vec3(1.0f);
+vec3 skyColor = vec3(0.5f, 0.7f, 0.9f);
 // Stolen from Sebastian Lague
 vec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {
 // Adapted from: http://jcgt.org/published/0007/03/04/
@@ -123,9 +126,11 @@ float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
         float t = tStep * (float(i) + 0.5f);
         vec3 samplePos = pos + lightDir * t;
         float rawDensity = sampleDensity(samplePos);
-        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
+        float density = rawDensity;
         lightTransmittance *= exp(-density * tStep * lightAbsorption);
     }
+    lightTransmittance = pow(lightTransmittance, lightDarkSharpness);
+
     return darknessThreshold + (1.0f - darknessThreshold) * lightTransmittance;
 }
 float PhaseFunction(float cosTheta, float g) {
@@ -145,6 +150,7 @@ vec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {
 }
 
 void main() {
+
     vec4 lit = vec4(texture(litSceneTexture, fragUV).rgb, 1.0f);
 
     if(!enableClouds) {
@@ -225,7 +231,7 @@ void main() {
             i += 1; // Skip next sample
             continue;
         }
-        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
+        float density = rawDensity;
 
         // Calculate lighting with adaptive quality
         vec3 lightDir = normalize(sunPos - samplePos);
@@ -247,7 +253,7 @@ void main() {
         float height = (samplePos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
         float groundFactor = 1.0f - height;
         vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;
-        vec3 ambientLight = skyColor * ambientIntensity;
+        vec3 ambientLight = mix(baseCloudColor, skyColor, skyContribution) * ambientIntensity;
 
         //Final light color
         vec3 lightColor = sunLight + ambientLight + bounceLight;
@@ -261,7 +267,6 @@ void main() {
         if(accumulatedColor.a > ALPHA_THRESHOLD)
             break;
     }
-
     // When pathtracer is on, output premultiplied alpha for GL blending
     // When pathtracer is off, manually blend with lit scene
     if(pathtracerOn == 1) {

@@ -113,11 +113,11 @@ export class CloudsPass extends RenderPass {
     }
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMin"),
-      vec3.fromValues(-200 + cameraPosition[0], 100, -200 + cameraPosition[2])
+      vec3.fromValues(-1000 + cameraPosition[0], 100, -1000 + cameraPosition[2])
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMax"),
-      vec3.fromValues(200 + cameraPosition[0], 300, 200 + cameraPosition[2])
+      vec3.fromValues(1000 + cameraPosition[0], 300, 1000 + cameraPosition[2])
     );
     // Bind 3D texture
     this.gl.activeTexture(this.gl.TEXTURE0);
@@ -235,6 +235,20 @@ export class CloudsPass extends RenderPass {
       defaultValue: 8,
       numType: "int"
     });
+    this.settingsSection.addColorPicker({
+      id: "baseCloudColor",
+      label: "Base Cloud Color",
+      defaultValue: "#FFFFFF"
+    });
+    this.settingsSection.addSlider({
+      id: "skyContribution",
+      label: "Sky Color Contribution",
+      min: 0.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.5,
+      numType: "float"
+    });
 
     this.settingsSection.addSlider({
       id: "absorption",
@@ -323,7 +337,15 @@ export class CloudsPass extends RenderPass {
       defaultValue: 0.2,
       numType: "float"
     });
-
+    this.settingsSection.addSlider({
+      id: "lightDarkSharpness",
+      label: "Cloud Light/Dark Sharpness",
+      min: 0.1,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
     this.settingsSection.addSlider({
       id: "phaseG",
       label: "Cloud Phase Function g",
