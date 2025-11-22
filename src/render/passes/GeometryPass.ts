@@ -35,23 +35,40 @@ export class GeometryPass extends RenderPass {
   }
 
   protected initRenderTarget(width?: number, height?: number): RenderTarget {
-    const ext = this.gl.getExtension("EXT_color_buffer_float");
-    if (!ext) {
-      throw new Error(
-        "EXT_color_buffer_float is not supported on this device."
-      );
-    }
-
     const w = width || this.canvas.width;
     const h = height || this.canvas.height;
+
+    // Check for floating point render target support
+    const floatExt = this.gl.getExtension("EXT_color_buffer_float");
+    const halfFloatExt = this.gl.getExtension("EXT_color_buffer_half_float");
+
+    let normalInternalFormat: number;
+    let normalFormat: number;
+    let normalType: number;
+
+    if (floatExt) {
+      // Use full float precision
+      normalInternalFormat = this.gl.RGBA16F;
+      normalFormat = this.gl.RGBA;
+      normalType = this.gl.FLOAT;
+    } else if (halfFloatExt) {
+      // Use half float precision
+      normalInternalFormat = this.gl.RGBA16F;
+      normalFormat = this.gl.RGBA;
+      normalType = this.gl.HALF_FLOAT;
+    } else {
+      throw new Error(
+        "[GeometryPass] Floating point render targets not supported. EXT_color_buffer_float or EXT_color_buffer_half_float required."
+      );
+    }
 
     const normalTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
-      this.gl.RGBA16F,
-      this.gl.RGBA,
-      this.gl.FLOAT
+      normalInternalFormat,
+      normalFormat,
+      normalType
     );
     const albedoTexture = TextureUtils.createTexture2D(
       this.gl,
@@ -69,6 +86,7 @@ export class GeometryPass extends RenderPass {
       this.gl.DEPTH_COMPONENT,
       this.gl.FLOAT
     );
+
     const fbo = this.gl.createFramebuffer();
 
     if (!fbo) {
@@ -97,6 +115,38 @@ export class GeometryPass extends RenderPass {
       depthTexture,
       0
     );
+
+    // Configure depth texture to be readable AFTER attaching to framebuffer
+    // This allows the depth texture to be sampled as a regular texture in shaders
+    // NEAREST filtering is required for reading DEPTH_COMPONENT textures on many WebGL implementations
+    this.gl.bindTexture(this.gl.TEXTURE_2D, depthTexture);
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_COMPARE_MODE,
+      this.gl.NONE
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MIN_FILTER,
+      this.gl.NEAREST
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MAG_FILTER,
+      this.gl.NEAREST
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_S,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_T,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
 
     const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
@@ -118,18 +168,18 @@ export class GeometryPass extends RenderPass {
 
   public render(vaosToRender: VaoInfo[], pathtracerOn: boolean): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
-    if (!pathtracerOn || this.pathtracerRender) {
-      this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-      this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    }
+    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.enable(this.gl.DEPTH_TEST);
+    this.gl.depthFunc(this.gl.LESS);
     this.gl.depthMask(true);
     this.gl.disable(this.gl.BLEND);
 
     this.gl.useProgram(this.program);
 
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
     this.gl.uniformMatrix4fv(this.uniforms["view"], false, cameraInfo.matView);
     this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
 
@@ -155,19 +205,7 @@ export class GeometryPass extends RenderPass {
   }
 
   public resize(width: number, height: number): void {
-    // Delete old resources
-    if (this.renderTarget) {
-      if (this.renderTarget.fbo) {
-        this.gl.deleteFramebuffer(this.renderTarget.fbo);
-      }
-      if (this.renderTarget.textures) {
-        for (const texture of Object.values(this.renderTarget.textures)) {
-          this.gl.deleteTexture(texture);
-        }
-      }
-    }
-
-    // Recreate render target with new dimensions
+    this.disposeRenderTarget();
     this.renderTarget = this.initRenderTarget(width, height);
   }
 }

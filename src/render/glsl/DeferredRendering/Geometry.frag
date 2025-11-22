@@ -9,6 +9,8 @@ layout(location = 0) out vec4 outNormal;
 layout(location = 1) out vec4 outAlbedo;
 
 void main() {
-    outNormal = vec4(normalize(viewNormal), 1.0);
+    vec3 normal = normalize(viewNormal);
+    // Store normal directly for floating point formats
+    outNormal = vec4(normal, 1.0);
     outAlbedo = vec4(albedo, 1.0);
 }

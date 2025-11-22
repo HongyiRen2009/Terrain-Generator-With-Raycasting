@@ -194,8 +194,8 @@ export class GrassPass extends RenderPass {
     gl.depthFunc(gl.LEQUAL);
     gl.depthMask(true);
 
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
-    const cameraPos = this.resourceCache.getUniformData("cameraPosition") as
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
+    const cameraPos = this.resourceCache.getData("cameraPosition") as
       | vec3
       | undefined;
     if (!cameraPos) return;
@@ -214,11 +214,11 @@ export class GrassPass extends RenderPass {
 
     gl.uniform3fv(
       gl.getUniformLocation(this.program!, "sunPos"),
-      this.resourceCache.getUniformData("lights")[0].position
+      this.resourceCache.getData("lights")[0].position
     );
     gl.uniform3fv(
       gl.getUniformLocation(this.program!, "viewDir"),
-      this.resourceCache.getUniformData("cameraDirection")
+      this.resourceCache.getData("cameraDirection")
     );
     gl.uniform3fv(gl.getUniformLocation(this.program!, "cameraPos"), cameraPos);
     gl.uniform1f(
@@ -231,11 +231,11 @@ export class GrassPass extends RenderPass {
     );
     gl.uniform1f(
       gl.getUniformLocation(this.program!, "near"),
-      cameraInfo?.nearPlane || 0.1
+      this.resourceCache.getData("nearFarPlanes").near
     );
     gl.uniform1f(
       gl.getUniformLocation(this.program!, "far"),
-      cameraInfo?.farPlane || 100
+      this.resourceCache.getData("nearFarPlanes").far
     );
     TextureUtils.bindTex(
       gl,

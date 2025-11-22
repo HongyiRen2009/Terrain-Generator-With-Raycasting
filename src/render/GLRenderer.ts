@@ -10,7 +10,11 @@ import { SSAOPass } from "./passes/SSAOPass";
 import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
-import { mat4 } from "gl-matrix";
+import { CSMPass } from "./passes/CSMPass";
+import { DebugPass } from "./passes/DebugPass";
+import { mat4, vec3 } from "gl-matrix";
+import { DirectionalLight } from "../map/Light";
+import { CubeShadowsPass } from "./passes/CubeShadowsPass";
 import { GrassPass } from "./passes/GrassPass";
 import { FinalPass } from "./passes/FinalPass";
 interface Matrices {
@@ -57,6 +61,14 @@ export class GLRenderer {
   }
 
   private init(): void {
+    // Set lights in resource cache before initializing passes that depend on them
+    this.resourceCache.setData("lights", this.world.lights);
+    this.resourceCache.setData("sunLight", this.world.sunLight);
+    this.resourceCache.setData(
+      "numShadowedLights",
+      this.world.numShadowedLights
+    );
+
     const geometryPass = new GeometryPass(
       this.gl,
       this.resourceCache,
@@ -80,9 +92,32 @@ export class GLRenderer {
       this.resourceCache,
       this.canvas,
       this.renderGraph,
-      "Terrain Lighting Pass"
+      "Terrain Lighting Pass",
+      (direction: vec3) => {
+        // Update the sun light direction in the world
+        vec3.copy(this.world.sunLight.direction, direction);
+      }
+    );
+    debugger;
+    const csmPass = new CSMPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
     );
     const cloudsPass = new CloudsPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
+    const debugPass = new DebugPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
+    const cubeShadowsPass = new CubeShadowsPass(
       this.gl,
       this.resourceCache,
       this.canvas,
@@ -102,9 +137,18 @@ export class GLRenderer {
     );
     // Build render graph tree structure
     this.renderGraph.addRoot(geometryPass);
+    this.renderGraph.add(csmPass, geometryPass);
+    this.renderGraph.add(cubeShadowsPass, geometryPass);
     this.renderGraph.add(ssaoPass, geometryPass);
     this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
-    this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
+    this.renderGraph.add(
+      lightingPass,
+      ssaoBlurPass,
+      csmPass,
+      cubeShadowsPass,
+      geometryPass
+    );
+    this.renderGraph.add(debugPass, lightingPass);
     this.renderGraph.add(grassPass, lightingPass, geometryPass);
     this.renderGraph.add(cloudsPass, lightingPass, geometryPass);
     this.renderGraph.add(finalPass, cloudsPass);
@@ -120,26 +164,48 @@ export class GLRenderer {
     const vaosToRender = this._vaoManager.getVaosToRender();
     const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
     const grassVAO = this._vaoManager.getGrassVAO();
-
-    this.resourceCache.setUniformData("lights", this.world.lights);
+    this.resourceCache.setData("lights", this.world.lights);
+    this.resourceCache.setData("sunLight", this.world.sunLight);
+    this.resourceCache.setData(
+      "numShadowedLights",
+      this.world.numShadowedLights
+    );
+    const maxDebugIntensity = 5;
+    const lightDebugCubes = this.world.lights
+      .filter((light) => light.visualizerEnabled)
+      .map((light) => ({
+        center: [light.position[0], light.position[1], light.position[2]],
+        halfExtent: Math.max(1, light.radius * 0.15),
+        intensity: Math.min(
+          1,
+          Math.max(0, light.intensity / maxDebugIntensity)
+        ),
+        name: light.name ?? "Point Light"
+      }));
+    this.resourceCache.setData("lightDebugCubes", lightDebugCubes);
 
     // Get passes in correct execution order
     const sortedPasses = this.renderGraph.getSortedPasses();
     for (const pass of sortedPasses) {
-      if (pass.VAOInputType === VAOInputType.FULLSCREENQUAD) {
-        if (!screenQuadVAO) {
-          console.warn("No screen quad VAO available for fullscreen pass");
-          continue;
+      const invocationCount = pass.getInvocationCount();
+      for (let i = 0; i < invocationCount; i++) {
+        pass.setInvocationIndex(i);
+        switch (pass.VAOInputType) {
+          case VAOInputType.FULLSCREENQUAD:
+            if (!pathtracerOn || pass.pathtracerRender) {
+              pass.render(screenQuadVAO!, pathtracerOn);
+            }
+            break;
+          case VAOInputType.SCENE:
+            pass.render(vaosToRender, pathtracerOn);
+            break;
+          case VAOInputType.GRASS:
+            pass.render(grassVAO!, pathtracerOn);
+            break;
+          case VAOInputType.NONE:
+            pass.render([], pathtracerOn);
+            break;
         }
-        if (!pathtracerOn || pass.pathtracerRender) {
-          pass.render(screenQuadVAO, pathtracerOn);
-        }
-      } else if (pass.VAOInputType === VAOInputType.SCENE) {
-        pass.render(vaosToRender, pathtracerOn);
-      } else if (pass.VAOInputType === VAOInputType.GRASS) {
-        pass.render(grassVAO!, pathtracerOn);
-      } else if (pass.VAOInputType === VAOInputType.NONE) {
-        pass.render([], pathtracerOn);
       }
     }
   }
@@ -160,11 +226,22 @@ export class GLRenderer {
       matViewInverse: mat4.invert(mat4.create(), matViewAndProj.matView),
       matProjInverse: mat4.invert(mat4.create(), matViewAndProj.matProj)
     };
-    this.resourceCache.setUniformData("CameraInfo", cameraInfo);
-    this.resourceCache.setUniformData("cameraPosition", this.camera.position);
-    this.resourceCache.setUniformData("cameraDirection", this.camera.front);
-    this.resourceCache.setUniformData("nearPlane", this.camera.nearPlane);
-    this.resourceCache.setUniformData("farPlane", this.camera.farPlane);
+    this.resourceCache.setData("CameraInfo", cameraInfo);
+    this.resourceCache.setData("nearFarPlanes", this.camera.getNearFarPlanes());
+    this.resourceCache.setData("cameraPosition", this.camera.position);
+    this.resourceCache.setData("cameraDirection", this.camera.front);
+    const debugPauseActive =
+      this.resourceCache.getData("debugPauseMode") ??
+      this.resourceCache.getData("debugPause") ??
+      false;
+    if (!debugPauseActive) {
+      this.resourceCache.setData("pausedCameraInfo", cameraInfo);
+      this.resourceCache.setData(
+        "pausedNearFarPlanes",
+        this.camera.getNearFarPlanes()
+      );
+      this.resourceCache.setData("pausedCameraPosition", this.camera.position);
+    }
   }
   public resizeGBuffer(width: number, height: number): void {
     this.canvas.width = width;

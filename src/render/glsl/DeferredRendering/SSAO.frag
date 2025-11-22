@@ -26,11 +26,18 @@ void main() {
         ssao = 1.0f;
         return;
     }
-    vec2 noiseScale = vec2(textureSize(depthTexture, 0)) / noiseSize;
-
+    // Calculate noise scale to tile noise texture across screen
+    vec2 screenSize = vec2(textureSize(depthTexture, 0));
+    
     vec3 fragPos = getViewPosition(fragUV);
+    
+    // Read normal directly from floating point texture
     vec3 normal = normalize(texture(normalTexture, fragUV).rgb);
-    vec3 randomVec = normalize(texture(noiseTexture, fragUV * noiseScale).xyz);
+    
+    // Use pixel coordinates with modulo to avoid floating point precision issues and grid artifacts
+    // This ensures the noise texture tiles smoothly without visible patterns
+    ivec2 screenPos = ivec2(fragUV * screenSize);
+    vec3 randomVec = normalize(texture(noiseTexture, vec2(screenPos) / noiseSize).xyz);
 
     vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
     vec3 bitangent = cross(normal, tangent);

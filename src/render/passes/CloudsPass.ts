@@ -13,7 +13,7 @@ import { RenderGraph } from "../renderSystem/RenderGraph";
 import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { vec3 } from "gl-matrix";
-import { text } from "express";
+import { DirectionalLight } from "../../map/Light";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = true;
@@ -107,7 +107,7 @@ export class CloudsPass extends RenderPass {
     const lightingDepthTexture = gBuffer["lightingDepth"];
     const litSceneTexture = gBuffer["litSceneTexture"];
     debugger;
-    let cameraPosition = this.resourceCache.getUniformData("cameraPosition");
+    let cameraPosition = this.resourceCache.getData("cameraPosition");
     if (!cameraPosition) {
       cameraPosition = vec3.fromValues(0, 0, 0);
     }
@@ -141,6 +141,29 @@ export class CloudsPass extends RenderPass {
       "depthTexture",
       2
     );
+    const sunLight = this.resourceCache.getData(
+      "sunLight"
+    ) as DirectionalLight | null;
+
+    // Use sunLight for sun position
+    let sunPos: vec3;
+    let sunColor: vec3;
+
+    if (
+      sunLight instanceof DirectionalLight &&
+      !this.resourceCache.getData("disableSun")
+    ) {
+      // For directional light, use direction to determine sun position in sky
+      // Scale the direction to represent sun position far away
+      sunPos = vec3.create();
+      vec3.scale(sunPos, sunLight.direction, -1000.0); // Negative because light direction points toward light
+      sunColor = sunLight.color.createVec3();
+    } else {
+      // Fallback - default sun position
+      sunPos = vec3.fromValues(0, 1000, 0);
+      sunColor = vec3.fromValues(1, 1, 1);
+    }
+
     TextureUtils.bindTex(
       this.gl,
       this.program!,
@@ -157,13 +180,13 @@ export class CloudsPass extends RenderPass {
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunPos"),
-      this.resourceCache.getUniformData("lights")[0].position
+      sunPos
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunColor"),
-      this.resourceCache.getUniformData("lights")[0].color.createVec3()
+      sunColor
     );
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
     this.gl.uniformMatrix4fv(
       this.uniforms["viewInverse"],
       false,
@@ -173,6 +196,10 @@ export class CloudsPass extends RenderPass {
       this.uniforms["projInverse"],
       false,
       cameraInfo.matProjInverse
+    );
+    this.gl.uniform3fv(
+      this.uniforms["cameraPosition"],
+      this.resourceCache.getData("cameraPosition")
     );
     this.gl.uniform3fv(this.uniforms["cameraPosition"], cameraPosition);
     this.gl.uniform1f(

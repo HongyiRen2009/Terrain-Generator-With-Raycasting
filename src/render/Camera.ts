@@ -12,7 +12,7 @@ export class Camera {
   up = vec3.fromValues(0, 1, 0);
   speed: number;
   nearPlane: number = 0.1;
-  farPlane: number = 100.0;
+  farPlane: number = 300.0;
   constructor(position: vec3) {
     this.position = position;
 
@@ -89,5 +89,9 @@ export class Camera {
     vec3.normalize(this.front, front); // Normalize to maintain unit length
     vec3.cross(this.right, this.front, this.up);
     vec3.normalize(this.right, this.right);
+  }
+
+  getNearFarPlanes(): { near: number; far: number } {
+    return { near: this.nearPlane, far: this.farPlane };
   }
 }

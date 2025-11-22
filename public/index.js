@@ -8306,12 +8306,12 @@ var CloudsPass = /** @class */ (function (_super) {
         // Bind weather map texture
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.bindTex(this.gl, this.program, this.weatherMapTexture, "weatherMap", 1);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 2);
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "sunPos"), this.resourceCache.getUniformData("lights")[0].position);
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "sunColor"), this.resourceCache.getUniformData("lights")[0].color.createVec3());
-        var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "sunPos"), this.resourceCache.getData("lights")[0].position);
+        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "sunColor"), this.resourceCache.getData("lights")[0].color.createVec3());
+        var cameraInfo = this.resourceCache.getData("CameraInfo");
         this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
         this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
-        this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getUniformData("cameraPosition"));
+        this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getData("cameraPosition"));
         this.gl.uniform1f(this.gl.getUniformLocation(this.program, "time"), performance.now() * 0.001 // Convert to seconds
         );
         (_a = this.settingsSection) === null || _a === void 0 ? void 0 : _a.updateUniforms(this.gl);
@@ -8901,7 +8901,7 @@ var GeometryPass = /** @class */ (function (_super) {
         this.gl.depthMask(true);
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
-        var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+        var cameraInfo = this.resourceCache.getData("CameraInfo");
         this.gl.uniformMatrix4fv(this.uniforms["view"], false, cameraInfo.matView);
         this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
         for (var _i = 0, vaosToRender_1 = vaosToRender; _i < vaosToRender_1.length; _i++) {
@@ -9016,11 +9016,11 @@ var LightingPass = /** @class */ (function (_super) {
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, albedoTexture, "albedoTexture", 1);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 2);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, ssaoTexture, "ssaoTexture", 3);
-        var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+        var cameraInfo = this.resourceCache.getData("CameraInfo");
         this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
         this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
-        this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getUniformData("cameraPosition"));
-        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__.WorldUtils.updateLights(this.gl, this.program, this.resourceCache.getUniformData("lights"));
+        this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getData("cameraPosition"));
+        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__.WorldUtils.updateLights(this.gl, this.program, this.resourceCache.getData("lights"));
         if (!pathtracerOn || this.pathtracerRender) {
             this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
         }
@@ -9268,7 +9268,7 @@ var SSAOPass = /** @class */ (function (_super) {
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, gBuffer["normal"], "normalTexture", 0);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, gBuffer["depth"], "depthTexture", 1);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, this.noiseTexture, "noiseTexture", 2);
-        var cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+        var cameraInfo = this.resourceCache.getData("CameraInfo");
         this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
         this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
         this.gl.uniform1f(this.uniforms["noiseSize"], this.noiseSize);
@@ -9524,7 +9524,7 @@ var ResourceCache = /** @class */ (function () {
     function ResourceCache(gl) {
         this.uniformsCache = new Map();
     }
-    ResourceCache.prototype.getUniformData = function (key) {
+    ResourceCache.prototype.getData = function (key) {
         return this.uniformsCache.get(key);
     };
     ResourceCache.prototype.setUniformData = function (key, value) {

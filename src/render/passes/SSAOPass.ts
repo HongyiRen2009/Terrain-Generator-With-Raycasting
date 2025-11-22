@@ -135,7 +135,7 @@ export class SSAOPass extends RenderPass {
       2
     );
 
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
     this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
     this.gl.uniformMatrix4fv(
       this.uniforms["projInverse"],
@@ -167,7 +167,7 @@ export class SSAOPass extends RenderPass {
       }
       if (this.renderTarget.textures) {
         for (const texture of Object.values(this.renderTarget.textures)) {
-          this.gl.deleteTexture(texture);
+          this.gl.deleteTexture(texture as WebGLTexture);
         }
       }
     }
