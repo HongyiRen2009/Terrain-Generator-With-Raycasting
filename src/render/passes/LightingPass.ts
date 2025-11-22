@@ -369,10 +369,10 @@ export class LightingPass extends RenderPass {
 function createJitterTexture(gl: WebGL2RenderingContext, size: number, filterSize: number): WebGLTexture {
     const data = new Float32Array(size * size * filterSize * filterSize * 2);
     let index = 0;
-    for (let texX = 0; texX < size; texX++) {
-      for (let texY = 0; texY < size; texY++) {
-        for (let filterX = filterSize - 1; filterX >= 0; filterX--) {
-          for (let filterY = 0; filterY < filterSize; filterY++) {
+    for (let texY = 0; texY < size; texY++) {
+      for (let texX = 0; texX < size; texX++) {
+        for (let filterY = filterSize - 1; filterY >= 0; filterY--) {
+          for (let filterX = 0; filterX < filterSize; filterX++) {
               const x = (filterX + Math.random()) / filterSize;
               const y = (filterY + Math.random()) / filterSize;
 
