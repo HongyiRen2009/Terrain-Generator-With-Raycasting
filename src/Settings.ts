@@ -114,7 +114,21 @@ export class SettingsSection {
       ) as HTMLInputElement;
       const valueSpan = document.getElementById(`${id}-value`);
       if (sliderElement) sliderElement.value = value.toString();
-      if (valueSpan) valueSpan.textContent = value.toString();
+      if (valueSpan) {
+        // Format value display based on step size
+        const step = setting.step;
+        let formatted: string;
+        if (step < 0.01) {
+          formatted = value.toFixed(3);
+        } else if (step < 0.1) {
+          formatted = value.toFixed(2);
+        } else if (step < 1) {
+          formatted = value.toFixed(1);
+        } else {
+          formatted = Math.floor(value).toString();
+        }
+        valueSpan.textContent = formatted;
+      }
       if (setting.onChange) setting.onChange(value);
     }
   }
@@ -159,10 +173,34 @@ export class SettingsSection {
     slider.step = setting.step.toString();
     slider.value = setting.value.toString();
 
+    // Format value display based on step size
+    const formatValue = (val: number): string => {
+      if (setting.step < 0.01) {
+        return val.toFixed(3);
+      } else if (setting.step < 0.1) {
+        return val.toFixed(2);
+      } else if (setting.step < 1) {
+        return val.toFixed(1);
+      } else {
+        return Math.floor(val).toString();
+      }
+    };
+
+    // Update initial display
+    valueSpan.textContent = formatValue(setting.value);
+
     slider.addEventListener("input", () => {
       const value = parseFloat(slider.value);
       setting.value = value;
-      valueSpan.textContent = slider.value;
+      valueSpan.textContent = formatValue(value);
+      // Add visual feedback when value changes
+      valueSpan.style.transition = "all 0.15s ease";
+      valueSpan.style.color = "#68d391";
+      valueSpan.style.transform = "scale(1.15)";
+      setTimeout(() => {
+        valueSpan.style.color = "";
+        valueSpan.style.transform = "";
+      }, 150);
       if (setting.onChange) {
         setting.onChange(value);
       }

@@ -6,6 +6,7 @@ import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
 import { RenderUtils } from "./utils/RenderUtils";
 import { WorldUtils } from "./utils/WorldUtils";
+import { MaterialPropertiesPanel } from "./MaterialPropertiesPanel";
 
 import gearModelUrl from "../models/stand.3mf";
 
@@ -28,6 +29,7 @@ export class GameEngine {
   private mainCamera: Camera;
   private renderer: GLRenderer;
   private pathTracer: PathTracer;
+  private materialPanel: MaterialPropertiesPanel;
 
   //
   private keys: { [key: string]: boolean } = {};
@@ -91,6 +93,22 @@ export class GameEngine {
       this.debug,
       this.world
     );
+
+    //Initialize Material Properties Panel
+    this.materialPanel = new MaterialPropertiesPanel(this.gl);
+    
+    // Connect material panel to lighting pass (preferred method)
+    const lightingPass = this.renderer.getLightingPass();
+    if (lightingPass) {
+      this.materialPanel.setLightingPass(lightingPass);
+    } else {
+      // Fallback: connect to lighting program if pass not available
+      const lightingProgram = this.renderer.getLightingProgram();
+      if (lightingProgram) {
+        this.materialPanel.setLightingProgram(lightingProgram);
+      }
+    }
+
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,
@@ -209,6 +227,8 @@ export class GameEngine {
       }
 
       if (this.mode == 0) {
+        // Update material uniforms before rendering
+        this.materialPanel.updateUniforms();
         this.renderer.render();
       } else {
         this.pathTracer.render(timestamp);

@@ -24,6 +24,7 @@
     "jszip": "^3.10.1"
   },
   "devDependencies": {
+    "@types/gl-matrix": "^2.4.5",
     "prettier": "^3.5.3",
     "simplex-noise": "^4.0.3",
     "ts-loader": "^9.5.2",

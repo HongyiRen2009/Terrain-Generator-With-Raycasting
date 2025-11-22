@@ -355,54 +355,46 @@ function calculateNormal(vertex) {
     return normal;
 }
 self.onmessage = function (event) {
-    var _a = event.data, Seed = _a.Seed, GridSize = _a.GridSize, ChunkPosition = _a.ChunkPosition, generatingTerrain = _a.generatingTerrain, worldFieldMap = _a.worldFieldMap;
+    var _a = event.data, Seed = _a.Seed, GridSize = _a.GridSize, ChunkPosition = _a.ChunkPosition;
     globalChunkPosition = ChunkPosition;
     var prng = alea__WEBPACK_IMPORTED_MODULE_1___default()(Seed);
     var simplex = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_0__.createNoise3D)(prng);
-    if (generatingTerrain) {
-        var field = new Float32Array((GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1));
-        var fieldMap = new Map();
-        // Generate noise field
-        for (var x = 0; x <= GridSize[0]; x++) {
-            for (var y = 0; y <= GridSize[1]; y++) {
-                for (var z = 0; z <= GridSize[2]; z++) {
-                    var c = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z);
-                    // Offset by chunk position
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(c, c, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(ChunkPosition[0], 0, ChunkPosition[1]));
-                    var idx = chunkCoordinateToIndex(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z), GridSize);
-                    var value = noiseFunction(c, simplex);
-                    field[idx] = value;
-                    fieldMap.set((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(c), value);
-                }
+    // Generate fieldmap
+    var field = new Float32Array((GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1));
+    var fieldMap = new Map();
+    for (var x = 0; x <= GridSize[0]; x++) {
+        for (var y = 0; y <= GridSize[1]; y++) {
+            for (var z = 0; z <= GridSize[2]; z++) {
+                var c = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z);
+                gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(c, c, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(ChunkPosition[0], 0, ChunkPosition[1]));
+                var idx = chunkCoordinateToIndex(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z), GridSize);
+                var value = noiseFunction(c, simplex);
+                field[idx] = value;
+                fieldMap.set((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(c), value);
             }
         }
-        var fieldMapArray = Array.from(fieldMap.entries());
-        self.postMessage({
-            field: field,
-            fieldMap: fieldMapArray
-        }, [field.buffer]);
-        return;
     }
-    else {
-        WorldFieldMap = worldFieldMap;
-        //Generate mesh with marching cubes
-        var mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
-        for (var x = 0; x < GridSize[0]; x++) {
-            for (var y = 0; y < GridSize[1]; y++) {
-                for (var z = 0; z < GridSize[2]; z++) {
-                    var c = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z);
-                    var cubeCase = GenerateCase(c);
-                    var newMesh = caseToMesh(c, cubeCase, GridSize);
-                    mesh.merge(newMesh);
-                }
+    WorldFieldMap = fieldMap; // Use local fieldmap only
+    // Generate ONLY interior mesh (skip edge cubes)
+    var mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
+    for (var x = 1; x < GridSize[0] - 1; x++) {
+        for (var y = 1; y < GridSize[1] - 1; y++) {
+            for (var z = 1; z < GridSize[2] - 1; z++) {
+                var c = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(x, y, z);
+                var cubeCase = GenerateCase(c);
+                var newMesh = caseToMesh(c, cubeCase, GridSize);
+                mesh.merge(newMesh);
             }
         }
-        self.postMessage({
-            meshVertices: mesh.getVertices(),
-            meshNormals: mesh.getNormals(),
-            meshTypes: mesh.getTypes()
-        });
     }
+    var fieldMapArray = Array.from(fieldMap.entries());
+    self.postMessage({
+        field: field,
+        fieldMap: fieldMapArray,
+        meshVertices: mesh.getVertices(),
+        meshNormals: mesh.getNormals(),
+        meshTypes: mesh.getTypes()
+    }, [field.buffer]);
 };
 
 
@@ -1089,7 +1081,7 @@ var Terrains = {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("e2167ed0bf55d91b6029")
+/******/ 		__webpack_require__.h = () => ("4905f3e5410bf29f1557")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/hasOwnProperty shorthand */

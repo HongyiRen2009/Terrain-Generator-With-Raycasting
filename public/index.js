@@ -4907,17 +4907,18 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   GameEngine: () => (/* binding */ GameEngine)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
 /* harmony import */ var _DebugMenu__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
 /* harmony import */ var _map_Map__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./map/Map */ "./src/map/Map.ts");
 /* harmony import */ var _render_Camera__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
 /* harmony import */ var _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./render/GLRenderer */ "./src/render/GLRenderer.ts");
 /* harmony import */ var _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./Pathtracing/PathTracer */ "./src/Pathtracing/PathTracer.ts");
 /* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./utils/WorldUtils */ "./src/utils/WorldUtils.ts");
-/* harmony import */ var _models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../models/stand.3mf */ "./models/stand.3mf");
-/* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
-/* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./map/terrains */ "./src/map/terrains.ts");
+/* harmony import */ var _MaterialPropertiesPanel__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./MaterialPropertiesPanel */ "./src/MaterialPropertiesPanel.ts");
+/* harmony import */ var _models_stand_3mf__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../models/stand.3mf */ "./models/stand.3mf");
+/* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
+/* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./map/terrains */ "./src/map/terrains.ts");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -4954,6 +4955,7 @@ var __generator = (undefined && undefined.__generator) || function (thisArg, bod
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
+
 
 
 
@@ -5007,9 +5009,16 @@ var GameEngine = /** @class */ (function () {
         //Initialize world
         this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 64, 1000, this.gl, function () { return _this.updatePathracing; });
         //Initialize Camera
-        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(-22, 20, 33));
+        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(-22, 20, 33));
         //Initialize Renderer
         this.renderer = new _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
+        //Initialize Material Properties Panel
+        this.materialPanel = new _MaterialPropertiesPanel__WEBPACK_IMPORTED_MODULE_6__.MaterialPropertiesPanel(this.gl);
+        // Connect material panel to lighting program
+        var lightingProgram = this.renderer.getLightingProgram();
+        if (lightingProgram) {
+            this.materialPanel.setLightingProgram(lightingProgram);
+        }
         //Initial pathTracer
         this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.renderer, this.debug);
         this.updatePathracing = function () {
@@ -5024,7 +5033,7 @@ var GameEngine = /** @class */ (function () {
         window.addEventListener("resize", function () { return _this.resizeCanvas(); });
         //Debugging
         this.debug.addElement("FPS", function () { return Math.round(_this.currentFPS); });
-        this.debug.addElement("#Types", function () { return Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_8__.Terrains).length; });
+        this.debug.addElement("#Types", function () { return Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_9__.Terrains).length; });
         //Initialize switcher
         var rayBtn = document.getElementById("raytracing");
         var pathBtn = document.getElementById("pathtracing");
@@ -5067,7 +5076,7 @@ var GameEngine = /** @class */ (function () {
                     case 1:
                         _a.sent();
                         this.world.populateFieldMap();
-                        return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateMarchingCubes(); }))];
+                        return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateEdgeTriangles(); }))];
                     case 2:
                         _a.sent();
                         this.renderer.vaoManager.createTerrainVAO(_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.genTerrainVertices(this.world));
@@ -5075,11 +5084,11 @@ var GameEngine = /** @class */ (function () {
                             _this.world.objectUI.setupObjectUI(obj, _this.world, document.getElementById("world-objects"), _this.world.objectUI);
                             _this.renderer.vaoManager.createWorldObjectVAOs(_this.world.worldObjects);
                         };
-                        return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__)];
+                        return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_8__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_7__)];
                     case 3:
                         mesh = _a.sent();
-                        identity2 = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
-                        gl_matrix__WEBPACK_IMPORTED_MODULE_10__.identity(identity2);
+                        identity2 = gl_matrix__WEBPACK_IMPORTED_MODULE_11__.create();
+                        gl_matrix__WEBPACK_IMPORTED_MODULE_11__.identity(identity2);
                         this.world.addObject(mesh, identity2, "Gear");
                         this.pathTracer.initBVH(this.world.combinedMesh());
                         this.pathTracer.init(false);
@@ -5106,6 +5115,8 @@ var GameEngine = /** @class */ (function () {
                 this.updateCamera(timePassed);
             }
             if (this.mode == 0) {
+                // Update material uniforms before rendering
+                this.materialPanel.updateUniforms();
                 this.renderer.render();
             }
             else {
@@ -5127,24 +5138,24 @@ var GameEngine = /** @class */ (function () {
      */
     GameEngine.prototype.updateCamera = function (time) {
         var velocity = this.mainCamera.speed * time;
-        var movement = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
-        var oldCamPos = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
-        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.copy(oldCamPos, this.mainCamera.position);
+        var movement = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
+        var oldCamPos = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_10__.copy(oldCamPos, this.mainCamera.position);
         //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
         if (this.keys["KeyW"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
         if (this.keys["KeyS"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.front, -velocity); // Backward
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.front, -velocity); // Backward
         if (this.keys["KeyA"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.right, -velocity); // Left
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.right, -velocity); // Left
         if (this.keys["KeyD"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.right, velocity); // Right
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.right, velocity); // Right
         if (this.keys["Space"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
         if (this.keys["ShiftLeft"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
-        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.add(this.mainCamera.position, this.mainCamera.position, movement);
-        if (!gl_matrix__WEBPACK_IMPORTED_MODULE_9__.equals(this.mainCamera.position, oldCamPos)) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
+        gl_matrix__WEBPACK_IMPORTED_MODULE_10__.add(this.mainCamera.position, this.mainCamera.position, movement);
+        if (!gl_matrix__WEBPACK_IMPORTED_MODULE_10__.equals(this.mainCamera.position, oldCamPos)) {
             this.pathTracer.resetAccumulation();
         }
     };
@@ -5204,6 +5215,268 @@ var GameEngine = /** @class */ (function () {
         return degrees * (Math.PI / 180);
     };
     return GameEngine;
+}());
+
+
+
+/***/ }),
+
+/***/ "./src/MaterialPropertiesPanel.ts":
+/*!****************************************!*\
+  !*** ./src/MaterialPropertiesPanel.ts ***!
+  \****************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   MaterialPropertiesPanel: () => (/* binding */ MaterialPropertiesPanel)
+/* harmony export */ });
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Settings */ "./src/Settings.ts");
+var __assign = (undefined && undefined.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
+
+var MaterialPropertiesPanel = /** @class */ (function () {
+    function MaterialPropertiesPanel(gl) {
+        this.isOpen = false;
+        this.lightingProgram = null;
+        // Material properties with defaults
+        this.properties = {
+            metallicity: 0.0,
+            roughness: 0.5,
+            colorR: 0.5,
+            colorG: 0.7,
+            colorB: 0.3,
+            ambient: 0.3,
+            specularIntensity: 1.0,
+            specularPower: 16.0,
+        };
+        this.gl = gl;
+        this.createUI();
+        this.setupEventListeners();
+        this.initializeSettings();
+    }
+    /**
+     * Set the lighting program for uniform updates
+     */
+    MaterialPropertiesPanel.prototype.setLightingProgram = function (program) {
+        this.lightingProgram = program;
+        if (this.settingsSection) {
+            // Recreate settings section with the program
+            var container = this.panelElement.querySelector(".material-settings-container");
+            container.innerHTML = "";
+            this.settingsSection = new _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsSection(container, "Adjust Material", program);
+            this.initializeSettings();
+        }
+    };
+    MaterialPropertiesPanel.prototype.createUI = function () {
+        // Create the toggle button (bottom-right corner)
+        this.toggleButton = document.createElement("button");
+        this.toggleButton.id = "material-toggle";
+        this.toggleButton.className = "material-toggle-button";
+        this.toggleButton.innerHTML = "🎨";
+        this.toggleButton.title = "Material Properties";
+        document.body.appendChild(this.toggleButton);
+        // Create the panel
+        this.panelElement = document.createElement("div");
+        this.panelElement.id = "material-panel";
+        this.panelElement.className = "material-panel";
+        // Panel header
+        var header = document.createElement("div");
+        header.className = "material-panel-header";
+        header.innerHTML = "\n      <h2>Material Properties</h2>\n      <button class=\"close-material-panel\">&times;</button>\n    ";
+        // Settings container
+        var settingsContainer = document.createElement("div");
+        settingsContainer.className = "material-settings-container";
+        this.panelElement.appendChild(header);
+        this.panelElement.appendChild(settingsContainer);
+        document.body.appendChild(this.panelElement);
+        // Initialize settings section (will be updated when program is set)
+        this.settingsSection = new _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsSection(settingsContainer, "Adjust Material", undefined);
+    };
+    MaterialPropertiesPanel.prototype.setupEventListeners = function () {
+        var _this = this;
+        // Toggle button opens panel
+        this.toggleButton.addEventListener("click", function () {
+            _this.togglePanel();
+        });
+        // Close button closes panel
+        var closeBtn = this.panelElement.querySelector(".close-material-panel");
+        if (closeBtn) {
+            closeBtn.addEventListener("click", function () {
+                _this.closePanel();
+            });
+        }
+        // Click outside panel to close
+        document.addEventListener("click", function (e) {
+            var target = e.target;
+            if (_this.isOpen &&
+                !_this.panelElement.contains(target) &&
+                !_this.toggleButton.contains(target)) {
+                _this.closePanel();
+            }
+        });
+    };
+    MaterialPropertiesPanel.prototype.initializeSettings = function () {
+        var _this = this;
+        // Metallicity slider
+        this.settingsSection.addSlider({
+            id: "u_metallicity",
+            label: "Metallicity",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: this.properties.metallicity,
+            uniform: true,
+            onChange: function (value) {
+                _this.properties.metallicity = value;
+            },
+        });
+        // Roughness slider
+        this.settingsSection.addSlider({
+            id: "u_roughness",
+            label: "Roughness",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: this.properties.roughness,
+            uniform: true,
+            onChange: function (value) {
+                _this.properties.roughness = value;
+            },
+        });
+        // Color sliders - we'll manually combine them into vec3
+        this.settingsSection.addSlider({
+            id: "u_terrainColorR",
+            label: "Color - Red",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: this.properties.colorR,
+            uniform: false, // Don't auto-send, we'll handle it manually
+            onChange: function (value) {
+                _this.properties.colorR = value;
+                _this.updateTerrainColor();
+            },
+        });
+        this.settingsSection.addSlider({
+            id: "u_terrainColorG",
+            label: "Color - Green",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: this.properties.colorG,
+            uniform: false,
+            onChange: function (value) {
+                _this.properties.colorG = value;
+                _this.updateTerrainColor();
+            },
+        });
+        this.settingsSection.addSlider({
+            id: "u_terrainColorB",
+            label: "Color - Blue",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: this.properties.colorB,
+            uniform: false,
+            onChange: function (value) {
+                _this.properties.colorB = value;
+                _this.updateTerrainColor();
+            },
+        });
+        // Ambient strength
+        this.settingsSection.addSlider({
+            id: "u_ambientStrength",
+            label: "Ambient Strength",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: this.properties.ambient,
+            uniform: true,
+            onChange: function (value) {
+                _this.properties.ambient = value;
+            },
+        });
+        // Specular intensity
+        this.settingsSection.addSlider({
+            id: "u_specularIntensity",
+            label: "Specular Intensity",
+            min: 0,
+            max: 2,
+            step: 0.1,
+            defaultValue: this.properties.specularIntensity,
+            uniform: true,
+            onChange: function (value) {
+                _this.properties.specularIntensity = value;
+            },
+        });
+        // Specular power (shininess)
+        this.settingsSection.addSlider({
+            id: "u_specularPower",
+            label: "Specular Power (Shininess)",
+            min: 1,
+            max: 256,
+            step: 1,
+            defaultValue: this.properties.specularPower,
+            uniform: true,
+            numType: "float",
+            onChange: function (value) {
+                _this.properties.specularPower = value;
+            },
+        });
+    };
+    MaterialPropertiesPanel.prototype.updateTerrainColor = function () {
+        if (!this.lightingProgram)
+            return;
+        var loc = this.gl.getUniformLocation(this.lightingProgram, "u_terrainColor");
+        if (loc) {
+            this.gl.uniform3f(loc, this.properties.colorR, this.properties.colorG, this.properties.colorB);
+        }
+    };
+    MaterialPropertiesPanel.prototype.togglePanel = function () {
+        if (this.isOpen) {
+            this.closePanel();
+        }
+        else {
+            this.openPanel();
+        }
+    };
+    MaterialPropertiesPanel.prototype.openPanel = function () {
+        this.isOpen = true;
+        this.panelElement.classList.add("open");
+    };
+    MaterialPropertiesPanel.prototype.closePanel = function () {
+        this.isOpen = false;
+        this.panelElement.classList.remove("open");
+    };
+    /**
+     * Update all material uniforms in the shader
+     * Call this before rendering
+     */
+    MaterialPropertiesPanel.prototype.updateUniforms = function () {
+        if (!this.lightingProgram) {
+            return;
+        }
+        this.settingsSection.updateUniforms(this.gl);
+        this.updateTerrainColor(); // Manually update the vec3 terrain color
+    };
+    /**
+     * Get current material properties
+     */
+    MaterialPropertiesPanel.prototype.getProperties = function () {
+        return __assign({}, this.properties);
+    };
+    return MaterialPropertiesPanel;
 }());
 
 
@@ -7013,7 +7286,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   Chunk: () => (/* binding */ Chunk)
 /* harmony export */ });
-/* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _geometry__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./geometry */ "./src/map/geometry.ts");
+/* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var _cubes_utils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_utils.ts");
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -7051,6 +7327,9 @@ var __generator = (undefined && undefined.__generator) || function (thisArg, bod
     }
 };
 
+
+
+
 //!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 var Chunk = /** @class */ (function () {
     function Chunk(ChunkPosition, GridSize, seed, Worker) {
@@ -7071,6 +7350,117 @@ var Chunk = /** @class */ (function () {
     Chunk.prototype.setWorldFieldMap = function (worldFieldMap) {
         this.WorldFieldMap = worldFieldMap;
     };
+    // Generate edge triangles in main thread
+    Chunk.prototype.generateEdgeTriangles = function () {
+        var edgeMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_1__.Mesh();
+        // Process X-axis edges (x = 0 and x = GridSize[0] - 1)
+        for (var _i = 0, _a = [0, this.GridSize[0] - 1]; _i < _a.length; _i++) {
+            var x = _a[_i];
+            for (var y = 0; y < this.GridSize[1]; y++) {
+                for (var z = 0; z < this.GridSize[2]; z++) {
+                    var c = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(x, y, z);
+                    var cubeCase = this.GenerateCase(c);
+                    var newMesh = this.caseToMesh(c, cubeCase);
+                    edgeMesh.merge(newMesh);
+                }
+            }
+        }
+        // Process Y-axis edges (y = 0 and y = GridSize[1] - 1)
+        for (var _b = 0, _c = [0, this.GridSize[1] - 1]; _b < _c.length; _b++) {
+            var y = _c[_b];
+            for (var x = 1; x < this.GridSize[0] - 1; x++) {
+                // Skip corners already processed
+                for (var z = 0; z < this.GridSize[2]; z++) {
+                    var c = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(x, y, z);
+                    var cubeCase = this.GenerateCase(c);
+                    var newMesh = this.caseToMesh(c, cubeCase);
+                    edgeMesh.merge(newMesh);
+                }
+            }
+        }
+        // Process Z-axis edges (z = 0 and z = GridSize[2] - 1)
+        for (var _d = 0, _e = [0, this.GridSize[2] - 1]; _d < _e.length; _d++) {
+            var z = _e[_d];
+            for (var x = 1; x < this.GridSize[0] - 1; x++) {
+                // Skip edges already processed
+                for (var y = 1; y < this.GridSize[1] - 1; y++) {
+                    // Skip edges already processed
+                    var c = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(x, y, z);
+                    var cubeCase = this.GenerateCase(c);
+                    var newMesh = this.caseToMesh(c, cubeCase);
+                    edgeMesh.merge(newMesh);
+                }
+            }
+        }
+        this.Mesh.merge(edgeMesh);
+    };
+    Chunk.prototype.GenerateCase = function (cubeCoordinates) {
+        var caseIndex = 0;
+        for (var i = 0; i < _geometry__WEBPACK_IMPORTED_MODULE_0__.VERTICES.length; i++) {
+            var vertexOffset = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues.apply(gl_matrix__WEBPACK_IMPORTED_MODULE_3__, _geometry__WEBPACK_IMPORTED_MODULE_0__.VERTICES[i]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(vertexOffset, vertexOffset, cubeCoordinates);
+            var isTerrain = Number(this.solidChecker(this.getFieldValue(vertexOffset)));
+            caseIndex += isTerrain << i;
+        }
+        return caseIndex;
+    };
+    Chunk.prototype.solidChecker = function (a) {
+        return a > 0.5;
+    };
+    Chunk.prototype.getFieldValue = function (c) {
+        var _a;
+        var newVector = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0, 0, 0);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(newVector, c, gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(this.ChunkPosition[0], 0, this.ChunkPosition[1]));
+        return (_a = this.WorldFieldMap.get((0,_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.vertexKey)(newVector))) !== null && _a !== void 0 ? _a : 0;
+    };
+    Chunk.prototype.caseToMesh = function (c, caseNumber) {
+        var _this = this;
+        var caseMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_1__.Mesh();
+        var caseLookup = _geometry__WEBPACK_IMPORTED_MODULE_0__.CASES[caseNumber];
+        for (var _i = 0, caseLookup_1 = caseLookup; _i < caseLookup_1.length; _i++) {
+            var triangleLookup = caseLookup_1[_i];
+            var vertices = triangleLookup.map(function (edgeIndex) {
+                return _this.edgeIndexToCoordinate(c, edgeIndex);
+            });
+            caseMesh.addTriangle(vertices.map(function (v) { return v.position; }), vertices.map(function (v) { return v.normal; }), [0, 0, 0]);
+        }
+        return caseMesh;
+    };
+    Chunk.prototype.edgeIndexToCoordinate = function (c, edgeIndex) {
+        var _a = _geometry__WEBPACK_IMPORTED_MODULE_0__.EDGES[edgeIndex], a = _a[0], b = _a[1];
+        var v1 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues.apply(gl_matrix__WEBPACK_IMPORTED_MODULE_3__, _geometry__WEBPACK_IMPORTED_MODULE_0__.VERTICES[a]);
+        var v2 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues.apply(gl_matrix__WEBPACK_IMPORTED_MODULE_3__, _geometry__WEBPACK_IMPORTED_MODULE_0__.VERTICES[b]);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(v1, v1, c);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(v2, v2, c);
+        var value1 = this.getFieldValue(v1);
+        var value2 = this.getFieldValue(v2);
+        var normal1 = this.calculateNormal(v1);
+        var normal2 = this.calculateNormal(v2);
+        var lerpAmount = (value1 - 0.5) / (value1 - 0.5 - (value2 - 0.5));
+        var position = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+        var normal = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.lerp(position, v1, v2, lerpAmount);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.lerp(normal, normal1, normal2, lerpAmount);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.normalize(normal, normal);
+        return { position: position, normal: normal };
+    };
+    Chunk.prototype.calculateNormal = function (vertex) {
+        var delta = 1.0;
+        var normal = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+        var x1 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(vertex[0] + delta, vertex[1], vertex[2]);
+        var x2 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(vertex[0] - delta, vertex[1], vertex[2]);
+        normal[0] = this.getFieldValue(x1) - this.getFieldValue(x2);
+        var y1 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(vertex[0], vertex[1] + delta, vertex[2]);
+        var y2 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(vertex[0], vertex[1] - delta, vertex[2]);
+        normal[1] = this.getFieldValue(y1) - this.getFieldValue(y2);
+        var z1 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(vertex[0], vertex[1], vertex[2] + delta);
+        var z2 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(vertex[0], vertex[1], vertex[2] - delta);
+        normal[2] = this.getFieldValue(z1) - this.getFieldValue(z2);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.negate(normal, normal);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.normalize(normal, normal);
+        return normal;
+    };
+    // Generate terrain field and mesh (NEW)
     Chunk.prototype.generateTerrain = function () {
         return __awaiter(this, void 0, void 0, function () {
             var _this = this;
@@ -7079,42 +7469,23 @@ var Chunk = /** @class */ (function () {
                         _this.Worker.postMessage({
                             GridSize: _this.GridSize,
                             ChunkPosition: _this.ChunkPosition,
-                            Seed: _this.seed,
-                            generatingTerrain: true,
-                            worldFieldMap: _this.FieldMap
+                            Seed: _this.seed
                         });
                         _this.Worker.onmessage = function (event) {
                             _this.Field = event.data.field;
                             _this.FieldMap = new Map(event.data.fieldMap);
-                            resolve(_this.Field);
-                        };
-                    })];
-            });
-        });
-    };
-    Chunk.prototype.generateMarchingCubes = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
-            return __generator(this, function (_a) {
-                return [2 /*return*/, new Promise(function (resolve) {
-                        _this.Worker.postMessage({
-                            GridSize: _this.GridSize,
-                            ChunkPosition: _this.ChunkPosition,
-                            Seed: _this.seed,
-                            generatingTerrain: false,
-                            worldFieldMap: _this.WorldFieldMap
-                        });
-                        _this.Worker.onmessage = function (event) {
-                            _this.Mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+                            // Initialize mesh with interior triangles
+                            _this.Mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_1__.Mesh();
                             _this.Mesh.setVertices(event.data.meshVertices);
                             _this.Mesh.setNormals(event.data.meshNormals);
                             _this.Mesh.setTypes(event.data.meshTypes);
-                            resolve(_this.Mesh);
+                            resolve();
                         };
                     })];
             });
         });
     };
+    // Generate only edge cubes and merge into existing mesh (W AI commments)
     Chunk.prototype.getMesh = function () {
         return this.Mesh;
     };
@@ -8193,7 +8564,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nin vec3 posit
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r\nout vec4 outputColor;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D albedoTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D ssaoTexture;\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\nstruct Light {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n};\r\n#define MAX_LIGHTS 100\r\n\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\nuniform vec3 cameraPosition;\r\n\r\nvec3 getViewPosition(vec2 texCoord) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos) {\r\n    vec4 worldPos = viewInverse * vec4(viewPos, 1.0f);\r\n    return worldPos.xyz;\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos);\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);\r\n\r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n\r\n    vec3 albedo = texture(albedoTexture, fragUV).rgb;\r\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\r\n\r\n    vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;\r\n    vec3 lighting = ambient;\r\n\r\n    for(int i = 0; i < numActiveLights; i++) {\r\n        vec3 lightDir = normalize(lights[i].position - fragWorldPos);\r\n        float diff = max(dot(lightDir, worldNormal), 0.0f);\r\n        vec3 diffuse = diff * lights[i].color * lights[i].intensity;\r\n\r\n        vec3 viewDir = normalize(cameraPosition - fragWorldPos);\r\n        vec3 reflectDir = reflect(-lightDir, worldNormal);\r\n        float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);\r\n        vec3 specular = spec * lights[i].color * lights[i].intensity;\r\n\r\n        float distance = length(lights[i].position - fragWorldPos);\r\n        float attenuation = 1.0f / (1.0f + (distance / lights[i].radius) * (distance / lights[i].radius));\r\n        diffuse *= attenuation;\r\n        specular *= attenuation;\r\n\r\n        lighting += (diffuse + specular) * ambient;\r\n    }\r\n\r\n    if(texture(depthTexture, fragUV).r >= 1.0f) {\r\n        outputColor = vec4(skyColor, 1.0f);\r\n    } else {\r\n        outputColor = vec4(lighting, 1.0f);\r\n    }\r\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nin vec2 fragUV;\r\nout vec4 outputColor;\r\n\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D albedoTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D ssaoTexture;\r\n\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\n\r\n// Material properties (NEW!)\r\nuniform float u_metallicity;\r\nuniform float u_roughness;\r\nuniform vec3 u_terrainColor; // Combined as vec3\r\nuniform float u_ambientStrength;\r\nuniform float u_specularIntensity;\r\nuniform float u_specularPower;\r\n\r\nstruct Light {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n};\r\n\r\n#define MAX_LIGHTS 100\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\nuniform vec3 cameraPosition;\r\n\r\nvec3 getViewPosition(vec2 texCoord) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos) {\r\n    vec4 worldPos = viewInverse * vec4(viewPos, 1.0f);\r\n    return worldPos.xyz;\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos);\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);\r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n    \r\n    // Use terrain color tint (multiply with albedo for variety)\r\n    vec3 baseAlbedo = texture(albedoTexture, fragUV).rgb;\r\n    vec3 albedo = baseAlbedo * u_terrainColor;\r\n    \r\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\r\n    \r\n    // Use adjustable ambient strength\r\n    vec3 ambient = (vec3(u_ambientStrength) * albedo) * ambientOcclusion;\r\n    vec3 lighting = ambient;\r\n    \r\n    for(int i = 0; i < numActiveLights; i++) {\r\n        vec3 lightDir = normalize(lights[i].position - fragWorldPos);\r\n        float diff = max(dot(lightDir, worldNormal), 0.0f);\r\n        vec3 diffuse = diff * lights[i].color * lights[i].intensity;\r\n        \r\n        vec3 viewDir = normalize(cameraPosition - fragWorldPos);\r\n        vec3 reflectDir = reflect(-lightDir, worldNormal);\r\n        \r\n        // Use adjustable specular power and intensity\r\n        float spec = pow(max(dot(viewDir, reflectDir), 0.0f), u_specularPower);\r\n        vec3 specular = spec * lights[i].color * lights[i].intensity * u_specularIntensity;\r\n        \r\n        // Simple metallicity: metallic surfaces reflect light color more\r\n        specular = mix(specular, specular * albedo, u_metallicity);\r\n        \r\n        // Roughness affects specular: rough surfaces have less intense specular\r\n        specular *= (1.0f - u_roughness * 0.8f);\r\n        \r\n        float distance = length(lights[i].position - fragWorldPos);\r\n        float attenuation = 1.0f / (1.0f + (distance / lights[i].radius) * (distance / lights[i].radius));\r\n        \r\n        diffuse *= attenuation;\r\n        specular *= attenuation;\r\n        \r\n        lighting += (diffuse + specular) * ambient;\r\n    }\r\n    \r\n    if(texture(depthTexture, fragUV).r >= 1.0f) {\r\n        outputColor = vec4(skyColor, 1.0f);\r\n    } else {\r\n        outputColor = vec4(lighting, 1.0f);\r\n    }\r\n}";
 
 /***/ }),
 
@@ -10215,7 +10586,7 @@ var WorldUtils = /** @class */ (function () {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("e2167ed0bf55d91b6029")
+/******/ 		__webpack_require__.h = () => ("4905f3e5410bf29f1557")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
