@@ -36,31 +36,31 @@ export class WorldMap {
       vec3.fromValues(32, 10, 16),
        new Color(255, 255, 255),
        1,
-       20,
+       5,
      ),
      new PointLight(
       vec3.fromValues(96, 10, 48),
        new Color(255, 255, 255),
        1,
-       20,
+       5,
      ),
      new PointLight(
       vec3.fromValues(128, 10, 32),
        new Color(255, 255, 255),
        1,
-       20,
+       5,
      ),
      new PointLight(
       vec3.fromValues(160, 10, 16),
        new Color(255, 255, 255),
        1,
-       20,
+       5,
      ),
      new PointLight(
       vec3.fromValues(224, 10, 48),
        new Color(255, 255, 255),
        1,
-       20,
+       5,
      )
   ];
   public numShadowedLights: number = 5;
