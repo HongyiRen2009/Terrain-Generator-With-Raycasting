@@ -104,7 +104,7 @@ export class CloudsPass extends RenderPass {
     this.gl.bindVertexArray(vao.vao);
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["depth"];
-    const lightingDepthTexture = gBuffer["lightingDepth"];
+    const grassDepthTexture = gBuffer["grassDepthTexture"];
     const litSceneTexture = gBuffer["litSceneTexture"];
     debugger;
     let cameraPosition = this.resourceCache.getData("cameraPosition");
@@ -113,11 +113,11 @@ export class CloudsPass extends RenderPass {
     }
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMin"),
-      vec3.fromValues(-1000 + cameraPosition[0], 100, -1000 + cameraPosition[2])
+      vec3.fromValues(-300 + cameraPosition[0], 100, -300 + cameraPosition[2])
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMax"),
-      vec3.fromValues(1000 + cameraPosition[0], 300, 1000 + cameraPosition[2])
+      vec3.fromValues(300 + cameraPosition[0], 300, 300 + cameraPosition[2])
     );
     // Bind 3D texture
     this.gl.activeTexture(this.gl.TEXTURE0);
@@ -167,8 +167,8 @@ export class CloudsPass extends RenderPass {
     TextureUtils.bindTex(
       this.gl,
       this.program!,
-      lightingDepthTexture,
-      "lightingDepthTexture",
+      grassDepthTexture,
+      "grassDepthTexture",
       3
     );
     TextureUtils.bindTex(

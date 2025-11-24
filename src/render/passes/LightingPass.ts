@@ -99,25 +99,11 @@ export class LightingPass extends RenderPass {
       litSceneTexture,
       0
     );
-    const depthTexture = TextureUtils.createTexture2D(
-      this.gl,
-      this.canvas.width,
-      this.canvas.height,
-      this.gl.DEPTH_COMPONENT24,
-      this.gl.DEPTH_COMPONENT,
-      this.gl.UNSIGNED_INT
-    );
-    this.gl.framebufferTexture2D(
-      this.gl.FRAMEBUFFER,
-      this.gl.DEPTH_ATTACHMENT,
-      this.gl.TEXTURE_2D,
-      depthTexture,
-      0
-    );
+
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
 
-    return { fbo, textures: { litSceneTexture, lightingDepth: depthTexture } };
+    return { fbo, textures: { litSceneTexture } };
   }
 
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {

@@ -1,19 +1,14 @@
 #version 300 es
 precision lowp float;
-
 uniform sampler2D depthTexture;
-uniform float near;
-uniform float far;
-in vec3 vWorldPos;
-in float vHeight;
-in vec3 vNormal;
-in vec3 vCurveDirection;
-
-out vec4 fragColor;
-uniform vec4 wireframeColor;
+uniform sampler2D heightTexture;
+uniform sampler2D normalTexture;
+uniform sampler2D curveAngleTexture;
 uniform vec3 sunPos;
 uniform vec3 viewDir;
 uniform vec3 cameraPos;
+uniform mat4 projMatrixInverse;
+uniform mat4 viewMatrixInverse;
 
 uniform float specularStrength;
 uniform float shininess;
@@ -28,33 +23,34 @@ uniform vec3 tipColor;
 uniform vec3 specularColor;
 uniform vec3 translucencyColor;
 
+out vec4 fragColor;
+
+vec3 depthReconstruct(vec2 uv, float depth) {
+    float z = depth * 2.0f - 1.0f;
+    vec4 clipSpacePosition = vec4(uv * 2.0f - 1.0f, z, 1.0f);
+    vec4 viewSpacePosition = projMatrixInverse * clipSpacePosition;
+    viewSpacePosition /= viewSpacePosition.w;
+    vec4 worldSpacePosition = viewMatrixInverse * viewSpacePosition;
+    return worldSpacePosition.xyz;
+}
 void main() {
-    vec2 screenCoord = gl_FragCoord.xy / vec2(textureSize(depthTexture, 0));
-    float sceneDepth = texture(depthTexture, screenCoord).r;
-
-    // Linearize both depths
-    float z_ndc = gl_FragCoord.z * 2.0f - 1.0f;
-    float linearFragDepth = (2.0f * near * far) / (far + near - z_ndc * (far - near));
-    float linearSceneDepth = (2.0f * near * far) / (far + near - (sceneDepth * 2.0f - 1.0f) * (far - near));
-
-    float depthBias = 0.01f;
-    if(linearFragDepth > linearSceneDepth + depthBias) {
+    vec2 screenCoord = gl_FragCoord.xy / vec2(textureSize(heightTexture, 0));
+    vec3 worldPos = depthReconstruct(screenCoord, texture(depthTexture, screenCoord).r);
+    float vHeight = texture(heightTexture, screenCoord).r;
+    vec3 vNormal = normalize(texture(normalTexture, screenCoord).rgb);
+    float curveAngle = texture(curveAngleTexture, screenCoord).r;
+    // Discard if no geometry written
+    if(vHeight < 0.001f) {
         discard;
     }
-
-    if(wireframeColor.a > 0.0f) {
-        fragColor = wireframeColor;
-        return;
-    }
-
     vec3 toCamera = normalize(-viewDir);
     toCamera.y = 0.0f;
-    vec3 curveDirection = vec3(vCurveDirection.x, 0.0f, vCurveDirection.z);
-    float curveViewDot = dot(curveDirection, toCamera);
+
+    float curveViewDot = cos(curveAngle) * toCamera.x + sin(curveAngle) * toCamera.z;
     bool isInnerCurve = curveViewDot > 0.0f;
 
-    vec3 lightDir = normalize(sunPos - vWorldPos);
-    vec3 viewDirection = normalize(cameraPos - vWorldPos);
+    vec3 lightDir = normalize(sunPos - worldPos);
+    vec3 viewDirection = normalize(cameraPos - worldPos);
 
     float t = clamp(vHeight / 1.5f, 0.0f, 1.0f);
     vec3 grassColor = mix(baseColor, tipColor, pow(t, ambientTransitionPower));

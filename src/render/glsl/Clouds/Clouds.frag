@@ -11,7 +11,7 @@ uniform mat4 projInverse;
 uniform sampler3D noiseTexture;
 uniform sampler2D weatherMap;
 uniform sampler2D depthTexture;
-uniform sampler2D lightingDepthTexture;
+uniform sampler2D grassDepthTexture;
 uniform sampler2D litSceneTexture;
 uniform vec3 sunPos;
 uniform vec3 sunColor;
@@ -169,7 +169,7 @@ void main() {
     vec3 rayOriginWorld = cameraPosition;
 
     // Read scene depth
-    float sceneDepth = min(texture(depthTexture, fragUV).r, texture(lightingDepthTexture, fragUV).r);
+    float sceneDepth = min(texture(depthTexture, fragUV).r, texture(grassDepthTexture, fragUV).r);
     if(pathtracerOn == 1) {
         sceneDepth = texture(depthTexture, fragUV).r;
     }

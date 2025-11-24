@@ -17,6 +17,7 @@ import { DirectionalLight } from "../map/Light";
 import { CubeShadowsPass } from "./passes/CubeShadowsPass";
 import { GrassPass } from "./passes/GrassPass";
 import { FinalPass } from "./passes/FinalPass";
+import { GrassGeometryPass } from "./passes/GrassGeometryPass";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -98,7 +99,6 @@ export class GLRenderer {
         vec3.copy(this.world.sunLight.direction, direction);
       }
     );
-    debugger;
     const csmPass = new CSMPass(
       this.gl,
       this.resourceCache,
@@ -135,8 +135,16 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const grassGeometryPass = new GrassGeometryPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     // Build render graph tree structure
+
     this.renderGraph.addRoot(geometryPass);
+    this.renderGraph.add(grassGeometryPass, geometryPass);
     this.renderGraph.add(csmPass, geometryPass);
     this.renderGraph.add(cubeShadowsPass, geometryPass);
     this.renderGraph.add(ssaoPass, geometryPass);
@@ -149,8 +157,18 @@ export class GLRenderer {
       geometryPass
     );
     this.renderGraph.add(debugPass, lightingPass);
-    this.renderGraph.add(grassPass, lightingPass, geometryPass);
-    this.renderGraph.add(cloudsPass, lightingPass, geometryPass);
+    this.renderGraph.add(
+      grassPass,
+      lightingPass,
+      geometryPass,
+      grassGeometryPass
+    );
+    this.renderGraph.add(
+      cloudsPass,
+      lightingPass,
+      geometryPass,
+      grassGeometryPass
+    );
     this.renderGraph.add(finalPass, cloudsPass);
   }
 
