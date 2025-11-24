@@ -92,7 +92,7 @@ function noiseFunction(
     density -= depth;
   }
 
-  if (y < waterLevel) density = Math.min(density, waterLevel - y);
+  if (y < waterLevel) density = Math.max(density, waterLevel - y);
 
   return Math.max(0, Math.min(1, (density + 80) / 200));
 }
