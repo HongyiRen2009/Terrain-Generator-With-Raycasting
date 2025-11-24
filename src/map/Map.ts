@@ -100,43 +100,7 @@ export class WorldMap {
         vec3.fromValues(this.resolution, this.height, this.resolution),
         this.seed,
         this.Workers[0]
-      ),
-      new Chunk(
-        vec2.fromValues(this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[1]
-      ),
-      new Chunk(
-        vec2.fromValues(2 * this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[2]
-      ),
-      new Chunk(
-        vec2.fromValues(3 * this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[3]
-      ),
-      new Chunk(
-        vec2.fromValues(4 * this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[4]
-      ),
-      new Chunk(
-        vec2.fromValues(5 * this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[5]
-      ),
-      new Chunk(
-        vec2.fromValues(6 * this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[6]
-      ),
+      )
     ];
   }
   public combinedMesh(): Mesh {

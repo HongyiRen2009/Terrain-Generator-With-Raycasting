@@ -16,7 +16,8 @@ export class TextureUtils {
     program: WebGLProgram,
     tex: WebGLTexture,
     key: string,
-    unit: number
+    unit: number,
+    type: number | null = null
   ) {
     const loc = gl.getUniformLocation(program, key);
     if (loc === null) {
@@ -25,7 +26,7 @@ export class TextureUtils {
     }
     // Bind to the specified texture unit
     gl.activeTexture(gl.TEXTURE0 + unit);
-    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.bindTexture(type == null ? gl.TEXTURE_2D : type, tex);
     // Tell the shader's sampler to use this texture unit
     gl.uniform1i(loc, unit);
   }

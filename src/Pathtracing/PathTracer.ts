@@ -14,6 +14,7 @@ import { BVHUtils } from "../map/BVHUtils";
 import copyFragmentShader from "./glsl/copyShader/copy.frag";
 import copyVertexShader from "./glsl/copyShader/copy.vert";
 import { GLRenderer } from "../render/GLRenderer";
+import { NoiseGenerator } from "../render/passes/CloudsPass";
 
 export class PathTracer {
   //Rendering
@@ -48,7 +49,9 @@ export class PathTracer {
   private camera: Camera;
   private debug: DebugMenu;
   private glRenderer: GLRenderer;
+  private noiseGenerator: NoiseGenerator;
 
+  //textures
   private vertexTex?: WebGLTexture;
   private terrainTex?: WebGLTexture;
   private boundingBoxesTex?: WebGLTexture;
@@ -56,7 +59,8 @@ export class PathTracer {
   private leafsTex?: WebGLTexture;
   private terrainTypeTex?: WebGLTexture;
   private vertexNormalsTex?: WebGLTexture;
-
+  private noiseTexture?: WebGLTexture;
+  private weatherMapTexture?: WebGLTexture;
 
   public constructor(
     canvas: HTMLCanvasElement,
@@ -72,6 +76,7 @@ export class PathTracer {
     this.camera = camera;
     this.glRenderer = glRenderer;
     this.debug = debug;
+    this.noiseGenerator=new NoiseGenerator(this.gl);
     this.gl.enable(this.gl.BLEND);
 
     //Enable float texture writing extention
@@ -288,10 +293,16 @@ export class PathTracer {
     this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
     this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
     this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+
+    //clouds
+    this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
+    this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
   }
 
   private setupFrame() {
     this.gl.useProgram(this.meshProgram);
+    const ext = this.gl.getExtension("EXT_color_buffer_float");
+    if (!ext) console.warn("No float render targets available.");
     //Textures
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex!, "u_vertices", 0);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex!, "u_terrains", 1);
@@ -301,6 +312,22 @@ export class PathTracer {
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, "u_terrainTypes", 5);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, "u_normals", 6);
 
+    this.gl.activeTexture(this.gl.TEXTURE7);
+    this.gl.bindTexture(this.gl.TEXTURE_3D, this.noiseTexture!);
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.meshProgram, "u_CloudNoise"),
+      7
+    );
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.weatherMapTexture!, "u_WeatherMap", 8);
+
+    this.gl.uniform3fv(
+      this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMin"),
+      vec3.fromValues(-300, 100, -300)
+    );
+    this.gl.uniform3fv(
+      this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMax"),
+      vec3.fromValues(300, 160, 300)
+    );
     //VAO
     this.gl.bindVertexArray(this.fullscreenVAO);
   }
