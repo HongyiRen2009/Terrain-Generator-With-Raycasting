@@ -131,7 +131,34 @@ export class GrassPass extends RenderPass {
   }
 
   protected initRenderTarget(): RenderTarget {
-    return { fbo: null, textures: {} };
+    const fbo = this.gl.createFramebuffer();
+    if (!fbo) {
+      throw new Error("[GrassPass] Failed to create framebuffer");
+    }
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+    const grassColorTexture = TextureUtils.createTexture2D(
+      this.gl,
+      this.canvas.width,
+      this.canvas.height,
+      this.gl.RGBA16F,
+      this.gl.RGBA,
+      this.gl.FLOAT
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.TEXTURE_2D,
+      grassColorTexture,
+      0
+    );
+    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    return {
+      fbo,
+      textures: {
+        grassColorTexture
+      }
+    };
   }
 
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
@@ -146,21 +173,21 @@ export class GrassPass extends RenderPass {
     if (pathtracerOn) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     } else {
-      const lightingFBO = this.renderGraph!.getPass(
-        "Terrain Lighting Pass"
-      )?.getRenderTarget()?.fbo;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, lightingFBO!);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderTarget!.fbo);
     }
-
+    gl.clearColor(0, 0, 0, 1);
+    gl.clearDepth(1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
 
     // Get geometry data from GrassGeometryPass
+    debugger;
     const gBuffer = this.renderGraph!.getOutputs(this);
-    const depthTexture = gBuffer["depthTexture"];
+    const depthTexture = gBuffer["grassDepthTexture"];
     const heightTexture = gBuffer["heightTexture"];
-    const normalTexture = gBuffer["normalTexture"];
+    const normalTexture = gBuffer["grassNormalTexture"];
     const curveAngleTexture = gBuffer["curveAngle"];
 
     // Bind textures

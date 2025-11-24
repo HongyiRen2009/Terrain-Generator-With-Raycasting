@@ -106,6 +106,7 @@ export class CloudsPass extends RenderPass {
     const depthTexture = gBuffer["depth"];
     const grassDepthTexture = gBuffer["grassDepthTexture"];
     const litSceneTexture = gBuffer["litSceneTexture"];
+    const grassColorTexture = gBuffer["grassColorTexture"];
     debugger;
     let cameraPosition = this.resourceCache.getData("cameraPosition");
     if (!cameraPosition) {
@@ -177,6 +178,13 @@ export class CloudsPass extends RenderPass {
       litSceneTexture,
       "litSceneTexture",
       4
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      grassColorTexture,
+      "grassColorTexture",
+      5
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunPos"),

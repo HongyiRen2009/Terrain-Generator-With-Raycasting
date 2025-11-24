@@ -167,6 +167,7 @@ export class GLRenderer {
       cloudsPass,
       lightingPass,
       geometryPass,
+      grassPass,
       grassGeometryPass
     );
     this.renderGraph.add(finalPass, cloudsPass);
