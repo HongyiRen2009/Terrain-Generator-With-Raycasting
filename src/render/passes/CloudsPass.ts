@@ -15,7 +15,7 @@ import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { vec3 } from "gl-matrix";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
-  public pathtracerRender: boolean = true;
+  public pathtracerRender: boolean = false;
   protected settingsSection: SettingsSection | null = null;
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
@@ -320,7 +320,7 @@ export class CloudsPass extends RenderPass {
     this.gl.viewport(0, 0, width, height);
   }
 }
-class NoiseGenerator {
+export class NoiseGenerator {
   gl: WebGL2RenderingContext;
   simplex: NoiseFunction3D = createNoise3D();
   dataR: Uint8Array = new Uint8Array();
