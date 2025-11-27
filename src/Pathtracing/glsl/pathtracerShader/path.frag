@@ -591,7 +591,9 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         if (hitLightIndex != -1) {
             // Ray hit light source
             if(bounce != 0){
-                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
+                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir,vec3(0.8));
+                vec3 given = throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
+                color = mix(given,cloudHandled.xyz,cloudHandled.a);
             }else{
                 color = lights[hitLightIndex].showColor;
             }
@@ -602,7 +604,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         if (triIndex == -1) {
             // Ray missed everything and flew into space.
             if(bounce == 0 || bounce == hasMirror + 1){
-                vec4 cloudHandled = handleClouds(rayOrigin,rayDir,vec3(0.54,0.824,0.94));
+                vec4 cloudHandled = handleClouds(rayOrigin,rayDir,vec3(0.8));
                 color = throughput * mix(vec3(0.54,0.824,0.94),cloudHandled.xyz,cloudHandled.a);
             }else{
                 color = vec3(0.0);
