@@ -27,6 +27,7 @@ uniform float bloomIntensity;
 
 // Tone Mapping
 uniform bool enableToneMapping;
+uniform bool useACES;
 uniform float exposure;
 uniform float gamma;
 
@@ -116,7 +117,9 @@ void main() {
     // Tone Mapping
     if(enableToneMapping) {
         color *= exposure;
-        color = ACESFilm(color);
+        if(useACES) {
+            color = ACESFilm(color);
+        }
         // Gamma correction
         color = pow(color, vec3(1.0f / gamma));
     }

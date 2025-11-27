@@ -115,6 +115,11 @@ export class FinalPass extends RenderPass {
       label: "Enable Tone Mapping",
       defaultValue: false
     });
+    SettingsManager.instance.addCheckboxToSection("Post Processing", {
+      id: "useACES",
+      label: "Use ACES Tone Mapping",
+      defaultValue: false
+    });
     SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "exposure",
       label: "Exposure",
@@ -173,6 +178,7 @@ export class FinalPass extends RenderPass {
       "bloomThreshold",
       "bloomIntensity",
       "enableToneMapping",
+      "useACES",
       "exposure",
       "gamma",
       "saturation",
