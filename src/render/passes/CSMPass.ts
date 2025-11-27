@@ -10,14 +10,13 @@ import { RenderUtils } from "../../utils/RenderUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import CSMVertexShaderSource from "../glsl/DeferredRendering/CSM.vert";
 import CSMFragmentShaderSource from "../glsl/DeferredRendering/CSM.frag";
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 import { mat4, vec4, vec3 } from "gl-matrix";
 import { DirectionalLight } from "../../map/Light";
 
 export class CSMPass extends RenderPass {
   public pathtracerRender: boolean = false;
   public VAOInputType: VAOInputType = VAOInputType.SCENE;
-  protected settingsSection: SettingsSection | null = null;
   private currentCascadeIndex: number = 0;
   constructor(
     gl: WebGL2RenderingContext,
@@ -201,8 +200,9 @@ export class CSMPass extends RenderPass {
     const lightSpaceMatrices = getLightSpaceMatrices(
       this.resourceCache,
       sunLight,
-      this.settingsSection?.getSliderValue("lambda") ?? 0.5,
-      this.settingsSection?.getSliderValue("zMultiplier") ?? 10.0
+      (SettingsManager.instance.getSetting("lambda")?.value as number) || 0.5,
+      (SettingsManager.instance.getSetting("zMultiplier")?.value as number) ||
+        10.0
     );
     const lightSpaceMatrix = lightSpaceMatrices[this.currentCascadeIndex];
     this.gl.uniformMatrix4fv(
@@ -232,12 +232,12 @@ export class CSMPass extends RenderPass {
   }
 
   private InitSettings() {
-    this.settingsSection = new SettingsSection(
+    // Use SettingsManager instead of local SettingsSection
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "CSM Settings",
-      this.program!
+      "CSM Settings"
     );
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "csmEnabled",
       label: "Enable CSM",
       defaultValue: true,
@@ -245,7 +245,7 @@ export class CSMPass extends RenderPass {
         this.resourceCache.setData("csmEnabled", value);
       }
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "numCascades",
       label: "Number of Cascades",
       min: 1,
@@ -273,7 +273,7 @@ export class CSMPass extends RenderPass {
 
         // Update the csmShadowBias slider array length if it exists
         const shadowBiasSetting =
-          this.settingsSection?.getSetting("csmShadowBias");
+          SettingsManager.instance.getSetting("csmShadowBias");
         if (
           shadowBiasSetting &&
           shadowBiasSetting.type === "slider" &&
@@ -291,7 +291,7 @@ export class CSMPass extends RenderPass {
     });
     // Initialize the default value in resource cache
     this.resourceCache.setData("numCascades", 3);
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "csmShadowMapSize",
       label: "CSM Shadow Map Size",
       min: 1024,
@@ -307,25 +307,31 @@ export class CSMPass extends RenderPass {
     });
     // Initialize the default value in resource cache since onChange is only called on user interaction
     this.resourceCache.setData("csmShadowMapSize", 4096);
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "lambda",
       label: "Lambda",
       min: 0.0,
       max: 1.0,
       step: 0.01,
       defaultValue: 0.8,
-      numType: "float"
+      numType: "float",
+      onChange: (value: number) => {
+        this.resourceCache.setData("lambda", value);
+      }
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "zMultiplier",
       label: "Z Multiplier",
       min: 0.0,
       max: 15.0,
       step: 0.1,
       defaultValue: 10.0,
-      numType: "float"
+      numType: "float",
+      onChange: (value: number) => {
+        this.resourceCache.setData("zMultiplier", value);
+      }
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "pcfRadius",
       label: "PCF Radius",
       min: 0.0,
@@ -338,7 +344,7 @@ export class CSMPass extends RenderPass {
       }
     });
     this.resourceCache.setData("pcfRadius", 7.0);
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "jitterSize",
       label: "Jitter Size",
       min: 5,
@@ -352,7 +358,7 @@ export class CSMPass extends RenderPass {
       }
     });
     this.resourceCache.setData("jitterSize", 8);
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "filterSize",
       label: "Filter Size",
       min: 1,
@@ -366,7 +372,7 @@ export class CSMPass extends RenderPass {
       }
     });
     this.resourceCache.setData("filterSize", 8);
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "usingPCF",
       label: "Using PCF",
       defaultValue: true,
@@ -383,7 +389,7 @@ export class CSMPass extends RenderPass {
     });
     this.resourceCache.setData("csmShadowBias", defaultBiasArray);
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "csmShadowBias",
       label: "CSM Shadow Bias",
       min: 0.0, // Same min for all cascades
@@ -396,12 +402,12 @@ export class CSMPass extends RenderPass {
       arrayIndex: 0,
       onChange: (value: number) => {
         const biasArray =
-          this.settingsSection?.getSliderArray("csmShadowBias") ??
+          SettingsManager.instance.getSliderArray("csmShadowBias") ??
           defaultBiasArray;
         this.resourceCache.setData("csmShadowBias", biasArray);
       }
     });
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "cascadeDebug",
       label: "Cascade Debug",
       defaultValue: false,
@@ -409,7 +415,7 @@ export class CSMPass extends RenderPass {
         this.resourceCache.setData("cascadeDebug", value);
       }
     });
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "drawCascadeDebug",
       label: "Draw Cascade Frusta",
       defaultValue: false,
@@ -419,7 +425,7 @@ export class CSMPass extends RenderPass {
     });
     // Initialize the default value in resource cache
     this.resourceCache.setData("drawCascadeDebug", false);
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "debugPause",
       label: "Debug Pause Mode",
       defaultValue: false,
@@ -427,7 +433,7 @@ export class CSMPass extends RenderPass {
         this.resourceCache.setData("debugPauseMode", value);
       }
     });
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "showShadowMap",
       label: "Show Shadow Map",
       defaultValue: false,
@@ -437,7 +443,7 @@ export class CSMPass extends RenderPass {
     });
     // Reuse numCascades from above (line 260)
     const shadowMapCascadeMax = this.resourceCache.getData("numCascades") ?? 3;
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "shadowMapCascade",
       label: `Shadow Map Cascade (0-${shadowMapCascadeMax - 1})`,
       min: 0,
@@ -459,11 +465,11 @@ export class CSMPass extends RenderPass {
       return;
     }
     const jitterSize =
-      this.settingsSection?.getSliderValue("jitterSize") ??
+      SettingsManager.instance.getSetting("jitterSize") ??
       this.resourceCache.getData("jitterSize") ??
       8;
     const filterSize =
-      this.settingsSection?.getSliderValue("filterSize") ??
+      SettingsManager.instance.getSetting("filterSize") ??
       this.resourceCache.getData("filterSize") ??
       4;
     updateJitterTexture(jitterSize, filterSize);

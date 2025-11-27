@@ -9,7 +9,7 @@ import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { TextureUtils } from "../../utils/TextureUtils";
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { vec3 } from "gl-matrix";
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 
 export class SSAOPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
@@ -36,13 +36,12 @@ export class SSAOPass extends RenderPass {
       "projInverse",
       "noiseSize"
     ]);
-    // Initialize settings manager for SSAO settings
-    this.settingsSection = new SettingsSection(
+    // Use SettingsManager instead of local SettingsSection
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "SSAO Settings",
-      this.program
+      "SSAO Settings"
     );
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("SSAO Settings", {
       id: "radius",
       label: "SSAO Radius",
       min: 0.1,
@@ -50,7 +49,7 @@ export class SSAOPass extends RenderPass {
       step: 0.01,
       defaultValue: 5.0
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("SSAO Settings", {
       id: "bias",
       label: "SSAO Bias",
       min: 0.0,
@@ -58,11 +57,16 @@ export class SSAOPass extends RenderPass {
       step: 0.001,
       defaultValue: 0.025
     });
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("SSAO Settings", {
       id: "enableSSAO",
       label: "Enable SSAO",
       defaultValue: true
     });
+    SettingsManager.instance.attatchProgram(this.program!, [
+      "radius",
+      "bias",
+      "enableSSAO"
+    ]);
     this.generateKernels();
     this.generateNoiseTexture();
   }
@@ -111,7 +115,7 @@ export class SSAOPass extends RenderPass {
 
     this.gl.useProgram(this.program);
     this.gl.bindVertexArray(vao.vao);
-    this.settingsSection?.updateUniforms(this.gl);
+    SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
     // Get textures from geometry pass using named keys
     TextureUtils.bindTex(
       this.gl,

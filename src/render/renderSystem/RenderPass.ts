@@ -2,7 +2,6 @@ import { GrassVAOInfo, VaoInfo } from "./managers/VaoManager";
 import { RenderTarget } from "./RenderTarget";
 import { ResourceCache } from "./managers/ResourceCache";
 import { RenderGraph } from "./RenderGraph";
-import { SettingsSection } from "../../Settings";
 export enum VAOInputType {
   SCENE,
   FULLSCREENQUAD,
@@ -17,7 +16,6 @@ export abstract class RenderPass {
   protected resourceCache: ResourceCache;
   protected renderGraph?: RenderGraph;
   protected uniforms: { [key: string]: WebGLUniformLocation } = {};
-  protected settingsSection: SettingsSection | null = null;
   public abstract pathtracerRender: boolean; // Do you render while pathtracing
   public abstract VAOInputType: VAOInputType;
   public name?: string;

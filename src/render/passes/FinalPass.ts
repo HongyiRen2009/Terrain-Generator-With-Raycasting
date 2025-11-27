@@ -7,7 +7,7 @@ import FinalVertexShaderSource from "../glsl/DeferredRendering/FinalPass.vert";
 import FinalFragmentShaderSource from "../glsl/DeferredRendering/FinalPass.frag";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { TextureUtils } from "../../utils/TextureUtils";
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 
 export class FinalPass extends RenderPass {
@@ -29,20 +29,17 @@ export class FinalPass extends RenderPass {
 
     this.uniforms = getUniformLocations(gl, this.program!, ["resolution"]);
 
-    // Initialize settings manager for post-processing effects
-    this.settingsSection = new SettingsSection(
+    // Use SettingsManager for post-processing settings
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "Post Processing",
-      this.program
+      "Post Processing"
     );
-
-    // Vignette settings
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "enableVignette",
       label: "Enable Vignette",
       defaultValue: true
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "vignetteStrength",
       label: "Vignette Strength",
       min: 0.0,
@@ -50,7 +47,7 @@ export class FinalPass extends RenderPass {
       step: 0.01,
       defaultValue: 0.5
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "vignetteRadius",
       label: "Vignette Radius",
       min: 0.1,
@@ -60,12 +57,12 @@ export class FinalPass extends RenderPass {
     });
 
     // Chromatic Aberration settings
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "enableChromaticAberration",
       label: "Enable Chromatic Aberration",
       defaultValue: false
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "chromaticAberrationStrength",
       label: "Chromatic Aberration Strength",
       min: 0.0,
@@ -75,12 +72,12 @@ export class FinalPass extends RenderPass {
     });
 
     // Film Grain settings
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "enableFilmGrain",
       label: "Enable Film Grain",
       defaultValue: false
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "filmGrainStrength",
       label: "Film Grain Strength",
       min: 0.0,
@@ -90,12 +87,12 @@ export class FinalPass extends RenderPass {
     });
 
     // Bloom settings
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "enableBloom",
       label: "Enable Bloom",
       defaultValue: false
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "bloomThreshold",
       label: "Bloom Threshold",
       min: 0.0,
@@ -103,7 +100,7 @@ export class FinalPass extends RenderPass {
       step: 0.01,
       defaultValue: 1.0
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "bloomIntensity",
       label: "Bloom Intensity",
       min: 0.0,
@@ -113,12 +110,12 @@ export class FinalPass extends RenderPass {
     });
 
     // Tone Mapping settings
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "enableToneMapping",
       label: "Enable Tone Mapping",
       defaultValue: false
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "exposure",
       label: "Exposure",
       min: 0.1,
@@ -126,7 +123,7 @@ export class FinalPass extends RenderPass {
       step: 0.1,
       defaultValue: 1.0
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "gamma",
       label: "Gamma",
       min: 1.0,
@@ -136,7 +133,7 @@ export class FinalPass extends RenderPass {
     });
 
     // Saturation settings
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "saturation",
       label: "Saturation",
       min: 0.0,
@@ -146,7 +143,7 @@ export class FinalPass extends RenderPass {
     });
 
     // Contrast settings
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "contrast",
       label: "Contrast",
       min: 0.0,
@@ -156,7 +153,7 @@ export class FinalPass extends RenderPass {
     });
 
     // Brightness settings
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "brightness",
       label: "Brightness",
       min: 0.0,
@@ -164,6 +161,24 @@ export class FinalPass extends RenderPass {
       step: 0.01,
       defaultValue: 1.0
     });
+    SettingsManager.instance.attatchProgram(this.program!, [
+      "enableVignette",
+      "vignetteStrength",
+      "vignetteRadius",
+      "enableChromaticAberration",
+      "chromaticAberrationStrength",
+      "enableFilmGrain",
+      "filmGrainStrength",
+      "enableBloom",
+      "bloomThreshold",
+      "bloomIntensity",
+      "enableToneMapping",
+      "exposure",
+      "gamma",
+      "saturation",
+      "contrast",
+      "brightness"
+    ]);
   }
 
   protected initRenderTarget(): RenderTarget {
@@ -178,9 +193,7 @@ export class FinalPass extends RenderPass {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.program);
 
-    // Update uniforms from settings
-    this.settingsSection?.updateUniforms(this.gl);
-
+    SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
     // Set resolution uniform
     this.gl.uniform2f(
       this.uniforms["resolution"],

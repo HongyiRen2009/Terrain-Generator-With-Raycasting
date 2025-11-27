@@ -3,7 +3,7 @@ import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo, GrassVAOInfo } from "../renderSystem/managers/VaoManager";
 import { RenderPass, VAOInputType } from "../renderSystem/RenderPass";
 import { RenderTarget } from "../renderSystem/RenderTarget";
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 import grassGeometryVertexSource from "../glsl/Grass/GrassGeometry.vert";
 import grassGeometryFragmentSource from "../glsl/Grass/GrassGeometry.frag";
 import { RenderUtils } from "../../utils/RenderUtils";
@@ -14,7 +14,6 @@ import { createNoise2D } from "simplex-noise";
 export class GrassGeometryPass extends RenderPass {
   public pathtracerRender: boolean = true;
   public VAOInputType: VAOInputType = VAOInputType.GRASS;
-  protected settingsSection: SettingsSection | null = null;
   private windStrengthNoiseTexture: WebGLTexture | null = null;
   private windDirectionNoiseTexture: WebGLTexture | null = null;
 
@@ -120,13 +119,8 @@ export class GrassGeometryPass extends RenderPass {
   }
 
   private initSettings(): void {
-    this.settingsSection = new SettingsSection(
-      document.getElementById("settings-section")!,
-      "Grass Geometry Settings",
-      this.program!
-    );
     // Wind settings
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "windStrength",
       label: "Wind Strength",
       min: 0,
@@ -134,22 +128,27 @@ export class GrassGeometryPass extends RenderPass {
       step: 0.1,
       defaultValue: 0.5
     });
-    this.settingsSection.addSlider({
-      id: "windSpeed",
-      label: "Wind Speed",
-      min: 0,
-      max: 1,
-      step: 0.01,
-      defaultValue: 0.3
-    });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "windFrequency",
       label: "Wind Frequency",
       min: 0.1,
-      max: 1,
-      step: 0.01,
+      max: 5,
+      step: 0.1,
       defaultValue: 0.13
     });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "windSpeed",
+      label: "Wind Speed",
+      min: 0,
+      max: 5,
+      step: 0.01,
+      defaultValue: 0.3
+    });
+    SettingsManager.instance.attatchProgram(this.program!, [
+      "windStrength",
+      "windFrequency",
+      "windSpeed"
+    ]);
   }
 
   private generateNoiseTexture(size: number): WebGLTexture {
@@ -259,7 +258,7 @@ export class GrassGeometryPass extends RenderPass {
       1
     );
     TextureUtils.bindTex(gl, this.program!, depthTexture, "depthTexture", 2);
-    this.settingsSection?.updateUniforms(gl);
+    SettingsManager.instance.updateProgramUniforms(gl, this.program!);
 
     const grassVAO = vao_info as GrassVAOInfo;
     for (let i = 0; i < grassVAO.lodLevels.length; i++) {

@@ -11,13 +11,12 @@ import { PointLight } from "../../map/Light";
 import { mat4, vec3 } from "gl-matrix";
 import CubeShadowsVertexShaderSource from "../glsl/DeferredRendering/CubeShadows.vert";
 import CubeShadowsFragmentShaderSource from "../glsl/DeferredRendering/CubeShadows.frag";
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 
 export class CubeShadowsPass extends RenderPass {
   public pathtracerRender: boolean = false;
   public VAOInputType: VAOInputType = VAOInputType.SCENE;
   private currentLightIndex: number = 0;
-  protected settingsSection: SettingsSection | null = null;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -243,12 +242,13 @@ export class CubeShadowsPass extends RenderPass {
   }
 
   private InitSettings() {
-    this.settingsSection = new SettingsSection(
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "Cube Shadows Settings",
-      this.program!
+      "Cube Shadows Settings"
     );
-    this.settingsSection.addCheckbox({
+    this.resourceCache.setData("cubeShadowsOn", true);
+
+    SettingsManager.instance.addCheckboxToSection("Cube Shadows Settings", {
       id: "cubeShadowsOn",
       label: "Cube Shadows On",
       defaultValue: true,
@@ -256,10 +256,7 @@ export class CubeShadowsPass extends RenderPass {
         this.resourceCache.setData("cubeShadowsOn", value);
       }
     });
-    this.resourceCache.setData("cubeShadowsOn", true);
-
-    // Add point light shadow map size slider
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Cube Shadows Settings", {
       id: "CubeShadowsMapSize",
       label: "Point Light Shadow Map Size",
       min: 256,
@@ -274,9 +271,7 @@ export class CubeShadowsPass extends RenderPass {
         this.renderTarget = this.initRenderTarget();
       }
     });
-
-    // Add point light shadow bias slider
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Cube Shadows Settings", {
       id: "pointShadowBias",
       label: "Point Light Shadow Bias",
       min: 0.0,
@@ -288,8 +283,6 @@ export class CubeShadowsPass extends RenderPass {
         this.resourceCache.setData("pointShadowBias", value);
       }
     });
-
-    // Initialize default values in resourceCache
     this.resourceCache.setData("pointShadowBias", 0.05);
   }
 }

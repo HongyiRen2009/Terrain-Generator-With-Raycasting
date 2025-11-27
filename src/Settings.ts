@@ -30,7 +30,106 @@ interface ColorSetting extends Setting<string> {
 }
 
 type AnySetting = SliderSetting | CheckboxSetting | ColorSetting;
-
+export class SettingsManager {
+  public static instance: SettingsManager = new SettingsManager();
+  private sections: Map<string, SettingsSection> = new Map();
+  private attachedProgramUniforms: Map<WebGLProgram, string[]> = new Map();
+  private IdInSection: Map<string, string> = new Map(); // Map of setting ID to section title
+  constructor() {}
+  public createSection(parentContainer: HTMLElement, title: string) {
+    const section = new SettingsSection(parentContainer, title);
+    this.sections.set(title, section);
+  }
+  public addSliderToSection(
+    sectionTitle: string,
+    config: Omit<SliderSetting, "type" | "value">
+  ): void {
+    const section = this.sections.get(sectionTitle);
+    if (section) {
+      section.addSlider(config);
+    }
+    this.IdInSection.set(config.id, sectionTitle);
+  }
+  public addCheckboxToSection(
+    sectionTitle: string,
+    config: Omit<CheckboxSetting, "type" | "value">
+  ): void {
+    const section = this.sections.get(sectionTitle);
+    if (section) {
+      section.addCheckbox(config);
+    }
+    this.IdInSection.set(config.id, sectionTitle);
+  }
+  public addColorPickerToSection(
+    sectionTitle: string,
+    config: Omit<ColorSetting, "type" | "value">
+  ): void {
+    const section = this.sections.get(sectionTitle);
+    if (section) {
+      section.addColorPicker(config);
+    }
+    this.IdInSection.set(config.id, sectionTitle);
+  }
+  public attatchProgram(program: WebGLProgram, uniformNames: string[]): void {
+    this.attachedProgramUniforms.set(program, uniformNames);
+  }
+  public updateProgramUniforms(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram
+  ): void {
+    const uniformNames = this.attachedProgramUniforms.get(program);
+    if (!uniformNames) return;
+    uniformNames.forEach((name) => {
+      const setting = this.getSetting(name);
+      if (!setting || setting.uniform === false) return;
+      const loc = gl.getUniformLocation(program, setting.id);
+      if (!loc) {
+        console.warn(`Uniform location for ${setting.id} not found.`);
+        return;
+      }
+      if (setting.type === "slider") {
+        if (setting.isArray) {
+          const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+          gl.uniform1fv(loc, new Float32Array(arrayValue));
+        } else {
+          const numValue =
+            typeof setting.value === "number" ? setting.value : 0;
+          if (setting.numType === "int") {
+            gl.uniform1i(loc, Math.floor(numValue));
+          } else {
+            gl.uniform1f(loc, numValue);
+          }
+        }
+      } else if (setting.type === "checkbox") {
+        gl.uniform1i(loc, setting.value ? 1 : 0);
+      } else if (setting.type === "color") {
+        const rgb = this.hexToRgb(setting.value);
+        gl.uniform3f(loc, rgb[0], rgb[1], rgb[2]);
+      }
+    });
+  }
+  public getSetting(id: string): AnySetting | undefined {
+    const sectionTitle = this.IdInSection.get(id);
+    if (!sectionTitle) throw new Error(`Setting ID '${id}' not found`);
+    const section = this.sections.get(sectionTitle);
+    if (!section) throw new Error(`Section '${sectionTitle}' not found`);
+    return section.getSetting(id);
+  }
+  public getSliderArray(id: string): number[] {
+    const sectionTitle = this.IdInSection.get(id);
+    if (!sectionTitle) throw new Error(`Setting ID '${id}' not found`);
+    const section = this.sections.get(sectionTitle);
+    if (!section) throw new Error(`Section '${sectionTitle}' not found`);
+    return section.getSliderArray(id);
+  }
+  private hexToRgb(hex: string): [number, number, number] {
+    const bigint = parseInt(hex.slice(1), 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return [r / 255, g / 255, b / 255];
+  }
+}
 export class SettingsSection {
   private settings: Map<string, AnySetting> = new Map();
   private container: HTMLElement;
@@ -63,7 +162,11 @@ export class SettingsSection {
   /**
    * Helper to get value at index (or single value if not array)
    */
-  private getValueAtIndex(value: number | number[] | undefined, index: number, fallback: number = 0): number {
+  private getValueAtIndex(
+    value: number | number[] | undefined,
+    index: number,
+    fallback: number = 0
+  ): number {
     if (value === undefined) return fallback;
     if (typeof value === "number") return value;
     return value[index] ?? fallback;
@@ -75,15 +178,17 @@ export class SettingsSection {
   addSlider(config: Omit<SliderSetting, "type" | "value">): void {
     const isArray = config.isArray ?? false;
     const arrayLength = config.arrayLength ?? 1;
-    
+
     // Handle defaultValue: if single value, fill array; if array, use it; otherwise default to 0
     let defaultValue: number | number[];
     if (isArray) {
       if (Array.isArray(config.defaultValue)) {
         // Use provided array, padding with last value if needed
         const providedArray = config.defaultValue;
-        defaultValue = Array.from({ length: arrayLength }, (_, i) => 
-          i < providedArray.length ? providedArray[i] : providedArray[providedArray.length - 1] ?? 0
+        defaultValue = Array.from({ length: arrayLength }, (_, i) =>
+          i < providedArray.length
+            ? providedArray[i]
+            : (providedArray[providedArray.length - 1] ?? 0)
         );
       } else {
         // Single value: fill entire array
@@ -92,12 +197,16 @@ export class SettingsSection {
     } else {
       defaultValue = config.defaultValue ?? 0;
     }
-    
+
     // For array sliders, create an array of values
-    const initialValue = isArray 
-      ? (Array.isArray(defaultValue) ? defaultValue : Array(arrayLength).fill(defaultValue))
-      : (typeof defaultValue === "number" ? defaultValue : defaultValue[0] ?? 0);
-    
+    const initialValue = isArray
+      ? Array.isArray(defaultValue)
+        ? defaultValue
+        : Array(arrayLength).fill(defaultValue)
+      : typeof defaultValue === "number"
+        ? defaultValue
+        : (defaultValue[0] ?? 0);
+
     const setting: SliderSetting = {
       ...config,
       type: "slider",
@@ -271,32 +380,40 @@ export class SettingsSection {
 
     const valueSpan = document.createElement("span");
     valueSpan.id = `${setting.id}-value`;
-    
+
     const currentIndex = setting.arrayIndex ?? 0;
-    
+
     // Helper function to get current min/max/step/defaultValue based on index
-    const getCurrentMin = () => this.getValueAtIndex(setting.min, currentIndex, 0);
-    const getCurrentMax = () => this.getValueAtIndex(setting.max, currentIndex, 1);
-    const getCurrentStep = () => this.getValueAtIndex(setting.step, currentIndex, 0.01);
-    const getCurrentDefault = () => this.getValueAtIndex(setting.defaultValue, currentIndex, 0);
-    
-    const currentValue = setting.isArray 
-      ? (Array.isArray(setting.value) ? setting.value[currentIndex] : getCurrentDefault())
-      : (typeof setting.value === "number" ? setting.value : getCurrentDefault());
+    const getCurrentMin = () =>
+      this.getValueAtIndex(setting.min, currentIndex, 0);
+    const getCurrentMax = () =>
+      this.getValueAtIndex(setting.max, currentIndex, 1);
+    const getCurrentStep = () =>
+      this.getValueAtIndex(setting.step, currentIndex, 0.01);
+    const getCurrentDefault = () =>
+      this.getValueAtIndex(setting.defaultValue, currentIndex, 0);
+
+    const currentValue = setting.isArray
+      ? Array.isArray(setting.value)
+        ? setting.value[currentIndex]
+        : getCurrentDefault()
+      : typeof setting.value === "number"
+        ? setting.value
+        : getCurrentDefault();
     valueSpan.textContent = currentValue.toString();
 
     // For array sliders, add index display and navigation
     let indexSpan: HTMLElement | null = null;
     let prevButton: HTMLButtonElement | null = null;
     let nextButton: HTMLButtonElement | null = null;
-    
+
     if (setting.isArray && setting.arrayLength) {
       indexSpan = document.createElement("span");
       indexSpan.id = `${setting.id}-index`;
       indexSpan.style.marginLeft = "8px";
       indexSpan.style.marginRight = "8px";
       indexSpan.textContent = `[${currentIndex}]`;
-      
+
       prevButton = document.createElement("button");
       prevButton.textContent = "◄";
       prevButton.style.marginLeft = "8px";
@@ -304,51 +421,90 @@ export class SettingsSection {
       prevButton.style.padding = "2px 8px";
       prevButton.style.cursor = "pointer";
       prevButton.disabled = currentIndex === 0;
-      
+
       nextButton = document.createElement("button");
       nextButton.textContent = "►";
       nextButton.style.marginLeft = "4px";
       nextButton.style.padding = "2px 8px";
       nextButton.style.cursor = "pointer";
-      nextButton.disabled = currentIndex >= (setting.arrayLength - 1);
-      
+      nextButton.disabled = currentIndex >= setting.arrayLength - 1;
+
       prevButton.addEventListener("click", () => {
         if (setting.arrayIndex !== undefined && setting.arrayIndex > 0) {
           setting.arrayIndex--;
           const arrayValue = Array.isArray(setting.value) ? setting.value : [];
-          const newValue = arrayValue[setting.arrayIndex] ?? this.getValueAtIndex(setting.defaultValue, setting.arrayIndex, 0);
-          const slider = document.getElementById(`${setting.id}-slider`) as HTMLInputElement;
+          const newValue =
+            arrayValue[setting.arrayIndex] ??
+            this.getValueAtIndex(setting.defaultValue, setting.arrayIndex, 0);
+          const slider = document.getElementById(
+            `${setting.id}-slider`
+          ) as HTMLInputElement;
           if (slider) {
             // Update slider properties based on new index
-            slider.min = this.getValueAtIndex(setting.min, setting.arrayIndex, 0).toString();
-            slider.max = this.getValueAtIndex(setting.max, setting.arrayIndex, 1).toString();
-            slider.step = this.getValueAtIndex(setting.step, setting.arrayIndex, 0.01).toString();
+            slider.min = this.getValueAtIndex(
+              setting.min,
+              setting.arrayIndex,
+              0
+            ).toString();
+            slider.max = this.getValueAtIndex(
+              setting.max,
+              setting.arrayIndex,
+              1
+            ).toString();
+            slider.step = this.getValueAtIndex(
+              setting.step,
+              setting.arrayIndex,
+              0.01
+            ).toString();
             slider.value = newValue.toString();
           }
           if (valueSpan) valueSpan.textContent = newValue.toString();
           if (indexSpan) indexSpan.textContent = `[${setting.arrayIndex}]`;
           if (prevButton) prevButton.disabled = setting.arrayIndex === 0;
-          if (nextButton) nextButton.disabled = setting.arrayIndex >= (setting.arrayLength! - 1);
+          if (nextButton)
+            nextButton.disabled =
+              setting.arrayIndex >= setting.arrayLength! - 1;
         }
       });
-      
+
       nextButton.addEventListener("click", () => {
-        if (setting.arrayIndex !== undefined && setting.arrayIndex < (setting.arrayLength! - 1)) {
+        if (
+          setting.arrayIndex !== undefined &&
+          setting.arrayIndex < setting.arrayLength! - 1
+        ) {
           setting.arrayIndex++;
           const arrayValue = Array.isArray(setting.value) ? setting.value : [];
-          const newValue = arrayValue[setting.arrayIndex] ?? this.getValueAtIndex(setting.defaultValue, setting.arrayIndex, 0);
-          const slider = document.getElementById(`${setting.id}-slider`) as HTMLInputElement;
+          const newValue =
+            arrayValue[setting.arrayIndex] ??
+            this.getValueAtIndex(setting.defaultValue, setting.arrayIndex, 0);
+          const slider = document.getElementById(
+            `${setting.id}-slider`
+          ) as HTMLInputElement;
           if (slider) {
             // Update slider properties based on new index
-            slider.min = this.getValueAtIndex(setting.min, setting.arrayIndex, 0).toString();
-            slider.max = this.getValueAtIndex(setting.max, setting.arrayIndex, 1).toString();
-            slider.step = this.getValueAtIndex(setting.step, setting.arrayIndex, 0.01).toString();
+            slider.min = this.getValueAtIndex(
+              setting.min,
+              setting.arrayIndex,
+              0
+            ).toString();
+            slider.max = this.getValueAtIndex(
+              setting.max,
+              setting.arrayIndex,
+              1
+            ).toString();
+            slider.step = this.getValueAtIndex(
+              setting.step,
+              setting.arrayIndex,
+              0.01
+            ).toString();
             slider.value = newValue.toString();
           }
           if (valueSpan) valueSpan.textContent = newValue.toString();
           if (indexSpan) indexSpan.textContent = `[${setting.arrayIndex}]`;
           if (prevButton) prevButton.disabled = setting.arrayIndex === 0;
-          if (nextButton) nextButton.disabled = setting.arrayIndex >= (setting.arrayLength! - 1);
+          if (nextButton)
+            nextButton.disabled =
+              setting.arrayIndex >= setting.arrayLength! - 1;
         }
       });
     }
@@ -466,43 +622,6 @@ export class SettingsSection {
           parseInt(result[3], 16) / 255
         ]
       : [0, 0, 0];
-  }
-
-  public updateUniforms(gl: WebGL2RenderingContext): void {
-    if (!this.program) {
-      console.warn("No program associated with this settings section.");
-      return;
-    }
-    const program = this.program;
-
-    this.settings.forEach((setting) => {
-      if (setting.uniform === false) return;
-
-      const loc = gl.getUniformLocation(program, setting.id);
-      if (!loc) {
-        console.warn(`Uniform location for ${setting.id} not found.`);
-        return;
-      }
-
-      if (setting.type === "slider") {
-        if (setting.isArray) {
-          const arrayValue = Array.isArray(setting.value) ? setting.value : [];
-          gl.uniform1fv(loc, new Float32Array(arrayValue));
-        } else {
-          const numValue = typeof setting.value === "number" ? setting.value : 0;
-          if (setting.numType === "int") {
-            gl.uniform1i(loc, Math.floor(numValue));
-          } else {
-            gl.uniform1f(loc, numValue);
-          }
-        }
-      } else if (setting.type === "checkbox") {
-        gl.uniform1i(loc, setting.value ? 1 : 0);
-      } else if (setting.type === "color") {
-        const rgb = this.hexToRgb(setting.value);
-        gl.uniform3f(loc, rgb[0], rgb[1], rgb[2]);
-      }
-    });
   }
 
   /**

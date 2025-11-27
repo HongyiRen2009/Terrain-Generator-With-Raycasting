@@ -9,14 +9,13 @@ import LightingVertexShaderSource from "../glsl/DeferredRendering/Lighting.vert"
 import LightingFragmentShaderSource from "../glsl/DeferredRendering/Lighting.frag";
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { WorldUtils } from "../../utils/WorldUtils";
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 import { vec3 } from "gl-matrix";
 import { Color } from "../../map/terrains";
 
 export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = false;
-  protected settingsSection: SettingsSection | null = null;
   private updateSunDirectionCallback?: (direction: vec3) => void;
   private jitterTexture: WebGLTexture | null = null;
   constructor(
@@ -351,12 +350,11 @@ export class LightingPass extends RenderPass {
   }
 
   private InitSettings() {
-    this.settingsSection = new SettingsSection(
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "Lighting Settings",
-      this.program!
+      "Lighting Settings"
     );
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Lighting Settings", {
       id: "disableSun",
       label: "Disable Sun",
       defaultValue: false,
@@ -364,7 +362,7 @@ export class LightingPass extends RenderPass {
         this.resourceCache.setData("disableSun", value);
       }
     });
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Lighting Settings", {
       id: "showCameraDepth",
       label: "Show Camera Depth",
       defaultValue: false,
@@ -429,7 +427,7 @@ export class LightingPass extends RenderPass {
       let currentElevation = initialElevation;
 
       // Sun azimuth slider (0-360 degrees)
-      this.settingsSection.addSlider({
+      SettingsManager.instance.addSliderToSection("Lighting Settings", {
         id: "sunAzimuth",
         label: "Sun Azimuth (degrees)",
         min: 0,
@@ -444,7 +442,7 @@ export class LightingPass extends RenderPass {
       });
 
       // Sun elevation slider (-90 to 90 degrees)
-      this.settingsSection.addSlider({
+      SettingsManager.instance.addSliderToSection("Lighting Settings", {
         id: "sunElevation",
         label: "Sun Elevation (degrees)",
         min: -90,

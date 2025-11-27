@@ -8,14 +8,13 @@ import { RenderUtils } from "../../utils/RenderUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { RenderTarget } from "../renderSystem/RenderTarget";
 import { TextureUtils } from "../../utils/TextureUtils";
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 
 export class GrassPass extends RenderPass {
   public VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = true;
 
   protected program: WebGLProgram | null;
-  protected settingsSection: SettingsSection | null = null;
 
   constructor(
     gl: WebGL2RenderingContext,
@@ -33,36 +32,36 @@ export class GrassPass extends RenderPass {
   }
 
   private initSettings() {
-    this.settingsSection = new SettingsSection(
+    // Combine GrassPass and GrassGeometryPass settings into one section
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "Grass Settings",
-      this.program!
+      "Grass Settings"
     );
 
     // Color settings
-    this.settingsSection.addColorPicker({
+    SettingsManager.instance.addColorPickerToSection("Grass Settings", {
       id: "baseColor",
       label: "Base Color",
       defaultValue: "#046204"
     });
-    this.settingsSection.addColorPicker({
+    SettingsManager.instance.addColorPickerToSection("Grass Settings", {
       id: "tipColor",
       label: "Tip Color",
       defaultValue: "#00ff00"
     });
-    this.settingsSection.addColorPicker({
+    SettingsManager.instance.addColorPickerToSection("Grass Settings", {
       id: "specularColor",
       label: "Specular Color",
       defaultValue: "#ffffff"
     });
-    this.settingsSection.addColorPicker({
+    SettingsManager.instance.addColorPickerToSection("Grass Settings", {
       id: "translucencyColor",
       label: "Translucency Color",
       defaultValue: "#b3ff80"
     });
 
     // Lighting settings
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "diffuseStrength",
       label: "Diffuse Strength",
       min: 0,
@@ -70,7 +69,7 @@ export class GrassPass extends RenderPass {
       step: 0.01,
       defaultValue: 0.3
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "baseDarkness",
       label: "Base Darkness",
       min: 0,
@@ -78,7 +77,7 @@ export class GrassPass extends RenderPass {
       step: 0.01,
       defaultValue: 0.7
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "specularStrength",
       label: "Specular Strength",
       min: 0,
@@ -86,7 +85,7 @@ export class GrassPass extends RenderPass {
       step: 0.01,
       defaultValue: 0.25
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "shininess",
       label: "Shininess",
       min: 1,
@@ -94,7 +93,7 @@ export class GrassPass extends RenderPass {
       step: 1,
       defaultValue: 32
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "translucencyStrength",
       label: "Translucency Strength",
       min: 0,
@@ -104,7 +103,7 @@ export class GrassPass extends RenderPass {
     });
 
     // Transition settings
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "ambientTransitionPower",
       label: "Ambient Transition Power",
       min: 0.1,
@@ -112,7 +111,7 @@ export class GrassPass extends RenderPass {
       step: 0.1,
       defaultValue: 1
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "specularTransitionPower",
       label: "Specular Transition Power",
       min: 0.1,
@@ -120,7 +119,7 @@ export class GrassPass extends RenderPass {
       step: 0.1,
       defaultValue: 2
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "translucencyTransitionPower",
       label: "Translucency Transition Power",
       min: 0.1,
@@ -128,6 +127,20 @@ export class GrassPass extends RenderPass {
       step: 0.1,
       defaultValue: 0.7
     });
+    SettingsManager.instance.attatchProgram(this.program!, [
+      "baseColor",
+      "tipColor",
+      "specularColor",
+      "translucencyColor",
+      "diffuseStrength",
+      "baseDarkness",
+      "specularStrength",
+      "shininess",
+      "translucencyStrength",
+      "ambientTransitionPower",
+      "specularTransitionPower",
+      "translucencyTransitionPower"
+    ]);
   }
 
   protected initRenderTarget(): RenderTarget {
@@ -183,7 +196,6 @@ export class GrassPass extends RenderPass {
     gl.disable(gl.BLEND);
 
     // Get geometry data from GrassGeometryPass
-    debugger;
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["grassDepthTexture"];
     const heightTexture = gBuffer["heightTexture"];
@@ -229,8 +241,7 @@ export class GrassPass extends RenderPass {
       false,
       cameraInfo.matProjInverse
     );
-
-    this.settingsSection?.updateUniforms(gl);
+    SettingsManager.instance.updateProgramUniforms(gl, this.program!);
 
     if (!pathtracerOn || this.pathtracerRender) {
       gl.bindVertexArray(vao.vao);

@@ -87,7 +87,6 @@ export class SSAOBlurPass extends RenderPass {
       "depthTexture",
       1
     );
-    this.settingsSection?.updateUniforms(this.gl);
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }

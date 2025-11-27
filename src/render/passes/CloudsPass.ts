@@ -1,4 +1,4 @@
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 import { RenderPass, VAOInputType } from "../renderSystem/RenderPass";
 import { RenderUtils } from "../../utils/RenderUtils";
 import {
@@ -17,7 +17,6 @@ import { DirectionalLight } from "../../map/Light";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = true;
-  protected settingsSection: SettingsSection | null = null;
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
   private noiseGenerator: NoiseGenerator;
@@ -107,7 +106,6 @@ export class CloudsPass extends RenderPass {
     const grassDepthTexture = gBuffer["grassDepthTexture"];
     const litSceneTexture = gBuffer["litSceneTexture"];
     const grassColorTexture = gBuffer["grassColorTexture"];
-    debugger;
     let cameraPosition = this.resourceCache.getData("cameraPosition");
     if (!cameraPosition) {
       cameraPosition = vec3.fromValues(0, 0, 0);
@@ -221,7 +219,7 @@ export class CloudsPass extends RenderPass {
       pathtracerOn ? 1 : 0
     );
 
-    this.settingsSection?.updateUniforms(this.gl);
+    SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
@@ -239,19 +237,18 @@ export class CloudsPass extends RenderPass {
   }
 
   private InitSettings() {
-    this.settingsSection = new SettingsSection(
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "Clouds Settings",
-      this.program!
+      "Clouds Settings"
     );
 
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Clouds Settings", {
       id: "enableClouds",
       label: "Enable Clouds",
       defaultValue: true
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "MAX_STEPS",
       label: "Cloud Ray Marching Max Steps",
       min: 8,
@@ -261,7 +258,7 @@ export class CloudsPass extends RenderPass {
       numType: "int"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "MAX_STEPS_LIGHT",
       label: "Cloud Light Ray Marching Max Steps",
       min: 4,
@@ -270,22 +267,24 @@ export class CloudsPass extends RenderPass {
       defaultValue: 8,
       numType: "int"
     });
-    this.settingsSection.addColorPicker({
+
+    SettingsManager.instance.addColorPickerToSection("Clouds Settings", {
       id: "baseCloudColor",
       label: "Base Cloud Color",
       defaultValue: "#FFFFFF"
     });
-    this.settingsSection.addSlider({
+
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "skyContribution",
       label: "Sky Color Contribution",
       min: 0.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.5,
+      defaultValue: 0.1,
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "absorption",
       label: "Cloud Absorption",
       min: 0,
@@ -295,7 +294,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "densityThreshold",
       label: "Cloud Density Threshold",
       min: -2.0,
@@ -305,7 +304,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "baseFrequency",
       label: "Cloud Base Frequency",
       min: 0.01,
@@ -315,7 +314,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "detailFrequency",
       label: "Cloud Detail Frequency",
       min: 0.1,
@@ -324,7 +323,7 @@ export class CloudsPass extends RenderPass {
       defaultValue: 1,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "simplexMultiplier",
       label: "Cloud Simplex Noise Multiplier",
       min: 0.0,
@@ -333,7 +332,7 @@ export class CloudsPass extends RenderPass {
       defaultValue: 0.5,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "lightAbsorption",
       label: "Cloud Light Absorption",
       min: 0,
@@ -343,7 +342,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "lightIntensity",
       label: "Cloud Light Intensity",
       min: 0,
@@ -353,7 +352,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "ambientIntensity",
       label: "Cloud Ambient Intensity",
       min: 0,
@@ -363,7 +362,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "darknessThreshold",
       label: "Cloud Darkness Threshold",
       min: 0.0,
@@ -372,7 +371,7 @@ export class CloudsPass extends RenderPass {
       defaultValue: 0.2,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "lightDarkSharpness",
       label: "Cloud Light/Dark Sharpness",
       min: 0.1,
@@ -381,7 +380,7 @@ export class CloudsPass extends RenderPass {
       defaultValue: 1.0,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "phaseG",
       label: "Cloud Phase Function g",
       min: -1.0,
@@ -391,7 +390,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "phaseMultiplier",
       label: "Cloud Phase Function Multiplier",
       min: 0.0,
@@ -401,7 +400,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "weatherMapOffsetX",
       label: "Cloud Weather Map Offset X",
       min: 0.0,
@@ -411,7 +410,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "weatherMapOffsetY",
       label: "Cloud Weather Map Offset Y",
       min: 0.0,
@@ -421,7 +420,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "windSpeed",
       label: "Cloud Wind Speed",
       min: 0.0,
@@ -431,7 +430,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "windDirectionX",
       label: "Cloud Wind Direction X",
       min: -1.0,
@@ -441,7 +440,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "windDirectionZ",
       label: "Cloud Wind Direction Z",
       min: -1.0,
@@ -450,6 +449,32 @@ export class CloudsPass extends RenderPass {
       defaultValue: 1.0,
       numType: "float"
     });
+
+    // Attach program uniforms for all settings
+    SettingsManager.instance.attatchProgram(this.program!, [
+      "enableClouds",
+      "MAX_STEPS",
+      "MAX_STEPS_LIGHT",
+      "baseCloudColor",
+      "skyContribution",
+      "absorption",
+      "densityThreshold",
+      "baseFrequency",
+      "detailFrequency",
+      "simplexMultiplier",
+      "lightAbsorption",
+      "lightIntensity",
+      "ambientIntensity",
+      "darknessThreshold",
+      "lightDarkSharpness",
+      "phaseG",
+      "phaseMultiplier",
+      "weatherMapOffsetX",
+      "weatherMapOffsetY",
+      "windSpeed",
+      "windDirectionX",
+      "windDirectionZ"
+    ]);
   }
   public resize(): void {
     // Delete old resources
