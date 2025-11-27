@@ -206,7 +206,7 @@ export class PathTracer {
       this.gl.getUniformLocation(this.meshProgram, "numBounces"),
       this.numBounces
     );
-    this.gl.uniform1f(
+    this.gl.uniform1i(
       this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"),
       this.frameNumber
     ); // Send as a float for seeding
@@ -388,7 +388,7 @@ export class PathTracer {
   }
 
   public resetAccumulation() {
-    this.frameNumber = 0;
+    this.frameNumber = 1;
     this.initBuffers();
   }
 }

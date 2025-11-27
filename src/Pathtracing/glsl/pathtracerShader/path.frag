@@ -1,13 +1,14 @@
 #version 300 es
 precision highp float;
 precision highp sampler3D;
+precision highp int;
 #define MAX_LIGHTS 30
 #define PI 3.1415926
 //#define NUM_TERRAINS 1000 
 
 //Note: 
 uniform sampler2D u_lastFrame;
-uniform float u_frameNumber;
+uniform int u_frameNumber;
 uniform int numBounces;
 
 
@@ -426,8 +427,8 @@ float sampleDetailNoise(vec3 p) {
     return (worley.r * 0.625f + worley.g * 0.25f + worley.b * 0.125f);
 }
 float sampleDensity(vec3 pos) {
-    vec3 windDirection = normalize(vec3(0.1, 0.0f, 0.1));
-    vec3 windOffset = vec3(0.0);
+    vec3 windDirection = normalize(vec3(1, 0.0f, 1));
+    vec3 windOffset = windDirection * 1.0 * 1.0 ;
     vec3 animatedPos = pos + windOffset;
 
     vec3 localPos = (animatedPos - u_cloudsCubeMin) / (u_cloudsCubeMax - u_cloudsCubeMin);
@@ -435,7 +436,7 @@ float sampleDensity(vec3 pos) {
 
     vec2 weatherUV = (animatedPos.xz - u_cloudsCubeMin.xz) / (u_cloudsCubeMax.xz - u_cloudsCubeMin.xz);
     vec2 weatherMapOffset = vec2(0.0);
-    vec2 weatherWindOffset = vec2(0.0);
+    vec2 weatherWindOffset = windDirection.xz * 1.0 * 1.0 * 0.001f;
     vec4 weather = texture(u_WeatherMap, weatherUV + weatherMapOffset + weatherWindOffset);
     float coverage = weather.r;
     if(coverage < 0.01f)
@@ -498,19 +499,22 @@ float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
 vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
     float cloudTmin;
     float cloudTmax;
-    intersectAABB(rayOrigin, rayDir, u_cloudsCubeMin, u_cloudsCubeMax, cloudTmin, cloudTmax);
-    if(cloudTmax - cloudTmin <= 0.0f) {
+    if(!intersectAABB(rayOrigin, rayDir, u_cloudsCubeMin, u_cloudsCubeMax, cloudTmin, cloudTmax)){
+        return vec4(0.0);
+    }
+    float cloudInside = cloudTmax - cloudTmin;
+    if(cloudInside <= 0.0f) {
         return vec4(0.0f);
     }
-
-    float tStep = (cloudTmax - cloudTmin)/128.0;
+    int MAX_STEPS = 32;
+    float tStep = (cloudInside)/float(MAX_STEPS);
     vec4 accumulatedColor = vec4(0.0f);
-    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);
+    float blueNoiseOffset = 0.0;//fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);
 
     const float DENSITY_THRESHOLD_SKIP = 0.01f;
     const float ALPHA_THRESHOLD = 0.99f;
 
-    for(int i = 0; i < 128; i++) {
+    for(int i = 0; i < MAX_STEPS; i++) {
         float t = cloudTmin + tStep * (float(i) + blueNoiseOffset);
 
         vec3 samplePos = rayOrigin + rayDir * t;
@@ -528,7 +532,7 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
         float lightTransmittance = sampleLight(samplePos, lightDir, density);
 
         // Phase function for silver lining
-        float cosTheta = dot(rayDir, lightDir);
+        float cosTheta = dot(normalize(rayDir), lightDir);
         float phaseVal = PhaseFunction(cosTheta, 0.5);
         phaseVal = mix(1.0f, phaseVal, 0.5);
 
@@ -601,7 +605,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
                 vec4 cloudHandled = handleClouds(rayOrigin,rayDir,vec3(0.54,0.824,0.94));
                 color = throughput * mix(vec3(0.54,0.824,0.94),cloudHandled.xyz,cloudHandled.a);
             }else{
-                color += throughput * 0.00001; // light sky!
+                color = vec3(0.0);
             }
             break;
         }
@@ -633,14 +637,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         vec3 BRDF = matColor / PI;
         
         //in the future consider NEE (Next Event Estimation) - Was removed cause buggy
-        //Next Event Estimation (Direct Lighting)]
-        if(type == 1){ //Diffuse only for now
-            Light lightSample = lights[0]; // Pick first light for now
-            vec3 toLight = lightSample.position - hitPoint;
-            float distToLight = length(toLight);
-            toLight = normalize(toLight);
-            
-        }
+
 
         // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
@@ -732,9 +729,14 @@ void main() {
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
     vec3 rayOrigin = u_cameraPos;
 
-    vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color
     vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color
-    vec3 newSum = lastSum + newSampleColor; // New sum
+    vec3 newSum;
+    if(u_frameNumber == 1){
+        newSum = newSampleColor;
+    }else{
+        vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color
+        newSum = lastSum + (newSampleColor - lastSum)/float(u_frameNumber);
+    }
 
     fragColor = vec4(newSum,1.0); 
 }
