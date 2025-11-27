@@ -18,6 +18,7 @@ import { CubeShadowsPass } from "./passes/CubeShadowsPass";
 import { GrassPass } from "./passes/GrassPass";
 import { FinalPass } from "./passes/FinalPass";
 import { GrassGeometryPass } from "./passes/GrassGeometryPass";
+import { CombineGeometryPass } from "./passes/CombineGeometryPass";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -141,35 +142,31 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const combineGeometryPass = new CombineGeometryPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     // Build render graph tree structure
 
     this.renderGraph.addRoot(geometryPass);
-    this.renderGraph.add(grassGeometryPass, geometryPass);
-    this.renderGraph.add(csmPass, geometryPass);
-    this.renderGraph.add(cubeShadowsPass, geometryPass);
-    this.renderGraph.add(ssaoPass, geometryPass);
-    this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
+    this.renderGraph.addRoot(grassGeometryPass);
+    this.renderGraph.add(grassPass, grassGeometryPass, geometryPass);
+    this.renderGraph.add(combineGeometryPass, geometryPass, grassGeometryPass);
+    this.renderGraph.add(csmPass, combineGeometryPass);
+    this.renderGraph.add(cubeShadowsPass, combineGeometryPass);
+    this.renderGraph.add(ssaoPass, combineGeometryPass);
+    this.renderGraph.add(ssaoBlurPass, ssaoPass, combineGeometryPass);
     this.renderGraph.add(
       lightingPass,
       ssaoBlurPass,
       csmPass,
       cubeShadowsPass,
-      geometryPass
+      combineGeometryPass
     );
     this.renderGraph.add(debugPass, lightingPass);
-    this.renderGraph.add(
-      grassPass,
-      lightingPass,
-      geometryPass,
-      grassGeometryPass
-    );
-    this.renderGraph.add(
-      cloudsPass,
-      lightingPass,
-      geometryPass,
-      grassPass,
-      grassGeometryPass
-    );
+    this.renderGraph.add(cloudsPass, lightingPass, combineGeometryPass);
     this.renderGraph.add(finalPass, cloudsPass);
   }
 

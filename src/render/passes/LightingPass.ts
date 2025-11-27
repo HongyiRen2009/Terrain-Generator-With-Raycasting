@@ -177,6 +177,7 @@ export class LightingPass extends RenderPass {
       15,
       this.gl.TEXTURE_3D
     );
+    SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
     this.gl.uniform1i(this.uniforms["jitterSize"], jitterSize);
     this.gl.uniform1i(this.uniforms["filterSize"], filterSize);
     this.gl.uniform1f(
@@ -456,6 +457,22 @@ export class LightingPass extends RenderPass {
         }
       });
     }
+    SettingsManager.instance.attatchProgram(this.program!, [
+      "grassSpecularStrength",
+      "grassShininess",
+      "grassTranslucencyStrength",
+      "grassAmbientTransitionPower",
+      "grassSpecularTransitionPower",
+      "grassTranslucencyTransitionPower",
+      "grassDiffuseStrength",
+      "grassBaseDarkness",
+      "grassBaseColor",
+      "grassTipColor",
+      "grassSpecularColor",
+      "grassTranslucencyColor",
+      "sunShadowStrength",
+      "pointLightShadowStrength"
+    ]);
   }
   public updateJitterTexture(jitterSize: number, filterSize: number): void {
     this.jitterTexture = createJitterTexture(this.gl, jitterSize, filterSize);

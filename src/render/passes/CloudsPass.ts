@@ -101,11 +101,10 @@ export class CloudsPass extends RenderPass {
     this.gl.disable(this.gl.DEPTH_TEST);
     this.gl.useProgram(this.program);
     this.gl.bindVertexArray(vao.vao);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["depth"];
-    const grassDepthTexture = gBuffer["grassDepthTexture"];
     const litSceneTexture = gBuffer["litSceneTexture"];
-    const grassColorTexture = gBuffer["grassColorTexture"];
     let cameraPosition = this.resourceCache.getData("cameraPosition");
     if (!cameraPosition) {
       cameraPosition = vec3.fromValues(0, 0, 0);
@@ -166,23 +165,9 @@ export class CloudsPass extends RenderPass {
     TextureUtils.bindTex(
       this.gl,
       this.program!,
-      grassDepthTexture,
-      "grassDepthTexture",
-      3
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
       litSceneTexture,
       "litSceneTexture",
-      4
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      grassColorTexture,
-      "grassColorTexture",
-      5
+      3
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunPos"),

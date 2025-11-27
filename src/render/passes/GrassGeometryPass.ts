@@ -48,14 +48,6 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.DEPTH_COMPONENT,
       this.gl.FLOAT
     );
-    const heightTexture = TextureUtils.createTexture2D(
-      this.gl,
-      this.canvas.width,
-      this.canvas.height,
-      this.gl.R16F,
-      this.gl.RED,
-      this.gl.FLOAT
-    );
     const normalTexture = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
@@ -64,12 +56,12 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.RGBA,
       this.gl.FLOAT
     );
-    const curveAngle = TextureUtils.createTexture2D(
+    const albedoTexture = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
       this.canvas.height,
-      this.gl.R16F,
-      this.gl.RED,
+      this.gl.RGBA16F,
+      this.gl.RGBA,
       this.gl.FLOAT
     );
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
@@ -77,23 +69,17 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
       this.gl.TEXTURE_2D,
-      heightTexture,
+      normalTexture,
       0
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT1,
       this.gl.TEXTURE_2D,
-      normalTexture,
+      albedoTexture,
       0
     );
-    this.gl.framebufferTexture2D(
-      this.gl.FRAMEBUFFER,
-      this.gl.COLOR_ATTACHMENT2,
-      this.gl.TEXTURE_2D,
-      curveAngle,
-      0
-    );
+
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.DEPTH_ATTACHMENT,
@@ -101,53 +87,158 @@ export class GrassGeometryPass extends RenderPass {
       depthTexture,
       0
     );
-    this.gl.drawBuffers([
-      this.gl.COLOR_ATTACHMENT0,
-      this.gl.COLOR_ATTACHMENT1,
-      this.gl.COLOR_ATTACHMENT2
-    ]);
+    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     return {
       fbo,
       textures: {
-        grassDepthTexture: depthTexture,
-        heightTexture,
-        grassNormalTexture: normalTexture,
-        curveAngle
+        grassDepth: depthTexture,
+        grassNormal: normalTexture,
+        grassAlbedo: albedoTexture
       }
     };
   }
 
   private initSettings(): void {
+    SettingsManager.instance.createSection(
+      document.getElementById("settings-section")!,
+      "Grass Settings"
+    );
+
+    // Color settings
+    SettingsManager.instance.addColorPickerToSection("Grass Settings", {
+      id: "grassBaseColor",
+      label: "Grass Base Color",
+      defaultValue: "#046204"
+    });
+    SettingsManager.instance.addColorPickerToSection("Grass Settings", {
+      id: "grassTipColor",
+      label: "Grass Tip Color",
+      defaultValue: "#00ff00"
+    });
+    SettingsManager.instance.addColorPickerToSection("Grass Settings", {
+      id: "grassSpecularColor",
+      label: "Grass Specular Color",
+      defaultValue: "#ffffff"
+    });
+    SettingsManager.instance.addColorPickerToSection("Grass Settings", {
+      id: "grassTranslucencyColor",
+      label: "Grass Translucency Color",
+      defaultValue: "#b3ff80"
+    });
+
+    // Lighting settings
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassDiffuseStrength",
+      label: "Grass Diffuse Strength",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.3
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassBaseDarkness",
+      label: "Grass Base Darkness",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.7
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassSpecularStrength",
+      label: "Grass Specular Strength",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.25
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassShininess",
+      label: "Grass Shininess",
+      min: 1,
+      max: 100,
+      step: 1,
+      defaultValue: 32
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassTranslucencyStrength",
+      label: "Grass Translucency Strength",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.7
+    });
+
+    // Transition settings
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassAmbientTransitionPower",
+      label: "Grass Ambient Transition Power",
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+      defaultValue: 1
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassSpecularTransitionPower",
+      label: "Grass Specular Transition Power",
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+      defaultValue: 2
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassTranslucencyTransitionPower",
+      label: "Grass Translucency Transition Power",
+      min: 0.1,
+      max: 5,
+      step: 0.1,
+      defaultValue: 0.7
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "sunShadowStrength",
+      label: "Sun Shadow Strength",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.5
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "pointLightShadowStrength",
+      label: "Point Light Shadow Strength",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.5
+    });
     // Wind settings
     SettingsManager.instance.addSliderToSection("Grass Settings", {
-      id: "windStrength",
-      label: "Wind Strength",
+      id: "grassWindStrength",
+      label: "Grass Wind Strength",
       min: 0,
       max: 5,
       step: 0.1,
       defaultValue: 0.5
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
-      id: "windFrequency",
-      label: "Wind Frequency",
+      id: "grassWindFrequency",
+      label: "Grass Wind Frequency",
       min: 0.1,
       max: 5,
       step: 0.1,
       defaultValue: 0.13
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
-      id: "windSpeed",
-      label: "Wind Speed",
+      id: "grassWindSpeed",
+      label: "Grass Wind Speed",
       min: 0,
       max: 5,
       step: 0.01,
       defaultValue: 0.3
     });
     SettingsManager.instance.attatchProgram(this.program!, [
-      "windStrength",
-      "windFrequency",
-      "windSpeed"
+      "grassWindStrength",
+      "grassWindFrequency",
+      "grassWindSpeed"
     ]);
   }
 
@@ -215,7 +306,6 @@ export class GrassGeometryPass extends RenderPass {
       | vec3
       | undefined;
     const gBuffer = this.renderGraph!.getOutputs(this);
-    const depthTexture = gBuffer["depth"];
     if (!cameraPos) return;
 
     if (cameraInfo) {
@@ -257,7 +347,6 @@ export class GrassGeometryPass extends RenderPass {
       "windDirectionNoiseTex",
       1
     );
-    TextureUtils.bindTex(gl, this.program!, depthTexture, "depthTexture", 2);
     SettingsManager.instance.updateProgramUniforms(gl, this.program!);
 
     const grassVAO = vao_info as GrassVAOInfo;

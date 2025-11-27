@@ -10,12 +10,12 @@ uniform mat4 projMatrix;
 uniform sampler2D windStrengthNoiseTex;
 uniform sampler2D windDirectionNoiseTex;
 uniform float time;
-uniform float windStrength;
-uniform float windSpeed;
-uniform float windFrequency;
+uniform float grassWindStrength;
+uniform float grassWindSpeed;
+uniform float grassWindFrequency;
 out float vHeight;
 out vec3 vNormal;
-out vec3 vCurveAngle;
+out float vCurveAngle;
 
 const float PI = 3.14159265359f;
 mat3 rotateAxisAngle(vec3 axis, float angle) {
@@ -32,12 +32,12 @@ float remap(float value, float min1, float max1, float min2, float max2) {
     return min2 + (value - min1) * (max2 - min2) / (max1 - min1);
 }
 void main() {
-    float windSamplePos = basePosition.x * 0.1f + time * windSpeed;
-    float windSamplePosZ = basePosition.z * 0.1f + time * windSpeed;
-    float windStrengthSample = texture(windStrengthNoiseTex, vec2(windSamplePos, windSamplePosZ) * windFrequency).r;
-    float windDir = texture(windDirectionNoiseTex, vec2(windSamplePos + 100.0f, windSamplePosZ + 100.0f) * windFrequency).r * 2.0f * PI;
+    float windSamplePos = basePosition.x * 0.1f + time * grassWindSpeed;
+    float windSamplePosZ = basePosition.z * 0.1f + time * grassWindSpeed;
+    float windStrengthSample = texture(windStrengthNoiseTex, vec2(windSamplePos, windSamplePosZ) * grassWindFrequency).r;
+    float windDir = texture(windDirectionNoiseTex, vec2(windSamplePos + 100.0f, windSamplePosZ + 100.0f) * grassWindFrequency).r * 2.0f * PI;
     windDir = remap(windDir, 0.0f, 2.0f * PI, -PI, PI);
-    float windLeanAngle = remap(windStrengthSample, 0.0f, 1.0f, 0.0f, windStrength);
+    float windLeanAngle = remap(windStrengthSample, 0.0f, 1.0f, 0.0f, grassWindStrength);
     windLeanAngle = easeOut(windLeanAngle, 2.0f);
     vec3 windAxis = vec3(-sin(windDir), 0.0f, cos(windDir));
     mat3 windRotation = rotateAxisAngle(windAxis, windLeanAngle);
@@ -64,7 +64,7 @@ void main() {
     // Normal is cross product
     vNormal = normalize(cross(tangent, bitangent));
 
-    vCurveAngle = curveAxis;
+    vCurveAngle = curveAngle;
 
     gl_Position = projMatrix * viewMatrix * vec4(worldPosition, 1.0f);
 

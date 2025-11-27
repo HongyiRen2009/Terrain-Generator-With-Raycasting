@@ -11,9 +11,7 @@ uniform mat4 projInverse;
 uniform sampler3D noiseTexture;
 uniform sampler2D weatherMap;
 uniform sampler2D depthTexture;
-uniform sampler2D grassDepthTexture;
 uniform sampler2D litSceneTexture;
-uniform sampler2D grassColorTexture;
 uniform vec3 sunPos;
 uniform vec3 sunColor;
 
@@ -151,13 +149,7 @@ vec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {
 }
 
 void main() {
-    vec3 grassColor = texture(grassColorTexture, fragUV).rgb;
-    vec4 lit;
-    if(length(grassColor) < 0.01f) {
-        lit = vec4(texture(litSceneTexture, fragUV).rgb, 1.0f);
-    } else {
-        lit = vec4(texture(grassColorTexture, fragUV).rgb, 1.0f);
-    }
+    vec4 lit = texture(litSceneTexture, fragUV);
     if(!enableClouds) {
         if(pathtracerOn == 1) {
             discard;
@@ -174,12 +166,7 @@ void main() {
     vec3 rayOriginWorld = cameraPosition;
 
     // Read scene depth
-    float sceneDepth;
-    if(pathtracerOn != 1 && length(grassColor) < 0.01f) {
-        sceneDepth = texture(grassDepthTexture, fragUV).r;
-    } else {
-        sceneDepth = texture(depthTexture, fragUV).r;
-    }
+    float sceneDepth = texture(depthTexture, fragUV).r;
 
     // Calculate world position of terrain from depth buffer
     vec3 terrainWorldPos = getWorldPositionFromDepth(fragUV, sceneDepth);

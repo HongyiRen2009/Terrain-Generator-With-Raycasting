@@ -57,6 +57,22 @@ uniform PointLight pointLights[MAX_LIGHTS];
 uniform int numActivePointLights;
 uniform vec3 cameraPosition;
 
+// Add these uniforms near the top with other uniforms
+uniform float grassSpecularStrength;
+uniform float grassShininess;
+uniform float grassTranslucencyStrength;
+uniform float grassAmbientTransitionPower;
+uniform float grassSpecularTransitionPower;
+uniform float grassTranslucencyTransitionPower;
+uniform float grassDiffuseStrength;
+uniform float grassBaseDarkness;
+uniform vec3 grassBaseColor;
+uniform vec3 grassTipColor;
+uniform vec3 grassSpecularColor;
+uniform vec3 grassTranslucencyColor;
+uniform float sunShadowStrength;
+uniform float pointLightShadowStrength;
+
 vec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {
     float depth = texture(depthTexture, texCoord).r;
     vec2 ndc = texCoord * 2.0f - 1.0f;
@@ -70,67 +86,80 @@ vec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {
     return worldPos.xyz;
 }
 
-int chooseCascade (float viewDepth) {
+int chooseCascade(float viewDepth) {
     // View depth is negative (camera looks down -Z), cascade splits are positive distances
     float depth = abs(viewDepth);
-    for (int i = 0; i < 8; i++) {
-        if (i >= numCascades) break;
-        if (depth < cascadeSplits[i]) return i;
+    for(int i = 0; i < 8; i++) {
+        if(i >= numCascades)
+            break;
+        if(depth < cascadeSplits[i])
+            return i;
     }
     return numCascades - 1; // Return last cascade if beyond all splits
 }
 
-float pointShadowSample(int lightIndex, vec3 vector){
+float pointShadowSample(int lightIndex, vec3 vector) {
     float stored;
     switch(lightIndex) {
-        case 0: stored = texture(pointShadowTexture[0], vector).r; break;
-        case 1: stored = texture(pointShadowTexture[1], vector).r; break;
-        case 2: stored = texture(pointShadowTexture[2], vector).r; break;
-        case 3: stored = texture(pointShadowTexture[3], vector).r; break;
-        case 4: stored = texture(pointShadowTexture[4], vector).r; break;
-        default: return 1.0;    
+        case 0:
+            stored = texture(pointShadowTexture[0], vector).r;
+            break;
+        case 1:
+            stored = texture(pointShadowTexture[1], vector).r;
+            break;
+        case 2:
+            stored = texture(pointShadowTexture[2], vector).r;
+            break;
+        case 3:
+            stored = texture(pointShadowTexture[3], vector).r;
+            break;
+        case 4:
+            stored = texture(pointShadowTexture[4], vector).r;
+            break;
+        default:
+            return 1.0f;
     }
     return stored;
 }
 
-float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex){
+float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex) {
 
-    if (!cubeShadowsOn){
-        return 1.0;
+    if(!cubeShadowsOn) {
+        return 1.0f;
     }
     vec3 toFrag = worldPos - pointLights[lightIndex].position;
     float currentDist = length(toFrag);
     // Shadow map covers 3x radius, but we only apply shadows where light has meaningful contribution
     // Beyond 3x radius, consider it fully lit (light attenuation is negligible anyway)
-    float shadowMapRange = pointLights[lightIndex].radius * 3.0;
+    float shadowMapRange = pointLights[lightIndex].radius * 3.0f;
     vec3 lightDir = normalize(-toFrag);
-    float angleFactor = clamp(1.0 - max(dot(worldNormal, lightDir), 0.0), 0.0, 1.0);
-    float biasScalar = pointShadowBias * (1.5 + angleFactor * 3.0);
+    float angleFactor = clamp(1.0f - max(dot(worldNormal, lightDir), 0.0f), 0.0f, 1.0f);
+    float biasScalar = pointShadowBias * (1.5f + angleFactor * 3.0f);
     float depthBias = biasScalar * shadowMapRange;
-    if (currentDist > shadowMapRange) {
-        return 1.0;
+    if(currentDist > shadowMapRange) {
+        return 1.0f;
     }
 
-    if (usingPCF){
+    if(usingPCF) {
         ivec3 offsetCoord;
         vec2 f = mod(gl_FragCoord.xy, vec2(jitterSize));
         offsetCoord.yz = ivec2(f);
-        float shadow = 0.0;
+        float shadow = 0.0f;
         int samplesDiv2 = (filterSize * filterSize) / 2;
         // For cube maps, texel size in world space depends on distance from light
         // Calculate world-space texel size based on current distance and cube map resolution
-        float texelSizeWorld = (currentDist / float(cubeMapSize)) * 2.0;
-        float depth = 0.0;
+        float texelSizeWorld = (currentDist / float(cubeMapSize)) * 2.0f;
+        float depth = 0.0f;
         vec3 forward = normalize(toFrag);
-        vec3 right = cross(forward, vec3(0,1,0));
-        if (length(right) < 0.001) {
+        vec3 right = cross(forward, vec3(0, 1, 0));
+        if(length(right) < 0.001f) {
             // If forward is parallel to up vector, use different basis
-            right = cross(forward, vec3(1,0,0));
+            right = cross(forward, vec3(1, 0, 0));
         }
         right = normalize(right);
         vec3 up = normalize(cross(right, forward));
-        
-        for (int i = 0; i < 4; i++){
+
+        for(int i = 0; i < 4; i++) {
             offsetCoord.x = i;
             vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
             // Scale offsets by world-space texel size
@@ -139,31 +168,31 @@ float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex){
             depth = pointShadowSample(lightIndex, sc);
             // Convert stored depth back to world distance
             depth = depth * shadowMapRange;
-            shadow += (currentDist - depthBias > depth) ? 0.0 : 1.0;
-            
+            shadow += (currentDist - depthBias > depth) ? 0.0f : 1.0f;
+
             offset = right * Offsets.b * texelSizeWorld + up * Offsets.a * texelSizeWorld;
             sc = normalize(toFrag + offset);
             depth = pointShadowSample(lightIndex, sc);
             depth = depth * shadowMapRange;
-            shadow += (currentDist - depthBias > depth) ? 0.0 : 1.0;
+            shadow += (currentDist - depthBias > depth) ? 0.0f : 1.0f;
         }
-        shadow = shadow / 8.0;
-        
-        if (shadow != 0.0 && shadow != 1.0){
-            for(int i = 4; i < samplesDiv2; i++){
-                 offsetCoord.x = i;
+        shadow = shadow / 8.0f;
+
+        if(shadow != 0.0f && shadow != 1.0f) {
+            for(int i = 4; i < samplesDiv2; i++) {
+                offsetCoord.x = i;
                 vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
                 vec3 offset = right * Offsets.r * texelSizeWorld + up * Offsets.g * texelSizeWorld;
                 vec3 sc = normalize(toFrag + offset);
                 depth = pointShadowSample(lightIndex, sc);
                 depth = depth * shadowMapRange;
-                shadow += (currentDist - depthBias > depth) ? 0.0 : 1.0;
-                
+                shadow += (currentDist - depthBias > depth) ? 0.0f : 1.0f;
+
                 offset = right * Offsets.b * texelSizeWorld + up * Offsets.a * texelSizeWorld;
                 sc = normalize(toFrag + offset);
                 depth = pointShadowSample(lightIndex, sc);
                 depth = depth * shadowMapRange;
-                 shadow += (currentDist - depthBias > depth) ? 0.0 : 1.0;
+                shadow += (currentDist - depthBias > depth) ? 0.0f : 1.0f;
 
             }
             shadow = shadow / float(samplesDiv2 * 2);
@@ -173,76 +202,76 @@ float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex){
     // Cannot dynamically index sampler arrays in GLSL ES 3.00
     // Use switch with constant indices
     float stored = pointShadowSample(lightIndex, toFrag);
-    
+
     // Convert stored normalized depth back to world distance
     // stored is normalized by 3x radius, so multiply by 3x radius
     stored = stored * shadowMapRange;
-    
-    float shadow = (currentDist - depthBias > stored) ? 0.0 : 1.0;
+
+    float shadow = (currentDist - depthBias > stored) ? 0.0f : 1.0f;
     return shadow;
 }
 
-float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex){
+float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
     // If CSM is disabled, return no shadow
-    if (!csmEnabled) {
-        return 1.0;
+    if(!csmEnabled) {
+        return 1.0f;
     }
-    
+
     vec3 lightDir = normalize(-SunLight.direction);
-    float ndotl = max(dot(worldNormal, lightDir), 0.0);
-    float angleFactor = clamp(1.0 - ndotl, 0.0, 1.0);
+    float ndotl = max(dot(worldNormal, lightDir), 0.0f);
+    float angleFactor = clamp(1.0f - ndotl, 0.0f, 1.0f);
     float baseBias = csmShadowBias[cascadeIndex];
-    float cascadeBias = baseBias * (2.5 + angleFactor * 3.5);
-    if (usingPCF) {
-        cascadeBias += baseBias * (pcfRadius * 0.05);
+    float cascadeBias = baseBias * (2.5f + angleFactor * 3.5f);
+    if(usingPCF) {
+        cascadeBias += baseBias * (pcfRadius * 0.05f);
     }
-    
+
     //World Space to Light Space
-    vec4 lp = lightSpaceMatrices[cascadeIndex] * vec4(worldPos, 1.0);
+    vec4 lp = lightSpaceMatrices[cascadeIndex] * vec4(worldPos, 1.0f);
     vec3 projCoords = lp.xyz / lp.w; // NDC
 
     //NDC to UV
-    projCoords = projCoords * 0.5 + 0.5;
-    
+    projCoords = projCoords * 0.5f + 0.5f;
+
     // Check if fragment is outside the shadow map bounds
-    if(projCoords.x < 0.0 || projCoords.x > 1.0 || 
-       projCoords.y < 0.0 || projCoords.y > 1.0 ||
-       projCoords.z < 0.0 || projCoords.z > 1.0) {
+    if(projCoords.x < 0.0f || projCoords.x > 1.0f ||
+        projCoords.y < 0.0f || projCoords.y > 1.0f ||
+        projCoords.z < 0.0f || projCoords.z > 1.0f) {
         // Fragment is outside shadow map, consider it lit (or in shadow based on your preference)
-        return 1.0; // Return lit for fragments outside the shadow frustum
+        return 1.0f; // Return lit for fragments outside the shadow frustum
     }
 
-    if (usingPCF){
+    if(usingPCF) {
         ivec3 offsetCoord;
         vec2 f = mod(gl_FragCoord.xy, vec2(jitterSize));
         offsetCoord.yz = ivec2(f);
-        float shadow = 0.0;
+        float shadow = 0.0f;
         int samplesDiv2 = (filterSize * filterSize) / 2;
-        float texelSize = 1.0 / float(csmShadowMapSize);
-        vec4 sc = vec4(projCoords, 1.0);
-        float depth = 0.0;
-        for (int i = 0; i < 4; i++){
+        float texelSize = 1.0f / float(csmShadowMapSize);
+        vec4 sc = vec4(projCoords, 1.0f);
+        float depth = 0.0f;
+        for(int i = 0; i < 4; i++) {
             offsetCoord.x = i;
             vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
             sc.xy = projCoords.xy + Offsets.rg * texelSize;
             depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
-            shadow += (projCoords.z - cascadeBias > depth) ? 0.0 : 1.0;
+            shadow += (projCoords.z - cascadeBias > depth) ? 0.0f : 1.0f;
             sc.xy = projCoords.xy + Offsets.ba * texelSize;
             depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
-            shadow += (projCoords.z - cascadeBias > depth) ? 0.0 : 1.0;
+            shadow += (projCoords.z - cascadeBias > depth) ? 0.0f : 1.0f;
         }
-        shadow = shadow / 8.0;
-        
-        if (shadow != 0.0 && shadow != 1.0){
-            for(int i = 4; i < samplesDiv2; i++){
+        shadow = shadow / 8.0f;
+
+        if(shadow != 0.0f && shadow != 1.0f) {
+            for(int i = 4; i < samplesDiv2; i++) {
                 offsetCoord.x = i;
                 vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
                 sc.xy = projCoords.xy + Offsets.rg * texelSize;
                 depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
-                shadow += (projCoords.z - cascadeBias > depth) ? 0.0 : 1.0;
+                shadow += (projCoords.z - cascadeBias > depth) ? 0.0f : 1.0f;
                 sc.xy = projCoords.xy + Offsets.ba * texelSize;
                 depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
-                shadow += (projCoords.z - cascadeBias > depth) ? 0.0 : 1.0;
+                shadow += (projCoords.z - cascadeBias > depth) ? 0.0f : 1.0f;
             }
             shadow = shadow / float(samplesDiv2 * 2);
         }
@@ -253,48 +282,146 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex){
     // Use texture array with layer index
     float closestDepth = texture(shadowDepthTextureArray, vec3(projCoords.xy, float(cascadeIndex))).r;
 
-
     // Shadow calculation: if current depth (point being tested) is greater than 
     // the closest depth in shadow map + bias, it's in shadow
     // Return 0.0 = in shadow, 1.0 = lit (for lighting multiplication)
-    return (currentDepth - cascadeBias > closestDepth) ? 0.0 : 1.0;
+    return (currentDepth - cascadeBias > closestDepth) ? 0.0f : 1.0f;
+}
+
+vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float ambientOcclusion, float sunShadow) {
+    vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;
+    vec3 lighting = ambient;
+
+    // Process directional light
+    vec3 lightDir = normalize(-SunLight.direction);
+    float diff = max(dot(lightDir, worldNormal), 0.0f);
+    vec3 diffuse = diff * albedo * SunLight.color * SunLight.intensity;
+
+    vec3 viewDir = normalize(cameraPosition - worldPos);
+    vec3 reflectDir = reflect(-lightDir, worldNormal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);
+    vec3 specular = spec * SunLight.color * SunLight.intensity;
+
+    lighting += (diffuse + specular) * sunShadow;
+
+    // Process point lights
+    for(int i = 0; i < numActivePointLights; i++) {
+        float pointLightShadow = (i < numShadowedLights) ? computePointShadow(worldPos, worldNormal, i) : 1.0f;
+        vec3 pointLightDir = normalize(pointLights[i].position - worldPos);
+        float pointDiff = max(dot(pointLightDir, worldNormal), 0.0f);
+        vec3 pointDiffuse = pointDiff * albedo * pointLights[i].color * pointLights[i].intensity;
+
+        vec3 pointReflectDir = reflect(-pointLightDir, worldNormal);
+        float pointSpec = pow(max(dot(viewDir, pointReflectDir), 0.0f), 16.0f);
+        vec3 pointSpecular = pointSpec * pointLights[i].color * pointLights[i].intensity;
+
+        float distance = length(pointLights[i].position - worldPos);
+        float attenuation = 1.0f / (1.0f + (distance / pointLights[i].radius) * (distance / pointLights[i].radius));
+        pointDiffuse *= attenuation;
+        pointSpecular *= attenuation;
+
+        lighting += (pointDiffuse + pointSpecular) * pointLightShadow;
+    }
+
+    return lighting;
+}
+
+vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float curveAngle, float sunShadow) {
+        // albedoData contains (height, curveAngle, 0.0, materialId)
+
+    vec3 toCamera = normalize(-SunLight.direction);
+    toCamera.y = 0.0f;
+
+    float curveViewDot = cos(curveAngle) * toCamera.x + sin(curveAngle) * toCamera.z;
+    bool isInnerCurve = curveViewDot > 0.0f;
+
+    vec3 lightDir = normalize(-SunLight.direction);
+    vec3 viewDirection = normalize(cameraPosition - worldPos);
+
+    float t = clamp(vHeight / 1.5f, 0.0f, 1.0f);
+    vec3 grassColor = mix(grassBaseColor, grassTipColor, pow(t, grassAmbientTransitionPower));
+
+    vec3 normal = normalize(worldNormal) * (isInnerCurve ? -1.0f : 1.0f);
+    float diffuse = max(dot(normal, lightDir), 0.0f);
+    grassColor *= grassBaseDarkness + grassDiffuseStrength * diffuse;
+
+        // Anisotropic specular (Kajiya-Kay model for hair/grass)
+    vec3 tangent = normalize(cross(normal, vec3(0.0f, 1.0f, 0.0f)));
+    vec3 halfDir = normalize(lightDir + viewDirection);
+    float tdh = dot(tangent, halfDir);
+    float spec = pow(sqrt(1.0f - tdh * tdh), grassShininess);
+    spec = mix(0.0f, spec, pow(t, grassSpecularTransitionPower));
+    vec3 specular = grassSpecularStrength * spec * grassSpecularColor;
+    grassColor += specular;
+
+    float translucency = max(dot(-lightDir, normal), 0.0f);
+    translucency = mix(0.0f, translucency, pow(t, grassTranslucencyTransitionPower));
+    grassColor += grassTranslucencyColor * translucency * grassTranslucencyStrength;
+
+        // Apply sun shadow
+    grassColor *= mix(1.0f, sunShadow, sunShadowStrength);
+
+        // Apply point lights
+    for(int i = 0; i < numActivePointLights; i++) {
+        float pointLightShadow = (i < numShadowedLights) ? computePointShadow(worldPos, worldNormal, i) : 1.0f;
+        vec3 pointLightDir = normalize(pointLights[i].position - worldPos);
+
+            // Diffuse contribution from point light
+        float pointDiffuse = max(dot(normal, pointLightDir), 0.0f);
+        vec3 pointDiffuseColor = pointDiffuse * pointLights[i].color * pointLights[i].intensity;
+
+            // Anisotropic specular for point light
+        vec3 pointHalfDir = normalize(pointLightDir + viewDirection);
+        float pointTdh = dot(tangent, pointHalfDir);
+        float pointSpec = pow(sqrt(1.0f - pointTdh * pointTdh), grassShininess);
+        pointSpec = mix(0.0f, pointSpec, pow(t, grassSpecularTransitionPower));
+        vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor;
+
+            // Point light attenuation
+        float distance = length(pointLights[i].position - worldPos);
+        float attenuation = 1.0f / (1.0f + (distance / pointLights[i].radius) * (distance / pointLights[i].radius));
+
+        grassColor += (pointDiffuseColor + pointSpecular) * attenuation * mix(1.0f, pointLightShadow, pointLightShadowStrength);
+    }
+
+    return grassColor;
 }
 
 void main() {
+
     // Camera Depth Visualization Mode - Display the raw camera depth texture directly
-    if (showCameraDepth) {
+    if(showCameraDepth) {
         // Read depth directly from texture
         float depth = texture(depthTexture, fragUV).r;
-        
+
         vec3 color;
-        if (depth == 0.0 || depth == 1.0) {
+        if(depth == 0.0f || depth == 1.0f) {
             // Exactly 0.0 or 1.0 - likely means depth isn't being written (red to indicate error)
-            color = vec3(1.0, 0.0, 0.0); // Red
+            color = vec3(1.0f, 0.0f, 0.0f); // Red
         } else {
             // Depth is being written - create a visible gradient
             // Note: White = near plane, Black = far plane (depth values are inverted)
             // Invert for proper visualization (black=near, white=far)
-            float depthToUse = 1.0 - depth;
-            
+            float depthToUse = 1.0f - depth;
+
             // The depth values are clustered at extremes (very close to 0 or 1)
             // To create a visible gradient, we need to expand the range
             // Use a power curve to stretch the middle values
-            float normalizedDepth = pow(depthToUse, 0.5); // Square root to expand middle range
-            
+            float normalizedDepth = pow(depthToUse, 0.5f); // Square root to expand middle range
+
             // Visualize as grayscale gradient
             // Black = near plane, White = far plane
             color = vec3(normalizedDepth);
         }
-        
-        outputColor = vec4(color, 1.0);
+
+        outputColor = vec4(color, 1.0f);
         return;
     }
-    
     vec3 fragViewPos = getViewPosition(fragUV, projInverse);
     vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);
 
     float cascadeViewDepth = abs(fragViewPos.z);
-    if (debugPauseMode) {
+    if(debugPauseMode) {
         vec4 pausedViewPos = pausedView * vec4(fragWorldPos, 1.0f);
         cascadeViewDepth = abs(pausedViewPos.z);
     }
@@ -302,72 +429,84 @@ void main() {
     // Point Shadow Map Visualization Mode - Display the point shadow cube map
     // Find the first light with shadow map visualization enabled
     int shadowMapVisualizationIndex = -1;
-    for (int i = 0; i < numShadowedLights && i < MAX_SHADOWED_POINT_LIGHTS; i++) {
-        if (i < numActivePointLights && pointLightShowShadowMap[i] != 0) {
+    for(int i = 0; i < numShadowedLights && i < MAX_SHADOWED_POINT_LIGHTS; i++) {
+        if(i < numActivePointLights && pointLightShowShadowMap[i] != 0) {
             shadowMapVisualizationIndex = i;
             break;
         }
     }
-    
-    if (shadowMapVisualizationIndex >= 0 && shadowMapVisualizationIndex < numActivePointLights) {
+
+    if(shadowMapVisualizationIndex >= 0 && shadowMapVisualizationIndex < numActivePointLights) {
         vec3 toFrag = fragWorldPos - pointLights[shadowMapVisualizationIndex].position;
         float currentDist = length(toFrag);
-        float shadowMapRange = pointLights[shadowMapVisualizationIndex].radius * 3.0;
-        
+        float shadowMapRange = pointLights[shadowMapVisualizationIndex].radius * 3.0f;
+
         vec3 color;
-        if (currentDist > shadowMapRange) {
+        if(currentDist > shadowMapRange) {
             // Fragment is outside shadow map range - show red
-            color = vec3(1.0, 0.0, 0.0);
+            color = vec3(1.0f, 0.0f, 0.0f);
         } else {
             // Sample the cube map using the direction vector
             float stored;
             switch(shadowMapVisualizationIndex) {
-                case 0: stored = texture(pointShadowTexture[0], toFrag).r; break;
-                case 1: stored = texture(pointShadowTexture[1], toFrag).r; break;
-                case 2: stored = texture(pointShadowTexture[2], toFrag).r; break;
-                case 3: stored = texture(pointShadowTexture[3], toFrag).r; break;
-                case 4: stored = texture(pointShadowTexture[4], toFrag).r; break;
-                default: stored = 1.0; break;
+                case 0:
+                    stored = texture(pointShadowTexture[0], toFrag).r;
+                    break;
+                case 1:
+                    stored = texture(pointShadowTexture[1], toFrag).r;
+                    break;
+                case 2:
+                    stored = texture(pointShadowTexture[2], toFrag).r;
+                    break;
+                case 3:
+                    stored = texture(pointShadowTexture[3], toFrag).r;
+                    break;
+                case 4:
+                    stored = texture(pointShadowTexture[4], toFrag).r;
+                    break;
+                default:
+                    stored = 1.0f;
+                    break;
             }
-            
+
             // Convert stored depth (normalized by 3x radius) to visual representation
             stored = stored * shadowMapRange;
-            
+
             // Normalize depth for visualization (0 = near light, 1 = at shadow map range)
             float normalizedDepth = stored / shadowMapRange;
-            normalizedDepth = pow(normalizedDepth, 0.5); // Expand middle range for better visibility
+            normalizedDepth = pow(normalizedDepth, 0.5f); // Expand middle range for better visibility
             color = vec3(normalizedDepth);
         }
 
-        outputColor = vec4(color, 1.0);
+        outputColor = vec4(color, 1.0f);
         return;
     }
-    
-    // Shadow Map Visualization Mode - Display the shadow map sample at the fragment's light-space location
-    if (showShadowMap && csmEnabled) {
-        int cascadeIndex = clamp(shadowMapCascade, 0, numCascades - 1);
-        vec4 lightSpacePos = lightSpaceMatrices[cascadeIndex] * vec4(fragWorldPos, 1.0);
-        vec3 shadowCoords = lightSpacePos.xyz / lightSpacePos.w;
-        shadowCoords = shadowCoords * 0.5 + 0.5;
 
-        bool outsideShadowMap = shadowCoords.x < 0.0 || shadowCoords.x > 1.0 ||
-                                shadowCoords.y < 0.0 || shadowCoords.y > 1.0;
+    // Shadow Map Visualization Mode - Display the shadow map sample at the fragment's light-space location
+    if(showShadowMap && csmEnabled) {
+        int cascadeIndex = clamp(shadowMapCascade, 0, numCascades - 1);
+        vec4 lightSpacePos = lightSpaceMatrices[cascadeIndex] * vec4(fragWorldPos, 1.0f);
+        vec3 shadowCoords = lightSpacePos.xyz / lightSpacePos.w;
+        shadowCoords = shadowCoords * 0.5f + 0.5f;
+
+        bool outsideShadowMap = shadowCoords.x < 0.0f || shadowCoords.x > 1.0f ||
+            shadowCoords.y < 0.0f || shadowCoords.y > 1.0f;
 
         vec3 color;
-        if (outsideShadowMap) {
-            color = vec3(1.0, 0.0, 0.0);
+        if(outsideShadowMap) {
+            color = vec3(1.0f, 0.0f, 0.0f);
         } else {
             // Use texture array with layer index
             float shadowDepth = texture(shadowDepthTextureArray, vec3(shadowCoords.xy, float(cascadeIndex))).r;
-            float depthToUse = 1.0 - shadowDepth;
-            float normalizedDepth = pow(depthToUse, 0.5);
+            float depthToUse = 1.0f - shadowDepth;
+            float normalizedDepth = pow(depthToUse, 0.5f);
             color = vec3(normalizedDepth);
         }
 
-        outputColor = vec4(color, 1.0);
+        outputColor = vec4(color, 1.0f);
         return;
     }
-    
+
     vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);
     vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);
 
@@ -376,63 +515,38 @@ void main() {
     vec3 albedo = texture(albedoTexture, fragUV).rgb;
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
+    // Check if this is a grass material (material ID = 0.5 in alpha channel)
+    float materialId = texture(albedoTexture, fragUV).a;
+    bool isGrass = abs(materialId - 0.5f) < 0.01f;
+
     int cascadeIndex = chooseCascade(cascadeViewDepth);
     float sunShadow = computeSunShadow(fragWorldPos, worldNormal, cascadeIndex);
 
     // Replace albedo with debug colors when cascade debug is enabled
-    if (cascadeDebug && csmEnabled) {
+    if(cascadeDebug && csmEnabled) {
         // Cycle through colors for different cascades
-        vec3 cascadeColors[8] = vec3[](
-            vec3(1.0, 0.0, 1.0), // Magenta
-            vec3(0.0, 1.0, 1.0), // Cyan
-            vec3(1.0, 1.0, 0.0), // Yellow
-            vec3(1.0, 0.0, 0.0), // Red
-            vec3(0.0, 1.0, 0.0), // Green
-            vec3(0.0, 0.0, 1.0), // Blue
-            vec3(1.0, 0.5, 0.0), // Orange
-            vec3(0.5, 0.0, 1.0)  // Purple
+        vec3 cascadeColors[8] = vec3[](vec3(1.0f, 0.0f, 1.0f), // Magenta
+        vec3(0.0f, 1.0f, 1.0f), // Cyan
+        vec3(1.0f, 1.0f, 0.0f), // Yellow
+        vec3(1.0f, 0.0f, 0.0f), // Red
+        vec3(0.0f, 1.0f, 0.0f), // Green
+        vec3(0.0f, 0.0f, 1.0f), // Blue
+        vec3(1.0f, 0.5f, 0.0f), // Orange
+        vec3(0.5f, 0.0f, 1.0f)  // Purple
         );
         albedo = cascadeColors[cascadeIndex % 8];
     }
 
-    vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;
-    vec3 lighting = ambient;
+    vec3 lighting;
 
-    // Process directional lights
-    vec3 lightDir = normalize(-SunLight.direction);
-    float diff = max(dot(lightDir, worldNormal), 0.0f);
-        // Diffuse should be multiplied by albedo to get correct surface color
-    vec3 diffuse = diff * albedo * SunLight.color * SunLight.intensity;
-
-     vec3 viewDir = normalize(cameraPosition - fragWorldPos);
-    vec3 reflectDir = reflect(-lightDir, worldNormal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);
-    // Specular highlights are typically white/light-colored, not affected by albedo
-    vec3 specular = spec * SunLight.color * SunLight.intensity;
-
-    // Directional lights have no attenuation
-    lighting += (diffuse+specular) * sunShadow;
-
-    // Process point lights
-    for(int i = 0; i < numActivePointLights; i++) {
-        float pointLightShadow = (i < numShadowedLights) ? computePointShadow(fragWorldPos, worldNormal, i) : 1.0;
-        vec3 lightDir = normalize(pointLights[i].position - fragWorldPos);
-        float diff = max(dot(lightDir, worldNormal), 0.0f);
-        // Diffuse should be multiplied by albedo to get correct surface color
-        vec3 diffuse = diff * albedo * pointLights[i].color * pointLights[i].intensity;
-
-        vec3 viewDir = normalize(cameraPosition - fragWorldPos);
-        vec3 reflectDir = reflect(-lightDir, worldNormal);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);
-        // Specular highlights are typically white/light-colored, not affected by albedo
-        vec3 specular = spec *pointLights[i].color * pointLights[i].intensity;
-
-        float distance = length(pointLights[i].position - fragWorldPos);
-        float attenuation = 1.0f / (1.0f + (distance / pointLights[i].radius) * (distance / pointLights[i].radius));
-        diffuse *= attenuation;
-        specular *= attenuation;
-
-        lighting += (diffuse + specular) * pointLightShadow;
+    if(isGrass) {
+        // For grass: albedo.rg contains (height, curveAngle)
+        float vHeight = albedo.r;
+        float curveAngle = albedo.g;
+        lighting = computeGrassLighting(fragWorldPos, worldNormal, vHeight, curveAngle, sunShadow);
+    } else {
+        // Standard PBR lighting for terrain
+        lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, ambientOcclusion, sunShadow);
     }
 
     if(texture(depthTexture, fragUV).r >= 1.0f) {
@@ -441,8 +555,6 @@ void main() {
         // Clamp lighting to prevent HDR overflow (white spots)
         // If you want HDR support, consider implementing tone mapping instead
         vec3 finalColor = min(lighting, vec3(1.0f));
-        float gamma = 2.2;
-        finalColor = pow(finalColor, vec3(1.0f / gamma));
         outputColor = vec4(finalColor, 1.0f);
     }
 }
