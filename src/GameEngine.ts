@@ -31,8 +31,6 @@ export class GameEngine {
 
   //
   private keys: { [key: string]: boolean } = {};
-  private maxFPS: number = 60;
-  private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
   private mode: number = 0; // 0 for hybrid, 1 for pathtracer, -1 for off
 
@@ -195,10 +193,7 @@ export class GameEngine {
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
   tick(timestamp: number) {
-    if (
-      timestamp - this.lastRenderTime < this.frameInterval ||
-      this.mode == -1
-    ) {
+    if (this.mode == -1) {
       return;
     }
     const timePassed = timestamp - this.lastRenderTime;

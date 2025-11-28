@@ -385,7 +385,7 @@ export class CSMPass extends RenderPass {
     const defaultBiasArray = Array.from({ length: numCascades }, (_, i) => {
       // Further cascades should have less bias
       // Start with 0.001 for first cascade, reduce by 50% for each subsequent cascade
-      return 0.001 * Math.pow(0.5, i);
+      return 0.001 * Math.pow(0.25, i);
     });
     this.resourceCache.setData("csmShadowBias", defaultBiasArray);
 
