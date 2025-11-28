@@ -635,8 +635,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             smoothNormal = -smoothNormal;
             didSwitch = true;
         } //If pointing in opposite directions, flip
-
-        vec3 BRDF = matColor / PI;
         
         //in the future consider NEE (Next Event Estimation) - Was removed cause buggy
 
@@ -647,7 +645,10 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             rayOrigin = hitPoint + geometricNormal * 0.1;
         if(type == 1){ //Diffuse
             rayDir = weightedDIR(smoothNormal, rng_state);
-            throughput *= matColor;
+            float cos_theta = dot(rayDir,smoothNormal);
+            vec3 BRDF = matColor / PI;
+            float p = 0.5*PI;
+            throughput *= BRDF*cos_theta/p;
         }else if (type == 2) { // Specular (mirror)
             vec3 useNormal = smoothNormal;
             if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
