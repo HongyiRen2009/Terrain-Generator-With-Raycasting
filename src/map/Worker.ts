@@ -43,58 +43,95 @@ function noiseFunction(
   simplex3D: NoiseFunction3D,
   simplexOverhang: NoiseFunction3D
 ): number {
-  const waterLevel = 30;
+  const waterLevelBase = 30;
 
-  function fractal2D(
-    px: number,
-    pz: number,
-    oct: number,
-    freq: number,
-    amp: number
-  ) {
+  function fractal2D(px: number, pz: number, oct: number, freq: number, amp: number) {
     let total = 0;
     let max = 0;
-
     for (let i = 0; i < oct; i++) {
       total += simplex2D(px * freq, pz * freq) * amp;
-      max += amp;
+      max += Math.abs(amp);
       freq *= 2;
       amp *= 0.5;
     }
-    return total / max;
+    return max === 0 ? 0 : total / max;
   }
 
-  // Hills / plains (stronger)
-  const hillNoise = fractal2D(x, z, 4, 0.01, 1);
-  const hillHeight = hillNoise * 60 + 40; // increased amplitude
+  // Low-frequency continentalness defines large-scale variation (plains -> mountains)
+  const continental = fractal2D(x, z, 3, 0.0006, 1); // range about [-1,1]
 
-  // Ridges / mountains (taller and sharper)
-  const ridge = Math.abs(fractal2D(x, z, 3, 0.004, 1));
-  const mountainHeight = Math.pow(1 - ridge, 2.2) * 300; // bigger peaks
+  // Large mountain ridges (ridged multifractal feel)
+  const ridgeNoise = Math.abs(fractal2D(x + 1000, z - 1000, 4, 0.002, 1));
+  const mountainProxy = Math.pow(1 - ridgeNoise, 2.0); // peaks where ridgeNoise small
 
-  // Combine 2D height layers (favor mountains)
-  let terrainHeight = hillHeight * 0.4 + mountainHeight * 0.6;
+  // Medium scale hills / erosion
+  const hills = fractal2D(x, z, 5, 0.008, 1);
 
-  terrainHeight = Math.floor(terrainHeight / 2) * 2;
+  // Small scale detail
+  const detail = fractal2D(x, z, 6, 0.03, 1) * 0.8;
 
+  // Compose a raw height in world units
+  const baseHeight = continental * 60; // continentalness modifies baseline
+  const mountainHeight = mountainProxy * 220 * Math.max(0, continental + 0.2); // mountains preferred where continental positive
+  const hillsHeight = hills * 45;
+  let terrainHeight = baseHeight + mountainHeight + hillsHeight + detail * 10 + 48;
+
+  // Add terrace / plateau effect in certain mountain-y areas
+  if (mountainProxy > 0.6 && Math.abs(simplex2D(x * 0.01, z * 0.01)) > 0.5) {
+    terrainHeight = Math.floor(terrainHeight / 4) * 4; // coarse terracing
+  }
+
+  // Estimate slope from nearby height samples (low-frequency) to create cliffs
+  const sampleA = baseHeight + Math.pow(1 - Math.abs(fractal2D(x + 2, z, 3, 0.002, 1)), 2.0) * 150 + fractal2D(x + 2, z, 4, 0.008, 1) * 45;
+  const sampleB = baseHeight + Math.pow(1 - Math.abs(fractal2D(x - 2, z, 3, 0.002, 1)), 2.0) * 150 + fractal2D(x - 2, z, 4, 0.008, 1) * 45;
+  const slope = Math.abs(sampleA - sampleB) / 2.0;
+
+  // Cliffs: if slope is steep, produce sharp vertical change by boosting height locally
+  if (slope > 15) {
+    const cliffFactor = Math.min(1, (slope - 15) / 30);
+    terrainHeight += cliffFactor * 80 * (0.5 + mountainProxy);
+  }
+
+  // River mask: low-frequency ridged lines create meandering rivers
+  const riverNoise = simplex2D(x * 0.0009, z * 0.0009) + 0.5 * simplex2D(x * 0.002, z * 0.002);
+  const riverDist = Math.abs(riverNoise);
+  const riverWidth = 0.03 + (1 - Math.abs(continental)) * 0.02; // wider in flat areas
+
+  // Carve river valleys where riverDist is small
+  let valleyDepth = 0;
+  if (riverDist < riverWidth) {
+    const riverStrength = (riverWidth - riverDist) / riverWidth;
+    valleyDepth = 60 * Math.pow(riverStrength, 1.5);
+    // further deepen near low continentalness (plains) so rivers cut wide
+    valleyDepth *= 1 + (1 - Math.abs(continental)) * 0.5;
+    terrainHeight -= valleyDepth;
+  }
+
+  // Water level varies slowly across world to allow oceans and lakes
+  const waterLevel = waterLevelBase + Math.floor(simplex2D(x * 0.0015, z * 0.0015) * 4);
+
+  // Density is how much above the queried y we are
   let density = terrainHeight - y;
 
+  // Caves (3D noise) carve interior; higher values carve out more
   const cave = simplex3D(x * 0.03, y * 0.04, z * 0.03);
-  if (cave > 0.55) density -= (cave - 0.55) * 40;
+  if (cave > 0.55) density -= (cave - 0.55) * 48;
 
+  // Overhangs: 3D overhang noise that only applies near surface to create ledges/arches
   const ov = simplexOverhang(x * 0.02, y * 0.02, z * 0.02);
-  if (ov > 0.25 && y > terrainHeight - 25) density -= (ov - 0.25) * 25;
+  if (ov > 0.25 && y > terrainHeight - 28) density -= (ov - 0.25) * 28;
 
-  const r = simplex2D(x * 0.004, z * 0.004);
-  const riverMask = Math.abs(r);
-  if (riverMask < 0.05) {
-    const depth = (0.05 - riverMask) * 80;
-    density -= depth;
-  }
-
+  // Lakes / shallow water: if valley carved below water level, ensure water present
   if (y < waterLevel) density = Math.max(density, waterLevel - y);
 
-  return Math.max(0, Math.min(1, (density + 80) / 200));
+  // Apply small erosion-like smoothing at low heights (flatten very low slopes)
+  if (terrainHeight < waterLevel + 6) {
+    density -= (waterLevel + 6 - terrainHeight) * 0.2;
+  }
+
+  // Map density roughly into [0,1]. Tuned so around y == terrainHeight corresponds to ~0.5 threshold.
+  const out = Math.max(0, Math.min(1, (density + 80) / 200));
+  return out;
 }
 
 function solidChecker(a: number) {
