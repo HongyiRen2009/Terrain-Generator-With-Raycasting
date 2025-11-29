@@ -129,7 +129,7 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#8B8F91"),
     reflectiveness: 0.04,
     roughness: 0.85,
-    type: 3
+    type: 1
   },
   // 3: Snow
   3: {
