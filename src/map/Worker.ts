@@ -45,7 +45,13 @@ function noiseFunction(
 ): number {
   const waterLevelBase = 30;
 
-  function fractal2D(px: number, pz: number, oct: number, freq: number, amp: number) {
+  function fractal2D(
+    px: number,
+    pz: number,
+    oct: number,
+    freq: number,
+    amp: number
+  ) {
     let total = 0;
     let max = 0;
     for (let i = 0; i < oct; i++) {
@@ -74,7 +80,8 @@ function noiseFunction(
   const baseHeight = continental * 60; // continentalness modifies baseline
   const mountainHeight = mountainProxy * 220 * Math.max(0, continental + 0.2); // mountains preferred where continental positive
   const hillsHeight = hills * 45;
-  let terrainHeight = baseHeight + mountainHeight + hillsHeight + detail * 10 + 48;
+  let terrainHeight =
+    baseHeight + mountainHeight + hillsHeight + detail * 10 + 48;
 
   // Add terrace / plateau effect in certain mountain-y areas
   if (mountainProxy > 0.6 && Math.abs(simplex2D(x * 0.01, z * 0.01)) > 0.5) {
@@ -82,8 +89,14 @@ function noiseFunction(
   }
 
   // Estimate slope from nearby height samples (low-frequency) to create cliffs
-  const sampleA = baseHeight + Math.pow(1 - Math.abs(fractal2D(x + 2, z, 3, 0.002, 1)), 2.0) * 150 + fractal2D(x + 2, z, 4, 0.008, 1) * 45;
-  const sampleB = baseHeight + Math.pow(1 - Math.abs(fractal2D(x - 2, z, 3, 0.002, 1)), 2.0) * 150 + fractal2D(x - 2, z, 4, 0.008, 1) * 45;
+  const sampleA =
+    baseHeight +
+    Math.pow(1 - Math.abs(fractal2D(x + 2, z, 3, 0.002, 1)), 2.0) * 150 +
+    fractal2D(x + 2, z, 4, 0.008, 1) * 45;
+  const sampleB =
+    baseHeight +
+    Math.pow(1 - Math.abs(fractal2D(x - 2, z, 3, 0.002, 1)), 2.0) * 150 +
+    fractal2D(x - 2, z, 4, 0.008, 1) * 45;
   const slope = Math.abs(sampleA - sampleB) / 2.0;
 
   // Cliffs: if slope is steep, produce sharp vertical change by boosting height locally
@@ -93,7 +106,8 @@ function noiseFunction(
   }
 
   // River mask: low-frequency ridged lines create meandering rivers
-  const riverNoise = simplex2D(x * 0.0009, z * 0.0009) + 0.5 * simplex2D(x * 0.002, z * 0.002);
+  const riverNoise =
+    simplex2D(x * 0.0009, z * 0.0009) + 0.5 * simplex2D(x * 0.002, z * 0.002);
   const riverDist = Math.abs(riverNoise);
   const riverWidth = 0.03 + (1 - Math.abs(continental)) * 0.02; // wider in flat areas
 
@@ -108,7 +122,8 @@ function noiseFunction(
   }
 
   // Water level varies slowly across world to allow oceans and lakes
-  const waterLevel = waterLevelBase + Math.floor(simplex2D(x * 0.0015, z * 0.0015) * 4);
+  const waterLevel =
+    waterLevelBase + Math.floor(simplex2D(x * 0.0015, z * 0.0015) * 4);
 
   // Density is how much above the queried y we are
   let density = terrainHeight - y;
@@ -209,15 +224,66 @@ function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
   const caseMesh: Mesh = new Mesh();
   const caseLookup = CASES[caseNumber];
 
+  // Simple deterministic hash for small per-vertex variation
+  function hash01(x: number, z: number) {
+    // stable pseudo-random in [0,1)
+    return Math.abs(Math.sin(x * 127.1 + z * 311.7) * 43758.5453) % 1;
+  }
+
+  // Heuristic thresholds (match waterLevelBase used in noiseFunction)
+  const WATER_LEVEL = 30;
+  const SNOW_LINE = 140;
+
   for (const triangleLookup of caseLookup) {
     const vertices = triangleLookup.map((edgeIndex) =>
       edgeIndexToCoordinate(c, edgeIndex)
     );
 
+    // Determine a terrain type per vertex based on height and slope
+    const types: [number, number, number] = [0, 0, 0];
+    for (let i = 0; i < 3; i++) {
+      const p = vertices[i].position;
+      const n = vertices[i].normal;
+      const worldY = p[1];
+      const upDot = Math.max(-1, Math.min(1, n[1]));
+      const slope = 1 - Math.abs(upDot); // 0 = flat, higher = steeper
+
+      // Water
+      if (worldY < WATER_LEVEL - 0.2) {
+        types[i] = 4; // water
+        continue;
+      }
+
+      // Beaches near water (gentle slope and low height)
+      if (worldY < WATER_LEVEL + 3 && slope < 0.45) {
+        types[i] = 5; // sand
+        continue;
+      }
+
+      // Snow on high altitudes
+      if (worldY > SNOW_LINE) {
+        types[i] = 3; // snow
+        continue;
+      }
+
+      // Cliffs / exposed rock on steep slopes
+      if (slope > 0.6 || upDot < 0.4) {
+        types[i] = 2; // rock
+        continue;
+      }
+
+      // Mix grass and dirt based on small deterministic noise and height
+      const nval = hash01(p[0] + c[0], p[2] + c[2]);
+      if (worldY < 65 && nval > 0.15)
+        types[i] = 0; // grass
+      else if (worldY < 80 && nval > 0.35) types[i] = 0;
+      else types[i] = 1; // dirt
+    }
+
     caseMesh.addTriangle(
       vertices.map((v) => v.position) as Triangle,
       vertices.map((v) => v.normal) as Triangle,
-      [0, 0, 0]
+      types
     );
   }
 
