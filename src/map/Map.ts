@@ -32,10 +32,11 @@ export class WorldMap {
   public seed: number = 10; // Random seed for noise generation
 
   public worldObjects: WorldObject[] = [];
+
   gl: WebGL2RenderingContext;
 
   private nextWorldObjectId: number = 0;
-
+  private renderDistance: number = 1; // In chunks
   private tracerUpdateSupplier: () => () => void;
 
   public objectUI: ObjectUI;
@@ -51,6 +52,7 @@ export class WorldMap {
     height: number,
     length: number,
     gl: WebGL2RenderingContext,
+    resolution: number,
     updateTracer: () => () => void
   ) {
     this.tracerUpdateSupplier = updateTracer;
@@ -59,7 +61,7 @@ export class WorldMap {
     this.width = width;
     this.length = length;
     this.height = height;
-
+    this.resolution = resolution;
     for (let i = 0; i < navigator.hardwareConcurrency; i++) {
       this.Workers.push(new Worker(new URL("./Worker.ts", import.meta.url)));
     }
@@ -83,13 +85,19 @@ export class WorldMap {
     return chunk.getFieldValueLocal(localX, localY, localZ);
   }
 
-  public async generate() {
-    const positions = [
-      vec2.fromValues(0, 0),
-      vec2.fromValues(this.resolution, 0),
-      vec2.fromValues(2 * this.resolution, 0),
-      vec2.fromValues(3 * this.resolution, 0)
-    ];
+  public async generate(position: vec2): Promise<void> {
+    //delete existing chunks
+    this.chunkDict = {};
+    const positions: vec2[] = [];
+    for (let x = -this.renderDistance; x <= this.renderDistance; x++) {
+      for (let z = -this.renderDistance; z <= this.renderDistance; z++) {
+        const chunkX =
+          (Math.floor(position[0] / this.resolution) + x) * this.resolution;
+        const chunkZ =
+          (Math.floor(position[1] / this.resolution) + z) * this.resolution;
+        positions.push(vec2.fromValues(chunkX, chunkZ));
+      }
+    }
 
     positions.forEach((pos, i) => {
       const chunk = new Chunk(
@@ -109,6 +117,57 @@ export class WorldMap {
         chunk.generateEdgeTriangles()
       )
     );
+  }
+
+  public async generateIncremental(position: vec2): Promise<void> {
+    const positions: vec2[] = [];
+    const newChunkKeys = new Set<string>();
+
+    // Determine which chunks should exist
+    for (let x = -this.renderDistance; x <= this.renderDistance; x++) {
+      for (let z = -this.renderDistance; z <= this.renderDistance; z++) {
+        const chunkX =
+          (Math.floor(position[0] / this.resolution) + x) * this.resolution;
+        const chunkZ =
+          (Math.floor(position[1] / this.resolution) + z) * this.resolution;
+        const key = `${chunkX},${chunkZ}`;
+        newChunkKeys.add(key);
+
+        // Only add if chunk doesn't exist
+        if (!this.chunkDict[key]) {
+          positions.push(vec2.fromValues(chunkX, chunkZ));
+        }
+      }
+    }
+
+    // Remove old chunks that are out of range
+    for (const key in this.chunkDict) {
+      if (!newChunkKeys.has(key)) {
+        delete this.chunkDict[key];
+      }
+    }
+
+    // Generate only new chunks
+    if (positions.length > 0) {
+      positions.forEach((pos, i) => {
+        const chunk = new Chunk(
+          pos,
+          vec3.fromValues(this.resolution, this.height, this.resolution),
+          this.seed,
+          this.Workers[i % this.Workers.length],
+          this
+        );
+        this.chunkDict[`${pos[0]},${pos[1]}`] = chunk;
+      });
+
+      const newChunks = positions.map(
+        (pos) => this.chunkDict[`${pos[0]},${pos[1]}`]
+      );
+      await Promise.all(newChunks.map((chunk) => chunk.generateTerrain()));
+      await Promise.all(
+        newChunks.map((chunk) => chunk.generateEdgeTriangles())
+      );
+    }
   }
 
   public combinedMesh(): Mesh {
@@ -177,7 +236,6 @@ export class WorldMap {
 
     return CombinedMesh;
   }
-
   public onObjectAdded?: (obj: WorldObject) => void;
 
   /**

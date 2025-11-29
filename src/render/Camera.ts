@@ -56,7 +56,7 @@ export class Camera {
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ 0.1,
-      100.0
+      1000.0
     );
     mat4.multiply(matViewProj, matProj, matView);
     return matViewProj;
@@ -70,7 +70,7 @@ export class Camera {
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ 0.1,
-      100.0
+      1000.0
     );
     return { matView, matProj };
   }

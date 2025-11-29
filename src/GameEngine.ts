@@ -1,4 +1,4 @@
-import { mat3, mat4, vec3 } from "gl-matrix";
+import { mat3, mat4, vec2, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
 import { WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
@@ -42,7 +42,13 @@ export class GameEngine {
   private currentFPS: number = 0;
 
   private worldInitialized = false;
+
+  private chunkDistanceBias = 1.5; // How far away the camera has to be from the center chunk before new chunks are generated
+  private centerChunkPosition: vec2 = vec2.fromValues(0, 0);
   private updatePathracing: () => void;
+
+  private lastCameraChunk: vec2 = vec2.fromValues(0, 0);
+
   /**
    * Constructs game engine
    * @param canvasId The ID of the canvas rendered to
@@ -71,6 +77,7 @@ export class GameEngine {
       64,
       1000,
       this.gl,
+      64,
       () => this.updatePathracing
     );
 
@@ -150,7 +157,7 @@ export class GameEngine {
     this.initialize();
   }
   public async initialize() {
-    await this.world.generate();
+    await this.world.generate(vec2.fromValues(0, 0));
 
     this.renderer.vaoManager.createTerrainVAO(
       WorldUtils.genTerrainVertices(this.world)
@@ -189,6 +196,8 @@ export class GameEngine {
     if (this.worldInitialized) {
       if (GameEngine.getLockedElement()) {
         this.updateCamera(timePassed);
+        // Dynamic terrain update
+        this.requestNewChunkGeneration();
       }
 
       if (this.mode == 0) {
@@ -206,7 +215,6 @@ export class GameEngine {
     }
     this.debug.update();
   }
-
   /**
    * Controls to move the camera!
    */
@@ -279,6 +287,31 @@ export class GameEngine {
     this.canvas.height = window.innerHeight;
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.renderer.resizeGBuffer(this.canvas.width, this.canvas.height);
+    this.pathTracer.resetAccumulation();
+  }
+
+  private async requestNewChunkGeneration() {
+    // Get camera chunk position
+    const camX =
+      Math.floor(this.mainCamera.position[0] / this.world.resolution) *
+      this.world.resolution;
+    const camZ =
+      Math.floor(this.mainCamera.position[2] / this.world.resolution) *
+      this.world.resolution;
+    if (camX === this.lastCameraChunk[0] && camZ === this.lastCameraChunk[1])
+      return;
+
+    this.lastCameraChunk[0] = camX;
+    this.lastCameraChunk[1] = camZ;
+
+    // Generate new chunks around camera
+    await this.world.generate(vec2.fromValues(camX, camZ));
+
+    // Rebuild mesh for rendering/pathtracing
+    this.renderer.vaoManager.createTerrainVAO(
+      WorldUtils.genTerrainVertices(this.world)
+    );
+    this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.resetAccumulation();
   }
 
