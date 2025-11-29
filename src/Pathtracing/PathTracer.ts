@@ -157,8 +157,7 @@ export class PathTracer {
   }
 
   public drawMesh() {
-    // initPathtracing and makeVao are done during init() / initBVH to avoid
-    // recreating GPU resources every frame.
+    this.setupFrame();
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
