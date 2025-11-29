@@ -14,7 +14,7 @@ export class WorldUtils {
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let mainMesh = new Mesh();
 
-    for (const chunk of world.chunks) {
+    for (const chunk of Object.values(world.chunkDict)) {
       const triangleMesh = chunk.Mesh;
       triangleMesh.translate(
         vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])

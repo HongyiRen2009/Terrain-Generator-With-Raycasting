@@ -150,14 +150,7 @@ export class GameEngine {
     this.initialize();
   }
   public async initialize() {
-    await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateTerrain())
-    );
-    this.world.populateFieldMap();
-
-    await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
-    );
+    await this.world.generate();
 
     this.renderer.vaoManager.createTerrainVAO(
       WorldUtils.genTerrainVertices(this.world)
