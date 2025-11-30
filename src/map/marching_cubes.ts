@@ -1,9 +1,9 @@
 import { vec2, vec3 } from "gl-matrix";
-import { VERTICES, EDGES, CASES } from "./geometry";
 import { Triangle, Mesh } from "./Mesh";
+import { WorldMap } from "./Map";
+import { CASES, EDGES, VERTICES } from "./geometry";
 import { vertexKey } from "./cubes_utils";
 
-//!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
 export class Chunk {
   ChunkPosition: vec2;
   GridSize: vec3;
@@ -13,6 +13,7 @@ export class Chunk {
   seed: number;
   Worker: Worker;
   Mesh: Mesh = null!;
+  gearObjects: vec3[];
   constructor(
     ChunkPosition: vec2,
     GridSize: vec3,
@@ -24,6 +25,7 @@ export class Chunk {
     this.seed = seed;
     this.Worker = Worker;
     this.FieldMap = new Map<string, number>();
+    this.gearObjects = [];
   }
 
   chunkCoordinateToIndex(c: vec3): number {
@@ -80,7 +82,12 @@ export class Chunk {
       }
     }
 
-    this.Mesh.merge(edgeMesh);
+    if (!this.Mesh) {
+      this.Mesh = edgeMesh;
+    } else {
+      this.Mesh.merge(edgeMesh);
+    }
+
   }
 
   private GenerateCase(cubeCoordinates: vec3): number {
@@ -174,31 +181,133 @@ export class Chunk {
   // Generate terrain field and mesh (NEW)
   async generateTerrain(): Promise<void> {
     return new Promise((resolve) => {
-      this.Worker.postMessage({
-        GridSize: this.GridSize,
-        ChunkPosition: this.ChunkPosition,
-        Seed: this.seed
-      });
-      this.Worker.onmessage = (
+      const requestId = Math.random().toString(36).slice(2);
+      const handler = (
         event: MessageEvent<{
+          requestId?: string;
           field: Float32Array;
           fieldMap: [string, number][];
-          meshVertices: Triangle[];
-          meshNormals: Triangle[];
-          meshTypes: [number, number, number][];
         }>
       ) => {
+        if (event.data.requestId !== requestId) return;
         this.Field = event.data.field;
         this.FieldMap = new Map<string, number>(event.data.fieldMap);
-
-        // Initialize mesh with interior triangles
-        this.Mesh = new Mesh();
-        this.Mesh.setVertices(event.data.meshVertices);
-        this.Mesh.setNormals(event.data.meshNormals);
-        this.Mesh.setTypes(event.data.meshTypes);
-
+        this.Worker.removeEventListener("message", handler as EventListener);
         resolve();
       };
+      this.Worker.addEventListener("message", handler as EventListener);
+      this.Worker.postMessage({
+        requestId,
+        GridSize: this.GridSize,
+        ChunkPosition: this.ChunkPosition,
+        Seed: this.seed,
+        generatingTerrain: true
+      });
+    });
+  }
+  async generateMarchingCubes(): Promise<Mesh> {
+    return new Promise((resolve) => {
+      const requestId = Math.random().toString(36).slice(2);
+      const handler = (
+        event: MessageEvent<{
+          requestId?: string;
+          // packed format (transferables)
+          packedVertices?: Float32Array;
+          packedNormals?: Float32Array;
+          packedTerrains?: Float32Array;
+          triangleCount?: number;
+          // interleaved / index format
+          interleavedVertices?: Float32Array;
+          interleavedIndices?: Uint32Array;
+          timings?: { [k: string]: number };
+          // legacy format
+          meshVertices?: Triangle[];
+          meshNormals?: Triangle[];
+          meshTypes?: [number, number, number][];
+          justGearObjectsLol?: vec3[];
+        }>
+      ) => {
+        if (event.data.requestId !== requestId) return;
+        this.Mesh = new Mesh();
+        // If worker sent packed buffers, unpack into Mesh (avoids structured-clone in worker)
+        if (event.data.packedVertices && event.data.packedNormals && event.data.packedTerrains && event.data.triangleCount) {
+          const verts = event.data.packedVertices;
+          const norms = event.data.packedNormals;
+          const terrains = event.data.packedTerrains;
+          const triCount = event.data.triangleCount;
+
+          for (let i = 0; i < triCount; i++) {
+            const baseV = i * 9;
+            const baseN = i * 9;
+            const baseT = i * 3;
+
+            const t: Triangle = [
+              vec3.fromValues(verts[baseV], verts[baseV + 1], verts[baseV + 2]),
+              vec3.fromValues(verts[baseV + 3], verts[baseV + 4], verts[baseV + 5]),
+              vec3.fromValues(verts[baseV + 6], verts[baseV + 7], verts[baseV + 8])
+            ];
+
+            const n: Triangle = [
+              vec3.fromValues(norms[baseN], norms[baseN + 1], norms[baseN + 2]),
+              vec3.fromValues(norms[baseN + 3], norms[baseN + 4], norms[baseN + 5]),
+              vec3.fromValues(norms[baseN + 6], norms[baseN + 7], norms[baseN + 8])
+            ];
+
+            const ty: [number, number, number] = [
+              terrains[baseT],
+              terrains[baseT + 1],
+              terrains[baseT + 2]
+            ];
+
+            this.Mesh.addTriangle(t, n, ty);
+          }
+        } else if (event.data.interleavedVertices && event.data.interleavedIndices) {
+          // If interleaved vertex/index buffers are provided, reconstruct Mesh triangles from them
+          const interleaved = event.data.interleavedVertices as Float32Array;
+          const indices = event.data.interleavedIndices as Uint32Array;
+          const triCount2 = Math.floor(indices.length / 3);
+          for (let i = 0; i < triCount2; i++) {
+            const ia = indices[i * 3];
+            const ib = indices[i * 3 + 1];
+            const ic = indices[i * 3 + 2];
+
+            const aPosBase = ia * 9;
+            const bPosBase = ib * 9;
+            const cPosBase = ic * 9;
+
+            const t: Triangle = [
+              vec3.fromValues(interleaved[aPosBase], interleaved[aPosBase + 1], interleaved[aPosBase + 2]),
+              vec3.fromValues(interleaved[bPosBase], interleaved[bPosBase + 1], interleaved[bPosBase + 2]),
+              vec3.fromValues(interleaved[cPosBase], interleaved[cPosBase + 1], interleaved[cPosBase + 2])
+            ];
+
+            const na: vec3 = vec3.fromValues(interleaved[aPosBase + 3], interleaved[aPosBase + 4], interleaved[aPosBase + 5]);
+            const nb: vec3 = vec3.fromValues(interleaved[bPosBase + 3], interleaved[bPosBase + 4], interleaved[bPosBase + 5]);
+            const nc: vec3 = vec3.fromValues(interleaved[cPosBase + 3], interleaved[cPosBase + 4], interleaved[cPosBase + 5]);
+
+            const n: Triangle = [na, nb, nc];
+
+            this.Mesh.addTriangle(t, n, [0, 0, 0]);
+          }
+        } else if (event.data.meshVertices && event.data.meshNormals && event.data.meshTypes) {
+          // legacy path
+          this.Mesh.setVertices(event.data.meshVertices);
+          this.Mesh.setNormals(event.data.meshNormals);
+          this.Mesh.setTypes(event.data.meshTypes);
+          this.gearObjects = event.data.justGearObjectsLol ?? [];
+        }
+        this.Worker.removeEventListener("message", handler as EventListener);
+        resolve(this.Mesh);
+      };
+      this.Worker.addEventListener("message", handler as EventListener);
+      this.Worker.postMessage({
+        requestId,
+        GridSize: this.GridSize,
+        ChunkPosition: this.ChunkPosition,
+        Seed: this.seed,
+        generatingTerrain: false,
+        worldFieldMap: this.WorldFieldMap
+      });
     });
   }
   // Generate only edge cubes and merge into existing mesh (W AI commments)

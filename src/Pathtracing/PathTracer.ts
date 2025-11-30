@@ -391,4 +391,32 @@ export class PathTracer {
     this.frameNumber = 1;
     this.initBuffers();
   }
+
+  public dispose() {
+    // delete accumulation textures/framebuffers
+    if (this.accumulationTextures) {
+      for (const tex of this.accumulationTextures) {
+        if (tex) this.gl.deleteTexture(tex);
+      }
+      this.accumulationTextures = [];
+    }
+    if (this.framebuffers) {
+      for (const fbo of this.framebuffers) {
+        if (fbo) this.gl.deleteFramebuffer(fbo);
+      }
+      this.framebuffers = [];
+    }
+    // delete programs
+    if (this.meshProgram) this.gl.deleteProgram(this.meshProgram);
+    if (this.copyProgram) this.gl.deleteProgram(this.copyProgram);
+    // delete fullscreen VAO/VBO
+    if (this.fullscreenVAO) {
+      this.gl.deleteVertexArray(this.fullscreenVAO);
+      this.fullscreenVAO = null;
+    }
+    if (this.fullscreenVBO) {
+      this.gl.deleteBuffer(this.fullscreenVBO);
+      this.fullscreenVBO = null;
+    }
+  }
 }

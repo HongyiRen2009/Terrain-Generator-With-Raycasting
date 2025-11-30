@@ -2,7 +2,7 @@ import { WorldMap } from "../map/Map";
 import { Mesh } from "../map/Mesh";
 import { Light } from "../map/Light";
 import { Camera } from "../render/Camera";
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 
 export class WorldUtils {
   /**
@@ -24,6 +24,18 @@ export class WorldUtils {
     }
 
     return triangleMeshes;
+  }
+
+  static addChunkGears(world: WorldMap, gearMesh: Mesh) {
+    for (const chunk of world.chunks) {
+      for (const gearPos of chunk.gearObjects) {
+        let position = mat4.create();
+        mat4.translate(position, position, gearPos);
+
+        mat4.scale(position, position, vec3.fromValues(0.1, 0.1, 0.1));
+        world.addObject(gearMesh, position, "Gear (from chunk)");
+      }
+    }
   }
 
   static updateLights(
