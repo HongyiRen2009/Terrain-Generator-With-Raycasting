@@ -154,7 +154,6 @@ function solidChecker(a: number) {
 }
 
 function getFieldValueByNums(x: number, y: number, z: number) {
-  if (!WorldFieldMap) return 0;
   const gx = x + globalChunkPosition[0];
   const gz = z + globalChunkPosition[1];
   return WorldFieldMap.get(keyFromNumbers(gx, y, gz)) ?? 0;
@@ -302,24 +301,6 @@ self.onmessage = (
     worldFieldMap,
     requestId
   } = event.data;
-
-  // TODO:
-  // normalize incoming worldFieldMap to a real Map
-  if (worldFieldMap instanceof Map) {
-    WorldFieldMap = worldFieldMap;
-  } else if (Array.isArray(worldFieldMap)) {
-    // incoming is [[key, val], [key,val], ...]
-    WorldFieldMap = new Map<string, number>(
-      worldFieldMap as [string, number][]
-    );
-  } else if (worldFieldMap && typeof worldFieldMap === "object") {
-    // defensive: if main thread sent a plain object {key:val,...}
-    WorldFieldMap = new Map<string, number>(
-      Object.entries(worldFieldMap) as [string, number][]
-    );
-  } else {
-    WorldFieldMap = new Map<string, number>();
-  }
 
   globalChunkPosition = ChunkPosition;
 
