@@ -154,6 +154,7 @@ function solidChecker(a: number) {
 }
 
 function getFieldValueByNums(x: number, y: number, z: number) {
+  if (!WorldFieldMap) return 0;
   const gx = x + globalChunkPosition[0];
   const gz = z + globalChunkPosition[1];
   return WorldFieldMap.get(keyFromNumbers(gx, y, gz)) ?? 0;
@@ -302,6 +303,24 @@ self.onmessage = (
     requestId
   } = event.data;
 
+  // TODO:
+  // normalize incoming worldFieldMap to a real Map
+  if (worldFieldMap instanceof Map) {
+    WorldFieldMap = worldFieldMap;
+  } else if (Array.isArray(worldFieldMap)) {
+    // incoming is [[key, val], [key,val], ...]
+    WorldFieldMap = new Map<string, number>(
+      worldFieldMap as [string, number][]
+    );
+  } else if (worldFieldMap && typeof worldFieldMap === "object") {
+    // defensive: if main thread sent a plain object {key:val,...}
+    WorldFieldMap = new Map<string, number>(
+      Object.entries(worldFieldMap) as [string, number][]
+    );
+  } else {
+    WorldFieldMap = new Map<string, number>();
+  }
+
   globalChunkPosition = ChunkPosition;
 
   const prng = alea(Seed);
@@ -314,7 +333,7 @@ self.onmessage = (
     const field = new Float32Array(
       (GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1)
     );
-    const map = new Map<string, number>();
+    const fieldMap = new Map<string, number>();
 
     // Reduce allocations by using numeric coordinates instead of vec3 objects
     for (let x = 0; x <= GridSize[0]; x++) {
@@ -338,7 +357,7 @@ self.onmessage = (
           );
 
           field[idx] = value;
-          map.set(keyFromNumbers(gx, gy, gz), value);
+          fieldMap.set(keyFromNumbers(gx, gy, gz), value);
         }
       }
     }
@@ -347,7 +366,7 @@ self.onmessage = (
     const timings = { fieldMs: endField - startTotal };
 
     self.postMessage(
-      { requestId, field, fieldMap: Array.from(map.entries()), timings },
+      { requestId, field, fieldMap: Array.from(fieldMap.entries()), timings },
       [field.buffer]
     );
   } else {
