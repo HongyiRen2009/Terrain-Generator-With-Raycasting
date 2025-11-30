@@ -3,9 +3,10 @@ import { GameEngine } from "./GameEngine";
 
 const kMainCanvasId = "#MainCanvas";
 const Engine = new GameEngine(kMainCanvasId);
+let rafId: number | null = null;
 const gameTick = (timestamp: number) => {
   Engine.tick(timestamp);
-  requestAnimationFrame(gameTick);
+  rafId = requestAnimationFrame(gameTick);
 };
 
-requestAnimationFrame(gameTick);
+rafId = requestAnimationFrame(gameTick);
