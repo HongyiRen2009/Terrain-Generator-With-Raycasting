@@ -72,7 +72,7 @@ uniform vec3 grassSpecularColor;
 uniform vec3 grassTranslucencyColor;
 uniform float sunShadowStrength;
 uniform float pointLightShadowStrength;
-
+const float PI = 3.14159265359f;
 vec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {
     float depth = texture(depthTexture, texCoord).r;
     vec2 ndc = texCoord * 2.0f - 1.0f;
@@ -287,40 +287,101 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
     // Return 0.0 = in shadow, 1.0 = lit (for lighting multiplication)
     return (currentDepth - cascadeBias > closestDepth) ? 0.0f : 1.0f;
 }
+float calculateFresnel(vec3 viewDir, vec3 halfDir, float baseReflectivity) {
+    return baseReflectivity + (1.0f - baseReflectivity) * pow(1.0f - dot(viewDir, halfDir), 5.0f);
+}
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0f);
+    float NdotH2 = NdotH * NdotH;
 
+    float nom = a2;
+    float denom = (NdotH2 * (a2 - 1.0f) + 1.0f);
+    denom = PI * denom * denom;
+
+    return nom / denom;
+}
+float GeometrySchlickGGX(float NdotV, float roughness) {
+    float r = (roughness + 1.0f);
+    float k = (r * r) / 8.0f;
+
+    float nom = NdotV;
+    float denom = NdotV * (1.0f - k) + k;
+
+    return nom / denom;
+}
+
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0f);
+    float NdotL = max(dot(N, L), 0.0f);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 emissivity, float baseReflectivity, float metalicity, float roughness) {
+    vec3 viewDir = normalize(cameraPosition - worldPos);
+    vec3 lightDir = normalize(-SunLight.direction);
+    vec3 halfWay = normalize(viewDir + lightDir);
+    float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);
+    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metalicity);
+    vec3 diffuse = diffuseCoefficient * albedo / PI;
+
+    // Cook-Torrance BRDF
+    float NDF = DistributionGGX(worldNormal, halfWay, roughness);
+    float G = GeometrySmith(worldNormal, viewDir, lightDir, roughness);
+    vec3 F = vec3(calculateFresnel(viewDir, halfWay, baseReflectivity));
+
+    vec3 numerator = NDF * G * F;
+    float denominator = 4.0f * max(dot(worldNormal, viewDir), 0.0f) * max(dot(worldNormal, lightDir), 0.0f) + 0.001f;
+    vec3 specular = numerator / denominator;
+    vec3 radiance = SunLight.color * SunLight.intensity;
+    float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);
+
+    return (diffuse + specular) * radiance * diffuseFactor + emissivity;
+}
+
+vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 emissivity, float baseReflectivity, float metalicity, float roughness, int lightIndex) {
+    vec3 viewDir = normalize(cameraPosition - worldPos);
+    vec3 lightDir = normalize(pointLights[lightIndex].position - worldPos);
+    vec3 halfWay = normalize(viewDir + lightDir);
+    float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);
+    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metalicity);
+    vec3 diffuse = diffuseCoefficient * albedo / PI;
+
+    // Cook-Torrance BRDF
+    float NDF = DistributionGGX(worldNormal, halfWay, roughness);
+    float G = GeometrySmith(worldNormal, viewDir, lightDir, roughness);
+    vec3 F = vec3(calculateFresnel(viewDir, halfWay, baseReflectivity));
+
+    vec3 numerator = NDF * G * F;
+    float denominator = 4.0f * max(dot(worldNormal, viewDir), 0.0f) * max(dot(worldNormal, lightDir), 0.0f) + 0.001f;
+    vec3 specular = numerator / denominator;
+    vec3 radiance = pointLights[lightIndex].color * pointLights[lightIndex].intensity;
+    float distance = length(pointLights[lightIndex].position - worldPos);
+    float attenuation = 1.0f / (1.0f + (distance / pointLights[lightIndex].radius) * (distance / pointLights[lightIndex].radius));
+    float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);
+
+    return (diffuse + specular) * radiance * diffuseFactor * attenuation + emissivity;
+}
 vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float ambientOcclusion, float sunShadow) {
     vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;
     vec3 lighting = ambient;
 
-    // Process directional light
-    vec3 lightDir = normalize(-SunLight.direction);
-    float diff = max(dot(lightDir, worldNormal), 0.0f);
-    vec3 diffuse = diff * albedo * SunLight.color * SunLight.intensity;
+    // Example PBR parameters for terrain (customize as needed)
+    float baseReflectivity = 0.04f;
+    float metallicity = 0.0f;
+    float roughness = 0.5f;
+    vec3 emissivity = vec3(0.0f);
 
-    vec3 viewDir = normalize(cameraPosition - worldPos);
-    vec3 reflectDir = reflect(-lightDir, worldNormal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);
-    vec3 specular = spec * SunLight.color * SunLight.intensity;
+    // Sun PBR lighting
+    lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, emissivity, baseReflectivity, metallicity, roughness) * sunShadow;
 
-    lighting += (diffuse + specular) * sunShadow;
-
-    // Process point lights
+    // Point lights PBR
     for(int i = 0; i < numActivePointLights; i++) {
         float pointLightShadow = (i < numShadowedLights) ? computePointShadow(worldPos, worldNormal, i) : 1.0f;
-        vec3 pointLightDir = normalize(pointLights[i].position - worldPos);
-        float pointDiff = max(dot(pointLightDir, worldNormal), 0.0f);
-        vec3 pointDiffuse = pointDiff * albedo * pointLights[i].color * pointLights[i].intensity;
-
-        vec3 pointReflectDir = reflect(-pointLightDir, worldNormal);
-        float pointSpec = pow(max(dot(viewDir, pointReflectDir), 0.0f), 16.0f);
-        vec3 pointSpecular = pointSpec * pointLights[i].color * pointLights[i].intensity;
-
-        float distance = length(pointLights[i].position - worldPos);
-        float attenuation = 1.0f / (1.0f + (distance / pointLights[i].radius) * (distance / pointLights[i].radius));
-        pointDiffuse *= attenuation;
-        pointSpecular *= attenuation;
-
-        lighting += (pointDiffuse + pointSpecular) * pointLightShadow;
+        lighting += calculatePointPBRLighting(worldPos, worldNormal, albedo, emissivity, baseReflectivity, metallicity, roughness, i) * pointLightShadow;
     }
 
     return lighting;
