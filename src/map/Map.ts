@@ -27,7 +27,7 @@ export class WorldMap {
   private length: number;
   public lights: Light[] = [
     new Light(
-      vec3.fromValues(0, 250, 0),
+      vec3.fromValues(0, 400, 0),
       new Color(255, 255, 255),
       1,
       200,

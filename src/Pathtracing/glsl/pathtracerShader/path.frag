@@ -270,7 +270,7 @@ float intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNorma
  */
 int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {
     int closestHitIndex = -1;
-    minHitDistance = 1.0/0.0; // Infinity
+    minHitDistance = 1.0/0.0001; // Infinity
 
     int stack[128]; // Stack of 64 - May need to change for larger BVH later
     int stackPtr = 0;
@@ -306,7 +306,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBaryc
             }
         } else { // Internal Node
             // Check for space for two children to prevent stack overflow
-            if (stackPtr < 63) { 
+            if (stackPtr < 127) { 
                 stack[stackPtr++] = node.left;
                 stack[stackPtr++] = node.right;
             }
@@ -638,17 +638,28 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         
         //in the future consider NEE (Next Event Estimation) - Was removed cause buggy
 
-
-        // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
         if(type != 4) //Transmission goes through
             rayOrigin = hitPoint + geometricNormal * 0.1;
         if(type == 1){ //Diffuse
+            //direct lighting
+            vec3 directLight = vec3(0.0);
+            vec3 BRDF = matColor / PI;
+            Light light = lights[0]; //Single light for now
+            vec3 lightDir = normalize(light.position - hitPoint);
+            float lightDistance = length(light.position - hitPoint);
+            //shadow ray
+            /*vec3 shadowOrigin = hitPoint + geometricNormal * 0.1;
+            vec3 shadowBarycentric;
+            float shadowHitDistance;
+            int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, 0, shadowBarycentric, shadowHitDistance);*/
+            float P = 1.0/(lightDistance*lightDistance);
+            directLight = matColor/PI*light.color*light.intensity*dot(smoothNormal,lightDir)*P*PI*light.radius*light.radius;
+            
             rayDir = weightedDIR(smoothNormal, rng_state);
             float cos_theta = dot(rayDir,smoothNormal);
-            vec3 BRDF = matColor / PI;
             float p = 0.5*PI;
-            throughput *= BRDF*cos_theta/p;
+            throughput *= (BRDF*cos_theta/p + directLight)*0.5;
         }else if (type == 2) { // Specular (mirror)
             vec3 useNormal = smoothNormal;
             if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
