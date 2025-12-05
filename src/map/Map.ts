@@ -29,7 +29,7 @@ export class WorldMap {
     new Light(
       vec3.fromValues(0, 400, 0),
       new Color(255, 255, 255),
-      1,
+      3,
       200,
       new Color(255, 228, 132)
     )

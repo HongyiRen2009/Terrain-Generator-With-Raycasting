@@ -4,6 +4,7 @@ precision highp sampler3D;
 precision highp int;
 #define MAX_LIGHTS 30
 #define PI 3.1415926
+#define __BVH_DEPTH__ 128
 //#define NUM_TERRAINS 1000 
 
 //Note: 
@@ -268,11 +269,11 @@ float intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNorma
 /**
  * Returns TRIANGLE index
  */
-int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {
+int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out float minHitDistance) {
     int closestHitIndex = -1;
     minHitDistance = 1.0/0.0001; // Infinity
 
-    int stack[128]; // Stack of 64 - May need to change for larger BVH later
+    int stack[__BVH_DEPTH__]; // Stack of 64 - May need to change for larger BVH later
     int stackPtr = 0;
     stack[stackPtr++] = 0; // Push root node index
 
@@ -306,7 +307,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBaryc
             }
         } else { // Internal Node
             // Check for space for two children to prevent stack overflow
-            if (stackPtr < 127) { 
+            if (stackPtr < __BVH_DEPTH__-1) { 
                 stack[stackPtr++] = node.left;
                 stack[stackPtr++] = node.right;
             }
@@ -576,7 +577,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         vec3 baryCentric;
         float minHitDistance;
         
-        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);
+        int triIndex = traverseBVH(rayOrigin, rayDir, baryCentric, minHitDistance);
         
         int hitLightIndex = -1;
         for (int i = 0; i < numActiveLights; i++) {
