@@ -38,6 +38,7 @@ export class LightingPass extends RenderPass {
       "projInverse",
       "pausedView",
       "cameraPosition",
+      "ambientLightIntensity",
       "lightSpaceMatrices[0]",
       "cascadeSplits",
       "usingPCF",
@@ -112,6 +113,7 @@ export class LightingPass extends RenderPass {
     const albedoTexture = textures["albedo"];
     const depthTexture = textures["depth"];
     const ssaoTexture = textures["ssaoBlur"];
+    const matieralAttributesTexture = textures["materialAttributes"];
     const shadowDepthTextureArray = textures["shadowDepthTextureArray"];
     const pointShadowTextures = textures[
       "pointShadowTextures"
@@ -134,13 +136,20 @@ export class LightingPass extends RenderPass {
       this.program!,
       normalTexture,
       "normalTexture",
-      10
+      9
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       albedoTexture,
       "albedoTexture",
+      10
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      matieralAttributesTexture,
+      "materialAttributesTexture",
       11
     );
     TextureUtils.bindTex(
@@ -272,7 +281,10 @@ export class LightingPass extends RenderPass {
       this.resourceCache.getData("showCameraDepth") ?? false;
     const pointShadowBias =
       this.resourceCache.getData("pointShadowBias") ?? 0.05;
-
+    this.gl.uniform1f(
+      this.uniforms["ambientLightIntensity"],
+      this.resourceCache.getData("ambientLightIntensity") ?? 0.3
+    );
     this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
     // Upload csmShadowBias as array uniform
     const csmShadowBiasFloatArray = new Float32Array(8); // Support up to 8 cascades
@@ -361,6 +373,34 @@ export class LightingPass extends RenderPass {
       defaultValue: false,
       onChange: (value: boolean) => {
         this.resourceCache.setData("disableSun", value);
+      }
+    });
+    SettingsManager.instance.addSliderToSection("Lighting Settings", {
+      id: "sunlightIntensity",
+      label: "Sunlight Intensity",
+      min: 0,
+      max: 5,
+      step: 0.01,
+      defaultValue: 0.138,
+      numType: "float",
+      onChange: (value: number) => {
+        const sunLight = this.resourceCache.getData("sunLight");
+        if (sunLight) {
+          sunLight.intensity = value;
+          this.resourceCache.setData("sunLight", sunLight);
+        }
+      }
+    });
+    SettingsManager.instance.addSliderToSection("Lighting Settings", {
+      id: "ambientLightIntensity",
+      label: "Ambient Light Intensity",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.3,
+      numType: "float",
+      onChange: (value: number) => {
+        this.resourceCache.setData("ambientLightIntensity", value);
       }
     });
     SettingsManager.instance.addCheckboxToSection("Lighting Settings", {

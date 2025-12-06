@@ -8,6 +8,7 @@ out vec4 outputColor;
 uniform samplerCube pointShadowTexture[MAX_SHADOWED_POINT_LIGHTS];
 uniform sampler2D normalTexture;
 uniform sampler2D albedoTexture;
+uniform sampler2D materialAttributesTexture;
 uniform sampler2D depthTexture;
 uniform sampler2D ssaoTexture;
 uniform highp sampler3D jitterTexture;
@@ -16,6 +17,7 @@ uniform mat4 viewInverse;
 uniform mat4 projInverse;
 uniform mat4 pausedView;
 
+uniform float ambientLightIntensity;
 //Shadow Uniforms
 uniform mat4 lightSpaceMatrices[8]; // Support up to 8 cascades
 uniform float cascadeSplits[8]; // Support up to 8 cascades
@@ -341,7 +343,12 @@ vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 
 
     return (diffuse + specular) * radiance * diffuseFactor + emissivity;
 }
-
+vec3 unpackEmissivity(int packed) {
+    float r = float(packed & 0x3) / 3.0f;
+    float g = float((packed >> 2) & 0x3) / 3.0f;
+    float b = float((packed >> 4) & 0x3) / 3.0f;
+    return vec3(r, g, b);
+}
 vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 emissivity, float baseReflectivity, float metalicity, float roughness, int lightIndex) {
     vec3 viewDir = normalize(cameraPosition - worldPos);
     vec3 lightDir = normalize(pointLights[lightIndex].position - worldPos);
@@ -366,14 +373,15 @@ vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec
     return (diffuse + specular) * radiance * diffuseFactor * attenuation + emissivity;
 }
 vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float ambientOcclusion, float sunShadow) {
-    vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;
+    vec3 ambient = (vec3(ambientLightIntensity) * albedo) * ambientOcclusion;
     vec3 lighting = ambient;
 
-    // Example PBR parameters for terrain (customize as needed)
-    float baseReflectivity = 0.04f;
-    float metallicity = 0.0f;
-    float roughness = 0.5f;
-    vec3 emissivity = vec3(0.0f);
+    // Material attributes
+    vec4 materialData = texture(materialAttributesTexture, fragUV);
+    float baseReflectivity = materialData.r;
+    float metallicity = materialData.g;
+    float roughness = materialData.b;
+    vec3 emissivity = unpackEmissivity(int(materialData.a));
 
     // Sun PBR lighting
     lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, emissivity, baseReflectivity, metallicity, roughness) * sunShadow;

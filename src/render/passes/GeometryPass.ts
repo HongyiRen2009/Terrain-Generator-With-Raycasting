@@ -86,7 +86,14 @@ export class GeometryPass extends RenderPass {
       this.gl.DEPTH_COMPONENT,
       this.gl.FLOAT
     );
-
+    const matieralAttributesTexture = TextureUtils.createTexture2D(
+      this.gl,
+      w,
+      h,
+      this.gl.RGBA8,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE
+    );
     const fbo = this.gl.createFramebuffer();
 
     if (!fbo) {
@@ -110,12 +117,23 @@ export class GeometryPass extends RenderPass {
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT2,
+      this.gl.TEXTURE_2D,
+      matieralAttributesTexture,
+      0
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
       this.gl.DEPTH_ATTACHMENT,
       this.gl.TEXTURE_2D,
       depthTexture,
       0
     );
-    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
+    this.gl.drawBuffers([
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.COLOR_ATTACHMENT1,
+      this.gl.COLOR_ATTACHMENT2
+    ]);
 
     const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
     if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
@@ -129,6 +147,7 @@ export class GeometryPass extends RenderPass {
       textures: {
         normal: normalTexture,
         albedo: albedoTexture,
+        materialAttributes: matieralAttributesTexture,
         depth: depthTexture
       }
     };

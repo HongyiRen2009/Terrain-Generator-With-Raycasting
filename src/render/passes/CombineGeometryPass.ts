@@ -69,6 +69,14 @@ export class CombineGeometryPass extends RenderPass {
       this.gl.RGBA,
       this.gl.UNSIGNED_BYTE
     );
+    const materialAttributesTexture = TextureUtils.createTexture2D(
+      this.gl,
+      w,
+      h,
+      this.gl.RGBA8,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE
+    );
     const depthTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
@@ -101,6 +109,13 @@ export class CombineGeometryPass extends RenderPass {
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT2,
+      this.gl.TEXTURE_2D,
+      materialAttributesTexture,
+      0
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
       this.gl.DEPTH_ATTACHMENT,
       this.gl.TEXTURE_2D,
       depthTexture,
@@ -120,6 +135,7 @@ export class CombineGeometryPass extends RenderPass {
       textures: {
         normal: normalTexture,
         albedo: albedoTexture,
+        materialAttributes: materialAttributesTexture,
         depth: depthTexture
       }
     };
@@ -156,30 +172,37 @@ export class CombineGeometryPass extends RenderPass {
     TextureUtils.bindTex(
       this.gl,
       this.program!,
+      gBuffer!["materialAttributes"],
+      "materialAttributesTexture",
+      2
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
       gBuffer!["depth"],
       "depthTexture",
-      2
+      3
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       gBuffer!["grassNormal"],
       "grassNormalTexture",
-      3
+      4
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       gBuffer!["grassAlbedo"],
       "grassAlbedoTexture",
-      4
+      5
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       gBuffer!["grassDepth"],
       "grassDepthTexture",
-      5
+      6
     );
 
     if (!pathtracerOn || this.pathtracerRender) {

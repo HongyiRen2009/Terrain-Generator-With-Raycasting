@@ -7,6 +7,7 @@ import GeometryVertexShaderSource from "../../glsl/DeferredRendering/Geometry.ve
 import GeometryFragmentShaderSource from "../../glsl/DeferredRendering/Geometry.frag";
 import GrassVertexShaderSource from "../../glsl/Grass/Grass.vert";
 import GrassFragmentShaderSource from "../../glsl/Grass/Grass.frag";
+import e from "express";
 export interface VaoInfo {
   vao: WebGLVertexArrayObject;
   indexCount: number;
@@ -24,7 +25,12 @@ export interface GrassVAOInfo {
   lodLevels: LODLevel[];
   numInstances: number;
 }
-
+function packEmissivityToUint8(emissivity: [number, number, number]): number {
+  const r = Math.min(3, Math.floor(emissivity[0] * 3)); // 2 bits
+  const g = Math.min(3, Math.floor(emissivity[1] * 3)); // 2 bits
+  const b = Math.min(3, Math.floor(emissivity[2] * 3)); // 2 bits
+  return (b << 4) | (g << 2) | r;
+}
 export class VAOManager {
   private gl: WebGL2RenderingContext;
   private vaoCache: Map<number, VaoInfo>;
@@ -77,7 +83,19 @@ export class VAOManager {
     }
 
     const TerrainMeshSize = triangleIndices.length;
-
+    //Current placeholders for reflectiveness, metalicity, roughness, add them in the terrain branch
+    const reflectivenessPlaceholder = new Array(
+      (trianglePositions.length / 3) * 3
+    ).fill(1.0);
+    const metalicityPlaceholder = new Array(
+      (trianglePositions.length / 3) * 3
+    ).fill(0.0);
+    const roughnessPlaceholder = new Array(
+      (trianglePositions.length / 3) * 3
+    ).fill(0.0);
+    const emissivityPlaceholder = new Array(
+      (trianglePositions.length / 3) * 3
+    ).fill(packEmissivityToUint8([0.0, 0.0, 0.0]));
     const TerrainTriangleBuffer = {
       vertex: {
         position: RenderUtils.CreateAttributeBuffer(
@@ -91,6 +109,22 @@ export class VAOManager {
         color: RenderUtils.CreateAttributeBuffer(
           this.gl,
           new Float32Array(triangleColors)
+        ),
+        reflectiveness: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          new Float32Array(reflectivenessPlaceholder)
+        ),
+        metalicity: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          new Float32Array(metalicityPlaceholder)
+        ),
+        roughness: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          new Float32Array(roughnessPlaceholder)
+        ),
+        emissivity: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          new Float32Array(emissivityPlaceholder)
         )
       },
       indices: RenderUtils.CreateIndexBuffer(this.gl, triangleIndices)
@@ -100,7 +134,17 @@ export class VAOManager {
       {
         position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
         normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
-        color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 }
+        color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 },
+        reflectiveness: {
+          buffer: TerrainTriangleBuffer.vertex.reflectiveness,
+          size: 1
+        },
+        metalicity: {
+          buffer: TerrainTriangleBuffer.vertex.metalicity,
+          size: 1
+        },
+        roughness: { buffer: TerrainTriangleBuffer.vertex.roughness, size: 1 },
+        emissivity: { buffer: TerrainTriangleBuffer.vertex.emissivity, size: 1 }
       },
       TerrainTriangleBuffer.indices,
       this.geometryProgram!
