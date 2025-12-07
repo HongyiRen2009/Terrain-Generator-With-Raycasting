@@ -196,12 +196,13 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       }
     }
   }
-
+  const fieldTime = performance.now();
   // Precompute gradients
   const delta = 1.0;
   for (let x = 0; x <= GridSize[0]; x++) {
     for (let y = 0; y <= GridSize[1]; y++) {
       for (let z = 0; z <= GridSize[2]; z++) {
+        if (getFieldValue(x, y, z) === 0) continue; // Skip air blocks
         const idx = chunkCoordinateToIndex(x, y, z);
 
         const x1 = Math.min(x + delta, GridSize[0]);
@@ -219,7 +220,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       }
     }
   }
-
+  const gradientTime = performance.now();
   // Generate interior mesh
   const mesh: Mesh = new Mesh();
   for (let x = 1; x < GridSize[0] - 1; x++) {
@@ -233,7 +234,15 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
       }
     }
   }
-
+  const meshTime = performance.now();
+  console.log(
+    `Worker timings: Field=${(fieldTime - startTime).toFixed(
+      2
+    )} ms, Gradients=${(gradientTime - fieldTime).toFixed(
+      2
+    )} ms, Mesh=${(meshTime - gradientTime).toFixed(2)} ms,
+    total=${(meshTime - startTime).toFixed(2)} ms`
+  );
   self.postMessage(
     {
       field,
@@ -243,7 +252,4 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
     },
     [field.buffer]
   );
-
-  const endTime = performance.now();
-  console.log(`Worker finished in ${endTime - startTime} ms`);
 };

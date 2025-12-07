@@ -8,6 +8,7 @@ import { RenderUtils } from "../utils/RenderUtils";
 import { WorldObject } from "./WorldObject";
 import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { ObjectUI } from "./ObjectUI";
+import { WorkerWrapper } from "./WorkerWrapper";
 /**
  * The object holding the map of the world
  * Center chunk starts at 0,0
@@ -26,9 +27,9 @@ export class WorldMap {
   ];
 
   public height: number;
-  public resolution = 64; //#of vertices square size of chunk
+  public resolution = 16; //#of vertices square size of chunk
   public chunkDict: { [key: string]: Chunk } = {};
-  public Workers: Worker[] = [];
+  public Workers: WorkerWrapper[] = [];
   public seed: number = 10; // Random seed for noise generation
 
   public worldObjects: WorldObject[] = [];
@@ -36,10 +37,11 @@ export class WorldMap {
   gl: WebGL2RenderingContext;
 
   private nextWorldObjectId: number = 0;
-  private renderDistance: number = 1; // In chunks
+  private renderDistance: number = 2; // In chunks
   private tracerUpdateSupplier: () => () => void;
 
   public objectUI: ObjectUI;
+  private chunksDone: number = 0;
 
   /**
    * Constructs a world
@@ -63,7 +65,8 @@ export class WorldMap {
     this.height = height;
     this.resolution = resolution;
     for (let i = 0; i < navigator.hardwareConcurrency; i++) {
-      this.Workers.push(new Worker(new URL("./Worker.ts", import.meta.url)));
+      const worker = new Worker(new URL("./Worker.ts", import.meta.url));
+      this.Workers.push(new WorkerWrapper(worker));
     }
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
   }
@@ -98,7 +101,7 @@ export class WorldMap {
         positions.push(vec2.fromValues(chunkX, chunkZ));
       }
     }
-
+    console.log(`Gnerating ${positions.length} chunks`);
     positions.forEach((pos, i) => {
       const chunk = new Chunk(
         pos,
@@ -109,16 +112,20 @@ export class WorldMap {
       );
       this.chunkDict[`${pos[0]},${pos[1]}`] = chunk;
     });
+
     await Promise.all(
       Object.values(this.chunkDict).map((chunk) => chunk.generateTerrain())
     );
+
     await Promise.all(
       Object.values(this.chunkDict).map((chunk) =>
         chunk.generateEdgeTriangles()
       )
     );
   }
-
+  public incrementChunksDone() {
+    this.chunksDone++;
+  }
   public async generateIncremental(position: vec2): Promise<void> {
     const positions: vec2[] = [];
     const newChunkKeys = new Set<string>();
@@ -277,7 +284,7 @@ export class Chunk {
   GridSize: vec3;
   Field: Float32Array = new Float32Array();
   seed: number;
-  Worker: Worker;
+  Worker: WorkerWrapper;
   Mesh: Mesh = null!;
   worldMap: WorldMap;
 
@@ -285,7 +292,7 @@ export class Chunk {
     ChunkPosition: vec2,
     GridSize: vec3,
     seed: number,
-    Worker: Worker,
+    Worker: WorkerWrapper,
     worldMap: WorldMap
   ) {
     this.GridSize = GridSize;
@@ -477,28 +484,29 @@ export class Chunk {
 
   async generateTerrain(): Promise<void> {
     return new Promise((resolve) => {
-      this.Worker.postMessage({
+      this.Worker.generate({
         GridSize: this.GridSize,
         ChunkPosition: this.ChunkPosition,
         Seed: this.seed
-      });
-      this.Worker.onmessage = (
-        event: MessageEvent<{
-          field: Float32Array;
-          meshVertices: Triangle[];
-          meshNormals: Triangle[];
-          meshTypes: [number, number, number][];
-        }>
-      ) => {
-        this.Field = event.data.field;
+      }).then(
+        (
+          event: MessageEvent<{
+            field: Float32Array;
+            meshVertices: Triangle[];
+            meshNormals: Triangle[];
+            meshTypes: [number, number, number][];
+          }>
+        ) => {
+          this.Field = event.data.field;
 
-        this.Mesh = new Mesh();
-        this.Mesh.setVertices(event.data.meshVertices);
-        this.Mesh.setNormals(event.data.meshNormals);
-        this.Mesh.setTypes(event.data.meshTypes);
-
-        resolve();
-      };
+          this.Mesh = new Mesh();
+          this.Mesh.setVertices(event.data.meshVertices);
+          this.Mesh.setNormals(event.data.meshNormals);
+          this.Mesh.setTypes(event.data.meshTypes);
+          this.worldMap.incrementChunksDone();
+          resolve();
+        }
+      );
     });
   }
 

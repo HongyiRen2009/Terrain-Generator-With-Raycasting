@@ -197,7 +197,6 @@ export class GameEngine {
       if (GameEngine.getLockedElement()) {
         this.updateCamera(timePassed);
         // Dynamic terrain update
-        this.requestNewChunkGeneration();
       }
 
       if (this.mode == 0) {
