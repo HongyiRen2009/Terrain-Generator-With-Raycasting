@@ -54,6 +54,10 @@ const config: webpack.Configuration = {
       {
         test: /\.frag$/,
         type: "asset/source"
+      },
+      {
+        test: /\.wgsl$/,
+        type: "asset/source"
       }
     ]
   },

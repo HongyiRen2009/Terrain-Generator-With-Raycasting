@@ -14,7 +14,7 @@ export class WorldUtils {
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let mainMesh = new Mesh();
 
-    for (const chunk of world.chunks) {
+    for (const chunk of Object.values(world.chunks)) {
       const triangleMesh = chunk.Mesh;
       triangleMesh.translate(
         vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
@@ -27,7 +27,7 @@ export class WorldUtils {
   }
 
   static addChunkGears(world: WorldMap, gearMesh: Mesh) {
-    for (const chunk of world.chunks) {
+    for (const chunk of Object.values(world.chunks)) {
       for (const gearPos of chunk.gearObjects) {
         let position = mat4.create();
         mat4.translate(position, position, gearPos);

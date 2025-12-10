@@ -345,7 +345,7 @@ self.onmessage = (
 
     const endField = performance.now();
     const timings = { fieldMs: endField - startTotal };
-
+    console.log(`Worker generated field in ${timings.fieldMs.toFixed(2)} ms`);
     self.postMessage(
       { requestId, field, fieldMap: Array.from(fieldMap.entries()), timings },
       [field.buffer]
@@ -384,6 +384,13 @@ self.onmessage = (
       packMs: endPack - endMesh,
       interleaveMs: endInterleave - endPack
     };
+    console.log(
+      `Worker generated mesh with ${triangleCount} triangles in ${timings.totalMs.toFixed(
+        2
+      )} ms (mesh: ${timings.meshMs.toFixed(2)} ms, pack: ${timings.packMs.toFixed(
+        2
+      )} ms, interleave: ${timings.interleaveMs.toFixed(2)} ms)`
+    );
 
     self.postMessage(
       {

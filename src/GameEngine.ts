@@ -217,20 +217,8 @@ export class GameEngine {
     } catch (e) {}
   }
   public async initialize() {
-    await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateTerrain())
-    );
-    this.world.populateFieldMap();
-
-    // Build full chunk meshes using marching cubes (requires populated field map)
-    await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
-    );
-
-    // Also generate edge-only triangles for stitching/LOD (optional)
-    await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateEdgeTriangles())
-    );
+    //Generate terrain and setup VAOs
+    //await this.world.generate();
 
     this.renderer.vaoManager.createTerrainVAO(
       WorldUtils.genTerrainVertices(this.world)
