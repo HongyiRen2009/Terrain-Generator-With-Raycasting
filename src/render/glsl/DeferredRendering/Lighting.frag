@@ -350,11 +350,11 @@ vec3 unpackEmissivity(int packed) {
     return vec3(r, g, b);
 }
 
-float calculateAttenuation(float d, float r, float range){
+float calculateAttenuation(float d, float r, float range) {
     if(d > range) {
         return 0.0f;
     }
-    return 2.0f * (1.0f-d/sqrt(d*d+r*r));
+    return 2.0f * (1.0f - d / sqrt(d * d + r * r));
 }
 
 vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 emissivity, float baseReflectivity, float metalicity, float roughness, int lightIndex) {
@@ -409,7 +409,7 @@ vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float 
         // albedoData contains (height, curveAngle, 0.0, materialId)
 
     vec3 viewDirection = normalize(cameraPosition - worldPos);
-    
+
     // Use a default direction for camera-based calculations when sun is disabled
     vec3 toCamera = sunDisabled ? vec3(0.0f, 0.0f, -1.0f) : normalize(-SunLight.direction);
     toCamera.y = 0.0f;
@@ -421,10 +421,10 @@ vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float 
     vec3 grassColor = mix(grassBaseColor, grassTipColor, pow(t, grassAmbientTransitionPower));
 
     vec3 normal = normalize(worldNormal) * (isInnerCurve ? -1.0f : 1.0f);
-    
+
     // Calculate tangent for anisotropic specular (needed for both sun and point lights)
     vec3 tangent = normalize(cross(normal, vec3(0.0f, 1.0f, 0.0f)));
-    
+
     // Only apply sun-based lighting if sun is not disabled
     if(!sunDisabled) {
         vec3 lightDir = normalize(-SunLight.direction);
@@ -478,7 +478,7 @@ vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float 
         grassColor += (pointDiffuseColor + pointSpecular) * attenuation * mix(1.0f, pointLightShadow, pointLightShadowStrength);
     }
 
-    return grassColor;
+    return pow(grassColor, vec3(2.2f));
 }
 
 void main() {

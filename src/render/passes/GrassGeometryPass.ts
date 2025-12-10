@@ -212,7 +212,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.5
+      defaultValue: 0.3
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "pointLightShadowStrength",
@@ -220,7 +220,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.5
+      defaultValue: 0.3
     });
     // Wind settings
     SettingsManager.instance.addSliderToSection("Grass Settings", {
@@ -304,7 +304,7 @@ export class GrassGeometryPass extends RenderPass {
     pathtracerOn: boolean
   ): void {
     if (!this.program) return;
-    
+
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderTarget!.fbo);
     gl.disable(gl.BLEND);
@@ -313,7 +313,7 @@ export class GrassGeometryPass extends RenderPass {
     gl.clearColor(0, 0, 0, 1);
     gl.clearDepth(1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    
+
     // Check if grass is enabled - if not, we've already cleared the buffers
     // so the depth will be 1.0 (far plane), ensuring scene geometry is used
     const grassEnabled = this.resourceCache.getData("grassEnabled") ?? true;
@@ -321,7 +321,7 @@ export class GrassGeometryPass extends RenderPass {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       return;
     }
-    
+
     gl.useProgram(this.program);
     const cameraInfo = this.resourceCache.getData("CameraInfo");
     const cameraPos = this.resourceCache.getData("cameraPosition") as
