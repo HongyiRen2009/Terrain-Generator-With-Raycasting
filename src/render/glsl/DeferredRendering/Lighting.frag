@@ -39,6 +39,7 @@ uniform bool cubeShadowsOn;
 uniform int jitterSize;
 uniform int filterSize;
 uniform float pcfRadius;
+uniform bool sunDisabled;
 
 struct PointLight {
     vec3 position;
@@ -46,6 +47,7 @@ struct PointLight {
     vec3 showColor;
     float intensity;
     float radius;
+    float range;
 };
 
 struct DirectionalLight {
@@ -131,9 +133,7 @@ float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex) {
     }
     vec3 toFrag = worldPos - pointLights[lightIndex].position;
     float currentDist = length(toFrag);
-    // Shadow map covers 3x radius, but we only apply shadows where light has meaningful contribution
-    // Beyond 3x radius, consider it fully lit (light attenuation is negligible anyway)
-    float shadowMapRange = pointLights[lightIndex].radius * 3.0f;
+    float shadowMapRange = pointLights[lightIndex].range;
     vec3 lightDir = normalize(-toFrag);
     float angleFactor = clamp(1.0f - max(dot(worldNormal, lightDir), 0.0f), 0.0f, 1.0f);
     float biasScalar = pointShadowBias * (1.5f + angleFactor * 3.0f);
@@ -349,6 +349,14 @@ vec3 unpackEmissivity(int packed) {
     float b = float((packed >> 4) & 0x3) / 3.0f;
     return vec3(r, g, b);
 }
+
+float calculateAttenuation(float d, float r, float range){
+    if(d > range) {
+        return 0.0f;
+    }
+    return 2.0f * (1.0f-d/sqrt(d*d+r*r));
+}
+
 vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 emissivity, float baseReflectivity, float metalicity, float roughness, int lightIndex) {
     vec3 viewDir = normalize(cameraPosition - worldPos);
     vec3 lightDir = normalize(pointLights[lightIndex].position - worldPos);
@@ -367,7 +375,7 @@ vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec
     vec3 specular = numerator / denominator;
     vec3 radiance = pointLights[lightIndex].color * pointLights[lightIndex].intensity;
     float distance = length(pointLights[lightIndex].position - worldPos);
-    float attenuation = 1.0f / (1.0f + (distance / pointLights[lightIndex].radius) * (distance / pointLights[lightIndex].radius));
+    float attenuation = calculateAttenuation(distance, pointLights[lightIndex].radius, pointLights[lightIndex].range);
     float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);
 
     return (diffuse + specular) * radiance * diffuseFactor * attenuation + emissivity;
@@ -384,7 +392,9 @@ vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float 
     vec3 emissivity = unpackEmissivity(int(materialData.a));
 
     // Sun PBR lighting
-    lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, emissivity, baseReflectivity, metallicity, roughness) * sunShadow;
+    if(!sunDisabled) {
+        lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, emissivity, baseReflectivity, metallicity, roughness) * sunShadow;
+    }
 
     // Point lights PBR
     for(int i = 0; i < numActivePointLights; i++) {
@@ -398,37 +408,47 @@ vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float 
 vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float curveAngle, float sunShadow) {
         // albedoData contains (height, curveAngle, 0.0, materialId)
 
-    vec3 toCamera = normalize(-SunLight.direction);
+    vec3 viewDirection = normalize(cameraPosition - worldPos);
+    
+    // Use a default direction for camera-based calculations when sun is disabled
+    vec3 toCamera = sunDisabled ? vec3(0.0f, 0.0f, -1.0f) : normalize(-SunLight.direction);
     toCamera.y = 0.0f;
 
     float curveViewDot = cos(curveAngle) * toCamera.x + sin(curveAngle) * toCamera.z;
     bool isInnerCurve = curveViewDot > 0.0f;
 
-    vec3 lightDir = normalize(-SunLight.direction);
-    vec3 viewDirection = normalize(cameraPosition - worldPos);
-
     float t = clamp(vHeight / 1.5f, 0.0f, 1.0f);
     vec3 grassColor = mix(grassBaseColor, grassTipColor, pow(t, grassAmbientTransitionPower));
 
     vec3 normal = normalize(worldNormal) * (isInnerCurve ? -1.0f : 1.0f);
-    float diffuse = max(dot(normal, lightDir), 0.0f);
-    grassColor *= grassBaseDarkness + grassDiffuseStrength * diffuse;
-
-        // Anisotropic specular (Kajiya-Kay model for hair/grass)
+    
+    // Calculate tangent for anisotropic specular (needed for both sun and point lights)
     vec3 tangent = normalize(cross(normal, vec3(0.0f, 1.0f, 0.0f)));
-    vec3 halfDir = normalize(lightDir + viewDirection);
-    float tdh = dot(tangent, halfDir);
-    float spec = pow(sqrt(1.0f - tdh * tdh), grassShininess);
-    spec = mix(0.0f, spec, pow(t, grassSpecularTransitionPower));
-    vec3 specular = grassSpecularStrength * spec * grassSpecularColor;
-    grassColor += specular;
+    
+    // Only apply sun-based lighting if sun is not disabled
+    if(!sunDisabled) {
+        vec3 lightDir = normalize(-SunLight.direction);
+        float diffuse = max(dot(normal, lightDir), 0.0f);
+        grassColor *= grassBaseDarkness + grassDiffuseStrength * diffuse;
 
-    float translucency = max(dot(-lightDir, normal), 0.0f);
-    translucency = mix(0.0f, translucency, pow(t, grassTranslucencyTransitionPower));
-    grassColor += grassTranslucencyColor * translucency * grassTranslucencyStrength;
+            // Anisotropic specular (Kajiya-Kay model for hair/grass)
+        vec3 halfDir = normalize(lightDir + viewDirection);
+        float tdh = dot(tangent, halfDir);
+        float spec = pow(sqrt(1.0f - tdh * tdh), grassShininess);
+        spec = mix(0.0f, spec, pow(t, grassSpecularTransitionPower));
+        vec3 specular = grassSpecularStrength * spec * grassSpecularColor;
+        grassColor += specular;
 
-        // Apply sun shadow
-    grassColor *= mix(1.0f, sunShadow, sunShadowStrength);
+        float translucency = max(dot(-lightDir, normal), 0.0f);
+        translucency = mix(0.0f, translucency, pow(t, grassTranslucencyTransitionPower));
+        grassColor += grassTranslucencyColor * translucency * grassTranslucencyStrength;
+
+            // Apply sun shadow
+        grassColor *= mix(1.0f, sunShadow, sunShadowStrength);
+    } else {
+        // When sun is disabled, just use base darkness
+        grassColor *= grassBaseDarkness;
+    }
 
         // Apply point lights
     for(int i = 0; i < numActivePointLights; i++) {
@@ -437,19 +457,24 @@ vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float 
 
             // Diffuse contribution from point light
         float pointDiffuse = max(dot(normal, pointLightDir), 0.0f);
-        vec3 pointDiffuseColor = pointDiffuse * pointLights[i].color * pointLights[i].intensity;
+        // Scale down point light contribution significantly to prevent overexposure
+        // Use grassDiffuseStrength to match sun lighting behavior and apply additional scaling
+        vec3 pointDiffuseColor = pointDiffuse * pointLights[i].color * pointLights[i].intensity * grassDiffuseStrength * 0.3f;
 
             // Anisotropic specular for point light
         vec3 pointHalfDir = normalize(pointLightDir + viewDirection);
         float pointTdh = dot(tangent, pointHalfDir);
         float pointSpec = pow(sqrt(1.0f - pointTdh * pointTdh), grassShininess);
         pointSpec = mix(0.0f, pointSpec, pow(t, grassSpecularTransitionPower));
-        vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor;
+        // Scale down specular contribution as well
+        vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor * 0.3f;
 
             // Point light attenuation
         float distance = length(pointLights[i].position - worldPos);
-        float attenuation = 1.0f / (1.0f + (distance / pointLights[i].radius) * (distance / pointLights[i].radius));
+        float attenuation = calculateAttenuation(distance, pointLights[i].radius, pointLights[i].range);
 
+        // Add point light contribution with shadow applied
+        // The scaling above prevents the grass from becoming too bright/white
         grassColor += (pointDiffuseColor + pointSpecular) * attenuation * mix(1.0f, pointLightShadow, pointLightShadowStrength);
     }
 
@@ -508,7 +533,7 @@ void main() {
     if(shadowMapVisualizationIndex >= 0 && shadowMapVisualizationIndex < numActivePointLights) {
         vec3 toFrag = fragWorldPos - pointLights[shadowMapVisualizationIndex].position;
         float currentDist = length(toFrag);
-        float shadowMapRange = pointLights[shadowMapVisualizationIndex].radius * 3.0f;
+        float shadowMapRange = pointLights[shadowMapVisualizationIndex].range;
 
         vec3 color;
         if(currentDist > shadowMapRange) {
@@ -538,7 +563,6 @@ void main() {
                     break;
             }
 
-            // Convert stored depth (normalized by 3x radius) to visual representation
             stored = stored * shadowMapRange;
 
             // Normalize depth for visualization (0 = near light, 1 = at shadow map range)
@@ -621,9 +645,6 @@ void main() {
     if(texture(depthTexture, fragUV).r >= 1.0f) {
         outputColor = vec4(skyColor, 1.0f);
     } else {
-        // Clamp lighting to prevent HDR overflow (white spots)
-        // If you want HDR support, consider implementing tone mapping instead
-        vec3 finalColor = min(lighting, vec3(1.0f));
-        outputColor = vec4(finalColor, 1.0f);
+        outputColor = vec4(lighting, 1.0f);
     }
 }

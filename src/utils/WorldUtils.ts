@@ -86,6 +86,10 @@ export class WorldUtils {
           program,
           `${baseUniform}.radius`
         );
+        const rangeLocation = gl.getUniformLocation(
+          program,
+          `${baseUniform}.range`
+        );
 
         if (posLocation !== null) {
           gl.uniform3fv(posLocation, light.position);
@@ -102,6 +106,9 @@ export class WorldUtils {
         }
         if (radiusLocation !== null) {
           gl.uniform1f(radiusLocation, light.radius);
+        }
+        if (rangeLocation !== null) {
+          gl.uniform1f(rangeLocation, light.range);
         }
       }
     } else {
@@ -138,6 +145,10 @@ export class WorldUtils {
           program,
           `${baseUniform}.radius`
         );
+        const rangeLocation = gl.getUniformLocation(
+          program,
+          `${baseUniform}.range`
+        );
         const showColorLocation = gl.getUniformLocation(
           program,
           `${baseUniform}.showColor`
@@ -151,6 +162,7 @@ export class WorldUtils {
         if (intensityLocation !== null)
           gl.uniform1f(intensityLocation, light.intensity);
         if (radiusLocation !== null) gl.uniform1f(radiusLocation, light.radius);
+        if (rangeLocation !== null) gl.uniform1f(rangeLocation, light.range);
       });
 
       // Update point light shadow map visualization flags

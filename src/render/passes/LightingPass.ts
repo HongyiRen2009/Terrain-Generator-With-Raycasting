@@ -58,7 +58,8 @@ export class LightingPass extends RenderPass {
       "cubeShadowsOn",
       "jitterSize",
       "filterSize",
-      "pcfRadius"
+      "pcfRadius",
+      "sunDisabled"
     ]);
     this.InitSettings();
     this.jitterTexture = createJitterTexture(
@@ -283,7 +284,7 @@ export class LightingPass extends RenderPass {
       this.resourceCache.getData("pointShadowBias") ?? 0.05;
     this.gl.uniform1f(
       this.uniforms["ambientLightIntensity"],
-      this.resourceCache.getData("ambientLightIntensity") ?? 0.3
+      this.resourceCache.getData("ambientLightIntensity") ?? 0.1
     );
     this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
     // Upload csmShadowBias as array uniform
@@ -327,11 +328,14 @@ export class LightingPass extends RenderPass {
       );
     }
 
+    const disableSun = this.resourceCache.getData("disableSun") ?? false;
+    this.gl.uniform1i(this.uniforms["sunDisabled"], disableSun ? 1 : 0);
+    
     WorldUtils.updateLights(
       this.gl,
       this.program!,
       this.resourceCache.getData("lights"),
-      this.resourceCache.getData("disableSun")
+      disableSun
         ? {
             direction: vec3.fromValues(0, -1, 0),
             color: new Color(255, 255, 255),
@@ -381,7 +385,7 @@ export class LightingPass extends RenderPass {
       min: 0,
       max: 5,
       step: 0.01,
-      defaultValue: 0.138,
+      defaultValue: 0.143047, // Equivalent intensity calculated from point light attenuation
       numType: "float",
       onChange: (value: number) => {
         const sunLight = this.resourceCache.getData("sunLight");
@@ -397,7 +401,7 @@ export class LightingPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.3,
+      defaultValue: 0.1,
       numType: "float",
       onChange: (value: number) => {
         this.resourceCache.setData("ambientLightIntensity", value);

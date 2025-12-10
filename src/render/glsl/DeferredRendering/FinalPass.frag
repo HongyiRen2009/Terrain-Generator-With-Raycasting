@@ -124,6 +124,7 @@ void main() {
         color = pow(color, vec3(1.0f / gamma));
     }
 
+
     // Vignette
     if(enableVignette) {
         vec2 position = uv - vec2(0.5f);
@@ -136,6 +137,6 @@ void main() {
         float grain = random(uv + fract(1.0f)) * 2.0f - 1.0f;
         color += grain * filmGrainStrength;
     }
-
+    
     outputColor = vec4(color, 1.0f);
 }

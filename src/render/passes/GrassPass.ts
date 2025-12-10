@@ -58,6 +58,10 @@ export class GrassPass extends RenderPass {
 
     if (!this.program) return;
 
+    // Check if grass is enabled
+    const grassEnabled = this.resourceCache.getData("grassEnabled") ?? true;
+    if (!grassEnabled) return;
+
     gl.useProgram(this.program);
 
     // Bind to screen framebuffer or lighting FBO

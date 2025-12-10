@@ -3,14 +3,15 @@ precision highp float;
 
 uniform vec3 lightPos;
 uniform float lightRadius;
+uniform float lightRange;
 
 in vec3 fragPosition;
 out float outDepth;
 
 void main(){
     float distance = length(lightPos-fragPosition);
-    // Normalize by 2x radius to match the extended shadow map range
+    // Normalize by range to match the shadow map range
     // This ensures shadows work correctly up to where light still has meaningful contribution
-    distance = distance / (lightRadius * 3.0);
+    distance = distance / lightRange;
     outDepth = distance;
 }

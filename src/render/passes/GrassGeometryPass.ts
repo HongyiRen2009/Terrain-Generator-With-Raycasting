@@ -33,6 +33,8 @@ export class GrassGeometryPass extends RenderPass {
     )!;
     this.windStrengthNoiseTexture = this.generateNoiseTexture(256);
     this.windDirectionNoiseTexture = this.generateNoiseTexture(256);
+    // Initialize grass enabled state
+    this.resourceCache.setData("grassEnabled", true);
     this.initSettings();
   }
 
@@ -104,6 +106,16 @@ export class GrassGeometryPass extends RenderPass {
       document.getElementById("settings-section")!,
       "Grass Settings"
     );
+
+    // Enable/Disable grass
+    SettingsManager.instance.addCheckboxToSection("Grass Settings", {
+      id: "grassEnabled",
+      label: "Enable Grass",
+      defaultValue: true,
+      onChange: (value: boolean) => {
+        this.resourceCache.setData("grassEnabled", value);
+      }
+    });
 
     // Color settings
     SettingsManager.instance.addColorPickerToSection("Grass Settings", {
@@ -292,8 +304,8 @@ export class GrassGeometryPass extends RenderPass {
     pathtracerOn: boolean
   ): void {
     if (!this.program) return;
+    
     const gl = this.gl;
-    gl.useProgram(this.program);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderTarget!.fbo);
     gl.disable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
@@ -301,6 +313,16 @@ export class GrassGeometryPass extends RenderPass {
     gl.clearColor(0, 0, 0, 1);
     gl.clearDepth(1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    // Check if grass is enabled - if not, we've already cleared the buffers
+    // so the depth will be 1.0 (far plane), ensuring scene geometry is used
+    const grassEnabled = this.resourceCache.getData("grassEnabled") ?? true;
+    if (!grassEnabled) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return;
+    }
+    
+    gl.useProgram(this.program);
     const cameraInfo = this.resourceCache.getData("CameraInfo");
     const cameraPos = this.resourceCache.getData("cameraPosition") as
       | vec3

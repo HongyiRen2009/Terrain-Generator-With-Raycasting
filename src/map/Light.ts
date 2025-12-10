@@ -9,6 +9,7 @@ export class PointLight {
   color: Color; //Emission color
   intensity: number;
   radius: number; // Default radius, can be adjusted
+  range: number; // Maximum range for light influence and shadows
   showColor?: Color; //color of what the light looks
   direction?: vec3;
   name: string;
@@ -27,6 +28,7 @@ export class PointLight {
     this.color = color;
     this.intensity = intensity;
     this.radius = radius;
+    this.range = radius * 5.0; // Default range is 5x radius for smooth falloff
     this.showColor = showColor ? showColor : this.color;
     this.name = name;
     this.visualizerEnabled = false;

@@ -33,7 +33,8 @@ export class CubeShadowsPass extends RenderPass {
       "lightSpaceMatrix",
       "model",
       "lightPos",
-      "lightRadius"
+      "lightRadius",
+      "lightRange"
     ]);
     this.renderTarget = this.initRenderTarget();
     this.InitSettings();
@@ -219,6 +220,10 @@ export class CubeShadowsPass extends RenderPass {
         this.uniforms["lightRadius"],
         this.resourceCache.getData("lights")![this.currentLightIndex].radius
       );
+      this.gl.uniform1f(
+        this.uniforms["lightRange"],
+        this.resourceCache.getData("lights")![this.currentLightIndex].range
+      );
 
       // Render all geometry for this face
       for (const vaoInfo of vaosToRender) {
@@ -348,9 +353,8 @@ function getLightSpaceMatrix(
   }
   mat4.lookAt(lightViewMatrix, light.position, target, up);
   const lightProjectionMatrix = mat4.create();
-  // Extend shadow map range to 2x radius to cover where light still has meaningful contribution
-  // This matches the effective range where attenuation is still significant
-  const shadowMapFar = light.radius * 3.0;
+  // Use the light's range for shadow map far plane
+  const shadowMapFar = light.range;
   mat4.perspective(lightProjectionMatrix, Math.PI / 2, 1.0, 0.1, shadowMapFar);
   mat4.multiply(lightSpaceMatrix, lightProjectionMatrix, lightViewMatrix);
   return lightSpaceMatrix;
