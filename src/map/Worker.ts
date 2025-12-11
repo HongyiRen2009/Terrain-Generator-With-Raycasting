@@ -10,21 +10,19 @@ import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { Mesh, Triangle } from "./Mesh";
 import { CASES, EDGES, VERTICES } from "./geometry";
 import { BVHUtils } from "./BVHUtils";
+import { Chunk } from "./Map";
 
 export type WorkerConstructor = new (
   stringUrl: string | URL,
   options?: WorkerOptions
 ) => Worker;
 
-let WorldFieldMap: Map<string, number> = new Map<string, number>();
-let globalChunkPosition: vec2;
-
+let field: Float32Array;
+const chunkGridSize = vec3.create();
 type WorkerMessage = {
   Seed: string;
   GridSize: vec3;
-  ChunkPosition: vec2;
-  generatingTerrain: boolean;
-  worldFieldMap: Map<string, number>;
+  ChunkPosition: vec3;
 };
 
 function keyFromNumbers(x: number, y: number, z: number): string {
@@ -122,8 +120,7 @@ function noiseFunction(
   }
 
   // Water level varies slowly across world to allow oceans and lakes
-  const waterLevel =
-    waterLevelBase + Math.floor(simplex2D(x * 0.0015, z * 0.0015) * 4);
+  const waterLevel = waterLevelBase;
 
   // Density is how much above the queried y we are
   let density = terrainHeight - y;
@@ -154,9 +151,21 @@ function solidChecker(a: number) {
 }
 
 function getFieldValueByNums(x: number, y: number, z: number) {
-  const gx = x + globalChunkPosition[0];
-  const gz = z + globalChunkPosition[1];
-  return WorldFieldMap.get(keyFromNumbers(gx, y, gz)) ?? 0;
+  if (
+    x < 0 ||
+    y < 0 ||
+    z < 0 ||
+    x > chunkGridSize[0] ||
+    y > chunkGridSize[1] ||
+    z > chunkGridSize[2]
+  ) {
+    return 0; // or some default value
+  }
+  const idx =
+    x +
+    y * (chunkGridSize[0] + 1) +
+    z * (chunkGridSize[0] + 1) * (chunkGridSize[1] + 1);
+  return field[idx];
 }
 
 function GenerateCase(cube: vec3): number {
@@ -291,38 +300,38 @@ function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
 }
 
 self.onmessage = (
-  event: MessageEvent<WorkerMessage & { requestId?: string }>
+  event: MessageEvent<
+    WorkerMessage & { requestId?: string; field?: Float32Array }
+  >
 ) => {
   const {
     Seed,
     GridSize,
     ChunkPosition,
-    generatingTerrain,
-    worldFieldMap,
-    requestId
+    requestId,
+    field: precomputedField
   } = event.data;
-
-  globalChunkPosition = ChunkPosition;
 
   const prng = alea(Seed);
   const simplex = createNoise3D(prng);
   const simplexOverhang = createNoise3D(prng);
   const simplex2D = createNoise2D(prng);
 
-  if (generatingTerrain) {
-    const startTotal = performance.now();
-    const field = new Float32Array(
+  const startTotal = performance.now();
+
+  // Use precomputed field if provided, otherwise generate
+  if (precomputedField) {
+    field = precomputedField;
+  } else {
+    field = new Float32Array(
       (GridSize[0] + 1) * (GridSize[1] + 1) * (GridSize[2] + 1)
     );
-    const fieldMap = new Map<string, number>();
-
-    // Reduce allocations by using numeric coordinates instead of vec3 objects
     for (let x = 0; x <= GridSize[0]; x++) {
       for (let y = 0; y <= GridSize[1]; y++) {
         for (let z = 0; z <= GridSize[2]; z++) {
           const gx = x + ChunkPosition[0];
-          const gy = y; // local Y
-          const gz = z + ChunkPosition[1];
+          const gy = y + ChunkPosition[1];
+          const gz = z + ChunkPosition[2];
 
           const idx =
             x +
@@ -338,79 +347,75 @@ self.onmessage = (
           );
 
           field[idx] = value;
-          fieldMap.set(keyFromNumbers(gx, gy, gz), value);
         }
       }
     }
-
-    const endField = performance.now();
-    const timings = { fieldMs: endField - startTotal };
-    console.log(`Worker generated field in ${timings.fieldMs.toFixed(2)} ms`);
-    self.postMessage(
-      { requestId, field, fieldMap: Array.from(fieldMap.entries()), timings },
-      [field.buffer]
-    );
-  } else {
-    WorldFieldMap = worldFieldMap;
-    // Build mesh using existing Mesh helper, but then pack into transferable typed arrays
-    const startTotal = performance.now();
-    const mesh = new Mesh();
-    for (let x = 0; x < GridSize[0]; x++) {
-      for (let y = 0; y < GridSize[1]; y++) {
-        for (let z = 0; z < GridSize[2]; z++) {
-          const c = vec3.fromValues(x, y, z);
-          const cubeCase = GenerateCase(c);
-          mesh.merge(caseToMesh(c, cubeCase, GridSize));
-        }
-      }
-    }
-    const endMesh = performance.now();
-
-    // pack triangles to Float32Arrays to transfer without structured cloning
-    const verticesArr = mesh.getVertices();
-    const normalsArr = mesh.getNormals();
-    const typesArr = mesh.getTypes();
-    const packed = BVHUtils.packTriangles(verticesArr, typesArr, normalsArr);
-    const triangleCount = verticesArr.length;
-    const endPack = performance.now();
-
-    // Also produce interleaved vertices + indices for direct GPU upload (optional consumer)
-    const interleaved = meshToInterleavedVerticesAndIndices(mesh);
-    const endInterleave = performance.now();
-
-    const timings = {
-      totalMs: endInterleave - startTotal,
-      meshMs: endMesh - startTotal,
-      packMs: endPack - endMesh,
-      interleaveMs: endInterleave - endPack
-    };
-    console.log(
-      `Worker generated mesh with ${triangleCount} triangles in ${timings.totalMs.toFixed(
-        2
-      )} ms (mesh: ${timings.meshMs.toFixed(2)} ms, pack: ${timings.packMs.toFixed(
-        2
-      )} ms, interleave: ${timings.interleaveMs.toFixed(2)} ms)`
-    );
-
-    self.postMessage(
-      {
-        requestId,
-        packedVertices: packed.vertices,
-        packedNormals: packed.normals,
-        packedTerrains: packed.terrains,
-        triangleCount,
-        interleavedVertices: interleaved.vertices,
-        interleavedIndices: interleaved.indices,
-        timings,
-        justGearObjectsLol: []
-      },
-      [
-        packed.vertices.buffer,
-        packed.normals.buffer,
-        packed.terrains.buffer,
-        interleaved.vertices.buffer,
-        interleaved.indices.buffer
-      ]
-    );
   }
+  chunkGridSize[0] = GridSize[0];
+  chunkGridSize[1] = GridSize[1];
+  chunkGridSize[2] = GridSize[2];
+
+  const endField = performance.now();
+
+  // Generate interior mesh (exclude edges)
+  const mesh = new Mesh();
+  for (let x = 1; x < GridSize[0] - 1; x++) {
+    for (let y = 1; y < GridSize[1] - 1; y++) {
+      for (let z = 1; z < GridSize[2] - 1; z++) {
+        const c = vec3.fromValues(x, y, z);
+        const cubeCase = GenerateCase(c);
+        mesh.merge(caseToMesh(c, cubeCase, GridSize));
+      }
+    }
+  }
+  const endMesh = performance.now();
+
+  // Pack mesh data
+  const verticesArr = mesh.getVertices();
+  const normalsArr = mesh.getNormals();
+  const typesArr = mesh.getTypes();
+  const packed = BVHUtils.packTriangles(verticesArr, typesArr, normalsArr);
+  const triangleCount = verticesArr.length;
+  const endPack = performance.now();
+
+  const interleaved = meshToInterleavedVerticesAndIndices(mesh);
+  const endInterleave = performance.now();
+
+  const timings = {
+    totalMs: endInterleave - startTotal,
+    fieldMs: endField - startTotal,
+    meshMs: endMesh - endField,
+    packMs: endPack - endMesh,
+    interleaveMs: endInterleave - endPack
+  };
+  console.log(
+    `Worker generated field + interior mesh with ${triangleCount} triangles in ${timings.totalMs.toFixed(
+      2
+    )} ms (field: ${timings.fieldMs.toFixed(2)} ms, mesh: ${timings.meshMs.toFixed(
+      2
+    )} ms, pack: ${timings.packMs.toFixed(2)} ms)`
+  );
+
+  self.postMessage(
+    {
+      requestId,
+      field,
+      packedVertices: packed.vertices,
+      packedNormals: packed.normals,
+      packedTerrains: packed.terrains,
+      triangleCount,
+      interleavedVertices: interleaved.vertices,
+      interleavedIndices: interleaved.indices,
+      timings,
+      justGearObjectsLol: []
+    },
+    [
+      field.buffer,
+      packed.vertices.buffer,
+      packed.normals.buffer,
+      packed.terrains.buffer,
+      interleaved.vertices.buffer,
+      interleaved.indices.buffer
+    ]
+  );
 };

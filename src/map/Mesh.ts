@@ -45,9 +45,9 @@ export class Mesh {
    * @param mesh2 Mesh to merge with the original one
    */
   merge(mesh2: Mesh) {
-    this.mesh.push(...mesh2.mesh);
-    this.normals.push(...mesh2.normals);
-    this.type.push(...mesh2.type);
+    for (let i = 0; i < mesh2.mesh.length; i++) {
+      this.addTriangle(mesh2.mesh[i], mesh2.normals[i], mesh2.type[i]);
+    }
   }
 
   /**
@@ -204,21 +204,17 @@ export class Mesh {
       });
       //Push sides
       let i1 = out.length; //Note: i1 should always be 1 but better practice
-      out.push(
-        ...left.map((val) => {
-          if (val.left != -1) val.left += i1;
-          if (val.right != -1) val.right += i1;
-          return val;
-        })
-      );
+      for (const val of left) {
+        if (val.left != -1) val.left += i1;
+        if (val.right != -1) val.right += i1;
+        out.push(val);
+      }
       let i2 = out.length;
-      out.push(
-        ...right.map((val) => {
-          if (val.left != -1) val.left += i2;
-          if (val.right != -1) val.right += i2;
-          return val;
-        })
-      );
+      for (const val of right) {
+        if (val.left != -1) val.left += i2;
+        if (val.right != -1) val.right += i2;
+        out.push(val);
+      }
       out[0].left = i1;
       out[0].right = i2;
     }

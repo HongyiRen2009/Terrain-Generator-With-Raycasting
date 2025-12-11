@@ -46,7 +46,7 @@ export class WorldMap {
   private tracerUpdateSupplier: () => () => void;
 
   public objectUI: ObjectUI;
-
+  public computeShader: ComputeShader;
   /**
    * Constructs a world
    * @param width Width in # of chunks
@@ -70,11 +70,9 @@ export class WorldMap {
     for (let i = 0; i < navigator.hardwareConcurrency; i++) {
       this.Workers.push(new Worker(new URL("./Worker.ts", import.meta.url)));
     }
-    const compute = new ComputeShader();
-    compute.createPerlinNoise3D(64, 64, 64, this.seed).then(() => {
-      console.log("WebGPU Perlin noise 3D texture created.");
-    });
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
+    this.computeShader = new ComputeShader();
+    this.computeShader.init();
   }
 
   /**
@@ -97,30 +95,98 @@ export class WorldMap {
   }
 
   //Generates map
-  public generate() {
+  public async generate() {
     this.chunks = {};
     let worker = 0;
 
-    for (let i = 0; i < 1; i++) {
-      for (let j = 0; j < 1; j++) {
-        const chunkPos = vec2.fromValues(
-          i * this.resolution,
-          j * this.resolution
-        );
-        const key = `${chunkPos[0]},${chunkPos[1]}`;
-        this.chunks[key] = new Chunk(
-          chunkPos,
-          vec3.fromValues(this.resolution, this.height, this.resolution),
-          this.seed,
-          this.Workers[worker++ % navigator.hardwareConcurrency],
-          this
-        );
+    // Step 1: Prepare chunk positions and grid sizes
+    const chunkParams: {
+      pos: vec3;
+      grid: vec3;
+      seed: number;
+      worker: Worker;
+    }[] = [];
+    for (let i = 0; i < 6; i++) {
+      for (let j = 0; j < 6; j++) {
+        for (let k = 0; k < 1; k++) {
+          const chunkPos = vec3.fromValues(
+            i * this.resolution,
+            k * this.height,
+            j * this.resolution
+          );
+          chunkParams.push({
+            pos: chunkPos,
+            grid: vec3.fromValues(
+              this.resolution,
+              this.height,
+              this.resolution
+            ),
+            seed: this.seed,
+            worker: this.Workers[worker++ % navigator.hardwareConcurrency]
+          });
+        }
       }
+    }
+
+    // Step 2: Generate field arrays sequentially using the compute shader
+    const fieldArrays: Float32Array[] = [];
+    for (const params of chunkParams) {
+      const width = params.grid[0] + 1;
+      const height = params.grid[1] + 1;
+      const depth = params.grid[2] + 1;
+      const fieldBuffer = await this.computeShader.createPerlinNoise3D(
+        width,
+        height,
+        depth,
+        params.seed,
+        params.pos[0],
+        params.pos[1],
+        params.pos[2]
+      );
+      const fieldArray = await this.computeShader.readFieldBuffer(
+        fieldBuffer,
+        width,
+        height,
+        depth
+      );
+      for (let i = 0; i < fieldArray.length; i++) {
+        fieldArray[i] = fieldArray[i] * 0.5 + 0.5; // Normalize to [0,1]
+      }
+      fieldArrays.push(fieldArray);
+    }
+
+    // Step 3: Create chunks and pass field arrays to them
+    let idx = 0;
+    for (const params of chunkParams) {
+      const key = `${params.pos[0]},${params.pos[1]},${params.pos[2]}`;
+      this.chunks[key] = new Chunk(
+        params.pos,
+        params.grid,
+        params.seed,
+        params.worker,
+        this
+      );
+      // Assign the field array directly
+      this.chunks[key].Field = fieldArrays[idx++];
+    }
+    // Step 4: Generate meshes using the precomputed field arrays
+    const generationPromises: Promise<Mesh>[] = [];
+    for (const chunkKey in this.chunks) {
+      const chunk = this.chunks[chunkKey];
+      generationPromises.push(chunk.generate());
+    }
+    await Promise.all(generationPromises);
+    for (const chunk of Object.values(this.chunks)) {
+      chunk.generateEdgeTriangles();
     }
   }
 
-  public getChunkAt(chunkX: number, chunkZ: number): Chunk | undefined {
-    return this.chunks[`${chunkX},${chunkZ}`];
+  public getChunkAt(
+    chunkX: number,
+    chunkY: number,
+    chunkZ: number
+  ): Chunk | undefined {
+    return this.chunks[`${chunkX},${chunkY},${chunkZ}`];
   }
 
   public getAllChunks(): Chunk[] {
@@ -236,17 +302,17 @@ export class WorldMap {
   public getFieldValue(worldX: number, worldY: number, worldZ: number): number {
     // Determine which chunk this world position belongs to
     const chunkX = Math.floor(worldX / this.resolution) * this.resolution;
+    const chunkY = Math.floor(worldY / this.height) * this.height;
     const chunkZ = Math.floor(worldZ / this.resolution) * this.resolution;
 
-    const chunk = this.getChunkAt(chunkX, chunkZ);
+    const chunk = this.getChunkAt(chunkX, chunkY, chunkZ);
     if (!chunk) return 0;
 
     // Convert world coordinates to local chunk coordinates
     const localX = worldX - chunkX;
-    const localY = worldY;
+    const localY = worldY - chunkY;
     const localZ = worldZ - chunkZ;
-
-    return chunk.getFieldValue(localX, localY, localZ);
+    return chunk.getFieldValueLocal(localX, localY, localZ);
   }
 }
 
@@ -254,7 +320,7 @@ import { CASES, EDGES, VERTICES } from "./geometry";
 import { ComputeShader } from "./WebGPU compute";
 
 export class Chunk {
-  ChunkPosition: vec2;
+  ChunkPosition: vec3;
   GridSize: vec3;
   Field: Float32Array = new Float32Array();
   seed: number;
@@ -263,8 +329,10 @@ export class Chunk {
   gearObjects: vec3[];
   worldMap: WorldMap;
 
+  static computeShader: ComputeShader | null = null;
+
   constructor(
-    ChunkPosition: vec2,
+    ChunkPosition: vec3,
     GridSize: vec3,
     seed: number,
     Worker: Worker,
@@ -286,11 +354,7 @@ export class Chunk {
     );
   }
 
-  /**
-   * Get field value at local chunk coordinates
-   */
-  public getFieldValue(localX: number, localY: number, localZ: number): number {
-    // Check bounds
+  getFieldValueLocal(localX: number, localY: number, localZ: number): number {
     if (
       localX < 0 ||
       localX > this.GridSize[0] ||
@@ -299,20 +363,27 @@ export class Chunk {
       localZ < 0 ||
       localZ > this.GridSize[2]
     ) {
-      // Out of bounds - query world map for neighboring chunk
-      const worldX = localX + this.ChunkPosition[0];
-      const worldY = localY;
-      const worldZ = localZ + this.ChunkPosition[1];
-      return this.worldMap.getFieldValue(worldX, worldY, worldZ);
+      return -1;
     }
-
-    const idx = Math.floor(
-      localX +
-        localY * (this.GridSize[0] + 1) +
-        localZ * (this.GridSize[0] + 1) * (this.GridSize[1] + 1)
+    const idx = this.chunkCoordinateToIndex(
+      vec3.fromValues(localX, localY, localZ)
     );
+    if (idx < 0 || idx >= this.Field.length) {
+      return -1;
+    }
+    return this.Field[idx];
+  }
 
-    return this.Field[idx] ?? 0;
+  getFieldValue(localX: number, localY: number, localZ: number): number {
+    const localValue = this.getFieldValueLocal(localX, localY, localZ);
+    if (localValue !== -1) {
+      return localValue;
+    }
+    const worldX = localX + this.ChunkPosition[0];
+    const worldY = localY + this.ChunkPosition[1];
+    const worldZ = localZ + this.ChunkPosition[2];
+
+    return this.worldMap.getFieldValue(worldX, worldY, worldZ);
   }
 
   // Generate edge triangles in main thread
@@ -388,10 +459,57 @@ export class Chunk {
       const vertices = triangleLookup.map((edgeIndex) =>
         this.edgeIndexToCoordinate(c, edgeIndex)
       );
+      // Simple deterministic hash for small per-vertex variation
+      function hash01(x: number, z: number) {
+        // stable pseudo-random in [0,1)
+        return Math.abs(Math.sin(x * 127.1 + z * 311.7) * 43758.5453) % 1;
+      }
+      const WATER_LEVEL = 30;
+      const SNOW_LINE = 140;
+      // Determine a terrain type per vertex based on height and slope
+      const types: [number, number, number] = [0, 0, 0];
+      for (let i = 0; i < 3; i++) {
+        const p = vertices[i].position;
+        const n = vertices[i].normal;
+        const worldY = p[1];
+        const upDot = Math.max(-1, Math.min(1, n[1]));
+        const slope = 1 - Math.abs(upDot); // 0 = flat, higher = steeper
+
+        // Water
+        if (worldY <= WATER_LEVEL - 0.2) {
+          types[i] = 4; // water
+          continue;
+        }
+
+        // Beaches near water (gentle slope and low height)
+        if (worldY < WATER_LEVEL + 3 && slope < 0.45) {
+          types[i] = 5; // sand
+          continue;
+        }
+
+        // Snow on high altitudes
+        if (worldY > SNOW_LINE) {
+          types[i] = 3; // snow
+          continue;
+        }
+
+        // Cliffs / exposed rock on steep slopes
+        if (slope > 0.6 || upDot < 0.4) {
+          types[i] = 2; // rock
+          continue;
+        }
+
+        // Mix grass and dirt based on small deterministic noise and height
+        const nval = hash01(p[0] + c[0], p[2] + c[2]);
+        if (worldY < 65 && nval > 0.15)
+          types[i] = 0; // grass
+        else if (worldY < 80 && nval > 0.35) types[i] = 0;
+        else types[i] = 1; // dirt
+      }
       caseMesh.addTriangle(
         vertices.map((v) => v.position) as Triangle,
         vertices.map((v) => v.normal) as Triangle,
-        [0, 0, 0]
+        types
       );
     }
     return caseMesh;
@@ -443,38 +561,20 @@ export class Chunk {
     return normal;
   }
 
-  // Generate terrain field and mesh (NEW)
-  async generateTerrain(): Promise<void> {
-    return new Promise((resolve) => {
-      const requestId = Math.random().toString(36).slice(2);
-      const handler = (
-        event: MessageEvent<{
-          requestId?: string;
-          field: Float32Array;
-        }>
-      ) => {
-        if (event.data.requestId !== requestId) return;
-        this.Field = event.data.field;
-        this.Worker.removeEventListener("message", handler as EventListener);
-        resolve();
-      };
-      this.Worker.addEventListener("message", handler as EventListener);
-      this.Worker.postMessage({
-        requestId,
-        GridSize: this.GridSize,
-        ChunkPosition: this.ChunkPosition,
-        Seed: this.seed,
-        generatingTerrain: true
-      });
-    });
-  }
+  // Single pass generation: terrain field + mesh
+  async generate(): Promise<Mesh> {
+    // Generate the field using the compute shader
+    const width = this.GridSize[0] + 1;
+    const height = this.GridSize[1] + 1;
+    const depth = this.GridSize[2] + 1;
 
-  async generateMarchingCubes(): Promise<Mesh> {
+    // Now pass the fieldArray to the worker
     return new Promise((resolve) => {
       const requestId = Math.random().toString(36).slice(2);
       const handler = (
         event: MessageEvent<{
           requestId?: string;
+          field?: Float32Array;
           packedVertices?: Float32Array;
           packedNormals?: Float32Array;
           packedTerrains?: Float32Array;
@@ -489,6 +589,13 @@ export class Chunk {
         }>
       ) => {
         if (event.data.requestId !== requestId) return;
+
+        // Store field data
+        if (event.data.field) {
+          this.Field = event.data.field;
+        }
+
+        // Reconstruct mesh from worker data
         this.Mesh = new Mesh();
 
         if (
@@ -544,60 +651,6 @@ export class Chunk {
             this.Mesh.addTriangle(t, n, ty);
           }
         } else if (
-          event.data.interleavedVertices &&
-          event.data.interleavedIndices
-        ) {
-          const interleaved = event.data.interleavedVertices as Float32Array;
-          const indices = event.data.interleavedIndices as Uint32Array;
-          const triCount2 = Math.floor(indices.length / 3);
-          for (let i = 0; i < triCount2; i++) {
-            const ia = indices[i * 3];
-            const ib = indices[i * 3 + 1];
-            const ic = indices[i * 3 + 2];
-
-            const aPosBase = ia * 9;
-            const bPosBase = ib * 9;
-            const cPosBase = ic * 9;
-
-            const t: Triangle = [
-              vec3.fromValues(
-                interleaved[aPosBase],
-                interleaved[aPosBase + 1],
-                interleaved[aPosBase + 2]
-              ),
-              vec3.fromValues(
-                interleaved[bPosBase],
-                interleaved[bPosBase + 1],
-                interleaved[bPosBase + 2]
-              ),
-              vec3.fromValues(
-                interleaved[cPosBase],
-                interleaved[cPosBase + 1],
-                interleaved[cPosBase + 2]
-              )
-            ];
-
-            const na: vec3 = vec3.fromValues(
-              interleaved[aPosBase + 3],
-              interleaved[aPosBase + 4],
-              interleaved[aPosBase + 5]
-            );
-            const nb: vec3 = vec3.fromValues(
-              interleaved[bPosBase + 3],
-              interleaved[bPosBase + 4],
-              interleaved[bPosBase + 5]
-            );
-            const nc: vec3 = vec3.fromValues(
-              interleaved[cPosBase + 3],
-              interleaved[cPosBase + 4],
-              interleaved[cPosBase + 5]
-            );
-
-            const n: Triangle = [na, nb, nc];
-
-            this.Mesh.addTriangle(t, n, [0, 0, 0]);
-          }
-        } else if (
           event.data.meshVertices &&
           event.data.meshNormals &&
           event.data.meshTypes
@@ -607,18 +660,21 @@ export class Chunk {
           this.Mesh.setTypes(event.data.meshTypes);
           this.gearObjects = event.data.justGearObjectsLol ?? [];
         }
+
         this.Worker.removeEventListener("message", handler as EventListener);
         resolve(this.Mesh);
       };
       this.Worker.addEventListener("message", handler as EventListener);
-      this.Worker.postMessage({
-        requestId,
-        GridSize: this.GridSize,
-        ChunkPosition: this.ChunkPosition,
-        Seed: this.seed,
-        generatingTerrain: false,
-        field: this.Field
-      });
+      this.Worker.postMessage(
+        {
+          requestId,
+          GridSize: this.GridSize,
+          ChunkPosition: this.ChunkPosition,
+          Seed: this.seed,
+          field: this.Field // <-- pass the field array
+        },
+        [this.Field.buffer]
+      );
     });
   }
 

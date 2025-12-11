@@ -151,8 +151,39 @@ fn fractalNoise3D(x: f32, y: f32, z: f32, seed: u32, octaves: u32, persistence: 
     return total / maxValue;
 }
 
+fn terrainHeight(x: f32, z: f32, seed: u32) -> f32 {
+    let height = fractalNoise2D(x * 0.01, z * 0.01, seed, 6u, 0.5, 2.0) * 100.0;
+    return height;
+}
+
 fn getNoiseValue(x: f32, y: f32, z: f32, seed: u32) -> f32 {
-    return fractalNoise3D(x, y, z, seed, 6u, 0.5, 2.0);
+    // Terrain height (hills)
+    let terrain = terrainHeight(x, z, seed);
+
+    // Water level
+    let waterLevel: f32 = 20.0;
+
+    // Overhangs using 3D noise
+    let overhang = fractalNoise3D(x * 0.05, y * 0.05, z * 0.05, seed + 100u, 3u, 0.5, 2.0);
+
+    // If below water level, return negative value (water)
+    if (y < waterLevel) {
+        return 1.0;
+    }
+
+    // Hills: solid if below terrain height
+    if (y < terrain) {
+        // Overhangs: carve out some air pockets
+        if (overhang > 0.3) {
+            return 0.0;
+            // air pocket
+        }
+        return 1.0;
+        // solid ground
+    }
+
+    // Above terrain: air
+    return 0.0;
 }
 
 @compute @workgroup_size(4, 4, 4)
@@ -163,7 +194,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (x >= params.width || y >= params.height || z >= params.depth) {
         return;
     }
-    let noiseValue = getNoiseValue(f32(x + params.baseX) * 0.1, f32(y + params.baseY) * 0.1, f32(z + params.baseZ) * 0.1, params.seed);
+    let noiseValue = getNoiseValue(f32(x + params.baseX), f32(y + params.baseY), f32(z + params.baseZ), params.seed);
     let index = z * params.width * params.height + y * params.width + x;
     field[index] = noiseValue;
 }

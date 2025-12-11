@@ -16,9 +16,7 @@ export class WorldUtils {
 
     for (const chunk of Object.values(world.chunks)) {
       const triangleMesh = chunk.Mesh;
-      triangleMesh.translate(
-        vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
-      );
+      triangleMesh.translate(chunk.ChunkPosition);
       mainMesh.merge(triangleMesh);
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
     }

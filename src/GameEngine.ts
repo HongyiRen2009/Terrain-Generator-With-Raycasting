@@ -217,8 +217,7 @@ export class GameEngine {
     } catch (e) {}
   }
   public async initialize() {
-    //Generate terrain and setup VAOs
-    //await this.world.generate();
+    await this.world.generate();
 
     this.renderer.vaoManager.createTerrainVAO(
       WorldUtils.genTerrainVertices(this.world)
