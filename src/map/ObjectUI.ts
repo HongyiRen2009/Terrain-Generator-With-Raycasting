@@ -21,6 +21,9 @@ export class ObjectUI {
     const nameInput = document.getElementById(
       "object-name"
     ) as HTMLInputElement;
+    
+    // NEW: Get scale input element
+    const scaleInput = document.getElementById("model-scale") as HTMLInputElement;
 
     openBtn.addEventListener("click", () => popup.classList.remove("hidden"));
     closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
@@ -61,9 +64,8 @@ export class ObjectUI {
 
       const deleteBtn = document.createElement("button");
       deleteBtn.textContent = "Remove";
-      deleteBtn.style.marginLeft = "10px"; // Add some spacing
+      deleteBtn.style.marginLeft = "10px";
 
-      // 2. Add the click event listener to remove the wrapper
       deleteBtn.addEventListener("click", () => {
         wrapper.remove();
       });
@@ -82,12 +84,11 @@ export class ObjectUI {
 
       importMapDiv.appendChild(wrapper);
     });
-    // Handle submission
 
+    // Handle submission
     submitBtn.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
 
-      // 1. UPDATED: Validate for either .ply or .3mf
       if (
         !file ||
         !(
@@ -104,7 +105,10 @@ export class ObjectUI {
         return;
       }
 
-      // Collect import map entries (this logic remains the same)
+      // NEW: Get scale value
+      const scaleValue = parseFloat(scaleInput.value) || 1.0;
+
+      // Collect import map entries
       const importMap: { [id: string]: number } = {};
       document.querySelectorAll(".map-entry").forEach((entry) => {
         const inputs = entry.querySelectorAll("input, select") as NodeListOf<
@@ -132,19 +136,16 @@ export class ObjectUI {
         importMap[color.toString()] = Object.keys(Terrains).length - 1;
       });
 
-      let mesh: Mesh; // Declare mesh variable here to be used by both loaders
+      let mesh: Mesh;
 
-      // 2. NEW: Conditional loading based on file type
+      // Load based on file type
       if (file.name.endsWith(".ply")) {
-        // Use the existing PLY loader
         const plyText = await file.text();
         mesh = loadPLYToMesh(plyText, importMap);
       } else if (file.name.endsWith(".3mf")) {
-        // Use the new 3MF loader
-        // threemfToMesh function needs a URL. We create a temporary local URL for the selected file.
         const fileUrl = URL.createObjectURL(file);
         mesh = await threemfToMesh(fileUrl, importMap);
-        URL.revokeObjectURL(fileUrl); // Clean up the temporary URL after loading
+        URL.revokeObjectURL(fileUrl);
       } else if (file.name.endsWith(".obj")) {
         if (Object.keys(importMap).length != 0) {
           alert("OBJ import with color mapping is not yet supported.");
@@ -152,18 +153,23 @@ export class ObjectUI {
         }
         mesh = objSourceToMesh(await file.text());
       } else {
-        // This case should not be reached due to the validation above, but it's good practice
         alert("Unsupported file type.");
         return;
       }
 
-      // This part remains the same, as it works with the generic Mesh object
+      // NEW: Apply scale to the mesh
+      if (scaleValue !== 1.0) {
+        mesh.scale(scaleValue);
+      }
+
+      // Add to world at origin
       map.addObject(mesh, mat4.create(), nameInput.value.trim());
 
       // Reset + close popup
       importMapDiv.innerHTML = "";
       fileInput.value = "";
       nameInput.value = "";
+      scaleInput.value = "1"; // Reset scale
       popup.classList.add("hidden");
 
       // Generate for pathtracing
@@ -197,7 +203,6 @@ export class ObjectUI {
     deleteBtn.textContent = "Delete Object";
     deleteBtn.style.marginBottom = "10px";
     deleteBtn.addEventListener("click", () => {
-      // Delete GPU buffers associated with this object (if any)
       try {
         if ((obj as any).buffer) {
           const b = (obj as any).buffer;
@@ -208,15 +213,10 @@ export class ObjectUI {
         // ignore
       }
 
-      // Remove from world
       world.worldObjects = world.worldObjects.filter((o) => o.id !== obj.id);
-
-      // Remove UI
       wrapper.remove();
 
-      // Trigger re-trace/update if needed
       if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
-      // Notify external systems that an object was removed (so they can cleanup VAOs, buffers, etc.)
       if (world.onObjectRemoved) world.onObjectRemoved(obj.id);
     });
     wrapper.appendChild(deleteBtn);
@@ -243,8 +243,8 @@ export class ObjectUI {
 
     // Extract current transform components
     const translation = [obj.position[12], obj.position[13], obj.position[14]];
-    const rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
-    const scale = [1, 1, 1]; // default 1 or store separately
+    const rotationDegrees = [0, 0, 0];
+    const scale = [1, 1, 1];
 
     // Function to rebuild mat4 from translation, rotation, scale
     function rebuildMatrix() {
@@ -265,6 +265,7 @@ export class ObjectUI {
 
       if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
     }
+
     // Translation inputs
     const tHeader = document.createElement("h4");
     tHeader.textContent = "Translation:";

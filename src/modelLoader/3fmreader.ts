@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import { mat4, vec2, vec3 } from "gl-matrix";
 import { Mesh, Triangle } from "../map/Mesh";
 import { Color, Terrains } from "../map/terrains";
+import { XMLParser } from "fast-xml-parser";
 
 export async function threemfToMesh(
   url: string,
@@ -9,7 +10,8 @@ export async function threemfToMesh(
 ): Promise<Mesh> {
   const mesh = new Mesh();
   const modelData: Extracted3MFData = await load3MF(url);
-  //creteMesh
+  
+  // Create mesh from extracted data
   for (let i = 0; i < modelData.triangles.length; i++) {
     const TriangleVertices: vec3[] = modelData.triangles[i].map(
       (vIdx) => modelData.vertices[vIdx]
@@ -17,54 +19,31 @@ export async function threemfToMesh(
     const TriangleVerticesNormals: vec3[] = modelData.triangles[i].map(
       (vIdx) => modelData.normals[vIdx]
     );
+    
     let types: number[] = [0, 0, 0];
-    if (importMap) {
-      for (let j = 0; j < 3; j++) {
-        const col = Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
-        if (col.toString() in importMap) {
-          types[j] = importMap[col.toString()] as number;
-        } else {
-          const col = Color.fromVec3(
-            modelData.colors[modelData.triangles[i][j]]
-          );
-          //Check if simple exists
-          let found = false;
-          for (let key in Terrains) {
-            const terrain = Terrains[parseInt(key)];
-            if (terrain.type == 1 && col.equals(terrain.color)) {
-              //use that color.
-              types[j] = parseInt(key);
-              found = true;
-            }
-          }
-          if (!found) {
-            //make a new terrain type
-            Terrains[Object.keys(Terrains).length] = {
-              color: col,
-              reflectiveness: 0.2,
-              roughness: 0.8,
-              type: 1
-            };
-            types[j] = Object.keys(Terrains).length - 1;
-          }
-        }
-      }
-    } else {
-      //Make it based on color
-      for (let j = 0; j < 3; j++) {
-        const col = Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
-        //Check if simple exists
+    
+    // Process colors and assign terrain types
+    for (let j = 0; j < 3; j++) {
+      const col = Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
+      const colStr = col.toString();
+      
+      // Check if color is in import map
+      if (importMap && colStr in importMap) {
+        types[j] = importMap[colStr] as number;
+      } else {
+        // Check if a simple terrain with this color exists
         let found = false;
         for (let key in Terrains) {
           const terrain = Terrains[parseInt(key)];
           if (terrain.type == 1 && col.equals(terrain.color)) {
-            //use that color.
             types[j] = parseInt(key);
             found = true;
+            break;
           }
         }
+        
+        // Create new terrain type if not found
         if (!found) {
-          //make a new terrain type
           Terrains[Object.keys(Terrains).length] = {
             color: col,
             reflectiveness: 0.2,
@@ -91,10 +70,9 @@ export interface Extracted3MFData {
   normals: vec3[];
   colors: vec3[];
   uvs: vec2[];
-  triangles: [number, number, number][]; // Indices for vertices
+  triangles: [number, number, number][];
 }
 
-// Internal interfaces for the new recursive parser
 interface ObjectData {
   mesh?: MeshData;
   components?: ComponentData[];
@@ -111,16 +89,9 @@ interface ComponentData {
   objectId: string;
   transform: mat4;
 }
-interface ObjectData {
-  mesh?: MeshData;
-  components?: ComponentData[];
-}
 
 /**
  * Calculates smooth vertex normals by averaging the face normals of adjacent triangles.
- * @param vertices The array of vertex positions.
- * @param triangles The array of triangle indices.
- * @returns An array of calculated vertex normals.
  */
 function calculateNormals(
   vertices: vec3[],
@@ -138,17 +109,13 @@ function calculateNormals(
 
     const edge1 = vec3.subtract(vec3.create(), v2, v1);
     const edge2 = vec3.subtract(vec3.create(), v3, v1);
-
     const faceNormal = vec3.cross(vec3.create(), edge1, edge2);
-    // No need to normalize here, as longer edges (larger triangles) should have more influence.
 
-    // Add the face normal to each vertex normal
     vec3.add(normals[i1], normals[i1], faceNormal);
     vec3.add(normals[i2], normals[i2], faceNormal);
     vec3.add(normals[i3], normals[i3], faceNormal);
   }
 
-  // Normalize all the vertex normals
   for (const normal of normals) {
     vec3.normalize(normal, normal);
   }
@@ -157,159 +124,55 @@ function calculateNormals(
 }
 
 /**
- * The main parsing orchestrator.
- * It sets up the resource library and then processes the build items.
+ * Improved 3MF parser using fast-xml-parser for better compatibility
  */
-function parse3MFModel(xmlDoc: XMLDocument): Extracted3MFData {
-  // Define the XML Namespaces
-  // Yes these don't exist but idk XML has them idk why.
-  const CORE_NAMESPACE =
-    "http://schemas.microsoft.com/3dmanufacturing/core/2015/02";
-  const MATERIAL_NAMESPACE =
-    "http://schemas.microsoft.com/3dmanufacturing/material/2015/02";
+function parse3MFModel(xmlString: string): Extracted3MFData {
+  const defaultColor = vec3.fromValues(0.8, 0.8, 0.8);
+  
+  // Configure XML parser with options for better compatibility
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: "@_",
+    textNodeName: "#text",
+    parseAttributeValue: false,
+    trimValues: true,
+    processEntities: true
+  });
 
-  // --- Step 1: Set up scale ---
-  const modelNode = xmlDoc.getElementsByTagNameNS(CORE_NAMESPACE, "model")[0];
-  const unit = modelNode?.getAttribute("unit") || "millimeter";
+  const result = parser.parse(xmlString);
+  
+  // Navigate to model node - handle different structures
+  let modelNode = result.model || result["model"];
+  if (!modelNode) {
+    throw new Error("Invalid 3MF: No model node found");
+  }
+
+  // Parse unit and scale
+  const unit = modelNode["@_unit"] || "millimeter";
   let scale = 1.0;
   if (unit === "meter") scale = 1000.0;
   else if (unit === "inch") scale = 25.4;
   else if (unit === "centimeter") scale = 10.0;
+  else if (unit === "micrometer") scale = 0.001;
+  else if (unit === "foot") scale = 304.8;
 
-  // --- Step 2: Parse all resources into a library ---
+  // Resource library
   const resourceLibrary = {
     objects: new Map<string, ObjectData>(),
     colors: new Map<string, vec3[]>()
-    // We'll add textures here later
   };
 
-  const defaultColor = vec3.fromValues(0.8, 0.8, 0.8);
-
-  // Parse Color Groups and Base Materials (they function similarly)
-  const colorGroups = xmlDoc.getElementsByTagNameNS(
-    MATERIAL_NAMESPACE,
-    "colorgroup"
-  );
-  for (const group of Array.from(colorGroups)) {
-    const id = group.getAttribute("id");
-    if (!id) continue;
-    const colors = Array.from(
-      group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "color")
-    ).map((c) => Color.fromHex(c.getAttribute("color")!).createVec3());
-    resourceLibrary.colors.set(id, colors);
-  }
-  const baseMaterials = xmlDoc.getElementsByTagNameNS(
-    MATERIAL_NAMESPACE,
-    "basematerials"
-  );
-  for (const group of Array.from(baseMaterials)) {
-    const id = group.getAttribute("id");
-    if (!id) continue;
-    const colors = Array.from(
-      group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "base")
-    ).map((b) => Color.fromHex(b.getAttribute("displaycolor")!).createVec3());
-    resourceLibrary.colors.set(id, colors);
+  // Parse resources
+  const resources = modelNode.resources;
+  if (resources) {
+    // Parse color groups
+    parseColorResources(resources, resourceLibrary, defaultColor);
+    
+    // Parse objects
+    parseObjects(resources, resourceLibrary, scale, defaultColor);
   }
 
-  // Parse all <object> definitions
-  const objects = xmlDoc.getElementsByTagNameNS(CORE_NAMESPACE, "object");
-  for (const objectNode of Array.from(objects)) {
-    const objectId = objectNode.getAttribute("id");
-    if (!objectId) continue;
-
-    // An object can contain EITHER a <mesh> OR <components>
-    const meshNode = objectNode.getElementsByTagNameNS(
-      CORE_NAMESPACE,
-      "mesh"
-    )[0];
-    const componentsNode = objectNode.getElementsByTagNameNS(
-      CORE_NAMESPACE,
-      "components"
-    )[0];
-
-    if (meshNode) {
-      const vertices: vec3[] = [];
-      const triangles: [number, number, number][] = [];
-
-      const verticesNode = meshNode.getElementsByTagNameNS(
-        CORE_NAMESPACE,
-        "vertices"
-      )[0];
-      for (const v of Array.from(
-        verticesNode.getElementsByTagNameNS(CORE_NAMESPACE, "vertex")
-      )) {
-        vertices.push(
-          vec3.fromValues(
-            parseFloat(v.getAttribute("x")!) * scale,
-            parseFloat(v.getAttribute("y")!) * scale,
-            parseFloat(v.getAttribute("z")!) * scale
-          )
-        );
-      }
-
-      const objectColors = new Array(vertices.length)
-        .fill(0)
-        .map(() => vec3.clone(defaultColor));
-      const objectUvs = new Array(vertices.length)
-        .fill(0)
-        .map(() => vec2.create()); // Default UVs
-
-      const trianglesNode = meshNode.getElementsByTagNameNS(
-        CORE_NAMESPACE,
-        "triangles"
-      )[0];
-      for (const t of Array.from(
-        trianglesNode.getElementsByTagNameNS(CORE_NAMESPACE, "triangle")
-      )) {
-        const v1 = parseInt(t.getAttribute("v1")!, 10);
-        const v2 = parseInt(t.getAttribute("v2")!, 10);
-        const v3 = parseInt(t.getAttribute("v3")!, 10);
-        triangles.push([v1, v2, v3]);
-
-        const pid = t.getAttribute("pid") || objectNode.getAttribute("pid");
-        if (pid && resourceLibrary.colors.has(pid)) {
-          const colors = resourceLibrary.colors.get(pid)!;
-          const p1_str =
-            t.getAttribute("p1") ?? objectNode.getAttribute("pindex");
-          if (p1_str) {
-            const idx = parseInt(p1_str, 10);
-            if (colors[idx]) {
-              objectColors[v1] = colors[idx];
-              objectColors[v2] = colors[idx]; // v2/v3 default to v1 color if not specified
-              objectColors[v3] = colors[idx];
-            }
-          }
-          const p2_str = t.getAttribute("p2");
-          if (p2_str) objectColors[v2] = colors[parseInt(p2_str, 10)];
-          const p3_str = t.getAttribute("p3");
-          if (p3_str) objectColors[v3] = colors[parseInt(p3_str, 10)];
-        }
-      }
-      resourceLibrary.objects.set(objectId, {
-        mesh: {
-          vertices,
-          triangles,
-          colors: objectColors,
-          uvs: objectUvs
-        }
-      });
-    } else if (componentsNode) {
-      const components: ComponentData[] = [];
-      for (const c of Array.from(
-        componentsNode.getElementsByTagNameNS(CORE_NAMESPACE, "component")
-      )) {
-        const id = c.getAttribute("objectid");
-        if (!id) continue;
-        components.push({
-          objectId: id,
-          transform: parseTransform(c.getAttribute("transform"))
-        });
-      }
-      resourceLibrary.objects.set(objectId, { components });
-    }
-  }
-
-  // --- Step 3: Process the build items recursively to generate the final geometry ---
+  // Process build items
   const finalData: Omit<Extracted3MFData, "normals" | "triangles"> & {
     triangles: number[];
   } = {
@@ -319,15 +182,19 @@ function parse3MFModel(xmlDoc: XMLDocument): Extracted3MFData {
     triangles: []
   };
 
-  const buildItems = xmlDoc.getElementsByTagNameNS(CORE_NAMESPACE, "item");
-  for (const item of Array.from(buildItems)) {
-    const objectId = item.getAttribute("objectid");
-    if (!objectId) continue;
-    const transform = parseTransform(item.getAttribute("transform"));
-    processObject(objectId, transform, resourceLibrary, finalData);
+  const build = modelNode.build;
+  if (build && build.item) {
+    const items = Array.isArray(build.item) ? build.item : [build.item];
+    for (const item of items) {
+      const objectId = item["@_objectid"];
+      if (!objectId) continue;
+      
+      const transform = parseTransform(item["@_transform"]);
+      processObject(objectId, transform, resourceLibrary, finalData);
+    }
   }
 
-  // --- Step 4: Finalize data and calculate normals ---
+  // Finalize triangles and calculate normals
   const finalTriangles: [number, number, number][] = [];
   for (let i = 0; i < finalData.triangles.length; i += 3) {
     finalTriangles.push([
@@ -347,11 +214,215 @@ function parse3MFModel(xmlDoc: XMLDocument): Extracted3MFData {
 }
 
 /**
- * The new recursive function that processes an object and its children.
- * @param objectId The ID of the object to process from the library.
- * @param cumulativeTransform The transformation matrix accumulated from parent objects.
- * @param library The parsed resource library.
- * @param out The final, flattened geometry data to be populated.
+ * Parse color resources (colorgroup and basematerials)
+ */
+function parseColorResources(
+  resources: any,
+  library: { colors: Map<string, vec3[]> },
+  defaultColor: vec3
+) {
+  // Parse colorgroup elements
+  if (resources.colorgroup) {
+    const colorGroups = Array.isArray(resources.colorgroup) 
+      ? resources.colorgroup 
+      : [resources.colorgroup];
+    
+    for (const group of colorGroups) {
+      const id = group["@_id"];
+      if (!id) continue;
+      
+      const colors = group.color;
+      if (!colors) continue;
+      
+      const colorArray = Array.isArray(colors) ? colors : [colors];
+      const parsedColors = colorArray.map(c => {
+        const colorStr = c["@_color"];
+        if (colorStr) {
+          try {
+            return Color.fromHex(colorStr).createVec3();
+          } catch (e) {
+            console.warn("Failed to parse color:", colorStr);
+            return vec3.clone(defaultColor);
+          }
+        }
+        return vec3.clone(defaultColor);
+      });
+      
+      library.colors.set(id, parsedColors);
+    }
+  }
+
+  // Parse basematerials elements
+  if (resources.basematerials) {
+    const baseMaterialGroups = Array.isArray(resources.basematerials)
+      ? resources.basematerials
+      : [resources.basematerials];
+    
+    for (const group of baseMaterialGroups) {
+      const id = group["@_id"];
+      if (!id) continue;
+      
+      const bases = group.base;
+      if (!bases) continue;
+      
+      const baseArray = Array.isArray(bases) ? bases : [bases];
+      const parsedColors = baseArray.map(b => {
+        const colorStr = b["@_displaycolor"];
+        if (colorStr) {
+          try {
+            return Color.fromHex(colorStr).createVec3();
+          } catch (e) {
+            console.warn("Failed to parse displaycolor:", colorStr);
+            return vec3.clone(defaultColor);
+          }
+        }
+        return vec3.clone(defaultColor);
+      });
+      
+      library.colors.set(id, parsedColors);
+    }
+  }
+}
+
+/**
+ * Parse object elements from resources
+ */
+function parseObjects(
+  resources: any,
+  library: { objects: Map<string, ObjectData>; colors: Map<string, vec3[]> },
+  scale: number,
+  defaultColor: vec3
+) {
+  if (!resources.object) return;
+  
+  const objects = Array.isArray(resources.object) 
+    ? resources.object 
+    : [resources.object];
+
+  for (const objectNode of objects) {
+    const objectId = objectNode["@_id"];
+    if (!objectId) continue;
+
+    // Check if object has mesh
+    if (objectNode.mesh) {
+      const meshData = parseMesh(objectNode, library, scale, defaultColor);
+      library.objects.set(objectId, { mesh: meshData });
+    }
+    // Check if object has components
+    else if (objectNode.components) {
+      const components = parseComponents(objectNode.components);
+      library.objects.set(objectId, { components });
+    }
+  }
+}
+
+/**
+ * Parse mesh data from an object node
+ */
+function parseMesh(
+  objectNode: any,
+  library: { colors: Map<string, vec3[]> },
+  scale: number,
+  defaultColor: vec3
+): MeshData {
+  const meshNode = objectNode.mesh;
+  const vertices: vec3[] = [];
+  const triangles: [number, number, number][] = [];
+  
+  // Parse vertices
+  if (meshNode.vertices && meshNode.vertices.vertex) {
+    const vertexArray = Array.isArray(meshNode.vertices.vertex)
+      ? meshNode.vertices.vertex
+      : [meshNode.vertices.vertex];
+    
+    for (const v of vertexArray) {
+      vertices.push(
+        vec3.fromValues(
+          parseFloat(v["@_x"] || "0") * scale,
+          parseFloat(v["@_y"] || "0") * scale,
+          parseFloat(v["@_z"] || "0") * scale
+        )
+      );
+    }
+  }
+
+  const objectColors = new Array(vertices.length)
+    .fill(0)
+    .map(() => vec3.clone(defaultColor));
+  const objectUvs = new Array(vertices.length)
+    .fill(0)
+    .map(() => vec2.create());
+
+  // Parse triangles
+  if (meshNode.triangles && meshNode.triangles.triangle) {
+    const triangleArray = Array.isArray(meshNode.triangles.triangle)
+      ? meshNode.triangles.triangle
+      : [meshNode.triangles.triangle];
+    
+    for (const t of triangleArray) {
+      const v1 = parseInt(t["@_v1"] || "0", 10);
+      const v2 = parseInt(t["@_v2"] || "0", 10);
+      const v3 = parseInt(t["@_v3"] || "0", 10);
+      
+      if (v1 < vertices.length && v2 < vertices.length && v3 < vertices.length) {
+        triangles.push([v1, v2, v3]);
+
+        // Parse colors - check multiple possible attribute names
+        const pid = t["@_pid"] || objectNode["@_pid"];
+        if (pid && library.colors.has(pid)) {
+          const colors = library.colors.get(pid)!;
+          
+          // Parse color indices
+          const p1_str = t["@_p1"] || objectNode["@_pindex"];
+          if (p1_str) {
+            const idx = parseInt(p1_str, 10);
+            if (colors[idx]) {
+              objectColors[v1] = colors[idx];
+              objectColors[v2] = colors[idx];
+              objectColors[v3] = colors[idx];
+            }
+          }
+          
+          const p2_str = t["@_p2"];
+          if (p2_str && colors[parseInt(p2_str, 10)]) {
+            objectColors[v2] = colors[parseInt(p2_str, 10)];
+          }
+          
+          const p3_str = t["@_p3"];
+          if (p3_str && colors[parseInt(p3_str, 10)]) {
+            objectColors[v3] = colors[parseInt(p3_str, 10)];
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    vertices,
+    triangles,
+    colors: objectColors,
+    uvs: objectUvs
+  };
+}
+
+/**
+ * Parse component elements
+ */
+function parseComponents(componentsNode: any): ComponentData[] {
+  if (!componentsNode.component) return [];
+  
+  const componentArray = Array.isArray(componentsNode.component)
+    ? componentsNode.component
+    : [componentsNode.component];
+  
+  return componentArray.map((c: any) => ({
+    objectId: c["@_objectid"],
+    transform: parseTransform(c["@_transform"])
+  })).filter((c: any) => c.objectId);
+}
+
+/**
+ * Recursively process objects and build final geometry
  */
 function processObject(
   objectId: string,
@@ -360,25 +431,24 @@ function processObject(
   out: { vertices: vec3[]; colors: vec3[]; uvs: vec2[]; triangles: number[] }
 ) {
   const objectData = library.objects.get(objectId);
-  if (!objectData) return;
+  if (!objectData) {
+    console.warn(`Object ${objectId} not found in library`);
+    return;
+  }
 
-  // Case 1: The object is a mesh, so we transform and append its geometry.
   if (objectData.mesh) {
     const mesh = objectData.mesh;
     const vertexOffset = out.vertices.length;
 
-    // Apply transform to each vertex and add to the output
     for (const v of mesh.vertices) {
       const transformedVertex = vec3.create();
       vec3.transformMat4(transformedVertex, v, cumulativeTransform);
       out.vertices.push(transformedVertex);
     }
 
-    // Add corresponding colors and UVs
     out.colors.push(...mesh.colors);
     out.uvs.push(...mesh.uvs);
 
-    // Add triangle indices, adjusted by the vertex offset
     for (const tri of mesh.triangles) {
       out.triangles.push(
         tri[0] + vertexOffset,
@@ -386,39 +456,26 @@ function processObject(
         tri[2] + vertexOffset
       );
     }
-  }
-  // Case 2: The object is an assembly of other components. Recurse!
-  else if (objectData.components) {
+  } else if (objectData.components) {
     for (const component of objectData.components) {
-      // Each component has its own local transform. We multiply it with the parent's.
       const componentTransform = mat4.create();
-      mat4.multiply(
-        componentTransform,
-        cumulativeTransform,
-        component.transform
-      );
-
-      // Recursively process the child component with the new transform.
+      mat4.multiply(componentTransform, cumulativeTransform, component.transform);
       processObject(component.objectId, componentTransform, library, out);
     }
   }
 }
 
 /**
- * The main loader function. Fetches a .3mf file, unzips it, and extracts geometry.
- * @param url The URL of the .3mf file to load.
- * @returns A promise that resolves with the extracted model data.
+ * Load 3MF file from URL
  */
 async function load3MF(url: string): Promise<Extracted3MFData> {
   try {
-    // 1. Fetch the .3mf file as a binary blob
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch 3MF file: ${response.statusText}`);
     }
     const fileData = await response.arrayBuffer();
 
-    // 2. Unzip the file data in memory
     const zip = await JSZip.loadAsync(fileData);
     const modelFile = zip.file("3D/3dmodel.model");
 
@@ -426,15 +483,8 @@ async function load3MF(url: string): Promise<Extracted3MFData> {
       throw new Error("Invalid 3MF file: 3D/3dmodel.model not found.");
     }
 
-    // 3. Read the model's XML content as a string
     const xmlString = await modelFile.async("string");
-
-    // 4. Parse the XML string using the browser's built-in parser
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlString, "application/xml");
-
-    // 5. Extract data from the parsed XML
-    return parse3MFModel(xmlDoc);
+    return parse3MFModel(xmlString);
   } catch (error) {
     console.error("Error loading or parsing 3MF file:", error);
     throw error;
@@ -442,52 +492,26 @@ async function load3MF(url: string): Promise<Extracted3MFData> {
 }
 
 /**
- * Parses a 3MF transform string into a gl-matrix mat4.
- * The 3MF spec provides the matrix in row-major order. The gl-matrix `set`
- * function conveniently also takes arguments in row-major order.
- * @param transformString The space-separated string of 12 matrix values.
- * @returns A mat4 representing the transformation.
+ * Parse 3MF transform string into mat4
  */
 function parseTransform(transformString: string | null): mat4 {
-  const transform = mat4.create(); // Start with an identity matrix
+  const transform = mat4.create();
   if (!transformString) {
     return transform;
   }
 
-  const parts = transformString.split(" ").map(parseFloat);
+  const parts = transformString.trim().split(/\s+/).map(parseFloat);
   if (parts.length < 12) {
     console.warn("Invalid transform string found:", transformString);
-    return transform; // Return identity if transform is malformed
+    return transform;
   }
-
-  // The 3MF string is: Rxx Rxy Rxz Ryx Ryy Ryz Rzx Rzy Rzz Tx Ty Tz
-  // These correspond to the first 3 rows of a 4x4 matrix.
-  // Let's call them p[0] through p[11].
-
-  // The mat4.set function arguments are in row-major order:
-  // set(out, m00, m01, m02, m03,  // Row 0
-  //          m10, m11, m12, m13,  // Row 1
-  //          m20, m21, m22, m23,  // Row 2
-  //          m30, m31, m32, m33); // Row 3
 
   mat4.set(
     transform,
-    parts[0],
-    parts[1],
-    parts[2],
-    parts[9], // Row 0: Rxx, Rxy, Rxz, Tx
-    parts[3],
-    parts[4],
-    parts[5],
-    parts[10], // Row 1: Ryx, Ryy, Ryz, Ty
-    parts[6],
-    parts[7],
-    parts[8],
-    parts[11], // Row 2: Rzx, Rzy, Rzz, Tz
-    0,
-    0,
-    0,
-    1 // Row 3
+    parts[0], parts[1], parts[2], parts[9],
+    parts[3], parts[4], parts[5], parts[10],
+    parts[6], parts[7], parts[8], parts[11],
+    0, 0, 0, 1
   );
 
   return transform;
