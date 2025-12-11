@@ -5,7 +5,7 @@ precision highp int;
 #define MAX_LIGHTS 30
 #define PI 3.1415926
 #define __BVH_DEPTH__ 128
-//#define NUM_TERRAINS 1000 
+#define NUM_TERRAINS 50 
 
 //Note: 
 uniform sampler2D u_lastFrame;
@@ -68,7 +68,8 @@ struct TerrainType{
     int type; //Type. See terrains.ts
 };
 
-//TerrainType[NUM_TERRAINS] Terrains;
+TerrainType[NUM_TERRAINS] Terrains;
+uniform int u_numTerrains;
 
 // Provides a high quality 32-bit hash function to generate pseudo-random numbers
 // Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins
@@ -185,11 +186,9 @@ bool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out fl
 }
 
 //AI written; Returns distance to intersection with triangle
-float intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {
+float intersectTriangle(vec3 rayOrigin, vec3 rayDir, vec3 v0, vec3 v1, vec3 v2, out vec3 barycentric) {
     const float EPSILON = 0.000001;
-    vec3 v0 = tri.vertices[0];
-    vec3 v1 = tri.vertices[1];
-    vec3 v2 = tri.vertices[2];
+
     vec3 edge1 = v1 - v0;
     vec3 edge2 = v2 - v0;
 
@@ -295,9 +294,15 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out fl
                 int triIdx = node.triangles[j];
                 if (triIdx == -1) continue;
 
-                Triangle tri = getTriangle(triIdx);
+                int triVertexSize = 9;
+
+                int i = triIdx;
+                vec3 v1 = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));
+                vec3 v2 = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));
+                vec3 v3 = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));
+                
                 vec3 currentBarycentric;
-                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);
+                float hitDist = intersectTriangle(rayOrigin, rayDir, v1, v2, v3, currentBarycentric);
 
                 if (hitDist > 0.0 && hitDist < minHitDistance) {
                     minHitDistance = hitDist;
@@ -618,9 +623,9 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
         Triangle tri = getTriangle(triIndex);
 
-        TerrainType t1 = getTerrainType(tri.types[0]);
-        TerrainType t2 = getTerrainType(tri.types[1]);
-        TerrainType t3 = getTerrainType(tri.types[2]);
+        TerrainType t1 = Terrains[tri.types[0]];//getTerrainType(tri.types[0]);
+        TerrainType t2 = Terrains[tri.types[1]];
+        TerrainType t3 = Terrains[tri.types[2]];
 
         vec3 smoothNormal, matColor;
         float matRoughness, reflectiveness;
@@ -721,9 +726,9 @@ void main() {
     rng_state = hash(rng_state + uint(u_frameNumber));
 
     //Load terrains
-    /*for(int i = 0; i < NUM_TERRAINS; i++){
+    for(int i = 0; i < u_numTerrains; i++){
         Terrains[i] = getTerrainType(i);
-    }*/
+    }
     
     // Jitter calculation for Anti-Alising
     uint jitter_rng_state = hash(rng_state); // Create a new state from the main one

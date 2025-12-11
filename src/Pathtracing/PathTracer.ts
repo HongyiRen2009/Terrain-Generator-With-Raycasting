@@ -15,6 +15,7 @@ import copyFragmentShader from "./glsl/copyShader/copy.frag";
 import copyVertexShader from "./glsl/copyShader/copy.vert";
 import { GLRenderer } from "../render/GLRenderer";
 import { NoiseGenerator } from "../render/passes/CloudsPass";
+import { Terrains } from "../map/terrains";
 
 export class PathTracer {
   //Rendering
@@ -327,6 +328,11 @@ export class PathTracer {
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMax"),
       vec3.fromValues(300, 160, 300)
+    );
+
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.meshProgram, "u_numTerrains"),
+      Object.keys(Terrains).length
     );
     //VAO
     this.gl.bindVertexArray(this.fullscreenVAO);
