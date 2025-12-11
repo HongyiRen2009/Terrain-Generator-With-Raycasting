@@ -186,8 +186,11 @@ bool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out fl
 }
 
 //AI written; Returns distance to intersection with triangle
-float intersectTriangle(vec3 rayOrigin, vec3 rayDir, vec3 v0, vec3 v1, vec3 v2, out vec3 barycentric) {
+float intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {
     const float EPSILON = 0.000001;
+    vec3 v0 = tri.vertices[0];
+    vec3 v1 = tri.vertices[1];
+    vec3 v2 = tri.vertices[2];
 
     vec3 edge1 = v1 - v0;
     vec3 edge2 = v2 - v0;
@@ -268,7 +271,7 @@ float intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNorma
 /**
  * Returns TRIANGLE index
  */
-int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out float minHitDistance) {
+int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out float minHitDistance, out Triangle hitTriangle) {
     int closestHitIndex = -1;
     minHitDistance = 1.0/0.0001; // Infinity
 
@@ -294,20 +297,15 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out fl
                 int triIdx = node.triangles[j];
                 if (triIdx == -1) continue;
 
-                int triVertexSize = 9;
-
-                int i = triIdx;
-                vec3 v1 = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));
-                vec3 v2 = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));
-                vec3 v3 = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));
-                
+                Triangle tri = getTriangle(triIdx);
                 vec3 currentBarycentric;
-                float hitDist = intersectTriangle(rayOrigin, rayDir, v1, v2, v3, currentBarycentric);
+                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);
 
                 if (hitDist > 0.0 && hitDist < minHitDistance) {
                     minHitDistance = hitDist;
                     closestHitIndex = triIdx;
                     closestBarycentric = currentBarycentric;
+                    hitTriangle= tri;
                 }
             }
         } else { // Internal Node
@@ -581,8 +579,8 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
         float minHitDistance;
-        
-        int triIndex = traverseBVH(rayOrigin, rayDir, baryCentric, minHitDistance);
+        Triangle tri;
+        int triIndex = traverseBVH(rayOrigin, rayDir, baryCentric, minHitDistance,tri);
         
         int hitLightIndex = -1;
         for (int i = 0; i < numActiveLights; i++) {
@@ -621,7 +619,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         // The ray hit a triangle 
         //Get information
         vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
-        Triangle tri = getTriangle(triIndex);
 
         TerrainType t1 = Terrains[tri.types[0]];//getTerrainType(tri.types[0]);
         TerrainType t2 = Terrains[tri.types[1]];
