@@ -29,6 +29,7 @@ uniform float darknessThreshold;
 uniform float lightDarkSharpness;
 uniform float skyContribution;
 uniform float ambientIntensity;
+uniform float blueNoiseAmplitude;
 uniform float phaseG;
 uniform float phaseMultiplier;
 uniform float weatherMapOffsetX;
@@ -207,11 +208,9 @@ void main() {
     vec4 accumulatedColor = vec4(0.0f);
 
     // Blue noise offset to reduce banding
-    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);
-
+    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy + time * 0.1f, vec2(12.9898f, 78.233f))) * 43758.5453f) * 0.5f;
     for(int i = 0; i < MAX_STEPS; i++) {
-        float t = tNear + tStep * (float(i) + blueNoiseOffset);
-
+        float t = tNear + tStep * (float(i) + blueNoiseOffset * blueNoiseAmplitude); // Reduced from 1.0 to 0.25
         // Stop raymarching if we've reached the terrain
         if(t >= distanceToTerrain) {
             break;

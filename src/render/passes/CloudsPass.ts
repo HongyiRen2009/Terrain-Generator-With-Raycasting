@@ -384,7 +384,15 @@ export class CloudsPass extends RenderPass {
       defaultValue: 0.5,
       numType: "float"
     });
-
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "blueNoiseAmplitude",
+      label: "Cloud Blue Noise Amplitude",
+      min: 0.0,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 1,
+      numType: "float"
+    });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "weatherMapOffsetX",
       label: "Cloud Weather Map Offset X",
@@ -458,7 +466,8 @@ export class CloudsPass extends RenderPass {
       "weatherMapOffsetY",
       "windSpeed",
       "windDirectionX",
-      "windDirectionZ"
+      "windDirectionZ",
+      "blueNoiseAmplitude"
     ]);
   }
   public resize(): void {
