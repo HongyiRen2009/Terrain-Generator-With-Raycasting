@@ -173,7 +173,7 @@ export class ObjectUI {
       popup.classList.add("hidden");
 
       // Generate for pathtracing
-      if (this.tracerUpdateSupplier) this.tracerUpdateSupplier()();
+      this.tracerUpdateSupplier()();
     });
 
     const container = document.getElementById("world-objects")!;
@@ -216,7 +216,7 @@ export class ObjectUI {
       world.worldObjects = world.worldObjects.filter((o) => o.id !== obj.id);
       wrapper.remove();
 
-      if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
+      UI.tracerUpdateSupplier()();
       if (world.onObjectRemoved) world.onObjectRemoved(obj.id);
     });
     wrapper.appendChild(deleteBtn);
@@ -263,7 +263,7 @@ export class ObjectUI {
 
       mat4.copy(obj.position, newMat);
 
-      if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
+      UI.tracerUpdateSupplier()();
     }
 
     // Translation inputs

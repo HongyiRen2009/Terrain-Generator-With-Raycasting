@@ -279,8 +279,6 @@ export class PathTracer {
     this.camera.farPlane = this.camera.rayTracingFarPlane;
   }
   private initBVHTextures() {
-    if (this.vertexTex) return; // Already uploaded
-
     this.vertexTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
     this.terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
     this.boundingBoxesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
