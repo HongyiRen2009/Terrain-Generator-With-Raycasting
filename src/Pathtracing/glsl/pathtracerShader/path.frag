@@ -4,7 +4,7 @@ precision highp sampler3D;
 precision highp int;
 #define MAX_LIGHTS 30
 #define PI 3.1415926
-#define __BVH_DEPTH__ 128
+#define BVH_DEPTH 128
 #define NUM_TERRAINS 50 
 
 //Note: 
@@ -275,7 +275,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out fl
     int closestHitIndex = -1;
     minHitDistance = 1.0/0.0001; // Infinity
 
-    int stack[__BVH_DEPTH__]; // Stack of 64 - May need to change for larger BVH later
+    int stack[BVH_DEPTH]; // Stack of 64 - May need to change for larger BVH later
     int stackPtr = 0;
     stack[stackPtr++] = 0; // Push root node index
 
@@ -310,7 +310,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out fl
             }
         } else { // Internal Node
             // Check for space for two children to prevent stack overflow
-            if (stackPtr < __BVH_DEPTH__-1) { 
+            if (stackPtr < BVH_DEPTH-1) { 
                 stack[stackPtr++] = node.left;
                 stack[stackPtr++] = node.right;
             }
@@ -501,6 +501,7 @@ float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
     return 0.2 + (1.0f - 0.2) * lightTransmittance;
 }
 vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
+    return vec4(0.0);
     float cloudTmin;
     float cloudTmax;
     if(!intersectAABB(rayOrigin, rayDir, u_cloudsCubeMin, u_cloudsCubeMax, cloudTmin, cloudTmax)){
