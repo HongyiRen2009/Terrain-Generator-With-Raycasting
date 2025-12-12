@@ -161,7 +161,7 @@ fn getNoiseValue(x: f32, y: f32, z: f32, seed: u32) -> f32 {
     let terrain = terrainHeight(x, z, seed);
 
     // Water level
-    let waterLevel: f32 = 20.0;
+    let waterLevel: f32 = 30.0;
 
     // Overhangs using 3D noise
     let overhang = fractalNoise3D(x * 0.05, y * 0.05, z * 0.05, seed + 100u, 3u, 0.5, 2.0);

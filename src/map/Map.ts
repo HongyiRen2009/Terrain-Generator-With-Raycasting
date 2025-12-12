@@ -476,7 +476,7 @@ export class Chunk {
         const slope = 1 - Math.abs(upDot); // 0 = flat, higher = steeper
 
         // Water
-        if (worldY <= WATER_LEVEL - 0.2) {
+        if (worldY <= WATER_LEVEL + 0.5) {
           types[i] = 4; // water
           continue;
         }
@@ -494,17 +494,13 @@ export class Chunk {
         }
 
         // Cliffs / exposed rock on steep slopes
-        if (slope > 0.6 || upDot < 0.4) {
+        if (slope > 0.8 || upDot < 0.4) {
           types[i] = 2; // rock
           continue;
         }
 
-        // Mix grass and dirt based on small deterministic noise and height
-        const nval = hash01(p[0] + c[0], p[2] + c[2]);
-        if (worldY < 65 && nval > 0.15)
-          types[i] = 0; // grass
-        else if (worldY < 80 && nval > 0.35) types[i] = 0;
-        else types[i] = 1; // dirt
+        // Grassland otherwise
+        types[i] = 0; // grass
       }
       caseMesh.addTriangle(
         vertices.map((v) => v.position) as Triangle,
