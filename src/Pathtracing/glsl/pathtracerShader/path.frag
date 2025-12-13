@@ -611,7 +611,8 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
         float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
 
         // Calculate lighting with adaptive quality
-        vec3 lightDir = normalize(lights[0].position - samplePos);
+        vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
+        vec3 lightDir = normalize(-u_sunDirection);
         float lightTransmittance = sampleCloudLight(samplePos, lightDir, density);
 
         // Phase function for silver lining
@@ -620,7 +621,7 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
         phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);
 
         // Final light color
-        vec3 sunLight = lights[0].color * lightTransmittance * CLOUDS_lightIntensity * phaseVal;
+        vec3 sunLight = u_sunColor * lightTransmittance * CLOUDS_lightIntensity * phaseVal;
 
         // Powder effect
         float powderEffect = 1.0f - exp(-density * 2.0f);
