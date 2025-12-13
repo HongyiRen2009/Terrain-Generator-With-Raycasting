@@ -594,12 +594,20 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
     return accumulatedColor;
 }
 
-vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal){
+vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
     vec3 directLight = vec3(0.0);
     for(int i = 0; i < numActiveLights; i++){
         Light light = lights[i]; 
-        vec3 lightDir = normalize(light.position - origin);
-        float lightDistance = length(light.position - origin);
+        rng_state = hash(rng_state);
+        //choose a point on the light sphere
+        float r1 = (rand(rng_state)-0.5)*2.0;
+        float r2 = (rand(rng_state)-0.5)*2.0;
+        float r3 = (rand(rng_state)-0.5)*2.0;
+        vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;
+        vec3 lightPoint = light.position + jitter;
+
+        vec3 lightDir = normalize(lightPoint - origin);
+        float lightDistance = length(lightPoint - origin);
         //shadow ray
 
         vec3 shadowOrigin = origin;
@@ -609,7 +617,8 @@ vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal){
         int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
         if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
             float P = 1.0/(lightDistance*lightDistance);
-            directLight += BRDF*light.color*light.intensity*dot(smoothNormal,lightDir)*P*PI*light.radius*light.radius;
+            float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+            directLight += BRDF*light.color*light.intensity*NdotL*P*PI*light.radius*light.radius;
         }
     }
     return directLight;
@@ -701,7 +710,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             //direct lighting
             vec3 directLight = vec3(0.0);
             vec3 BRDF = matColor / PI;
-            directLight = shootShadowRay(rayOrigin, BRDF, smoothNormal);
+            directLight = shootShadowRay(rayOrigin, BRDF, smoothNormal, rng_state);
             
             rayDir = weightedDIR(smoothNormal, rng_state);
             float cos_theta = dot(rayDir,smoothNormal);
