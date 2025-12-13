@@ -1,4 +1,11 @@
 #version 300 es
+
+//Sources:
+//Gemini/Chatgpt (GOATS) - Written most of the funky low level code (texture reading)
+//Hongyi Ren - Cloud sampling functions
+//https://www.reddit.com/r/GraphicsProgramming/comments/pjssze/directional_lighting_in_a_path_tracer/ - More specifically the two stackoverflow links in the comments - NEE implementation
+//https://www.cg.tuwien.ac.at/sites/default/files/course/4854/attachments/12_3_next%20event%20estimation_notes.pdf - NEE theory
+
 precision highp float;
 precision highp sampler3D;
 precision highp int;
@@ -292,7 +299,7 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out fl
     int closestHitIndex = -1;
     minHitDistance = 1.0/0.0001; // Infinity
 
-    int stack[BVH_DEPTH]; // Stack of 64 - May need to change for larger BVH later
+    int stack[BVH_DEPTH]; 
     int stackPtr = 0;
     stack[stackPtr++] = 0; // Push root node index
 
@@ -632,14 +639,13 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         if (hitLightIndex != -1) {
             // Ray hit light source
-            if(bounce != 0){
+            if(bounce == 0 || bounce == hasMirror + 1){
+                // Directly visible light or after mirror/glossy
                 vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir,vec3(0.8));
-                vec3 given = throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
-                color = mix(given,cloudHandled.xyz,cloudHandled.a);
-            }else{
-                color = lights[hitLightIndex].showColor;
+                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
+                color = mix(color,cloudHandled.xyz,cloudHandled.a);
             }
-            
+            //Note, now that we have an NEE we do not need to factor in light hit after the first bounce.
             break; // Path terminates.
         }
 
@@ -648,8 +654,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             if(bounce == 0 || bounce == hasMirror + 1){
                 vec4 cloudHandled = handleClouds(rayOrigin,rayDir,vec3(0.8));
                 color = throughput * mix(vec3(0.54,0.824,0.94),cloudHandled.xyz,cloudHandled.a);
-            }else{
-                color = vec3(0.0);
             }
             break;
         }
@@ -700,7 +704,8 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             rayDir = weightedDIR(smoothNormal, rng_state);
             float cos_theta = dot(rayDir,smoothNormal);
             float p = 0.5*PI;
-            throughput *= (BRDF*cos_theta/p + directLight)*0.5;
+            throughput *= BRDF*cos_theta/p;
+            color += throughput * directLight;
         }else if (type == 2) { // Specular (mirror)
             vec3 useNormal = smoothNormal;
             if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
