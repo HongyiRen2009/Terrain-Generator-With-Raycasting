@@ -64,6 +64,16 @@ struct Light {
 uniform Light lights[MAX_LIGHTS];
 uniform int numActiveLights;
 
+uniform float sunDirX;
+uniform float sunDirY;
+uniform float sunDirZ;
+
+//uniform vec3 u_sunDirection;     // Direction *from* the scene *to* the sun (normalized)
+//uniform vec3 u_sunColor;         // The sun's color (e.g., vec3(1.0, 0.9, 0.8))
+uniform float u_sunIntensity;    // Sun intensity (controls brightness)
+uniform float u_sunAngularRadius; // Angular radius of the sun in radians (approx 0.00465 radians or 0.266 degrees)
+vec3 u_sunColor = vec3(1.0, 0.95, 0.9);
+
 in vec2 v_uv;
 out vec4 fragColor;
 
@@ -427,6 +437,47 @@ vec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_stat
 
     return worldDir;
 }
+vec3 sampleCone(vec3 coneAxis, float maxAngle, inout uint rng_state) {
+    // 1. Generate 2 random numbers
+    float r1 = rand(rng_state);
+    float r2 = rand(rng_state);
+
+    float cosMaxAngle = cos(maxAngle);
+    
+    // --- 2. Spherical Coordinate Sampling (Inverse Transform Sampling) ---
+    // cos_theta: Samples the cosine of the polar angle (theta) uniformly 
+    // over the solid angle of the cone. This is the crucial step for uniformity.
+    float cos_theta = mix(cosMaxAngle, 1.0, r2); 
+    
+    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    float phi = 2.0 * PI * r1; // Azimuthal angle (phi) is uniform 0 to 2*PI
+
+    // --- 3. Create Local Direction (Cone Axis = Z-axis) ---
+    // The direction vector in the local cone space.
+    vec3 localDir = vec3(
+        cos(phi) * sin_theta,
+        sin(phi) * sin_theta,
+        cos_theta
+    );
+
+    // --- 4. Transform Local Direction to World Space (Tangent Space Transform) ---
+    
+    // Calculate an orthonormal basis (tangent space) around the coneAxis.
+    // The standard 'up' vector handles cases where coneAxis is near (0, 1, 0)
+    // by choosing a different vector to cross with.
+    vec3 up = abs(coneAxis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, coneAxis));
+    vec3 bitangent = cross(coneAxis, tangent);
+
+    // Transform the local direction (localDir) into the world space basis (tangent, bitangent, coneAxis)
+    vec3 worldDir = normalize(
+        tangent * localDir.x + 
+        bitangent * localDir.y + 
+        coneAxis * localDir.z
+    );
+    
+    return worldDir;
+}
 
 bool isValidVec3(vec3 v) {
     return all(greaterThanEqual(v, vec3(-1e20))) &&
@@ -501,7 +552,9 @@ float PhaseFunction(float cosTheta, float g) {
     float denom = pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f);
     return (1.0f - g2) / (4.0f * PI * denom);
 }
-float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
+float sampleCloudLight(vec3 pos, vec3 lightDir, float rayDensity) {
+    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
+
     float Tmin, Tmax;
     intersectAABB(pos,normalize(lightDir),u_cloudsCubeMin,u_cloudsCubeMax,Tmin,Tmax);
     float distInsideBox = Tmax-Tmin;
@@ -559,7 +612,7 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
 
         // Calculate lighting with adaptive quality
         vec3 lightDir = normalize(lights[0].position - samplePos);
-        float lightTransmittance = sampleLight(samplePos, lightDir, density);
+        float lightTransmittance = sampleCloudLight(samplePos, lightDir, density);
 
         // Phase function for silver lining
         float cosTheta = dot(normalize(rayDir), lightDir);
@@ -624,7 +677,63 @@ vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     return directLight;
 }
 
+vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state) {
+    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
+    // The sun's direction is the center of the light source cone
+    vec3 sunAxis = -u_sunDirection; // Direction *to* the sun
+
+    // 1. Sample a direction (omega_i) within the Sun's angular radius
+    vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);
+
+    // 2. Check if the sampled direction is below the surface (dot < 0)
+    float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+    if (NdotL <= 0.0) {
+        return vec3(0.0);
+    }
+    
+    // 3. Shadow Test
+    vec3 shadowBarycentric;
+    float shadowHitDistance;
+    Triangle shadowTri;
+    // Note: Since the sun is infinitely far, the lightDistance check is simplified: 
+    // we only check if shadowHitDistance is greater than 0.
+    int shadowTriIndex = traverseBVH(origin, lightDir, shadowBarycentric, shadowHitDistance, shadowTri);
+
+    if (shadowTriIndex == -1) {
+        // Ray is not blocked, calculate light contribution
+        
+        // --- Probability Density Function (PDF) ---
+        // The PDF for uniform sampling over a solid angle Omega is PDF = 1 / Omega.
+        // For a cone of half-angle alpha, the solid angle Omega is 2 * PI * (1 - cos(alpha)).
+        float cos_alpha = cos(u_sunAngularRadius);
+        float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
+        float PDF = 1.0 / solidAngle; 
+        
+        // --- Light Contribution (Radiance) ---
+        // L_i = BRDF * NdotL / PDF * Radiance
+        // Radiance (L_e) = Intensity / SolidAngle
+        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
+        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
+        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
+        
+        vec3 radiance = u_sunColor * u_sunIntensity;
+        
+        vec3 directLight = BRDF * radiance * NdotL / PDF; 
+        
+        // Simplify the above calculation:
+        // L_i = BRDF * NdotL * solidAngle * (u_sunIntensity / solidAngle)
+        // L_i = BRDF * NdotL * u_sunIntensity * u_sunColor
+        
+        directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
+
+        return directLight;
+    }
+    
+    return vec3(0.0);
+}
+
 vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
+    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
     vec3 rayOrigin = OGrayOrigin;
     vec3 rayDir = OGrayDir;
 
@@ -661,11 +770,33 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         }
 
         if (triIndex == -1) {
-            // Ray missed everything and flew into space.
-            if(bounce == 0 || bounce == hasMirror + 1){
-                vec4 cloudHandled = handleClouds(rayOrigin,rayDir,vec3(0.8));
-                color = throughput * mix(vec3(0.54,0.824,0.94),cloudHandled.xyz,cloudHandled.a);
+            // Ray missed everything and flew into space (Sky).
+            
+            // 1. Check if the ray direction hits the visible Sun disk
+            vec3 sunDirToScene = -u_sunDirection; // Direction from scene TO the sun
+            float cosAngle = dot(rayDir, sunDirToScene);
+            
+            // The angular radius is very small, so we use its cosine
+            float cosAngularRadius = cos(u_sunAngularRadius);
+            
+            // If the angle between the ray and the center of the sun is less than the angular radius, 
+            // the ray hit the visible sun disk.
+            bool hitSunDisk = (cosAngle >= cosAngularRadius);
+
+            vec3 skyColor = vec3(0.54, 0.824, 0.94); // Default Blue Sky Color
+
+            if (hitSunDisk) {
+                // Ray hit the visible Sun disk
+                skyColor = u_sunColor * u_sunIntensity * 10.0; // Boosted intensity for visibility
             }
+
+            // Apply clouds and final color
+            if(bounce == 0 || bounce == hasMirror + 1){
+                vec4 cloudHandled = handleClouds(rayOrigin, rayDir, skyColor);
+                color = throughput * mix(skyColor, cloudHandled.xyz, cloudHandled.a);
+            }
+            
+            break;
             break;
         }
 
@@ -710,7 +841,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             //direct lighting
             vec3 directLight = vec3(0.0);
             vec3 BRDF = matColor / PI;
-            directLight = shootShadowRay(rayOrigin, BRDF, smoothNormal, rng_state);
+            directLight = sampleSunLight(rayOrigin,BRDF, smoothNormal, rng_state) + shootShadowRay(rayOrigin, BRDF, smoothNormal, rng_state);
             
             rayDir = weightedDIR(smoothNormal, rng_state);
             float cos_theta = dot(rayDir,smoothNormal);

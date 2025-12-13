@@ -26,11 +26,12 @@ export class WorldMap {
   private width: number;
   private length: number;
   public lights: Light[] = [
+    //Pathtracer no longer needs this, but some raytracing code breaks it, so we keep this here as a negligible light source
     new Light(
-      vec3.fromValues(0, 400, 0),
+      vec3.fromValues(0, -100, 0),
       new Color(255, 255, 255),
-      3,
-      200,
+      0.01,
+      1,
       new Color(255, 228, 132)
     ),
   ];

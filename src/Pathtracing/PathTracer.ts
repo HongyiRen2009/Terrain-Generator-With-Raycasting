@@ -423,6 +423,54 @@ export class PathTracer {
       defaultValue: 15,
       numType: "int"
     });
+
+    this.settingsSection.addSlider({
+      id: "sunDirX",
+      label: "Sun X Direction",
+      min: -1,
+      max: 1,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+    this.settingsSection.addSlider({
+      id: "sunDirY",
+      label: "Sun Y Direction",
+      min: -1,
+      max: 1,
+      step: 0.01,
+      defaultValue: -1.0,
+      numType: "float"
+    });
+    this.settingsSection.addSlider({
+      id: "sunDirZ",
+      label: "Sun Z Direction",
+      min: -1,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.0,
+      numType: "float"
+    });
+    this.settingsSection.addSlider({
+      id: "u_sunIntensity",
+      label: "Sun Intensity",
+      min: 0,
+      max: 20,
+      step: 1,
+      defaultValue: 10,
+      numType: "float"
+    });
+    this.settingsSection.addSlider({
+      id: "u_sunAngularRadius",
+      label: "Sun Angular Radius",
+      min: 0.1,
+      max: 1,
+      step: 0.001,
+      defaultValue: 0.1,
+      numType: "float"
+    });
+
+
     this.settingsSection.addCheckbox({
       id: "CLOUDS_enableClouds",
       label: "Enable Clouds",
