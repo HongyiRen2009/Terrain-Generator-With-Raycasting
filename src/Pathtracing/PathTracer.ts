@@ -16,6 +16,7 @@ import copyVertexShader from "./glsl/copyShader/copy.vert";
 import { GLRenderer } from "../render/GLRenderer";
 import { NoiseGenerator } from "../render/passes/CloudsPass";
 import { Terrains } from "../map/terrains";
+import { SettingsSection } from "../Settings";
 
 export class PathTracer {
   //Rendering
@@ -51,6 +52,7 @@ export class PathTracer {
   private debug: DebugMenu;
   private glRenderer: GLRenderer;
   private noiseGenerator: NoiseGenerator;
+  private settingsSection: SettingsSection | null = null;
 
   //textures
   private vertexTex?: WebGLTexture;
@@ -100,25 +102,8 @@ export class PathTracer {
       copyVertexShader,
       copyFragmentShader
     )!;
-    //Slider
-    const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
 
-    slider.addEventListener("input", this.handleBounceInput.bind(this));
-    slider.value = this.numBounces.toString();
-    const bounceValue = document.getElementById(
-      "bounceValue"
-    )! as HTMLSpanElement;
-    bounceValue.textContent = `${this.numBounces}`;
-  }
-
-  private handleBounceInput(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const newValue = parseInt(target.value);
-    this.numBounces = newValue;
-    const bounceValue = document.getElementById(
-      "bounceValue"
-    )! as HTMLSpanElement;
-    bounceValue.textContent = newValue.toString();
+    this.initSettingsSection();
   }
   public initBVH(mainMesh: Mesh) {
     ////////////////////// build flat BVH structure
@@ -202,11 +187,8 @@ export class PathTracer {
     this.gl.uniform1i(lastFrameLoc, 8);
 
     //put samples, bounce in shader
+    this.settingsSection?.updateUniforms(this.gl);
     this.frameNumber++;
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.meshProgram, "numBounces"),
-      this.numBounces
-    );
     this.gl.uniform1i(
       this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"),
       this.frameNumber
@@ -424,5 +406,167 @@ export class PathTracer {
       this.gl.deleteBuffer(this.fullscreenVBO);
       this.fullscreenVBO = null;
     }
+  }
+
+  private initSettingsSection() {
+    this.settingsSection = new SettingsSection(
+      document.getElementById("settings-section")!,
+      "Pathtracer Settings",
+      this.meshProgram!
+    );
+    this.settingsSection.addSlider({
+      id: "numBounces",
+      label: "Maximum Number of Bounces",
+      min: 1,
+      max: 20,
+      step: 1,
+      defaultValue: 15,
+      numType: "int"
+    });
+    this.settingsSection.addCheckbox({
+      id: "CLOUDS_enableClouds",
+      label: "Enable Clouds",
+      defaultValue: true
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_MAX_STEPS",
+      label: "Cloud Ray Marching Max Steps",
+      min: 8,
+      max: 128,
+      step: 1,
+      defaultValue: 32,
+      numType: "int"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_MAX_STEPS_LIGHT",
+      label: "Cloud Light Ray Marching Max Steps",
+      min: 4,
+      max: 32,
+      step: 1,
+      defaultValue: 8,
+      numType: "int"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_absorption",
+      label: "Cloud Absorption",
+      min: 0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_densityThreshold",
+      label: "Cloud Density Threshold",
+      min: -2.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.09,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_baseFrequency",
+      label: "Cloud Base Frequency",
+      min: 0.01,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.45,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_detailFrequency",
+      label: "Cloud Detail Frequency",
+      min: 0.1,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.46,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_lightAbsorption",
+      label: "Cloud Light Absorption",
+      min: 0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_lightIntensity",
+      label: "Cloud Light Intensity",
+      min: 0,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 2.4,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_ambientIntensity",
+      label: "Cloud Ambient Intensity",
+      min: 0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 0.5,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_darknessThreshold",
+      label: "Cloud Darkness Threshold",
+      min: 0.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.2,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_phaseG",
+      label: "Cloud Phase Function g",
+      min: -1.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.5,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_phaseMultiplier",
+      label: "Cloud Phase Function Multiplier",
+      min: 0.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.5,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_weatherMapOffsetX",
+      label: "Cloud Weather Map Offset X",
+      min: 0.0,
+      max: 10.0,
+      step: 0.01,
+      defaultValue: 0.0,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_weatherMapOffsetY",
+      label: "Cloud Weather Map Offset Y",
+      min: 0.0,
+      max: 10.0,
+      step: 0.01,
+      defaultValue: 0.0,
+      numType: "float"
+    });
   }
 }

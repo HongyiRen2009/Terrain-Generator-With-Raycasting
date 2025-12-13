@@ -30,6 +30,23 @@ uniform vec2 u_resolution;
 uniform vec3 u_cloudsCubeMin;
 uniform vec3 u_cloudsCubeMax;
 
+//Cloud settings
+uniform bool CLOUDS_enableClouds;
+uniform float CLOUDS_absorption;
+uniform float CLOUDS_densityThreshold;
+uniform float CLOUDS_baseFrequency;
+uniform float CLOUDS_detailFrequency;
+uniform float CLOUDS_lightAbsorption;
+uniform float CLOUDS_lightIntensity;
+uniform float CLOUDS_darknessThreshold;
+uniform float CLOUDS_ambientIntensity;
+uniform float CLOUDS_phaseG;
+uniform float CLOUDS_phaseMultiplier;
+uniform float CLOUDS_weatherMapOffsetX;
+uniform float CLOUDS_weatherMapOffsetY;
+uniform int CLOUDS_MAX_STEPS;
+uniform int CLOUDS_MAX_STEPS_LIGHT;
+
 struct Light {
     vec3 position;
     vec3 color;
@@ -439,7 +456,7 @@ float sampleDensity(vec3 pos) {
     // Weather map (right now idk if this is the best implementation and it needs some improvement)
 
     vec2 weatherUV = (animatedPos.xz - u_cloudsCubeMin.xz) / (u_cloudsCubeMax.xz - u_cloudsCubeMin.xz);
-    vec2 weatherMapOffset = vec2(0.0);
+    vec2 weatherMapOffset = vec2(CLOUDS_weatherMapOffsetX, CLOUDS_weatherMapOffsetY);
     vec2 weatherWindOffset = windDirection.xz * 1.0 * 1.0 * 0.001f;
     vec4 weather = texture(u_WeatherMap, weatherUV + weatherMapOffset + weatherWindOffset);
     float coverage = weather.r;
@@ -450,14 +467,14 @@ float sampleDensity(vec3 pos) {
     if(height01 < 0.1f || height01 > 1.0f)
         return 0.0f;
 
-    float base = fbm(localPos * 0.45, 5, 0.5f, 2.0f);
+    float base = fbm(localPos * CLOUDS_baseFrequency, 5, 0.5f, 2.0f);
     float density = base * coverage;
-    if(density < 0.09)
+    if(density < CLOUDS_densityThreshold)
         return 0.0f;
 
     vec3 detailWindOffset = windOffset * 0.5f;
     vec3 detailPos = (pos + detailWindOffset - u_cloudsCubeMin) / (u_cloudsCubeMax - u_cloudsCubeMin);
-    float detail = sampleDetailNoise(detailPos * 0.46);
+    float detail = sampleDetailNoise(detailPos * CLOUDS_detailFrequency);
     density *= mix(0.5f, 1.0f, detail);
 
     // Height falloff and edge fade (stolen from Sebastian Lague)
@@ -469,7 +486,7 @@ float sampleDensity(vec3 pos) {
     float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
     heightWeight *= edgeWeight;
 
-    density = (density - 0.09) * heightWeight;
+    density = (density - CLOUDS_densityThreshold) * heightWeight;
     return clamp(density, 0.0f, 1.0f);
 }
 float PhaseFunction(float cosTheta, float g) {
@@ -482,26 +499,28 @@ float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
     intersectAABB(pos,normalize(lightDir),u_cloudsCubeMin,u_cloudsCubeMax,Tmin,Tmax);
     float distInsideBox = Tmax-Tmin;
 
-    int lightSteps = rayDensity > 0.5f ? 8 : 8 / 2;
+    int lightSteps = rayDensity > 0.5f ? CLOUDS_MAX_STEPS_LIGHT : CLOUDS_MAX_STEPS_LIGHT / 2;
 
     float lightTransmittance = 1.0f;
     float tStep = distInsideBox / float(lightSteps);
 
     for(int i = 0; i < lightSteps; i++) {
         if(lightTransmittance < 0.01f) {
-            return 0.2;
+            return CLOUDS_darknessThreshold;
         }
 
         float t = tStep * (float(i) + 0.5f);
         vec3 samplePos = pos + lightDir * t;
         float rawDensity = sampleDensity(samplePos);
         float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
-        lightTransmittance *= exp(-density * tStep * 1.0);
+        lightTransmittance *= exp(-density * tStep * CLOUDS_lightAbsorption);
     }
-    return 0.2 + (1.0f - 0.2) * lightTransmittance;
+    return CLOUDS_darknessThreshold + (1.0f - CLOUDS_darknessThreshold) * lightTransmittance;
 }
 vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
-    return vec4(0.0);
+    if(!CLOUDS_enableClouds){
+        return vec4(0.0);
+    }
     float cloudTmin;
     float cloudTmax;
     if(!intersectAABB(rayOrigin, rayDir, u_cloudsCubeMin, u_cloudsCubeMax, cloudTmin, cloudTmax)){
@@ -511,15 +530,14 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
     if(cloudInside <= 0.0f) {
         return vec4(0.0f);
     }
-    int MAX_STEPS = 32;
-    float tStep = (cloudInside)/float(MAX_STEPS);
+    float tStep = (cloudInside)/float(CLOUDS_MAX_STEPS);
     vec4 accumulatedColor = vec4(0.0f);
     float blueNoiseOffset = 0.0;//fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);
 
     const float DENSITY_THRESHOLD_SKIP = 0.01f;
     const float ALPHA_THRESHOLD = 0.99f;
 
-    for(int i = 0; i < MAX_STEPS; i++) {
+    for(int i = 0; i < CLOUDS_MAX_STEPS; i++) {
         float t = cloudTmin + tStep * (float(i) + blueNoiseOffset);
 
         vec3 samplePos = rayOrigin + rayDir * t;
@@ -538,11 +556,11 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
 
         // Phase function for silver lining
         float cosTheta = dot(normalize(rayDir), lightDir);
-        float phaseVal = PhaseFunction(cosTheta, 0.5);
-        phaseVal = mix(1.0f, phaseVal, 0.5);
+        float phaseVal = PhaseFunction(cosTheta, CLOUDS_phaseG);
+        phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);
 
         // Final light color
-        vec3 sunLight = lights[0].color * lightTransmittance * 2.4 * phaseVal;
+        vec3 sunLight = lights[0].color * lightTransmittance * CLOUDS_lightIntensity * phaseVal;
 
         // Powder effect
         float powderEffect = 1.0f - exp(-density * 2.0f);
@@ -552,12 +570,12 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
         float height = (samplePos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
         float groundFactor = 1.0f - height;
         vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;
-        vec3 ambientLight = skyColor * 0.5;
+        vec3 ambientLight = skyColor * CLOUDS_ambientIntensity;
 
         //Final light color
         vec3 lightColor = sunLight + ambientLight + bounceLight;
 
-        float stepOpacity = 1.0f - exp(-density * tStep * 1.0);
+        float stepOpacity = 1.0f - exp(-density * tStep * CLOUDS_absorption);
 
         // Accumulate color using front-to-back compositing and premultiplied alpha
         vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
@@ -724,8 +742,8 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
                 rayOrigin = hitPoint - geometricNormal * 0.01;
             }
             hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
-            vec3 absorption = -log(matColor)*0.1;  // if matColor is tint
-            throughput *= exp(-absorption * (minHitDistance)); //Beer Lambert law
+            vec3 CLOUDS_absorption = -log(matColor)*0.1;  // if matColor is tint
+            throughput *= exp(-CLOUDS_absorption * (minHitDistance)); //Beer Lambert law
         }else if (type == 5){ // Emissive
             color += throughput * matColor;
             break;
