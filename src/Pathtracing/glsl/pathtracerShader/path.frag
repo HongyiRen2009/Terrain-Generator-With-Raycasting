@@ -4,7 +4,7 @@ precision highp sampler3D;
 precision highp int;
 #define MAX_LIGHTS 30
 #define PI 3.1415926
-#define BVH_DEPTH 128
+#define BVH_DEPTH 64
 #define NUM_TERRAINS 50 
 
 //Note: 
@@ -105,7 +105,7 @@ float fetchFloatFrom1D(sampler2D tex, int index) {
     float u = (float(x_coord) + 0.5) / float(texWidth);
     float v = (float(y_coord) + 0.5) / float(size.y);
 
-    vec4 texel = texture(tex, vec2(u, v));
+    vec4 texel = textureLod(tex, vec2(u, v), 0.0);//texture(tex, vec2(u, v));
 
     if (componentIndex == 0) return texel.r;
     else if (componentIndex == 1) return texel.g;
@@ -596,8 +596,8 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 color = vec3(0.0);
     vec3 throughput = vec3(1.0);
 
-    int hasMirror = -2;
-    for (int bounce = 0; bounce < numBounces; bounce++) {
+    int hasMirror = -1;
+    for (int bounce = 0; bounce < 2; bounce++) {
         vec3 baryCentric;
         float minHitDistance;
         Triangle tri;
@@ -678,7 +678,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             //direct lighting
             vec3 directLight = vec3(0.0);
             vec3 BRDF = matColor / PI;
-            //directLight = shootShadowRay(rayOrigin, BRDF, smoothNormal);
+            directLight = shootShadowRay(rayOrigin, BRDF, smoothNormal);
             
             rayDir = weightedDIR(smoothNormal, rng_state);
             float cos_theta = dot(rayDir,smoothNormal);
@@ -722,7 +722,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
                 if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
                 rayDir = sampleGlossyDirection(normalize(refracted), matRoughness, rng_state);
 
-                rayOrigin = hitPoint + rayDir * 0.01;
+                rayOrigin = hitPoint - geometricNormal * 0.01;
             }
             hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
             vec3 absorption = -log(matColor)*0.1;  // if matColor is tint
