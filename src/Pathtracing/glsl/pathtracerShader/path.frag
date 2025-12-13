@@ -596,19 +596,21 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
 
 vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal){
     vec3 directLight = vec3(0.0);
-    Light light = lights[0]; //Single light for now
-    vec3 lightDir = normalize(light.position - origin);
-    float lightDistance = length(light.position - origin);
-    //shadow ray
+    for(int i = 0; i < numActiveLights; i++){
+        Light light = lights[i]; 
+        vec3 lightDir = normalize(light.position - origin);
+        float lightDistance = length(light.position - origin);
+        //shadow ray
 
-    vec3 shadowOrigin = origin;
-    vec3 shadowBarycentric;
-    float shadowHitDistance;
-    Triangle shadowTri;
-    int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
-    if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
-        float P = 1.0/(lightDistance*lightDistance);
-        directLight = BRDF*light.color*light.intensity*dot(smoothNormal,lightDir)*P*PI*light.radius*light.radius;
+        vec3 shadowOrigin = origin;
+        vec3 shadowBarycentric;
+        float shadowHitDistance;
+        Triangle shadowTri;
+        int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
+        if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
+            float P = 1.0/(lightDistance*lightDistance);
+            directLight += BRDF*light.color*light.intensity*dot(smoothNormal,lightDir)*P*PI*light.radius*light.radius;
+        }
     }
     return directLight;
 }

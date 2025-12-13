@@ -32,7 +32,7 @@ export class WorldMap {
       3,
       200,
       new Color(255, 228, 132)
-    )
+    ),
   ];
 
   public height: number;
