@@ -575,17 +575,16 @@ vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal){
     vec3 lightDir = normalize(light.position - origin);
     float lightDistance = length(light.position - origin);
     //shadow ray
-    //if(bounce == 0){
-        vec3 shadowOrigin = origin;
-        vec3 shadowBarycentric;
-        float shadowHitDistance;
-        Triangle shadowTri;
-        int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
-        //if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
-            float P = 1.0/(lightDistance*lightDistance);
-            directLight = BRDF*light.color*light.intensity*dot(smoothNormal,lightDir)*P*PI*light.radius*light.radius;
-        //}
-    //}
+
+    vec3 shadowOrigin = origin;
+    vec3 shadowBarycentric;
+    float shadowHitDistance;
+    Triangle shadowTri;
+    int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
+    if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
+        float P = 1.0/(lightDistance*lightDistance);
+        directLight = BRDF*light.color*light.intensity*dot(smoothNormal,lightDir)*P*PI*light.radius*light.radius;
+    }
     return directLight;
 }
 
@@ -597,7 +596,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 throughput = vec3(1.0);
 
     int hasMirror = -1;
-    for (int bounce = 0; bounce < 2; bounce++) {
+    for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
         float minHitDistance;
         Triangle tri;
