@@ -569,6 +569,26 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
     return accumulatedColor;
 }
 
+vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal){
+    vec3 directLight = vec3(0.0);
+    Light light = lights[0]; //Single light for now
+    vec3 lightDir = normalize(light.position - origin);
+    float lightDistance = length(light.position - origin);
+    //shadow ray
+    //if(bounce == 0){
+        vec3 shadowOrigin = origin;
+        vec3 shadowBarycentric;
+        float shadowHitDistance;
+        Triangle shadowTri;
+        int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
+        //if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
+            float P = 1.0/(lightDistance*lightDistance);
+            directLight = BRDF*light.color*light.intensity*dot(smoothNormal,lightDir)*P*PI*light.radius*light.radius;
+        //}
+    //}
+    return directLight;
+}
+
 vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 rayOrigin = OGrayOrigin;
     vec3 rayDir = OGrayDir;
@@ -627,8 +647,17 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         vec3 smoothNormal, matColor;
         float matRoughness, reflectiveness;
-        int type = 2;
-        type = getTerrainType(tri.types[0]).type;
+        int type = 1;
+        if(t1.type != 1){
+            type = t1.type;
+        }else if(t2.type != 1){
+            type = t2.type;
+        }else if(t3.type != 1){
+            type = t3.type;
+        }else{
+            type = t1.type; //default to first one in triangle
+        }
+        
         getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);
         
 
@@ -649,16 +678,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             //direct lighting
             vec3 directLight = vec3(0.0);
             vec3 BRDF = matColor / PI;
-            Light light = lights[0]; //Single light for now
-            vec3 lightDir = normalize(light.position - hitPoint);
-            float lightDistance = length(light.position - hitPoint);
-            //shadow ray
-            /*vec3 shadowOrigin = hitPoint + geometricNormal * 0.1;
-            vec3 shadowBarycentric;
-            float shadowHitDistance;
-            int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, 0, shadowBarycentric, shadowHitDistance);*/
-            float P = 1.0/(lightDistance*lightDistance);
-            directLight = matColor/PI*light.color*light.intensity*dot(smoothNormal,lightDir)*P*PI*light.radius*light.radius;
+            //directLight = shootShadowRay(rayOrigin, BRDF, smoothNormal);
             
             rayDir = weightedDIR(smoothNormal, rng_state);
             float cos_theta = dot(rayDir,smoothNormal);

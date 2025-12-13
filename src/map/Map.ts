@@ -40,7 +40,7 @@ export class WorldMap {
   public chunks: Chunk[];
   public fieldMap: Map<string, number>;
   public Workers: Worker[] = [];
-  public seed: number = Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
+  public seed: number = 821;//Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
 
   public worldObjects: WorldObject[] = [];
   gl: WebGL2RenderingContext;
@@ -65,6 +65,7 @@ export class WorldMap {
     updateTracer: () => () => void
   ) {
     this.tracerUpdateSupplier = updateTracer;
+    console.log(this.seed);
 
     this.gl = gl;
     this.width = width;
