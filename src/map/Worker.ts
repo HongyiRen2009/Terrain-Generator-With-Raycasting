@@ -258,7 +258,7 @@ function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
       const slope = 1 - Math.abs(upDot); // 0 = flat, higher = steeper
 
       // Water
-      if (worldY < WATER_LEVEL + 0.5) {
+      if (worldY < WATER_LEVEL + 0.5 && slope < 0.01) {
         types[i] = 4; // water
         continue;
       }
@@ -283,7 +283,15 @@ function caseToMesh(c: vec3, caseNumber: number, gridSize: vec3): Mesh {
       // Grassland otherwise
       types[i] = 0; // grass
     }
-
+    let canBeWater = types.every((t) => t === 4);
+    if (!canBeWater) {
+      types.forEach((t, idx) => {
+        if (t === 4) {
+          // change water vertex to sand if mixed with other types
+          types[idx] = 5;
+        }
+      });
+    }
     caseMesh.addTriangle(
       vertices.map((v) => v.position) as Triangle,
       vertices.map((v) => v.normal) as Triangle,

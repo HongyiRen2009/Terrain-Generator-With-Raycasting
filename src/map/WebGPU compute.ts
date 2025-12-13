@@ -45,6 +45,56 @@ export class ComputeShader {
     readBuffer.unmap();
     return floatArray;
   }
+  async readVectorBuffer(
+    vectorBuffer: GPUBuffer,
+    elementCount: number
+  ): Promise<Float32Array> {
+    const size = elementCount * 4;
+    const readBuffer = this.device.createBuffer({
+      size,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    const commandEncoder = this.device.createCommandEncoder();
+    commandEncoder.copyBufferToBuffer(vectorBuffer, 0, readBuffer, 0, size);
+    this.device.queue.submit([commandEncoder.finish()]);
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+    const floatArray = new Float32Array(arrayBuffer.slice(0));
+    readBuffer.unmap();
+    return floatArray;
+  }
+  async readUintBuffer(
+    uintBuffer: GPUBuffer,
+    elementCount: number
+  ): Promise<Uint32Array> {
+    const size = elementCount * 4;
+    const readBuffer = this.device.createBuffer({
+      size,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    const commandEncoder = this.device.createCommandEncoder();
+    commandEncoder.copyBufferToBuffer(uintBuffer, 0, readBuffer, 0, size);
+    this.device.queue.submit([commandEncoder.finish()]);
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+    const uintArray = new Uint32Array(arrayBuffer.slice(0));
+    readBuffer.unmap();
+    return uintArray;
+  }
+  async readUint(uint: GPUBuffer): Promise<number> {
+    const readBuffer = this.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    const commandEncoder = this.device.createCommandEncoder();
+    commandEncoder.copyBufferToBuffer(uint, 0, readBuffer, 0, 4);
+    this.device.queue.submit([commandEncoder.finish()]);
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+    const value = new Uint32Array(arrayBuffer.slice(0))[0];
+    readBuffer.unmap();
+    return value;
+  }
   async createPerlinNoise3D(
     width: number,
     height: number,
@@ -148,34 +198,6 @@ export class ComputeShader {
     );
     return fieldBuffer;
   }
-  // Add this helper function to encode case data
-  encodeCaseData(cases: number[][][]): Uint32Array {
-    // cases is [256][5][3] - 256 cases, up to 5 triangles per case, 3 edges per triangle
-    const encoded: number[] = [];
-
-    for (let caseIdx = 0; caseIdx < cases.length; caseIdx++) {
-      const triangles = cases[caseIdx];
-
-      // Each case needs exactly 5 triangle slots
-      for (let triIdx = 0; triIdx < 5; triIdx++) {
-        if (triIdx < triangles.length && triangles[triIdx]) {
-          const [edge0, edge1, edge2] = triangles[triIdx];
-
-          // Pack 3 edges (each 4 bits) into one u32
-          // edge0: bits 0-3, edge1: bits 4-7, edge2: bits 8-11
-          const packed =
-            ((edge0 & 0xf) << 0) | ((edge1 & 0xf) << 4) | ((edge2 & 0xf) << 8);
-
-          encoded.push(packed);
-        } else {
-          // Empty triangle slot
-          encoded.push(0);
-        }
-      }
-    }
-
-    return new Uint32Array(encoded);
-  }
 
   // Update createMarchingCubes to use this encoder
   async createMarchingCubes(
@@ -187,16 +209,6 @@ export class ComputeShader {
     if (!this.device) {
       await this.init();
     }
-
-    // Encode the case data
-    const casesArray = this.encodeCaseData(CASES);
-    const casesBuffer = this.device.createBuffer({
-      size: casesArray.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      mappedAtCreation: true
-    });
-    new Uint32Array(casesBuffer.getMappedRange()).set(casesArray);
-    casesBuffer.unmap();
 
     // Create params buffer
     const paramsBuffer = this.device.createBuffer({
@@ -245,7 +257,20 @@ export class ComputeShader {
     });
     new Uint32Array(indexCountBuffer.getMappedRange()).set([0]);
     indexCountBuffer.unmap();
-
+    const normalsBuffer = this.device.createBuffer({
+      size: maxVertices * 12, // vec3<f32> = 12 bytes
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      mappedAtCreation: true
+    });
+    new Float32Array(normalsBuffer.getMappedRange()).fill(0);
+    normalsBuffer.unmap();
+    const terrainTypeBuffer = this.device.createBuffer({
+      size: maxVertices * 4, // u32 = 4 bytes
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      mappedAtCreation: true
+    });
+    new Uint32Array(terrainTypeBuffer.getMappedRange()).fill(0);
+    terrainTypeBuffer.unmap();
     // Create shader module
     const shaderModule = this.device.createShaderModule({
       code: marchingCubesCode
@@ -277,7 +302,7 @@ export class ComputeShader {
         {
           binding: 4,
           visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "read-only-storage" }
+          buffer: { type: "storage" }
         },
         {
           binding: 5,
@@ -286,6 +311,11 @@ export class ComputeShader {
         },
         {
           binding: 6,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "storage" }
+        },
+        {
+          binding: 7,
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "storage" }
         }
@@ -298,11 +328,12 @@ export class ComputeShader {
       entries: [
         { binding: 0, resource: { buffer: vertexBuffer } },
         { binding: 1, resource: { buffer: indexBuffer } },
-        { binding: 2, resource: { buffer: casesBuffer } },
-        { binding: 3, resource: { buffer: fieldBuffer } },
-        { binding: 4, resource: { buffer: paramsBuffer } },
-        { binding: 5, resource: { buffer: vertexCountBuffer } },
-        { binding: 6, resource: { buffer: indexCountBuffer } }
+        { binding: 2, resource: { buffer: fieldBuffer } },
+        { binding: 3, resource: { buffer: paramsBuffer } },
+        { binding: 4, resource: { buffer: vertexCountBuffer } },
+        { binding: 5, resource: { buffer: indexCountBuffer } },
+        { binding: 6, resource: { buffer: normalsBuffer } },
+        { binding: 7, resource: { buffer: terrainTypeBuffer } }
       ]
     });
 
@@ -327,7 +358,14 @@ export class ComputeShader {
 
     this.device.queue.submit([commandEncoder.finish()]);
 
-    return { vertexBuffer, indexBuffer, vertexCountBuffer, indexCountBuffer };
+    return {
+      vertexBuffer,
+      indexBuffer,
+      normalsBuffer,
+      terrainTypeBuffer,
+      vertexCountBuffer,
+      indexCountBuffer
+    };
   }
   async visualizeNoiseField(
     canvas: HTMLCanvasElement,
