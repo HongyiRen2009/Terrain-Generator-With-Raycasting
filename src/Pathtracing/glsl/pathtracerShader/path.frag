@@ -680,13 +680,10 @@ vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
 
 vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state) {
     vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
-    // The sun's direction is the center of the light source cone
     vec3 sunAxis = -u_sunDirection; // Direction *to* the sun
 
-    // 1. Sample a direction (omega_i) within the Sun's angular radius
     vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);
 
-    // 2. Check if the sampled direction is below the surface (dot < 0)
     float NdotL = max(dot(smoothNormal, lightDir), 0.0);
     if (NdotL <= 0.0) {
         return vec3(0.0);
@@ -696,16 +693,10 @@ vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     vec3 shadowBarycentric;
     float shadowHitDistance;
     Triangle shadowTri;
-    // Note: Since the sun is infinitely far, the lightDistance check is simplified: 
-    // we only check if shadowHitDistance is greater than 0.
     int shadowTriIndex = traverseBVH(origin, lightDir, shadowBarycentric, shadowHitDistance, shadowTri);
 
     if (shadowTriIndex == -1) {
         // Ray is not blocked, calculate light contribution
-        
-        // --- Probability Density Function (PDF) ---
-        // The PDF for uniform sampling over a solid angle Omega is PDF = 1 / Omega.
-        // For a cone of half-angle alpha, the solid angle Omega is 2 * PI * (1 - cos(alpha)).
         float cos_alpha = cos(u_sunAngularRadius);
         float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
         float PDF = 1.0 / solidAngle; 
@@ -718,19 +709,51 @@ vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
         // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
         
         vec3 radiance = u_sunColor * u_sunIntensity;
-        
-        vec3 directLight = BRDF * radiance * NdotL / PDF; 
-        
-        // Simplify the above calculation:
-        // L_i = BRDF * NdotL * solidAngle * (u_sunIntensity / solidAngle)
-        // L_i = BRDF * NdotL * u_sunIntensity * u_sunColor
-        
-        directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
+                
+        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
 
         return directLight;
     }
     
     return vec3(0.0);
+}
+
+vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
+    // 1. Constants for Earth's Atmosphere
+    // Rayleigh coefficient (scatters blue more)
+    vec3 kRlh = vec3(5.5, 13.0, 33.1) * 0.005;
+    // Mie coefficient (scatters white)
+    float kMie = 0.01;
+    // Sun brightness
+    float sunIntensity = 22.0; 
+    
+    // 2. Geometry: How "thick" is the atmosphere in this direction?
+    // We approximate the optical depth using the zenith angle.
+    // When looking up (y=1), depth is 1. When looking at horizon (y=0), depth is huge.
+    // The "max" prevents division by zero below the horizon.
+    float zenithAngle = clamp(rayDir.y,0.0, 1.0);
+    float opticalDepth = 1.0 / (zenithAngle + 0.05); // +0.05 acts as the "scale height" approximation
+    
+    // 3. Phase Functions: How much light scatters towards the camera?
+    float cosTheta = dot(rayDir, sunDir);
+    
+    // Rayleigh Phase (simple symmetric scattering)
+    float rPhase = 3.0 / (16.0 * PI) * (1.0 + cosTheta * cosTheta);
+    
+    // Mie Phase (Henyey-Greenstein) - Creates the bright sun halo
+    // g is anisotropy: 0.7-0.8 for strong forward glare
+    float g = 0.76; 
+    float g2 = g * g;
+    float mPhase = (1.0 - g2) / (4.0 * PI * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
+
+    // 4. Combine
+    // Calculate how much blue (Rayleigh) and white (Mie) light is scattered to us
+    vec3 rayleigh = kRlh * opticalDepth * rPhase;
+    vec3 mie = vec3(kMie) * opticalDepth * mPhase;
+    
+    // Add them up and multiply by sun intensity
+    // Note: In a full path tracer, you might want to tonemap this result later
+    return (rayleigh + mie) * sunIntensity;
 }
 
 vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
@@ -772,8 +795,8 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         if (triIndex == -1) {
             // Ray missed everything and flew into space (Sky).
-            
-            // 1. Check if the ray direction hits the visible Sun disk
+            vec3 atmosphereColor = getSkyColor(rayDir, -u_sunDirection);
+
             vec3 sunDirToScene = -u_sunDirection; // Direction from scene TO the sun
             float cosAngle = dot(rayDir, sunDirToScene);
             
@@ -784,20 +807,19 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             // the ray hit the visible sun disk.
             bool hitSunDisk = (cosAngle >= cosAngularRadius);
 
-            vec3 skyColor = vec3(0.54, 0.824, 0.94); // Default Blue Sky Color
+            vec3 finalSky = atmosphereColor;
 
             if (hitSunDisk) {
                 // Ray hit the visible Sun disk
-                skyColor = u_sunColor * u_sunIntensity * 10.0; // Boosted intensity for visibility
+                finalSky += u_sunColor * u_sunIntensity * 10.0; // Boosted intensity for visibility
             }
 
             // Apply clouds and final color
             if(bounce == 0 || bounce == hasMirror + 1){
-                vec4 cloudHandled = handleClouds(rayOrigin, rayDir, skyColor);
-                color = throughput * mix(skyColor, cloudHandled.xyz, cloudHandled.a);
+                vec4 cloudHandled = handleClouds(rayOrigin, rayDir, finalSky);
+                color = throughput * mix(finalSky, cloudHandled.xyz, cloudHandled.a);
             }
             
-            break;
             break;
         }
 
