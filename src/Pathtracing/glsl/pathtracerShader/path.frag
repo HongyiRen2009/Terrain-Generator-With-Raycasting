@@ -68,11 +68,12 @@ uniform float sunDirX;
 uniform float sunDirY;
 uniform float sunDirZ;
 
-//uniform vec3 u_sunDirection;     // Direction *from* the scene *to* the sun (normalized)
-//uniform vec3 u_sunColor;         // The sun's color (e.g., vec3(1.0, 0.9, 0.8))
 uniform float u_sunIntensity;    // Sun intensity (controls brightness)
 uniform float u_sunAngularRadius; // Angular radius of the sun in radians (approx 0.00465 radians or 0.266 degrees)
-vec3 u_sunColor = vec3(1.0, 0.95, 0.9);
+uniform vec3 u_sunColor;
+uniform float u_blueScatter;
+uniform float u_redScatter;
+uniform float u_greenScatter;
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -718,14 +719,13 @@ vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     return vec3(0.0);
 }
 
+//AI Written: Atmospheric Scattering Sky Model
 vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     // 1. Constants for Earth's Atmosphere
-    // Rayleigh coefficient (scatters blue more)
-    vec3 kRlh = vec3(5.5, 13.0, 33.1) * 0.005;
+    // Rayleigh coefficient 
+    vec3 kRlh = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.005;
     // Mie coefficient (scatters white)
     float kMie = 0.01;
-    // Sun brightness
-    float sunIntensity = 22.0; 
     
     // 2. Geometry: How "thick" is the atmosphere in this direction?
     // We approximate the optical depth using the zenith angle.
@@ -752,8 +752,7 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     vec3 mie = vec3(kMie) * opticalDepth * mPhase;
     
     // Add them up and multiply by sun intensity
-    // Note: In a full path tracer, you might want to tonemap this result later
-    return (rayleigh + mie) * sunIntensity;
+    return (rayleigh + mie) * u_sunIntensity;
 }
 
 vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
@@ -785,7 +784,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             // Ray hit light source
             if(bounce == 0 || bounce == hasMirror + 1){
                 // Directly visible light or after mirror/glossy
-                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir,vec3(0.8));
+                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir, lights[hitLightIndex].color * lights[hitLightIndex].intensity);
                 color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
                 color = mix(color,cloudHandled.xyz,cloudHandled.a);
             }

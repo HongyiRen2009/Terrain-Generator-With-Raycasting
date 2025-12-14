@@ -193,6 +193,8 @@ export class PathTracer {
       this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"),
       this.frameNumber
     ); // Send as a float for seeding
+    //Sun Color
+    this.gl.uniform3fv(this.gl.getUniformLocation(this.meshProgram, "u_sunColor"),vec3.fromValues(1.0,0.95,0.9))
 
     // Draw
     this.gl.bindFramebuffer(
@@ -451,6 +453,7 @@ export class PathTracer {
       defaultValue: 0.0,
       numType: "float"
     });
+
     this.settingsSection.addSlider({
       id: "u_sunIntensity",
       label: "Sun Intensity",
@@ -463,13 +466,40 @@ export class PathTracer {
     this.settingsSection.addSlider({
       id: "u_sunAngularRadius",
       label: "Sun Angular Radius",
-      min: 0.1,
+      min: 0.01,
       max: 1,
       step: 0.001,
       defaultValue: 0.1,
       numType: "float"
     });
 
+    this.settingsSection.addSlider({
+      id: "u_redScatter",
+      label: "Red Scattering in the Sky",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      defaultValue: 5.5,
+      numType: "float"
+    });
+    this.settingsSection.addSlider({
+      id: "u_greenScatter",
+      label: "Green Scattering in the Sky",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      defaultValue: 13.0,
+      numType: "float"
+    });
+    this.settingsSection.addSlider({
+      id: "u_blueScatter",
+      label: "Blue Scattering in the Sky",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      defaultValue: 33.1,
+      numType: "float"
+    });
 
     this.settingsSection.addCheckbox({
       id: "CLOUDS_enableClouds",
