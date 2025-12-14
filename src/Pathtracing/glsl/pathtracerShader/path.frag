@@ -763,6 +763,14 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     vec3 color = vec3(0.0);
     vec3 throughput = vec3(1.0);
 
+    vec3 UP_VECTOR = vec3(0.0, 1.0, 0.0);
+    float COS_ZENITH = dot(-u_sunDirection, UP_VECTOR);
+    float ZENITH_ANGLE = acos(COS_ZENITH) * 57.2958; //converted to degrees
+    float AIR_MASS = 1.0 / (COS_ZENITH + 0.15 * pow(93.885 - ZENITH_ANGLE, -1.253));
+    AIR_MASS = clamp(AIR_MASS, 1.0, 50.0);
+    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.05; 
+    vec3 SUN_TRANSMISSION = exp(-AIR_MASS * BETA_EXTINCTION);
+
     int hasMirror = -1;
     for (int bounce = 0; bounce < numBounces; bounce++) {
         vec3 baryCentric;
@@ -810,7 +818,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
             if (hitSunDisk) {
                 // Ray hit the visible Sun disk
-                finalSky += u_sunColor * u_sunIntensity * 10.0; // Boosted intensity for visibility
+                finalSky += u_sunColor * u_sunIntensity *SUN_TRANSMISSION; 
             }
 
             // Apply clouds and final color
