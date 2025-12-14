@@ -606,7 +606,6 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
         // Sample density
         float rawDensity = sampleDensity(samplePos);
         if(rawDensity < DENSITY_THRESHOLD_SKIP) {
-            i += 1; // Skip next sample
             continue;
         }
         float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
