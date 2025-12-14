@@ -50,21 +50,12 @@ merge(mesh2: Mesh) {
   const BATCH_THRESHOLD = 10000;
   
   if (mesh2.mesh.length > BATCH_THRESHOLD) {
-    console.log(`🔀 Merging large mesh (${mesh2.mesh.length} triangles)...`);
-    
     // Direct loop - no spread operator
     for (let i = 0; i < mesh2.mesh.length; i++) {
       this.mesh.push(mesh2.mesh[i]);
       this.normals.push(mesh2.normals[i]);
       this.type.push(mesh2.type[i]);
-      
-      // Progress logging for very large meshes
-      if (i > 0 && i % 50000 === 0) {
-        console.log(`  Merged ${i}/${mesh2.mesh.length} triangles...`);
-      }
     }
-    
-    console.log(`✅ Merged ${mesh2.mesh.length} triangles`);
   } else {
     // For small meshes, spread operator is fine and faster
     this.mesh.push(...mesh2.mesh);
@@ -138,7 +129,7 @@ merge(mesh2: Mesh) {
     quality = Math.max(0.05, Math.min(1.0, quality)); // Clamp between 0.05 and 1.0 (minimum 5%)
     
     if (quality < 0.3) {
-      console.warn(`⚠️ Very low quality setting (${(quality * 100).toFixed(0)}%) may cause visual artifacts. Consider using at least 30% for better results.`);
+      alert(`⚠️ Very low quality setting (${(quality * 100).toFixed(0)}%) may cause visual artifacts. Consider using at least 30% for better results.`);
     }
     
     const decimatedMesh = new Mesh();
@@ -152,9 +143,6 @@ merge(mesh2: Mesh) {
     const totalBlocks = Math.ceil(originalCount / blockSize);
     const blocksToKeep = Math.max(1, Math.ceil(targetCount / blockSize));
     const skipFactor = Math.max(1, Math.floor(totalBlocks / blocksToKeep));
-    
-    console.log(`📉 Decimating mesh: ${originalCount.toLocaleString()} → ~${targetCount.toLocaleString()} triangles (${(quality * 100).toFixed(1)}% quality)`);
-    console.log(`   Using adaptive block decimation (block size: ${blockSize}, keeping ${blocksToKeep}/${totalBlocks} blocks)`);
     
     let trianglesAdded = 0;
     let currentBlock = 0;
@@ -177,9 +165,7 @@ merge(mesh2: Mesh) {
       // Skip some blocks to reach target count
       currentBlock += skipFactor;
     }
-    
-    console.log(`✅ Decimated to ${decimatedMesh.mesh.length.toLocaleString()} triangles (${((decimatedMesh.mesh.length / originalCount) * 100).toFixed(1)}% of original)`);
-    
+
     return decimatedMesh;
   }
   exportBVHTriangles(): BVHTriangle[] {

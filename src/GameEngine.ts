@@ -254,7 +254,7 @@ export class GameEngine {
 
     // Add a gear object
     const gearResult = await threemfToMesh(gearModelUrl);
-    const gearMesh = gearResult.mesh;
+    const gearMesh = gearResult!.mesh;
     // Note: gearResult.transform could be applied if needed, but addChunkGears applies its own transforms
 
     WorldUtils.addChunkGears(this.world, gearMesh);

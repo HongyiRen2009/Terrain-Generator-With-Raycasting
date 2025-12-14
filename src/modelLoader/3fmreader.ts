@@ -8,7 +8,7 @@ export async function threemfToMesh(
   url: string,
   importMap: { [id: string]: number } | null = null,
   quality: number = 1.0
-): Promise<{ mesh: Mesh; transform: mat4 }> {
+): Promise<{ mesh: Mesh; transform: mat4 } | null> {
   const mesh = new Mesh();
   const modelData: Extracted3MFData = await load3MF(url);
   
@@ -91,9 +91,39 @@ export async function threemfToMesh(
   if (quality >= 1.0 && originalTriangleCount > LARGE_MESH_THRESHOLD) {
     // Auto-reduce quality for extremely large meshes to maintain performance
     // Keep minimum at 30% to avoid severe visual artifacts
-    finalQuality = Math.max(0.3, Math.min(0.7, 500000 / originalTriangleCount));
+    let recommendedQuality = Math.max(0.3, Math.min(0.7, 500000 / originalTriangleCount));
+    let proceed = window.confirm(`⚠️ The imported model is very large (${originalTriangleCount.toLocaleString()} triangles). We recomend adjusting quality to ${recommendedQuality.toFixed(2)}. If you would like to proceed with the current quality, confirm.`)
+    if(!proceed){
+      let newQuality = null;
+      while (true) {
+        const input = window.prompt(
+          `Enter a quality value between 0.0 and 1.0\n` +
+          `(Recommended: ${recommendedQuality.toFixed(2)})\n\n` +
+          `Press Cancel to quit.`,recommendedQuality.toFixed(2).toString()
+        );
+
+        // User chose to quit
+        if (input === null) {
+          return null; // or throw / abort import
+        }
+
+        const value = Number(input);
+
+        if (!Number.isNaN(value) && value >= 0.0 && value <= 1.0) {
+          newQuality = value;
+          break;
+        }
+
+        window.alert("Invalid input. Quality must be a number between 0.0 and 1.0.");
+      }
+
+      quality = newQuality;
+    } else {
+      quality = recommendedQuality;
+    }
+    
   } else if (quality < 0.3) {
-    console.warn(`⚠️ Quality setting below 30% (${(quality * 100).toFixed(0)}%) may cause significant visual artifacts. Consider using 30-50% for better results.`);
+    alert(`⚠️ Quality setting below 30% (${(quality * 100).toFixed(0)}%) may cause significant visual artifacts. Consider using 30-50% for better results.`);
   }
   
   if (finalQuality < 1.0) {

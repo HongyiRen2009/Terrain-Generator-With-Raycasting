@@ -160,6 +160,9 @@ export class ObjectUI {
           const fileUrl = URL.createObjectURL(file);
           try {
             const result = await threemfToMesh(fileUrl, importMap, qualityValue);
+            if(result == null){
+              return;
+            }
             mesh = result.mesh;
             threeMFTransform = result.transform;
           } finally {
