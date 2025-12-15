@@ -754,7 +754,7 @@ vec4 handleFog(vec3 rayOrigin, vec3 rayDir, vec3 skyColor, float maximumD, inout
         }
         accumulatedColor += handleClouds(i, rayOrigin, rayDir, skyColor,tStep, DENSITY_THRESHOLD_SKIP);
         if(i % 10 == 0){
-            accumulatedColor += handleGodRays(i, rayOrigin, rayDir,tStep, DENSITY_THRESHOLD_SKIP, rng_state);
+            //accumulatedColor += handleGodRays(i, rayOrigin, rayDir,tStep, DENSITY_THRESHOLD_SKIP, rng_state);
         }
         if(accumulatedColor.a > ALPHA_THRESHOLD)
             break;
