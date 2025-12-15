@@ -485,6 +485,89 @@ bool isValidVec3(vec3 v) {
            all(lessThanEqual(v, vec3(1e20))) &&
            !any(isnan(v));
 }
+vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
+    vec3 directLight = vec3(0.0);
+    bool autoNormal = false;
+    if(length(smoothNormal) == 0.0){
+        // For our code this means that set the normal to the direction of the ray
+        autoNormal = true;
+    }
+    for(int i = 0; i < numActiveLights; i++){
+        Light light = lights[i]; 
+        rng_state = hash(rng_state);
+        //choose a point on the light sphere
+        float r1 = (rand(rng_state)-0.5)*2.0;
+        float r2 = (rand(rng_state)-0.5)*2.0;
+        float r3 = (rand(rng_state)-0.5)*2.0;
+        vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;
+        vec3 lightPoint = light.position + jitter;
+
+        vec3 lightDir = normalize(lightPoint - origin);
+        float lightDistance = length(lightPoint - origin);
+        //shadow ray
+
+        if(autoNormal){
+            smoothNormal = lightDir;
+        }
+
+        vec3 shadowOrigin = origin;
+        vec3 shadowBarycentric;
+        float shadowHitDistance;
+        Triangle shadowTri;
+        int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
+        if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
+            float P = 1.0/(lightDistance*lightDistance);
+            float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+            directLight += BRDF*light.color*light.intensity*NdotL*P*PI*light.radius*light.radius;
+        }
+    }
+    return directLight;
+}
+
+vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state) {
+    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
+    vec3 sunAxis = -u_sunDirection; // Direction *to* the sun
+
+    vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);
+
+    if(length(smoothNormal) == 0.0){
+        // For our code this means that set the normal to the direction of the ray
+        smoothNormal = lightDir;
+    }
+    float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+    if (NdotL <= 0.0) {
+        return vec3(0.0);
+    }
+    
+    // 3. Shadow Test
+    vec3 shadowBarycentric;
+    float shadowHitDistance;
+    Triangle shadowTri;
+    int shadowTriIndex = traverseBVH(origin, lightDir, shadowBarycentric, shadowHitDistance, shadowTri);
+
+    if (shadowTriIndex == -1) {
+        // Ray is not blocked, calculate light contribution
+        float cos_alpha = cos(u_sunAngularRadius);
+        float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
+        float PDF = 1.0 / solidAngle; 
+        
+        // --- Light Contribution (Radiance) ---
+        // L_i = BRDF * NdotL / PDF * Radiance
+        // Radiance (L_e) = Intensity / SolidAngle
+        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
+        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
+        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
+        
+        vec3 radiance = u_sunColor * u_sunIntensity;
+                
+        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
+
+        return directLight;
+    }
+    
+    return vec3(0.0);
+}
+
 //Copied from the goat Hongyi Ren
 float sampleBaseNoise(vec3 pos) {
     float noise = texture(u_CloudNoise, pos).r;
@@ -578,10 +661,7 @@ float sampleCloudLight(vec3 pos, vec3 lightDir, float rayDensity) {
     }
     return CLOUDS_darknessThreshold + (1.0f - CLOUDS_darknessThreshold) * lightTransmittance;
 }
-vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
-    if(!CLOUDS_enableClouds){
-        return vec4(0.0);
-    }
+vec4 handleClouds(int i, vec3 rayOrigin, vec3 rayDir, vec3 skyColor, float tStep, float DENSITY_THRESHOLD_SKIP){
     float cloudTmin;
     float cloudTmax;
     if(!intersectAABB(rayOrigin, rayDir, u_cloudsCubeMin, u_cloudsCubeMax, cloudTmin, cloudTmax)){
@@ -591,7 +671,77 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
     if(cloudInside <= 0.0f) {
         return vec4(0.0f);
     }
-    float tStep = (cloudInside)/float(CLOUDS_MAX_STEPS);
+
+    vec4 accumulatedColor = vec4(0.0f);
+    float t = tStep * float(i);
+
+    vec3 samplePos = rayOrigin + rayDir * t;
+
+    // Sample density
+    float rawDensity = sampleDensity(samplePos);
+    if(rawDensity < DENSITY_THRESHOLD_SKIP) {
+        return vec4(0.0);
+    }
+    float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
+
+    // Calculate lighting with adaptive quality
+    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
+    vec3 lightDir = normalize(-u_sunDirection);
+    float lightTransmittance = sampleCloudLight(samplePos, lightDir, density);
+
+    // Phase function for silver lining
+    float cosTheta = dot(normalize(rayDir), lightDir);
+    float phaseVal = PhaseFunction(cosTheta, CLOUDS_phaseG);
+    phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);
+
+    // Final light color
+    vec3 sunLight = u_sunColor * lightTransmittance * CLOUDS_lightIntensity * phaseVal;
+
+    // Powder effect
+    float powderEffect = 1.0f - exp(-density * 2.0f);
+    sunLight *= mix(1.0f, powderEffect, 0.5f);
+
+    // Ambient and bounce light
+    float height = (samplePos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
+    float groundFactor = 1.0f - height;
+    vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;
+    vec3 ambientLight = skyColor * CLOUDS_ambientIntensity;
+
+    //Final light color
+    vec3 lightColor = sunLight + ambientLight + bounceLight;
+
+    float stepOpacity = 1.0f - exp(-density * tStep * CLOUDS_absorption);
+
+    // Accumulate color using front-to-back compositing and premultiplied alpha
+    vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
+    accumulatedColor += color * (1.0f - accumulatedColor.a);
+    return accumulatedColor;
+}
+
+vec4 handleGodRays(int i, vec3 rayOrigin, vec3 rayDir, float tStep, float DENSITY_THRESHOLD_SKIP, inout uint rng_state){
+    float t = tStep * float(i);
+
+    vec3 samplePos = rayOrigin + rayDir * t;
+    vec3 BRDF = vec3(1.0);
+    vec3 dirLight = sampleSunLight(samplePos,BRDF, vec3(0.0), rng_state) + shootShadowRay(samplePos, BRDF, vec3(0.0), rng_state);
+    //No light reached here, add some fog
+    return vec4(dirLight, 0.001);
+}
+
+vec4 handleFog(vec3 rayOrigin, vec3 rayDir, vec3 skyColor, float maximumD, inout uint rng_state){
+    if(!CLOUDS_enableClouds){
+        return vec4(0.0);
+    }
+    /*float cloudTmin;
+    float cloudTmax;
+    if(!intersectAABB(rayOrigin, rayDir, u_cloudsCubeMin, u_cloudsCubeMax, cloudTmin, cloudTmax)){
+        return vec4(0.0);
+    }
+    float cloudInside = cloudTmax - cloudTmin;
+    if(cloudInside <= 0.0f) {
+        return vec4(0.0f);
+    }*/
+    float tStep = 1.0;
     vec4 accumulatedColor = vec4(0.0f);
     float blueNoiseOffset = 0.0;//fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);
 
@@ -599,123 +749,17 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor){
     const float ALPHA_THRESHOLD = 0.99f;
 
     for(int i = 0; i < CLOUDS_MAX_STEPS; i++) {
-        float t = cloudTmin + tStep * (float(i) + blueNoiseOffset);
-
-        vec3 samplePos = rayOrigin + rayDir * t;
-
-        // Sample density
-        float rawDensity = sampleDensity(samplePos);
-        if(rawDensity < DENSITY_THRESHOLD_SKIP) {
-            continue;
+        if(tStep * float(i) > maximumD){
+            break;
         }
-        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
-
-        // Calculate lighting with adaptive quality
-        vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
-        vec3 lightDir = normalize(-u_sunDirection);
-        float lightTransmittance = sampleCloudLight(samplePos, lightDir, density);
-
-        // Phase function for silver lining
-        float cosTheta = dot(normalize(rayDir), lightDir);
-        float phaseVal = PhaseFunction(cosTheta, CLOUDS_phaseG);
-        phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);
-
-        // Final light color
-        vec3 sunLight = u_sunColor * lightTransmittance * CLOUDS_lightIntensity * phaseVal;
-
-        // Powder effect
-        float powderEffect = 1.0f - exp(-density * 2.0f);
-        sunLight *= mix(1.0f, powderEffect, 0.5f);
-
-        // Ambient and bounce light
-        float height = (samplePos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
-        float groundFactor = 1.0f - height;
-        vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;
-        vec3 ambientLight = skyColor * CLOUDS_ambientIntensity;
-
-        //Final light color
-        vec3 lightColor = sunLight + ambientLight + bounceLight;
-
-        float stepOpacity = 1.0f - exp(-density * tStep * CLOUDS_absorption);
-
-        // Accumulate color using front-to-back compositing and premultiplied alpha
-        vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
-        accumulatedColor += color * (1.0f - accumulatedColor.a);
-
+        accumulatedColor += handleClouds(i, rayOrigin, rayDir, skyColor,tStep, DENSITY_THRESHOLD_SKIP);
+        if(i % 10 == 0){
+            accumulatedColor += handleGodRays(i, rayOrigin, rayDir,tStep, DENSITY_THRESHOLD_SKIP, rng_state);
+        }
         if(accumulatedColor.a > ALPHA_THRESHOLD)
             break;
     }
     return accumulatedColor;
-}
-
-vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
-    vec3 directLight = vec3(0.0);
-    for(int i = 0; i < numActiveLights; i++){
-        Light light = lights[i]; 
-        rng_state = hash(rng_state);
-        //choose a point on the light sphere
-        float r1 = (rand(rng_state)-0.5)*2.0;
-        float r2 = (rand(rng_state)-0.5)*2.0;
-        float r3 = (rand(rng_state)-0.5)*2.0;
-        vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;
-        vec3 lightPoint = light.position + jitter;
-
-        vec3 lightDir = normalize(lightPoint - origin);
-        float lightDistance = length(lightPoint - origin);
-        //shadow ray
-
-        vec3 shadowOrigin = origin;
-        vec3 shadowBarycentric;
-        float shadowHitDistance;
-        Triangle shadowTri;
-        int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
-        if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
-            float P = 1.0/(lightDistance*lightDistance);
-            float NdotL = max(dot(smoothNormal, lightDir), 0.0);
-            directLight += BRDF*light.color*light.intensity*NdotL*P*PI*light.radius*light.radius;
-        }
-    }
-    return directLight;
-}
-
-vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state) {
-    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
-    vec3 sunAxis = -u_sunDirection; // Direction *to* the sun
-
-    vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);
-
-    float NdotL = max(dot(smoothNormal, lightDir), 0.0);
-    if (NdotL <= 0.0) {
-        return vec3(0.0);
-    }
-    
-    // 3. Shadow Test
-    vec3 shadowBarycentric;
-    float shadowHitDistance;
-    Triangle shadowTri;
-    int shadowTriIndex = traverseBVH(origin, lightDir, shadowBarycentric, shadowHitDistance, shadowTri);
-
-    if (shadowTriIndex == -1) {
-        // Ray is not blocked, calculate light contribution
-        float cos_alpha = cos(u_sunAngularRadius);
-        float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
-        float PDF = 1.0 / solidAngle; 
-        
-        // --- Light Contribution (Radiance) ---
-        // L_i = BRDF * NdotL / PDF * Radiance
-        // Radiance (L_e) = Intensity / SolidAngle
-        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
-        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
-        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
-        
-        vec3 radiance = u_sunColor * u_sunIntensity;
-                
-        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
-
-        return directLight;
-    }
-    
-    return vec3(0.0);
 }
 
 //AI Written: Atmospheric Scattering Sky Model
@@ -791,29 +835,28 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             // Ray hit light source
             if(bounce == 0 || bounce == hasMirror + 1){
                 // Directly visible light or after mirror/glossy
-                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir, lights[hitLightIndex].color * lights[hitLightIndex].intensity);
+                vec4 cloudHandled = handleFog(OGrayOrigin,OGrayDir, lights[hitLightIndex].color * lights[hitLightIndex].intensity, 1.0/0.0001,rng_state);
                 color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
                 color = mix(color,cloudHandled.xyz,cloudHandled.a);
             }
             //Note, now that we have an NEE we do not need to factor in light hit after the first bounce.
             break; // Path terminates.
         }
+        // Ray missed everything and flew into space (Sky).
+        vec3 atmosphereColor = getSkyColor(rayDir, -u_sunDirection);
 
+        vec3 sunDirToScene = -u_sunDirection; // Direction from scene TO the sun
+        float cosAngle = dot(rayDir, sunDirToScene);
+        
+        // The angular radius is very small, so we use its cosine
+        float cosAngularRadius = cos(u_sunAngularRadius);
+        
+        // If the angle between the ray and the center of the sun is less than the angular radius, 
+        // the ray hit the visible sun disk.
+        bool hitSunDisk = (cosAngle >= cosAngularRadius);
+
+        vec3 finalSky = atmosphereColor;
         if (triIndex == -1) {
-            // Ray missed everything and flew into space (Sky).
-            vec3 atmosphereColor = getSkyColor(rayDir, -u_sunDirection);
-
-            vec3 sunDirToScene = -u_sunDirection; // Direction from scene TO the sun
-            float cosAngle = dot(rayDir, sunDirToScene);
-            
-            // The angular radius is very small, so we use its cosine
-            float cosAngularRadius = cos(u_sunAngularRadius);
-            
-            // If the angle between the ray and the center of the sun is less than the angular radius, 
-            // the ray hit the visible sun disk.
-            bool hitSunDisk = (cosAngle >= cosAngularRadius);
-
-            vec3 finalSky = atmosphereColor;
 
             if (hitSunDisk) {
                 // Ray hit the visible Sun disk
@@ -822,7 +865,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
             // Apply clouds and final color
             if(bounce == 0 || bounce == hasMirror + 1){
-                vec4 cloudHandled = handleClouds(rayOrigin, rayDir, finalSky);
+                vec4 cloudHandled = handleFog(rayOrigin, rayDir, finalSky, 1.0/0.0001, rng_state);
                 color = throughput * mix(finalSky, cloudHandled.xyz, cloudHandled.a);
             }
             
@@ -918,12 +961,17 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
                 rayOrigin = hitPoint - geometricNormal * 0.01;
             }
             hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
-            vec3 CLOUDS_absorption = -log(matColor)*0.1;  // if matColor is tint
-            throughput *= exp(-CLOUDS_absorption * (minHitDistance)); //Beer Lambert law
+            vec3 absorption = -log(matColor)*0.1;  // if matColor is tint
+            throughput *= exp(-absorption * (minHitDistance)); //Beer Lambert law
         }else if (type == 5){ // Emissive
             color += throughput * matColor;
             break;
         }
+
+        //fog
+        vec4 cloudHandled = handleFog(rayOrigin, rayDir, throughput, minHitDistance, rng_state);
+        color = mix(color,cloudHandled.xyz,cloudHandled.a); 
+        
     }
     return min(color, vec3(10.0));
 }
