@@ -508,9 +508,9 @@ export class PathTracer {
       id: "CLOUDS_MAX_STEPS",
       label: "Cloud Ray Marching Max Steps",
       min: 8,
-      max: 128,
+      max: 3056,
       step: 1,
-      defaultValue: 500,
+      defaultValue: 256,
       numType: "int"
     });
 
@@ -518,9 +518,9 @@ export class PathTracer {
       id: "CLOUDS_MAX_STEPS_LIGHT",
       label: "Cloud Light Ray Marching Max Steps",
       min: 4,
-      max: 32,
+      max: 128,
       step: 1,
-      defaultValue: 8,
+      defaultValue: 16,
       numType: "int"
     });
 
