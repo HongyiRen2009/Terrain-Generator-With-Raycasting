@@ -200,7 +200,7 @@ export class CSMPass extends RenderPass {
     const lightSpaceMatrices = getLightSpaceMatrices(
       this.resourceCache,
       sunLight,
-      (SettingsManager.instance.getSetting("lambda")?.value as number) || 0.5,
+      (SettingsManager.instance.getSetting("lambda")?.value as number) || 0.8,
       (SettingsManager.instance.getSetting("zMultiplier")?.value as number) ||
         10.0
     );
@@ -229,6 +229,38 @@ export class CSMPass extends RenderPass {
     this.gl.bindVertexArray(null);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.colorMask(true, true, true, true);
+  }
+
+  // Base bias value that gets scaled by cascade far plane
+  private static readonly BASE_SHADOW_BIAS = 0.05;
+
+  /**
+   * Calculates shadow bias for a cascade based on its far plane distance.
+   * Formula: bias = baseBias * (2 / cascadeFarPlane)
+   * Empirical values: 0.001, 0.0005, 0.0001 for cascades 1, 2, 3
+   */
+  private calculateCascadeBias(cascadeIndex: number): number {
+    const lambda = (SettingsManager.instance.getSetting("lambda")?.value as number) || 0.8;
+    
+    // Try to get cascade splits if available
+    const nearFarPlanes = this.resourceCache.getData("pausedNearFarPlanes");
+    if (!nearFarPlanes) {
+      // Fallback: use old formula if cascade data isn't available yet
+      // This happens during initialization before camera info is set
+      return CSMPass.BASE_SHADOW_BIAS * (2.0 / (1000 * Math.pow(2.5, cascadeIndex)));
+    }
+    
+    const cascadeSplits = getCascadeSplits(this.resourceCache, lambda);
+    if (cascadeIndex >= cascadeSplits.length) {
+      // Fallback if index is out of bounds
+      return CSMPass.BASE_SHADOW_BIAS * (2.0 / nearFarPlanes.far);
+    }
+    
+    const cascadeFarPlane = cascadeSplits[cascadeIndex];
+    
+    // Formula: baseBias * (2 / cascadeFarPlane)
+    // Further cascades have larger far planes, so they get smaller bias values
+    return CSMPass.BASE_SHADOW_BIAS * (2.0 / cascadeFarPlane);
   }
 
   private InitSettings() {
@@ -266,8 +298,8 @@ export class CSMPass extends RenderPass {
             // Keep existing values if available
             return currentBiasArray[i];
           }
-          // Otherwise use default: 0.001 * 0.5^i
-          return 0.001 * Math.pow(0.5, i);
+          // Calculate bias based on cascade's far plane
+          return this.calculateCascadeBias(i);
         });
         this.resourceCache.setData("csmShadowBias", newBiasArray);
 
@@ -317,6 +349,21 @@ export class CSMPass extends RenderPass {
       numType: "float",
       onChange: (value: number) => {
         this.resourceCache.setData("lambda", value);
+        // Recalculate bias array since lambda affects cascade splits
+        const numCascades = this.resourceCache.getData("numCascades") ?? 3;
+        const updatedBiasArray = Array.from({ length: numCascades }, (_, i) => {
+          return this.calculateCascadeBias(i);
+        });
+        this.resourceCache.setData("csmShadowBias", updatedBiasArray);
+        // Update the slider array if it exists
+        const shadowBiasSetting = SettingsManager.instance.getSetting("csmShadowBias");
+        if (
+          shadowBiasSetting &&
+          shadowBiasSetting.type === "slider" &&
+          shadowBiasSetting.isArray
+        ) {
+          shadowBiasSetting.value = updatedBiasArray as any;
+        }
       }
     });
     SettingsManager.instance.addSliderToSection("CSM Settings", {
@@ -381,11 +428,10 @@ export class CSMPass extends RenderPass {
       }
     });
     const numCascades = this.resourceCache.getData("numCascades") ?? 3;
-    // Initialize csmShadowBias array with decreasing values for further cascades
+    // Initialize csmShadowBias array with values calculated from cascade far planes
+    // Bias is automatically calculated as 2 / cascadeFarPlane to match empirical values
     const defaultBiasArray = Array.from({ length: numCascades }, (_, i) => {
-      // Further cascades should have less bias
-      // Start with 0.001 for first cascade, reduce by 50% for each subsequent cascade
-      return 0.001 * Math.pow(0.5, i);
+      return this.calculateCascadeBias(i);
     });
     this.resourceCache.setData("csmShadowBias", defaultBiasArray);
 

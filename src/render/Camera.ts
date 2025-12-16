@@ -12,12 +12,12 @@ export class Camera {
   up = vec3.fromValues(0, 1, 0);
   speed: number;
   nearPlane: number = 0.1;
-  farPlane: number = 300.0;
+  farPlane: number = 1000.0;
   constructor(position: vec3) {
     this.position = position;
 
     this.UpdateCameraVectors();
-    this.speed = 0.005;
+    this.speed = 0.02;
   }
 
   //enables Camera.XPosition instead of Camera.position[0]

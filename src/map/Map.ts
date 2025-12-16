@@ -145,33 +145,24 @@ export class WorldMap {
   }
   //Generates map
   public generate() {
-    this.chunks = [
-      // Row 1
-      new Chunk(
-        vec2.fromValues(0, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[0]
-      ),
-      new Chunk(
-        vec2.fromValues(this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[1]
-      ),
-      new Chunk(
-        vec2.fromValues(2 * this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[2]
-      ),
-      new Chunk(
-        vec2.fromValues(3 * this.resolution, 0),
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this.Workers[3]
-      )
-    ];
+    this.chunks = [];
+    const rows = 1;
+    const cols = 7; // 2x7 grid = 14 chunks
+    
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const chunkIndex = row * cols + col;
+        const workerIndex = chunkIndex % this.Workers.length;
+        this.chunks.push(
+          new Chunk(
+            vec2.fromValues(col * this.resolution, row * this.resolution),
+            vec3.fromValues(this.resolution, this.height, this.resolution),
+            this.seed,
+            this.Workers[workerIndex]
+          )
+        );
+      }
+    }
   }
   public combinedMesh(): Mesh {
     const CombinedMesh = new Mesh();

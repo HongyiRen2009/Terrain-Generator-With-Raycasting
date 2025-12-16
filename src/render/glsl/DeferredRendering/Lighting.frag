@@ -250,11 +250,29 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
         float shadow = 0.0f;
         int samplesDiv2 = (filterSize * filterSize) / 2;
         float texelSize = 1.0f / float(csmShadowMapSize);
+        
+        // Calculate cascade-specific PCF scale to maintain consistent world-space filter size
+        // Further cascades cover larger world-space areas, so we need to scale down the PCF radius
+        // We use the cascade's depth range as a proxy for its world-space coverage
+        // Since cascades scale in all dimensions, depth range is a reasonable approximation
+        float cascadeScale = 1.0f;
+        if(cascadeIndex > 0 && cascadeSplits[0] > 0.0f) {
+            // Calculate the depth range of the first cascade (reference)
+            float firstCascadeRange = cascadeSplits[0];
+            // Calculate the depth range of the current cascade
+            float currentCascadeNear = cascadeSplits[cascadeIndex - 1];
+            float currentCascadeRange = cascadeSplits[cascadeIndex] - currentCascadeNear;
+            // Scale PCF radius inversely with relative cascade size
+            // Larger cascades (larger range) get smaller PCF radius to maintain same world-space filter size
+            cascadeScale = firstCascadeRange / max(currentCascadeRange, 0.001f);
+        }
+        float scaledPcfRadius = pcfRadius * cascadeScale;
+        
         vec4 sc = vec4(projCoords, 1.0f);
         float depth = 0.0f;
         for(int i = 0; i < 4; i++) {
             offsetCoord.x = i;
-            vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
+            vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * scaledPcfRadius;
             sc.xy = projCoords.xy + Offsets.rg * texelSize;
             depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
             shadow += (projCoords.z - cascadeBias > depth) ? 0.0f : 1.0f;
@@ -267,7 +285,7 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
         if(shadow != 0.0f && shadow != 1.0f) {
             for(int i = 4; i < samplesDiv2; i++) {
                 offsetCoord.x = i;
-                vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;
+                vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * scaledPcfRadius;
                 sc.xy = projCoords.xy + Offsets.rg * texelSize;
                 depth = texture(shadowDepthTextureArray, vec3(sc.xy, float(cascadeIndex))).r;
                 shadow += (projCoords.z - cascadeBias > depth) ? 0.0f : 1.0f;
