@@ -508,9 +508,9 @@ export class PathTracer {
       id: "CLOUDS_MAX_STEPS",
       label: "Cloud Ray Marching Max Steps",
       min: 8,
-      max: 3056,
+      max: 1024,
       step: 1,
-      defaultValue: 256,
+      defaultValue: 64,
       numType: "int"
     });
 
@@ -520,8 +520,28 @@ export class PathTracer {
       min: 4,
       max: 128,
       step: 1,
-      defaultValue: 16,
+      defaultValue: 8,
       numType: "int"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_weatherMapOffsetX",
+      label: "Cloud Weather Map Offset X",
+      min: 0.0,
+      max: 10.0,
+      step: 0.01,
+      defaultValue: 0.0,
+      numType: "float"
+    });
+
+    this.settingsSection.addSlider({
+      id: "CLOUDS_weatherMapOffsetY",
+      label: "Cloud Weather Map Offset Y",
+      min: 0.0,
+      max: 10.0,
+      step: 0.01,
+      defaultValue: 0.0,
+      numType: "float"
     });
 
     this.settingsSection.addSlider({
@@ -621,26 +641,6 @@ export class PathTracer {
       max: 1.0,
       step: 0.01,
       defaultValue: 0.5,
-      numType: "float"
-    });
-
-    this.settingsSection.addSlider({
-      id: "CLOUDS_weatherMapOffsetX",
-      label: "Cloud Weather Map Offset X",
-      min: 0.0,
-      max: 10.0,
-      step: 0.01,
-      defaultValue: 0.0,
-      numType: "float"
-    });
-
-    this.settingsSection.addSlider({
-      id: "CLOUDS_weatherMapOffsetY",
-      label: "Cloud Weather Map Offset Y",
-      min: 0.0,
-      max: 10.0,
-      step: 0.01,
-      defaultValue: 0.0,
       numType: "float"
     });
   }
