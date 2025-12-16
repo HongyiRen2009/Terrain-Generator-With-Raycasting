@@ -177,6 +177,12 @@ export class GameEngine {
       this.renderer.vaoManager.createWorldObjectVAOs(this.world.worldObjects);
     };
 
+    // Set up light change callback and create initial light VAOs
+    this.world.onLightsChanged = () => {
+      this.renderer.vaoManager.createPointLightVAOs(this.world.lights);
+    };
+    this.renderer.vaoManager.createPointLightVAOs(this.world.lights);
+
     // Add a gear object
     const mesh = await threemfToMesh(gearModelUrl);
     const gearTransform = mat4.create();

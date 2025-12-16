@@ -78,13 +78,14 @@ export class LightingPass extends RenderPass {
     const fbo = this.gl.createFramebuffer();
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
 
+    // Use RGBA16F for HDR support (bloom, emissive materials)
     const litSceneTexture = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
       this.canvas.height,
-      this.gl.RGBA8,
+      this.gl.RGBA16F,
       this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE,
+      this.gl.FLOAT,
       null,
       this.gl.LINEAR,
       this.gl.LINEAR,

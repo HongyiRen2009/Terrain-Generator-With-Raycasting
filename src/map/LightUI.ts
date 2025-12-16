@@ -281,6 +281,11 @@ export class LightUI {
       const updater = this.tracerUpdateSupplier();
       if (updater) updater();
     }
+    // Notify that lights have changed (for VAO updates, etc.) 
+    // Technically, pathtracer doesn't even use lights, but it would be the same update function so it is used anyway
+    if (this.world.onLightsChanged) {
+      this.world.onLightsChanged();
+    }
   }  
 }
 

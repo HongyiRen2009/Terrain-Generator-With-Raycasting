@@ -121,7 +121,7 @@ export class CombineGeometryPass extends RenderPass {
       depthTexture,
       0
     );
-    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
+    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1, this.gl.COLOR_ATTACHMENT2]);
 
     const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
     if (status !== this.gl.FRAMEBUFFER_COMPLETE) {

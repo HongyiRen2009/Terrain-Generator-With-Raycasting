@@ -8,10 +8,14 @@ import GeometryFragmentShaderSource from "../../glsl/DeferredRendering/Geometry.
 import GrassVertexShaderSource from "../../glsl/Grass/Grass.vert";
 import GrassFragmentShaderSource from "../../glsl/Grass/Grass.frag";
 import e from "express";
+import { Color } from "../../../map/terrains";
+import { PointLight } from "../../../map/Light";
 export interface VaoInfo {
   vao: WebGLVertexArrayObject;
   indexCount: number;
   modelMatrix: mat4;
+  isLight?: boolean;
+  lightIndex?: number;
 }
 
 interface LODLevel {
@@ -86,16 +90,16 @@ export class VAOManager {
     //Current placeholders for reflectiveness, metalicity, roughness, add them in the terrain branch
     const reflectivenessPlaceholder = new Array(
       (trianglePositions.length / 3) * 3
-    ).fill(1.0);
+    ).fill(0.04); // Low reflectivity for dielectric/non-metallic surfaces
     const metalicityPlaceholder = new Array(
       (trianglePositions.length / 3) * 3
     ).fill(0.0);
     const roughnessPlaceholder = new Array(
       (trianglePositions.length / 3) * 3
-    ).fill(0.0);
+    ).fill(0.7); // Medium-high roughness for terrain
     const emissivityPlaceholder = new Array(
       (trianglePositions.length / 3) * 3
-    ).fill(packEmissivityToUint8([0.0, 0.0, 0.0]));
+    ).fill(packEmissivityToUint8([0.0, 0.0, 0.0]) / 63.0); // Normalized for RGBA8 texture
     const TerrainTriangleBuffer = {
       vertex: {
         position: RenderUtils.CreateAttributeBuffer(
@@ -380,6 +384,241 @@ export class VAOManager {
     }
 
     return { vertices, indices };
+  }
+
+  createSphericalMesh(radius: number, showColor: Color): Mesh {
+    const mesh = new Mesh();
+    const subdivisions = 2; // Reduced to 2 (320 tris) for stability
+
+    // Golden ratio for icosahedron
+    const phi = (1 + Math.sqrt(5)) / 2;
+
+    // Create initial icosahedron vertices (normalized to unit sphere)
+    const initialVertices: vec3[] = [
+      vec3.normalize(vec3.create(), vec3.fromValues(-1, phi, 0)),
+      vec3.normalize(vec3.create(), vec3.fromValues(1, phi, 0)),
+      vec3.normalize(vec3.create(), vec3.fromValues(-1, -phi, 0)),
+      vec3.normalize(vec3.create(), vec3.fromValues(1, -phi, 0)),
+      vec3.normalize(vec3.create(), vec3.fromValues(0, -1, phi)),
+      vec3.normalize(vec3.create(), vec3.fromValues(0, 1, phi)),
+      vec3.normalize(vec3.create(), vec3.fromValues(0, -1, -phi)),
+      vec3.normalize(vec3.create(), vec3.fromValues(0, 1, -phi)),
+      vec3.normalize(vec3.create(), vec3.fromValues(phi, 0, -1)),
+      vec3.normalize(vec3.create(), vec3.fromValues(phi, 0, 1)),
+      vec3.normalize(vec3.create(), vec3.fromValues(-phi, 0, -1)),
+      vec3.normalize(vec3.create(), vec3.fromValues(-phi, 0, 1))
+    ];
+
+    // Icosahedron faces (20 triangles)
+    const faces: [number, number, number][] = [
+      // 5 faces around point 0
+      [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+      // 5 adjacent faces
+      [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+      // 5 faces around point 3
+      [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+      // 5 adjacent faces
+      [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]
+    ];
+
+    // Midpoint cache for subdivision
+    const midpointCache = new Map<string, number>();
+    let vertices = [...initialVertices];
+
+    const getMidpoint = (v1: number, v2: number): number => {
+      const key = v1 < v2 ? `${v1}_${v2}` : `${v2}_${v1}`;
+      if (midpointCache.has(key)) {
+        return midpointCache.get(key)!;
+      }
+
+      const p1 = vertices[v1];
+      const p2 = vertices[v2];
+      const mid = vec3.create();
+      vec3.add(mid, p1, p2);
+      vec3.scale(mid, mid, 0.5);
+      vec3.normalize(mid, mid); // Project onto unit sphere
+
+      const index = vertices.length;
+      vertices.push(mid);
+      midpointCache.set(key, index);
+      return index;
+    };
+
+    let currentFaces = faces;
+
+    // Subdivide faces
+    for (let i = 0; i < subdivisions; i++) {
+      const newFaces: [number, number, number][] = [];
+      for (const [v1, v2, v3] of currentFaces) {
+        const a = getMidpoint(v1, v2);
+        const b = getMidpoint(v2, v3);
+        const c = getMidpoint(v3, v1);
+
+        newFaces.push([v1, a, c]);
+        newFaces.push([v2, b, a]);
+        newFaces.push([v3, c, b]);
+        newFaces.push([a, b, c]);
+      }
+      currentFaces = newFaces;
+    }
+
+    // Create triangles with the given radius
+    for (const [i1, i2, i3] of currentFaces) {
+      const v1 = vec3.scale(vec3.create(), vertices[i1], radius);
+      const v2 = vec3.scale(vec3.create(), vertices[i2], radius);
+      const v3 = vec3.scale(vec3.create(), vertices[i3], radius);
+
+      // For a sphere, vertex normals are the normalized positions (pointing outward)
+      const n1 = vec3.clone(vertices[i1]);
+      const n2 = vec3.clone(vertices[i2]);
+      const n3 = vec3.clone(vertices[i3]);
+
+      const triangle: [vec3, vec3, vec3] = [v1, v2, v3];
+      const normal: [vec3, vec3, vec3] = [n1, n2, n3];
+
+      // Add triangle with default terrain type 0
+      mesh.addTriangle(triangle, normal, [0, 0, 0]);
+    }
+
+    return mesh;
+  }
+
+  createPointLightVAOs(pointLights: PointLight[]): void {
+    // Clear any existing light VAOs from cache
+    const keysToDelete: number[] = [];
+    this.vaoCache.forEach((vaoInfo, key) => {
+      if (vaoInfo.isLight) {
+        this.gl.deleteVertexArray(vaoInfo.vao);
+        keysToDelete.push(key);
+      }
+    });
+    keysToDelete.forEach((key) => this.vaoCache.delete(key));
+
+    // Create a sphere VAO for each point light
+    for (let i = 0; i < pointLights.length; i++) {
+      const light = pointLights[i];
+      const showColor = light.showColor || light.color;
+
+      // Create icosphere mesh for this light (using spheres again)
+      const sphereMesh = this.createSphericalMesh(light.radius, showColor);
+
+      // Flatten mesh to simple arrays
+      const triangles = sphereMesh.getVertices();
+      const triNormals = sphereMesh.getNormals();
+      const numVerts = triangles.length * 3;
+
+      const positions = new Float32Array(numVerts * 3);
+      const normals = new Float32Array(numVerts * 3);
+      const colors = new Float32Array(numVerts * 3);
+      const indices = new Uint32Array(numVerts);
+
+      const colorVec = showColor.createVec3();
+      // Standard color for albedo
+      const cr = colorVec[0];
+      const cg = colorVec[1];
+      const cb = colorVec[2];
+
+      // Pack emissivity to make the light sphere glow with its color
+      // Normalize to 0-1 range for RGBA8 texture storage (max packed value is 63)
+      const packedEmissivity = packEmissivityToUint8([cr, cg, cb]) / 63.0;
+
+      // Material attributes for each vertex
+      const reflectiveness = new Float32Array(numVerts);
+      const metalicity = new Float32Array(numVerts);
+      const roughness = new Float32Array(numVerts);
+      const emissivity = new Float32Array(numVerts);
+
+      for (let j = 0; j < triangles.length; j++) {
+        const tri = triangles[j];
+        const norm = triNormals[j];
+
+        for (let k = 0; k < 3; k++) {
+          const idx = j * 3 + k;
+          
+          // Position
+          positions[idx * 3 + 0] = tri[k][0];
+          positions[idx * 3 + 1] = tri[k][1];
+          positions[idx * 3 + 2] = tri[k][2];
+          
+          // Normal
+          normals[idx * 3 + 0] = norm[k][0];
+          normals[idx * 3 + 1] = norm[k][1];
+          normals[idx * 3 + 2] = norm[k][2];
+          
+          // Color
+          colors[idx * 3 + 0] = cr;
+          colors[idx * 3 + 1] = cg;
+          colors[idx * 3 + 2] = cb;
+
+          // Material attributes - default values for light spheres
+          reflectiveness[idx] = 0.04; // Low reflectivity (dielectric), allows albedo color to show
+          metalicity[idx] = 0.0;      // Non-metallic
+          roughness[idx] = 0.8;       // Higher roughness for matte look
+          emissivity[idx] = packedEmissivity; // Glow with the light's color
+
+          indices[idx] = idx;
+        }
+      }
+
+      // Create buffers
+      const lightBuffers = {
+        position: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, positions),
+          size: 3
+        },
+        normal: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, normals),
+          size: 3
+        },
+        color: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, colors),
+          size: 3
+        },
+        reflectiveness: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, reflectiveness),
+          size: 1
+        },
+        metalicity: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, metalicity),
+          size: 1
+        },
+        roughness: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, roughness),
+          size: 1
+        },
+        emissivity: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, emissivity),
+          size: 1
+        }
+      };
+
+      const indexBuffer = RenderUtils.CreateIndexBuffer(
+        this.gl,
+        Array.from(indices) // RenderUtils expects number[]
+      );
+
+      // Create VAO with Non-Interleaved layout (safer)
+      const lightVAO = RenderUtils.createNonInterleavedVao(
+        this.gl,
+        lightBuffers,
+        indexBuffer,
+        this.geometryProgram!
+      );
+
+      // Create model matrix with translation to light position
+      const modelMatrix = mat4.create();
+      mat4.translate(modelMatrix, modelMatrix, light.position);
+
+      // Use a unique ID for light VAOs (negative to avoid collision with world objects)
+      const lightId = -(i + 1);
+      this.vaoCache.set(lightId, {
+        vao: lightVAO,
+        indexCount: indices.length,
+        modelMatrix: modelMatrix,
+        isLight: true,
+        lightIndex: i
+      });
+    }
   }
 
   createWorldObjectVAOs(worldObjects: WorldObject[]): void {

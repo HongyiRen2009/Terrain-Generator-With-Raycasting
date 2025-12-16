@@ -338,7 +338,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
 
     return ggx1 * ggx2;
 }
-vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 emissivity, float baseReflectivity, float metalicity, float roughness) {
+vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metalicity, float roughness) {
     vec3 viewDir = normalize(cameraPosition - worldPos);
     vec3 lightDir = normalize(-SunLight.direction);
     vec3 halfWay = normalize(viewDir + lightDir);
@@ -357,9 +357,11 @@ vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 
     vec3 radiance = SunLight.color * SunLight.intensity;
     float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);
 
-    return (diffuse + specular) * radiance * diffuseFactor + emissivity;
+    return (diffuse + specular) * radiance * diffuseFactor;
 }
-vec3 unpackEmissivity(int packed) {
+vec3 unpackEmissivity(float normalizedPacked) {
+    // Denormalize from 0-1 range back to 0-63 (stored normalized for RGBA8 texture)
+    int packed = int(normalizedPacked * 63.0f + 0.5f); // +0.5 for rounding
     float r = float(packed & 0x3) / 3.0f;
     float g = float((packed >> 2) & 0x3) / 3.0f;
     float b = float((packed >> 4) & 0x3) / 3.0f;
@@ -373,7 +375,7 @@ float calculateAttenuation(float d, float r, float range) {
     return 2.0f * (1.0f - d / sqrt(d * d + r * r));
 }
 
-vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec3 emissivity, float baseReflectivity, float metalicity, float roughness, int lightIndex) {
+vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metalicity, float roughness, int lightIndex) {
     vec3 viewDir = normalize(cameraPosition - worldPos);
     vec3 lightDir = normalize(pointLights[lightIndex].position - worldPos);
     vec3 halfWay = normalize(viewDir + lightDir);
@@ -394,7 +396,7 @@ vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, vec
     float attenuation = calculateAttenuation(distance, pointLights[lightIndex].radius, pointLights[lightIndex].range);
     float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);
 
-    return (diffuse + specular) * radiance * diffuseFactor * attenuation + emissivity;
+    return (diffuse + specular) * radiance * diffuseFactor * attenuation;
 }
 vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float ambientOcclusion, float sunShadow) {
     vec3 ambient = (vec3(ambientLightIntensity) * albedo) * ambientOcclusion;
@@ -405,18 +407,23 @@ vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float 
     float baseReflectivity = materialData.r;
     float metallicity = materialData.g;
     float roughness = materialData.b;
-    vec3 emissivity = unpackEmissivity(int(materialData.a));
+    vec3 emissivity = unpackEmissivity(materialData.a);
 
     // Sun PBR lighting
     if(!sunDisabled) {
-        lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, emissivity, baseReflectivity, metallicity, roughness) * sunShadow;
+        lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness) * sunShadow;
     }
 
     // Point lights PBR
     for(int i = 0; i < numActivePointLights; i++) {
         float pointLightShadow = (i < numShadowedLights) ? computePointShadow(worldPos, worldNormal, i) : 1.0f;
-        lighting += calculatePointPBRLighting(worldPos, worldNormal, albedo, emissivity, baseReflectivity, metallicity, roughness, i) * pointLightShadow;
+        lighting += calculatePointPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, i) * pointLightShadow;
     }
+
+    // Add emissivity ONCE at the end, unaffected by shadows
+    // This makes emissive materials glow regardless of lighting conditions
+    // Multiply by 4.0 to make emissive objects bright enough to trigger bloom (threshold 1.5)
+    lighting += emissivity * 4.0f;
 
     return lighting;
 }

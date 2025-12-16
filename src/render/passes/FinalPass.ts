@@ -90,15 +90,15 @@ export class FinalPass extends RenderPass {
     SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "enableBloom",
       label: "Enable Bloom",
-      defaultValue: false
+      defaultValue: true
     });
     SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "bloomThreshold",
       label: "Bloom Threshold",
       min: 0.0,
-      max: 2.0,
+      max: 5.0,
       step: 0.01,
-      defaultValue: 1.0
+      defaultValue: 1.2  // Only bloom HDR emissive objects (lights are at ~4.0 brightness)
     });
     SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "bloomIntensity",
@@ -106,7 +106,7 @@ export class FinalPass extends RenderPass {
       min: 0.0,
       max: 2.0,
       step: 0.01,
-      defaultValue: 0.5
+      defaultValue: 0.8  // Stronger bloom effect
     });
 
     // Tone Mapping settings

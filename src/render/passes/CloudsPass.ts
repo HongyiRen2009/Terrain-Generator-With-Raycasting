@@ -45,13 +45,14 @@ export class CloudsPass extends RenderPass {
   }
   protected initRenderTarget(): RenderTarget {
     const fbo = this.gl.createFramebuffer();
+    // Use RGBA16F for HDR support (preserves emissive bloom values)
     const colorTexture = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
       this.canvas.height,
-      this.gl.RGBA8,
+      this.gl.RGBA16F,
       this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE,
+      this.gl.FLOAT,
       null,
       this.gl.LINEAR,
       this.gl.LINEAR,

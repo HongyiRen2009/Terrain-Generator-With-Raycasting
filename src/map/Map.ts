@@ -26,45 +26,11 @@ export class WorldMap {
   //Unused for now: placeholders and use them when actually implemented
   private width: number;
   private length: number;
-  /**
-   * Calculates the equivalent directional light intensity from a point light
-   * using the attenuation formula from LightingPass.
-   * 
-   * Attenuation formula: 2.0 * (1.0 - d/sqrt(d*d + r*r))
-   * where d = distance, r = radius, range = max distance
-   * 
-   * @param pointLightIntensity The intensity of the point light (default: 1.0)
-   * @param pointLightPosition The position of the point light (default: (0, 500, 0))
-   * @param pointLightRadius The radius of the point light (default: 200)
-   * @param representativeDistance The distance at which to calculate attenuation (default: 500, height of sun)
-   * @returns The equivalent directional light intensity
-   */
-  private static calculateEquivalentSunIntensity(
-    pointLightIntensity: number = 1.0,
-    pointLightPosition: vec3 = vec3.fromValues(0, 500, 0),
-    pointLightRadius: number = 200,
-    representativeDistance: number = 500
-  ): number {
-    // Attenuation formula from Lighting.frag: calculateAttenuation
-    // attenuation = 2.0 * (1.0 - d/sqrt(d*d + r*r))
-    const d = representativeDistance;
-    const r = pointLightRadius;
-    const range = pointLightRadius * 5.0; // Default range from PointLight constructor
-    
-    if (d > range) {
-      return 0.0;
-    }
-    
-    const attenuation = 2.0 * (1.0 - d / Math.sqrt(d * d + r * r));
-    
-    // Equivalent directional light intensity = point light intensity * attenuation
-    return pointLightIntensity * attenuation;
-  }
 
   public sunLight: DirectionalLight = new DirectionalLight(
     vec3.fromValues(0, -1, 0),
     new Color(255, 255, 255),
-    WorldMap.calculateEquivalentSunIntensity() // Calculate equivalent intensity from point light
+    0.143047, // Equivalent intensity calculated from point light attenuation
   );
   public lights: PointLight[] = [
     new PointLight(vec3.fromValues(32, 10, 16), new Color(255, 255, 255), 5, 5),
@@ -147,7 +113,7 @@ export class WorldMap {
   public generate() {
     this.chunks = [];
     const rows = 1;
-    const cols = 7; // 2x7 grid = 14 chunks
+    const cols = 7; 
     
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
@@ -233,6 +199,7 @@ export class WorldMap {
   }
 
   public onObjectAdded?: (obj: WorldObject) => void;
+  public onLightsChanged?: () => void;
 
   /**
    * Add an object to the game world

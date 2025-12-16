@@ -227,6 +227,11 @@ export class CubeShadowsPass extends RenderPass {
 
       // Render all geometry for this face
       for (const vaoInfo of vaosToRender) {
+        // Skip rendering this light's own sphere (prevent self-shadowing)
+        if (vaoInfo.isLight && vaoInfo.lightIndex === this.currentLightIndex) {
+          continue;
+        }
+
         this.gl.bindVertexArray(vaoInfo.vao);
         this.gl.uniformMatrix4fv(
           this.uniforms["model"],
