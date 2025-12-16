@@ -46,8 +46,6 @@ export class LightingPass extends RenderPass {
       "csmEnabled",
       "cascadeDebug",
       "debugPauseMode",
-      "showShadowMap",
-      "shadowMapCascade",
       "csmShadowMapSize",
       "showCameraDepth",
       "numCascades",
@@ -190,10 +188,6 @@ export class LightingPass extends RenderPass {
     SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
     this.gl.uniform1i(this.uniforms["jitterSize"], jitterSize);
     this.gl.uniform1i(this.uniforms["filterSize"], filterSize);
-    this.gl.uniform1f(
-      this.uniforms["pcfRadius"],
-      this.resourceCache.getData("pcfRadius") ?? 7.0
-    );
 
     const maxPointShadows = Math.min(5, pointShadowTextures?.length ?? 0);
     for (let i = 0; i < maxPointShadows; i++) {
@@ -213,10 +207,6 @@ export class LightingPass extends RenderPass {
     const cameraInfo = this.resourceCache.getData("CameraInfo");
     const pausedCameraInfo =
       this.resourceCache.getData("pausedCameraInfo") ?? cameraInfo;
-    const debugPauseMode =
-      this.resourceCache.getData("debugPauseMode") ??
-      this.resourceCache.getData("debugPause") ??
-      false;
     this.gl.uniformMatrix4fv(
       this.uniforms["viewInverse"],
       false,
@@ -266,43 +256,11 @@ export class LightingPass extends RenderPass {
       this.gl.uniform1fv(this.uniforms["cascadeSplits"], cascadeSplits);
     }
 
-    const usingPCF = this.resourceCache.getData("usingPCF") ?? true;
-    const csmShadowBias = this.resourceCache.getData("csmShadowBias");
-    // Support both array and single value for backward compatibility
-    const csmShadowBiasArray = Array.isArray(csmShadowBias)
-      ? csmShadowBias
-      : [csmShadowBias ?? 0.001];
     const csmEnabled = this.resourceCache.getData("csmEnabled") ?? true;
-    const cascadeDebug = this.resourceCache.getData("cascadeDebug") ?? false;
-    const showShadowMap = this.resourceCache.getData("showShadowMap") ?? false;
-    const shadowMapCascade =
-      this.resourceCache.getData("shadowMapCascade") ?? 0;
     const csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize");
-    const showCameraDepth =
-      this.resourceCache.getData("showCameraDepth") ?? false;
-    const pointShadowBias =
-      this.resourceCache.getData("pointShadowBias") ?? 0.05;
-    this.gl.uniform1f(
-      this.uniforms["ambientLightIntensity"],
-      this.resourceCache.getData("ambientLightIntensity") ?? 0.1
-    );
-    this.gl.uniform1i(this.uniforms["usingPCF"], usingPCF ? 1 : 0);
-    // Upload csmShadowBias as array uniform
-    const csmShadowBiasFloatArray = new Float32Array(8); // Support up to 8 cascades
-    csmShadowBiasFloatArray.set(csmShadowBiasArray.slice(0, 8), 0);
-    this.gl.uniform1fv(this.uniforms["csmShadowBias"], csmShadowBiasFloatArray);
     this.gl.uniform1i(this.uniforms["csmEnabled"], csmEnabled ? 1 : 0);
-    this.gl.uniform1i(this.uniforms["cascadeDebug"], cascadeDebug ? 1 : 0);
-    this.gl.uniform1i(this.uniforms["debugPauseMode"], debugPauseMode ? 1 : 0);
-    this.gl.uniform1i(this.uniforms["showShadowMap"], showShadowMap ? 1 : 0);
-    this.gl.uniform1i(this.uniforms["shadowMapCascade"], shadowMapCascade);
     this.gl.uniform1i(this.uniforms["csmShadowMapSize"], csmShadowMapSize);
-    this.gl.uniform1i(
-      this.uniforms["showCameraDepth"],
-      showCameraDepth ? 1 : 0
-    );
     this.gl.uniform1i(this.uniforms["numCascades"], numCascades);
-    this.gl.uniform1f(this.uniforms["pointShadowBias"], pointShadowBias);
     this.gl.uniform1i(
       this.uniforms["numShadowedLights"],
       this.resourceCache.getData("numShadowedLights") ?? 0
@@ -402,22 +360,13 @@ export class LightingPass extends RenderPass {
       max: 1,
       step: 0.01,
       defaultValue: 0.1,
-      numType: "float",
-      onChange: (value: number) => {
-        this.resourceCache.setData("ambientLightIntensity", value);
-      }
+      numType: "float"
     });
     SettingsManager.instance.addCheckboxToSection("Lighting Settings", {
       id: "showCameraDepth",
       label: "Show Camera Depth",
-      defaultValue: false,
-      onChange: (value: boolean) => {
-        this.resourceCache.setData("showCameraDepth", value);
-      }
+      defaultValue: false
     });
-
-    // Initialize default value in resourceCache
-    this.resourceCache.setData("showCameraDepth", false);
 
     // Add sun direction sliders
     if (this.updateSunDirectionCallback) {
@@ -515,7 +464,15 @@ export class LightingPass extends RenderPass {
       "grassSpecularColor",
       "grassTranslucencyColor",
       "sunShadowStrength",
-      "pointLightShadowStrength"
+      "pointLightShadowStrength",
+      "pcfRadius",
+      "usingPCF",
+      "csmShadowBias",
+      "cascadeDebug",
+      "ambientLightIntensity",
+      "showCameraDepth",
+      "pointShadowBias",
+      "debugPauseMode"
     ]);
   }
   public updateJitterTexture(jitterSize: number, filterSize: number): void {

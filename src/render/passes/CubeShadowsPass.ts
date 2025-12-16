@@ -283,12 +283,8 @@ export class CubeShadowsPass extends RenderPass {
       max: 0.1,
       step: 0.001,
       defaultValue: 0.05,
-      numType: "float",
-      onChange: (value: number) => {
-        this.resourceCache.setData("pointShadowBias", value);
-      }
+      numType: "float"
     });
-    this.resourceCache.setData("pointShadowBias", 0.05);
   }
 }
 

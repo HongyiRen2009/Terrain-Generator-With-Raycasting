@@ -28,8 +28,6 @@ uniform int numCascades;
 uniform bool csmEnabled;
 uniform bool cascadeDebug;
 uniform bool debugPauseMode;
-uniform bool showShadowMap;
-uniform int shadowMapCascade;
 uniform bool showCameraDepth;
 uniform float pointShadowBias;
 uniform int numShadowedLights;
@@ -593,30 +591,6 @@ void main() {
         return;
     }
 
-    // Shadow Map Visualization Mode - Display the shadow map sample at the fragment's light-space location
-    if(showShadowMap && csmEnabled) {
-        int cascadeIndex = clamp(shadowMapCascade, 0, numCascades - 1);
-        vec4 lightSpacePos = lightSpaceMatrices[cascadeIndex] * vec4(fragWorldPos, 1.0f);
-        vec3 shadowCoords = lightSpacePos.xyz / lightSpacePos.w;
-        shadowCoords = shadowCoords * 0.5f + 0.5f;
-
-        bool outsideShadowMap = shadowCoords.x < 0.0f || shadowCoords.x > 1.0f ||
-            shadowCoords.y < 0.0f || shadowCoords.y > 1.0f;
-
-        vec3 color;
-        if(outsideShadowMap) {
-            color = vec3(1.0f, 0.0f, 0.0f);
-        } else {
-            // Use texture array with layer index
-            float shadowDepth = texture(shadowDepthTextureArray, vec3(shadowCoords.xy, float(cascadeIndex))).r;
-            float depthToUse = 1.0f - shadowDepth;
-            float normalizedDepth = pow(depthToUse, 0.5f);
-            color = vec3(normalizedDepth);
-        }
-
-        outputColor = vec4(color, 1.0f);
-        return;
-    }
 
     vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);
     vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);

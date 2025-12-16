@@ -373,10 +373,7 @@ export class CSMPass extends RenderPass {
       max: 15.0,
       step: 0.1,
       defaultValue: 10.0,
-      numType: "float",
-      onChange: (value: number) => {
-        this.resourceCache.setData("zMultiplier", value);
-      }
+      numType: "float"
     });
     SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "pcfRadius",
@@ -385,12 +382,8 @@ export class CSMPass extends RenderPass {
       max: 15.0,
       step: 0.1,
       defaultValue: 7.0,
-      numType: "float",
-      onChange: (value: number) => {
-        this.resourceCache.setData("pcfRadius", value);
-      }
+      numType: "float"
     });
-    this.resourceCache.setData("pcfRadius", 7.0);
     SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "jitterSize",
       label: "Jitter Size",
@@ -422,10 +415,7 @@ export class CSMPass extends RenderPass {
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "usingPCF",
       label: "Using PCF",
-      defaultValue: true,
-      onChange: (value: boolean) => {
-        this.resourceCache.setData("usingPCF", value);
-      }
+      defaultValue: true
     });
     const numCascades = this.resourceCache.getData("numCascades") ?? 3;
     // Initialize csmShadowBias array with values calculated from cascade far planes
@@ -446,60 +436,16 @@ export class CSMPass extends RenderPass {
       isArray: true,
       arrayLength: numCascades,
       arrayIndex: 0,
-      onChange: (value: number) => {
-        const biasArray =
-          SettingsManager.instance.getSliderArray("csmShadowBias") ??
-          defaultBiasArray;
-        this.resourceCache.setData("csmShadowBias", biasArray);
-      }
     });
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "cascadeDebug",
       label: "Cascade Debug",
-      defaultValue: false,
-      onChange: (value: boolean) => {
-        this.resourceCache.setData("cascadeDebug", value);
-      }
+      defaultValue: false
     });
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
-      id: "drawCascadeDebug",
-      label: "Draw Cascade Frusta",
-      defaultValue: false,
-      onChange: (value: boolean) => {
-        this.resourceCache.setData("drawCascadeDebug", value);
-      }
-    });
-    // Initialize the default value in resource cache
-    this.resourceCache.setData("drawCascadeDebug", false);
-    SettingsManager.instance.addCheckboxToSection("CSM Settings", {
-      id: "debugPause",
+      id: "debugPauseMode",
       label: "Debug Pause Mode",
-      defaultValue: false,
-      onChange: (value: boolean) => {
-        this.resourceCache.setData("debugPauseMode", value);
-      }
-    });
-    SettingsManager.instance.addCheckboxToSection("CSM Settings", {
-      id: "showShadowMap",
-      label: "Show Shadow Map",
-      defaultValue: false,
-      onChange: (value: boolean) => {
-        this.resourceCache.setData("showShadowMap", value);
-      }
-    });
-    // Reuse numCascades from above (line 260)
-    const shadowMapCascadeMax = this.resourceCache.getData("numCascades") ?? 3;
-    SettingsManager.instance.addSliderToSection("CSM Settings", {
-      id: "shadowMapCascade",
-      label: `Shadow Map Cascade (0-${shadowMapCascadeMax - 1})`,
-      min: 0,
-      max: shadowMapCascadeMax - 1,
-      step: 1,
-      defaultValue: 0,
-      numType: "int",
-      onChange: (value: number) => {
-        this.resourceCache.setData("shadowMapCascade", Math.floor(value));
-      }
+      defaultValue: false
     });
   }
 

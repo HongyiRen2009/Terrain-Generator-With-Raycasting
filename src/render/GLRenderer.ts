@@ -11,7 +11,6 @@ import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
 import { CSMPass } from "./passes/CSMPass";
-import { DebugPass } from "./passes/DebugPass";
 import { mat4, vec3 } from "gl-matrix";
 import { DirectionalLight } from "../map/Light";
 import { CubeShadowsPass } from "./passes/CubeShadowsPass";
@@ -112,12 +111,6 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
-    const debugPass = new DebugPass(
-      this.gl,
-      this.resourceCache,
-      this.canvas,
-      this.renderGraph
-    );
     const cubeShadowsPass = new CubeShadowsPass(
       this.gl,
       this.resourceCache,
@@ -165,7 +158,6 @@ export class GLRenderer {
       cubeShadowsPass,
       combineGeometryPass
     );
-    this.renderGraph.add(debugPass, lightingPass);
     this.renderGraph.add(cloudsPass, lightingPass, combineGeometryPass);
     this.renderGraph.add(finalPass, cloudsPass);
   }
@@ -186,19 +178,6 @@ export class GLRenderer {
       "numShadowedLights",
       this.world.numShadowedLights
     );
-    const maxDebugIntensity = 5;
-    const lightDebugCubes = this.world.lights
-      .filter((light) => light.visualizerEnabled)
-      .map((light) => ({
-        center: [light.position[0], light.position[1], light.position[2]],
-        halfExtent: Math.max(1, light.radius * 0.15),
-        intensity: Math.min(
-          1,
-          Math.max(0, light.intensity / maxDebugIntensity)
-        ),
-        name: light.name ?? "Point Light"
-      }));
-    this.resourceCache.setData("lightDebugCubes", lightDebugCubes);
 
     // Get passes in correct execution order
     const sortedPasses = this.renderGraph.getSortedPasses();

@@ -176,18 +176,6 @@ export class LightUI {
     });
     wrapper.appendChild(this.createLabeledInput("Shadow", shadowInput));
 
-    const visualizeLabel = document.createElement("label");
-    visualizeLabel.className = "point-light__visualize-toggle";
-    const visualizeInput = document.createElement("input");
-    visualizeInput.type = "checkbox";
-    visualizeInput.checked = light.visualizerEnabled;
-    visualizeInput.addEventListener("change", () => {
-      light.visualizerEnabled = visualizeInput.checked;
-    });
-    visualizeLabel.appendChild(visualizeInput);
-    visualizeLabel.append(" Draw visualization cube");
-    wrapper.appendChild(visualizeLabel);
-
     // Only show shadow map visualization checkbox for shadowed lights
     const currentLightIndex = this.world.lights.indexOf(light);
     if (currentLightIndex < this.world.numShadowedLights) {
