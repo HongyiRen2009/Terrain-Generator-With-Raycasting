@@ -57,11 +57,11 @@ export class GameEngine {
    * @param canvasId The ID of the canvas rendered to
    * @returns
    */
-  constructor(canvasId: string) {
+  constructor(canvas: HTMLCanvasElement) {
     //Debugger
     this.debug = new DebugMenu(true); // Pass into class when want to use
 
-    this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    this.canvas = canvas;
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.canvas.style.display = "none";
