@@ -74,6 +74,8 @@ uniform vec3 grassSpecularColor;
 uniform vec3 grassTranslucencyColor;
 uniform float sunShadowStrength;
 uniform float pointLightShadowStrength;
+uniform float grassPointLightintensity;
+uniform float grassPointLightDiffuseSoftness;
 const float PI = 3.14159265359f;
 vec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {
     float depth = texture(depthTexture, texCoord).r;
@@ -248,7 +250,7 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
         float shadow = 0.0f;
         int samplesDiv2 = (filterSize * filterSize) / 2;
         float texelSize = 1.0f / float(csmShadowMapSize);
-        
+
         // Calculate cascade-specific PCF scale to maintain consistent world-space filter size
         // Further cascades cover larger world-space areas, so we need to scale down the PCF radius
         // We use the cascade's depth range as a proxy for its world-space coverage
@@ -265,7 +267,7 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
             cascadeScale = firstCascadeRange / max(currentCascadeRange, 0.001f);
         }
         float scaledPcfRadius = pcfRadius * cascadeScale;
-        
+
         vec4 sc = vec4(projCoords, 1.0f);
         float depth = 0.0f;
         for(int i = 0; i < 4; i++) {
@@ -452,6 +454,7 @@ vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float 
     if(!sunDisabled) {
         vec3 lightDir = normalize(-SunLight.direction);
         float diffuse = max(dot(normal, lightDir), 0.0f);
+        diffuse = diffuse * 0.6f + 0.4f;
         grassColor *= grassBaseDarkness + grassDiffuseStrength * diffuse;
 
             // Anisotropic specular (Kajiya-Kay model for hair/grass)
@@ -480,9 +483,10 @@ vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float 
 
             // Diffuse contribution from point light
         float pointDiffuse = max(dot(normal, pointLightDir), 0.0f);
+        pointDiffuse = pointDiffuse * (1.0f - grassPointLightDiffuseSoftness) + grassPointLightDiffuseSoftness;
         // Scale down point light contribution significantly to prevent overexposure
         // Use grassDiffuseStrength to match sun lighting behavior and apply additional scaling
-        vec3 pointDiffuseColor = pointDiffuse * pointLights[i].color * pointLights[i].intensity * grassDiffuseStrength * 0.3f;
+        vec3 pointDiffuseColor = pointDiffuse * pointLights[i].color * pointLights[i].intensity * grassDiffuseStrength * grassPointLightintensity;
 
             // Anisotropic specular for point light
         vec3 pointHalfDir = normalize(pointLightDir + viewDirection);
@@ -597,7 +601,6 @@ void main() {
         outputColor = vec4(color, 1.0f);
         return;
     }
-
 
     vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);
     vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);

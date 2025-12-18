@@ -247,6 +247,22 @@ export class GrassGeometryPass extends RenderPass {
       step: 0.01,
       defaultValue: 0.3
     });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassPointLightintensity",
+      label: "Grass Point Light Intensity",
+      min: 0,
+      max: 5,
+      step: 0.1,
+      defaultValue: 1.2
+    });
+    SettingsManager.instance.addSliderToSection("Grass Settings", {
+      id: "grassPointLightDiffuseSoftness",
+      label: "Grass Point Light Diffuse Softness",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.6
+    });
     SettingsManager.instance.attatchProgram(this.program!, [
       "grassWindStrength",
       "grassWindFrequency",

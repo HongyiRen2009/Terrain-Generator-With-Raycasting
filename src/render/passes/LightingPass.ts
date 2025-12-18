@@ -289,7 +289,7 @@ export class LightingPass extends RenderPass {
 
     const disableSun = this.resourceCache.getData("disableSun") ?? false;
     this.gl.uniform1i(this.uniforms["sunDisabled"], disableSun ? 1 : 0);
-    
+
     WorldUtils.updateLights(
       this.gl,
       this.program!,
@@ -464,6 +464,8 @@ export class LightingPass extends RenderPass {
       "grassTipColor",
       "grassSpecularColor",
       "grassTranslucencyColor",
+      "grassPointLightintensity",
+      "grassPointLightDiffuseSoftness",
       "sunShadowStrength",
       "pointLightShadowStrength",
       "pcfRadius",
