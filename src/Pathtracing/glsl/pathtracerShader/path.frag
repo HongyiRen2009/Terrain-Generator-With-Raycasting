@@ -486,6 +486,97 @@ bool isValidVec3(vec3 v) {
            !any(isnan(v));
 }
 
+// --- PBR Helper Functions ---
+
+// 1. Fresnel Schlick
+// cosTheta is dot(H, V)
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// 2. Distribution GGX (Trowbridge-Reitz)
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
+
+    float num = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return num / denom;
+}
+
+// 3. Geometry Schlick-GGX (Smith method)
+float GeometrySchlickGGX(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0; // Use k = a^2 / 2 for IBL, but (r+1)^2 / 8 for direct light path tracing
+
+    float num = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return num / denom;
+}
+
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+
+// 4. GGX Importance Sampling
+// Returns a Half-vector (H) based on roughness
+vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
+    float a = roughness * roughness;
+    
+    float phi = 2.0 * PI * Xi.x;
+    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+    
+    // Spherical to Cartesian (Tangent space)
+    vec3 H;
+    H.x = cos(phi) * sinTheta;
+    H.y = sin(phi) * sinTheta;
+    H.z = cosTheta;
+    
+    // Tangent to World space
+    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, N));
+    vec3 bitangent = cross(N, tangent);
+    
+    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+    return normalize(sampleVec);
+}
+
+// Evaluate Both Specular and Diffuse for Direct Light (NEE)
+// This calculates how much light reflects from the sun to the camera
+vec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albedo, float metallic) {
+    vec3 H = normalize(V + L);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float HdotV = max(dot(H, V), 0.0);
+    
+    if (NdotL <= 0.0 || NdotV <= 0.0) return vec3(0.0);
+
+    // 1. Specular Term (Cook-Torrance)
+    float D = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    vec3 F = fresnelSchlick(HdotV, F0);
+    
+    vec3 kS = F; // Specular contribution
+    vec3 kD = vec3(1.0) - kS; // Remaining energy for diffuse
+    kD *= (1.0 - metallic);   // Metals have 0 diffuse
+
+    vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.0001);
+    vec3 diffuse = albedo / PI; //regular lambertian diffuse
+    
+    return kD * diffuse + specular; 
+}
+
 //Copied from the goat Hongyi Ren
 float sampleBaseNoise(vec3 pos) {
     float noise = texture(u_CloudNoise, vec3(pos.x,pos.z,pos.y)).r;
@@ -889,9 +980,6 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             didSwitch = true;
         } //If pointing in opposite directions, flip
         
-        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy
-
-        
 
         // Create the next bounce ray
         if(type != 4) //Transmission goes through
@@ -916,12 +1004,58 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             hasMirror = bounce;
         }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular
             vec3 useNormal = smoothNormal;
-            if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
-            vec3 perfect = normalize(reflect(rayDir, useNormal));
-            rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);
-            throughput *= matColor; //Switch to BDF later
-            //Consider fresnel in the future
-            hasMirror = bounce;
+            vec3 backDir = -rayDir;
+            if(dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
+            float metallic = clamp(reflectiveness, 0.0, 1.0);
+            float roughness = clamp(matRoughness, 0.001, 1.0);
+            float alpha = roughness * roughness;
+            vec3 F0 = mix(vec3(0.04), matColor, metallic);
+            vec3 albedo = matColor * (1.0 - metallic);
+
+            //Direct Lighting
+            vec3 L_sun = -u_sunDirection;
+            vec3 brdf = EvalUnifiedBRDF(useNormal, backDir, L_sun, alpha, F0, albedo, metallic);
+            vec3 directLight = sampleSunLight(rayOrigin, brdf, useNormal, rng_state) + shootShadowRay(rayOrigin, brdf, useNormal, rng_state);
+            color += throughput * directLight;
+
+            //Indirect lighting
+            float F_view = fresnelSchlick(max(dot(useNormal, backDir), 0.0), F0).g; // use green channel as estimate
+            float specProb = mix(F_view, 1.0, metallic);
+            specProb = clamp(specProb, 0.05, 0.95); // Prevent divide by zero
+
+            float r_val = rand(rng_state);
+
+            if(r_val < specProb){ //Specular bounce
+                vec2 Xi = vec2(rand(rng_state), rand(rng_state));
+                vec3 H = ImportanceSampleGGX(Xi, useNormal, alpha);
+                vec3 L = normalize(reflect(-backDir, H));
+
+                float NdotL = dot(useNormal, L);
+                float NdotH = dot(useNormal, H);
+                float VdotH = dot(backDir, H);
+                float NdotV = dot(useNormal, backDir);
+
+                if (NdotL > 0.0 && VdotH > 0.0) {
+                    vec3 F = fresnelSchlick(VdotH, F0);
+                    float G = GeometrySmith(useNormal, backDir, L, alpha);
+                    
+                    // The Weight for GGX Importance Sampling:
+                    // Weight = (F * G * VdotH) / (NdotV * NdotH * specProb)
+                    vec3 weight = (F * G * VdotH) / (NdotV * NdotH + 0.0001);
+                    
+                    throughput *= weight / specProb;
+                    rayDir = L;
+                    hasMirror = bounce;
+                }
+            }else{
+                //regular diffuse
+                vec3 L = weightedDIR(useNormal, rng_state);
+                vec3 kS = fresnelSchlick(max(dot(useNormal, L), 0.0), F0);
+                vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+                
+                throughput *= (kD * albedo) / (1.0 - specProb);
+                rayDir = L;
+            }    
         }else if (type == 4){ //Transmission (Glass)
             float eta;
             vec3 transmissionNormal;

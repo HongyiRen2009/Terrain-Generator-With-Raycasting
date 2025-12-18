@@ -456,8 +456,8 @@ export class PathTracer {
       label: "Sun Intensity",
       min: 0,
       max: 20,
-      step: 1,
-      defaultValue: 10,
+      step: 0.1,
+      defaultValue: 4,
       numType: "float"
     });
     this.settingsSection.addSlider({
