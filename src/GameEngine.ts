@@ -41,6 +41,15 @@ export class GameEngine {
 
   private worldInitialized = false;
   private updatePathracing: () => void;
+  // Stored bound event handlers for cleanup
+  private boundMouseDown: ((e?: any) => void) | null = null;
+  private boundMouseMove: ((e: MouseEvent) => void) | null = null;
+  private boundResize: (() => void) | null = null;
+  private boundRayClick: (() => void) | null = null;
+  private boundPathClick: (() => void) | null = null;
+  private boundMenuClick: (() => void) | null = null;
+  private boundKeyDown: ((e: KeyboardEvent) => void) | null = null;
+  private boundKeyUp: ((e: KeyboardEvent) => void) | null = null;
   /**
    * Constructs game engine
    * @param canvasId The ID of the canvas rendered to
@@ -70,9 +79,10 @@ export class GameEngine {
     this.updatePathracing = () => {};
 
     //Initialize world
+    // Increase world height to allow taller mountains (was 64)
     this.world = new WorldMap(
       1000,
-      64,
+      160,
       1000,
       this.gl,
       () => this.updatePathracing
@@ -104,11 +114,12 @@ export class GameEngine {
     };
 
     //Events
-    this.canvas.addEventListener("mousedown", () => this.requestScreenLock());
-    this.canvas.addEventListener("mousemove", (e: MouseEvent) =>
-      this.mouseMove(e)
-    );
-    window.addEventListener("resize", () => this.resizeCanvas());
+    this.boundMouseDown = () => this.requestScreenLock();
+    this.boundMouseMove = (e: MouseEvent) => this.mouseMove(e);
+    this.boundResize = () => this.resizeCanvas();
+    this.canvas.addEventListener("mousedown", this.boundMouseDown);
+    this.canvas.addEventListener("mousemove", this.boundMouseMove);
+    window.addEventListener("resize", this.boundResize);
 
     //Debugging
     this.debug.addElement("FPS", () => Math.round(this.currentFPS));
@@ -118,31 +129,34 @@ export class GameEngine {
     const rayBtn = document.getElementById("raytracing")!;
     const pathBtn = document.getElementById("pathtracing")!;
 
-    rayBtn.addEventListener("click", () => {
+    this.boundRayClick = () => {
       rayBtn.classList.add("active");
       pathBtn.classList.remove("active");
       if (this.mode == 1) {
         this.pathTracer.leave();
       }
       this.mode = 0; // Set to raytracing
-    });
+    };
+    rayBtn.addEventListener("click", this.boundRayClick);
 
-    pathBtn.addEventListener("click", () => {
+    this.boundPathClick = () => {
       pathBtn.classList.add("active");
       rayBtn.classList.remove("active");
       this.mode = 1; // Set to pathtracing
       this.pathTracer.init();
-    });
+    };
+    pathBtn.addEventListener("click", this.boundPathClick);
 
     //Initialize menu
     const menuButton = document.getElementById("menu-toggle")!;
     const sidebar = document.getElementById("sidebar")!;
     const topBar = document.getElementById("topBarWrapper")!;
 
-    menuButton.addEventListener("click", () => {
+    this.boundMenuClick = () => {
       sidebar.classList.toggle("open");
       topBar.classList.toggle("shifted");
-    });
+    };
+    menuButton.addEventListener("click", this.boundMenuClick);
 
     //Check to see if WebGL working
     if (!this.gl) {
@@ -154,14 +168,66 @@ export class GameEngine {
 
     this.initialize();
   }
+
+  /**
+   * Dispose engine resources and remove DOM / event hooks.
+   */
+  public dispose(): void {
+    // Remove event listeners
+    try {
+      if (this.boundMouseDown)
+        this.canvas.removeEventListener("mousedown", this.boundMouseDown);
+      if (this.boundMouseMove)
+        this.canvas.removeEventListener(
+          "mousemove",
+          this.boundMouseMove as any
+        );
+      if (this.boundResize)
+        window.removeEventListener("resize", this.boundResize);
+      if (this.boundRayClick)
+        document
+          .getElementById("raytracing")
+          ?.removeEventListener("click", this.boundRayClick);
+      if (this.boundPathClick)
+        document
+          .getElementById("pathtracing")
+          ?.removeEventListener("click", this.boundPathClick);
+      if (this.boundMenuClick)
+        document
+          .getElementById("menu-toggle")
+          ?.removeEventListener("click", this.boundMenuClick);
+      if (this.boundKeyDown)
+        window.removeEventListener("keydown", this.boundKeyDown);
+      if (this.boundKeyUp) window.removeEventListener("keyup", this.boundKeyUp);
+    } catch (e) {
+      // ignore
+    }
+
+    // Dispose subsystems
+    try {
+      this.renderer.dispose();
+    } catch (e) {}
+    try {
+      this.pathTracer.dispose();
+    } catch (e) {}
+    try {
+      this.world.dispose();
+    } catch (e) {}
+  }
   public async initialize() {
     await Promise.all(
       this.world.chunks.map((chunk) => chunk.generateTerrain())
     );
     this.world.populateFieldMap();
 
+    // Build full chunk meshes using marching cubes (requires populated field map)
     await Promise.all(
       this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
+    );
+
+    // Also generate edge-only triangles for stitching/LOD (optional)
+    await Promise.all(
+      this.world.chunks.map((chunk) => chunk.generateEdgeTriangles())
     );
 
     this.renderer.vaoManager.createTerrainVAO(
@@ -176,6 +242,13 @@ export class GameEngine {
       );
       this.renderer.vaoManager.createWorldObjectVAOs(this.world.worldObjects);
     };
+    this.world.onObjectRemoved = (id: number) => {
+      try {
+        this.renderer.vaoManager.removeWorldObjectVAO(id);
+      } catch (e) {
+        // ignore
+      }
+    };
 
     // Set up light change callback and create initial light VAOs
     this.world.onLightsChanged = () => {
@@ -184,10 +257,11 @@ export class GameEngine {
     this.renderer.vaoManager.createPointLightVAOs(this.world.lights);
 
     // Add a gear object
-    const mesh = await threemfToMesh(gearModelUrl);
-    const gearTransform = mat4.create();
-    mat4.fromTranslation(gearTransform, vec3.fromValues(25, 20, 25));
-    this.world.addObject(mesh, gearTransform, "Gear");
+    const gearResult = await threemfToMesh(gearModelUrl);
+    const gearMesh = gearResult!.mesh;
+    // Note: gearResult.transform could be applied if needed, but addChunkGears applies its own transforms
+
+    WorldUtils.addChunkGears(this.world, gearMesh);
 
     this.pathTracer.initBVH(this.world.combinedMesh());
     this.pathTracer.init(false);
@@ -258,12 +332,14 @@ export class GameEngine {
   }
 
   addKeys() {
-    window.addEventListener("keydown", (event: KeyboardEvent) => {
+    this.boundKeyDown = (event: KeyboardEvent) => {
       this.keys[event.code] = true;
-    });
-    window.addEventListener("keyup", (event: KeyboardEvent) => {
+    };
+    this.boundKeyUp = (event: KeyboardEvent) => {
       this.keys[event.code] = false;
-    });
+    };
+    window.addEventListener("keydown", this.boundKeyDown);
+    window.addEventListener("keyup", this.boundKeyUp);
   }
 
   /*--------------------------------Utilities--------------------------------*/

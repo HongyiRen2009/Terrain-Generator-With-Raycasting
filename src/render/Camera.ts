@@ -10,14 +10,17 @@ export class Camera {
   front = vec3.fromValues(0, 0, -1);
   right = vec3.fromValues(1, 0, 0);
   up = vec3.fromValues(0, 1, 0);
+  rayTracingFarPlane = 1000;
+  pathtracingFarPlane = 10000000000;
+  farPlane: number;
   speed: number;
   nearPlane: number = 0.1;
-  farPlane: number = 1000.0;
   constructor(position: vec3) {
     this.position = position;
 
     this.UpdateCameraVectors();
     this.speed = 0.02;
+    this.farPlane = this.rayTracingFarPlane;
   }
 
   //enables Camera.XPosition instead of Camera.position[0]

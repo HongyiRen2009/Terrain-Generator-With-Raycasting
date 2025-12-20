@@ -22,6 +22,8 @@ interface ImportMapEntry {
  * Center chunk starts at 0,0 (probably)
  */
 export class WorldMap {
+  public onObjectAdded?: (obj: WorldObject) => void;
+  public onObjectRemoved?: (id: number) => void;
   //In Chunks
   //Unused for now: placeholders and use them when actually implemented
   private width: number;
@@ -30,33 +32,17 @@ export class WorldMap {
   public sunLight: DirectionalLight = new DirectionalLight(
     vec3.fromValues(0, -1, 0),
     new Color(255, 255, 255),
-    0.143047, // Equivalent intensity calculated from point light attenuation
+    0.143047 // Equivalent intensity calculated from point light attenuation
   );
-  public lights: PointLight[] = [
-    new PointLight(vec3.fromValues(32, 10, 16), new Color(255, 255, 255), 5, 5),
-    new PointLight(vec3.fromValues(96, 10, 48), new Color(255, 255, 255), 5, 5),
-    new PointLight(
-      vec3.fromValues(128, 10, 32),
-      new Color(255, 255, 255),
-      5,
-      5
-    ),
-    new PointLight(
-      vec3.fromValues(160, 10, 16),
-      new Color(255, 255, 255),
-      5,
-      5
-    ),
-    new PointLight(vec3.fromValues(224, 10, 48), new Color(255, 255, 255), 5, 5)
-  ];
+  public lights: PointLight[] = [];
   public numShadowedLights: number = 5;
 
   public height: number;
-  public resolution = 64; //#of vertices square size of chunk
+  public resolution = 16; //#of vertices square size of chunk
   public chunks: Chunk[];
   public fieldMap: Map<string, number>;
   public Workers: Worker[] = [];
-  public seed: number = 10; // Random seed for noise generation
+  public seed: number = Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
 
   public worldObjects: WorldObject[] = [];
   gl: WebGL2RenderingContext;
@@ -99,6 +85,26 @@ export class WorldMap {
     this.lightUI = new LightUI(this, this.tracerUpdateSupplier);
   }
 
+  /**
+   * Clean up resources associated with the map (terminate workers, clear data).
+   */
+  public dispose(): void {
+    if (this.Workers && this.Workers.length > 0) {
+      for (const w of this.Workers) {
+        try {
+          w.terminate();
+        } catch (e) {
+          // ignore termination errors
+        }
+      }
+      this.Workers = [];
+    }
+    // Clear other large structures
+    this.chunks = [];
+    this.fieldMap.clear();
+    this.worldObjects = [];
+  }
+
   public populateFieldMap() {
     for (const chunk of this.chunks) {
       for (const [key, val] of Array.from(chunk.FieldMap.entries())) {
@@ -112,93 +118,117 @@ export class WorldMap {
   //Generates map
   public generate() {
     this.chunks = [];
-    const rows = 1;
-    const cols = 7; 
-    
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const chunkIndex = row * cols + col;
-        const workerIndex = chunkIndex % this.Workers.length;
+    let worker = 0;
+
+    for (let i = 0; i < 6; i++)
+      for (let j = 0; j < 6; j++) {
         this.chunks.push(
           new Chunk(
-            vec2.fromValues(col * this.resolution, row * this.resolution),
+            vec2.fromValues(i * this.resolution, j * this.resolution),
             vec3.fromValues(this.resolution, this.height, this.resolution),
             this.seed,
-            this.Workers[workerIndex]
+            this.Workers[worker++ % navigator.hardwareConcurrency]
           )
         );
       }
-    }
   }
+  // Replace the combinedMesh() method in Map.ts (around line 183)
+
   public combinedMesh(): Mesh {
+    console.time("combinedMesh generation");
     const CombinedMesh = new Mesh();
 
-    // Merge chunks (these are already independent)
+    // Count total triangles for pre-allocation logging
+    let totalTriangles = 0;
     for (const chunk of this.chunks) {
-      CombinedMesh.merge(chunk.getMesh());
+      totalTriangles += chunk.getMesh().mesh.length;
+    }
+    for (const obj of this.worldObjects) {
+      totalTriangles += obj.mesh.mesh.length;
+    }
+
+    // Merge chunks (these are already independent)
+    for (let i = 0; i < this.chunks.length; i++) {
+      CombinedMesh.merge(this.chunks[i].getMesh());
     }
 
     // Merge worldObjects with transformation applied
-    for (const obj of this.worldObjects) {
-      const meshCopy = obj.mesh.copy(); // copy original mesh
+    if (this.worldObjects.length > 0) {
+      for (let objIdx = 0; objIdx < this.worldObjects.length; objIdx++) {
+        const obj = this.worldObjects[objIdx];
 
-      const transformedMesh = new Mesh();
+        // Create a simple hash of the transform matrix to detect changes
+        const transformHash = obj.position.join(",");
+        const needsRetransform =
+          !obj._cachedTransformedMesh ||
+          obj._cachedTransformHash !== transformHash;
 
-      for (let i = 0; i < meshCopy.mesh.length; i++) {
-        const tri = meshCopy.mesh[i];
-        const norm = meshCopy.normals[i];
+        let transformedMesh: Mesh;
 
-        // Deep copy triangle and normal
-        const newTri: Triangle = [
-          vec3.clone(tri[0]),
-          vec3.clone(tri[1]),
-          vec3.clone(tri[2])
-        ];
-        const newNorm: Triangle = [
-          vec3.clone(norm[0]),
-          vec3.clone(norm[1]),
-          vec3.clone(norm[2])
-        ];
+        if (needsRetransform) {
+          // Transform mesh from scratch
+          const meshCopy = obj.mesh;
+          const triCount = meshCopy.mesh.length;
+          transformedMesh = new Mesh();
 
-        // Apply transformation
-        for (let j = 0; j < 3; j++) {
-          // Transform vertex
-          const v = vec4.fromValues(
-            newTri[j][0],
-            newTri[j][1],
-            newTri[j][2],
-            1
-          );
-          vec4.transformMat4(v, v, obj.position);
-          vec3.set(newTri[j], v[0], v[1], v[2]);
+          // Process triangles in batches for progress reporting
+          const BATCH_SIZE = 50000;
 
-          // Transform normal (rotation + scale only)
-          const n = vec4.fromValues(
-            newNorm[j][0],
-            newNorm[j][1],
-            newNorm[j][2],
-            0
-          );
-          const normalMat = mat4.clone(obj.position);
-          normalMat[12] = 0;
-          normalMat[13] = 0;
-          normalMat[14] = 0;
-          vec4.transformMat4(n, n, normalMat);
-          vec3.normalize(newNorm[j], vec3.fromValues(n[0], n[1], n[2]));
+          for (let i = 0; i < triCount; i++) {
+            const tri = meshCopy.mesh[i];
+            const norm = meshCopy.normals[i];
+
+            // Create new triangle and normal (avoid clone overhead)
+            const newTri: Triangle = [
+              vec3.create(),
+              vec3.create(),
+              vec3.create()
+            ];
+            const newNorm: Triangle = [
+              vec3.create(),
+              vec3.create(),
+              vec3.create()
+            ];
+
+            // Apply transformation to all 3 vertices
+            for (let j = 0; j < 3; j++) {
+              // Transform vertex
+              const v = vec4.fromValues(tri[j][0], tri[j][1], tri[j][2], 1);
+              vec4.transformMat4(v, v, obj.position);
+              vec3.set(newTri[j], v[0], v[1], v[2]);
+
+              // Transform normal (rotation + scale only)
+              const n = vec4.fromValues(norm[j][0], norm[j][1], norm[j][2], 0);
+              const normalMat = mat4.clone(obj.position);
+              normalMat[12] = 0;
+              normalMat[13] = 0;
+              normalMat[14] = 0;
+              vec4.transformMat4(n, n, normalMat);
+              vec3.normalize(newNorm[j], vec3.fromValues(n[0], n[1], n[2]));
+            }
+
+            // Add transformed triangle directly
+            transformedMesh.mesh.push(newTri);
+            transformedMesh.normals.push(newNorm);
+            transformedMesh.type.push(meshCopy.type[i]);
+          }
+
+          // Cache the transformed mesh and transform hash
+          obj._cachedTransformedMesh = transformedMesh;
+          obj._cachedTransformHash = transformHash;
+        } else {
+          // Use cached transformed mesh - much faster!
+          transformedMesh = obj._cachedTransformedMesh!;
         }
 
-        // Add transformed triangle
-        transformedMesh.addTriangle(newTri, newNorm, meshCopy.type[i]);
+        // Merge transformed mesh into combined mesh
+        CombinedMesh.merge(transformedMesh);
       }
-
-      // Merge safely into combined mesh
-      CombinedMesh.merge(transformedMesh);
     }
+    console.timeEnd("combinedMesh generation");
 
     return CombinedMesh;
   }
-
-  public onObjectAdded?: (obj: WorldObject) => void;
   public onLightsChanged?: () => void;
 
   /**

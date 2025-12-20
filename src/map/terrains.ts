@@ -92,8 +92,10 @@ export interface Terrain {
     //Color doesn't matter
   3. Glossy (Microfacet Reflection)
     //Note: roughness 0 = perfect mirror, roughness 1 = diffuse
-  4. Transmission (Dielectric/Glass; Tinted Glass)
-    //Note: roughness refers to index of refraction
+    NOTE: COLORS MATTER A LOT. If "black spots" are showing up, increase brightness of other colors
+  4. Transmission (Dielectric/Glass; Tinted Glass, microfacet transmission)
+    // Roughness refers to the blurriness of the transmission. 0 = perfect clear glass, 1 = frosted glass 
+    //Note: reflectiveness refers to index of refraction
   5. Emission; Emissive surface (not as strong as regular light)
 
 
@@ -108,39 +110,46 @@ export interface Terrain {
  */
 export const Terrains: { [id: number]: Terrain } = {
   //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
+  // 0: Grass
   0: {
-    //Regular ground
-    color: new Color(0, 255, 0),
-    reflectiveness: 0.2,
-    roughness: 0.8,
+    color: Color.fromHex("#6BAA3A"),
+    reflectiveness: 0.02,
+    roughness: 0.9,
     type: 1
   },
+  // 1: Dirt
   1: {
-    // Perfect mirror
-    color: new Color(0, 0, 255),
-    reflectiveness: 0.2,
-    roughness: 0.8,
-    type: 2
+    color: Color.fromHex("#7A5229"),
+    reflectiveness: 0.03,
+    roughness: 0.9,
+    type: 1
   },
+  // 2: Rock
   2: {
-    // Glossy surface
-    color: new Color(255, 0, 0),
-    reflectiveness: 0.2,
-    roughness: 0.0,
-    type: 3
+    color: Color.fromHex("#8B8F91"),
+    reflectiveness: 0.04,
+    roughness: 0.85,
+    type: 1
   },
+  // 3: Snow
   3: {
-    // Tinted glass
-    color: new Color(100, 0, 0), //red tint
+    color: Color.fromHex("#F7FBFF"),
+    reflectiveness: 0.06,
+    roughness: 0.95,
+    type: 1
+  },
+  // 4: Water (slightly transmissive)
+  4: {
+    color: Color.fromHex("#2F86D1"),
     reflectiveness: 0.2,
-    roughness: 1.5, //Index of refraction (look up)
+    roughness: 0.1,
     type: 4
   },
-  4: {
-    // Emissive surface
-    color: new Color(255, 0, 0),
-    reflectiveness: 0.2,
-    roughness: 0.8,
-    type: 5
+  // 5: Sand / Beach
+  5: {
+    color: Color.fromHex("#E3D2A3"),
+    reflectiveness: 0.02,
+    roughness: 0.92,
+    type: 1
   }
 };

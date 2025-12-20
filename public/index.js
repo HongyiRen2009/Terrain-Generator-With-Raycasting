@@ -4987,6 +4987,15 @@ var GameEngine = /** @class */ (function () {
         this.lastFPSCheck = 0;
         this.currentFPS = 0;
         this.worldInitialized = false;
+        // Stored bound event handlers for cleanup
+        this.boundMouseDown = null;
+        this.boundMouseMove = null;
+        this.boundResize = null;
+        this.boundRayClick = null;
+        this.boundPathClick = null;
+        this.boundMenuClick = null;
+        this.boundKeyDown = null;
+        this.boundKeyUp = null;
         //Debugger
         this.debug = new _DebugMenu__WEBPACK_IMPORTED_MODULE_0__.DebugMenu(true); // Pass into class when want to use
         this.canvas = document.getElementById(canvasId);
@@ -5017,39 +5026,43 @@ var GameEngine = /** @class */ (function () {
             _this.pathTracer.init(false);
         };
         //Events
-        this.canvas.addEventListener("mousedown", function () { return _this.requestScreenLock(); });
-        this.canvas.addEventListener("mousemove", function (e) {
-            return _this.mouseMove(e);
-        });
-        window.addEventListener("resize", function () { return _this.resizeCanvas(); });
+        this.boundMouseDown = function () { return _this.requestScreenLock(); };
+        this.boundMouseMove = function (e) { return _this.mouseMove(e); };
+        this.boundResize = function () { return _this.resizeCanvas(); };
+        this.canvas.addEventListener("mousedown", this.boundMouseDown);
+        this.canvas.addEventListener("mousemove", this.boundMouseMove);
+        window.addEventListener("resize", this.boundResize);
         //Debugging
         this.debug.addElement("FPS", function () { return Math.round(_this.currentFPS); });
         this.debug.addElement("#Types", function () { return Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_8__.Terrains).length; });
         //Initialize switcher
         var rayBtn = document.getElementById("raytracing");
         var pathBtn = document.getElementById("pathtracing");
-        rayBtn.addEventListener("click", function () {
+        this.boundRayClick = function () {
             rayBtn.classList.add("active");
             pathBtn.classList.remove("active");
             if (_this.mode == 1) {
                 _this.pathTracer.leave();
             }
             _this.mode = 0; // Set to raytracing
-        });
-        pathBtn.addEventListener("click", function () {
+        };
+        rayBtn.addEventListener("click", this.boundRayClick);
+        this.boundPathClick = function () {
             pathBtn.classList.add("active");
             rayBtn.classList.remove("active");
             _this.mode = 1; // Set to pathtracing
             _this.pathTracer.init();
-        });
+        };
+        pathBtn.addEventListener("click", this.boundPathClick);
         //Initialize menu
         var menuButton = document.getElementById("menu-toggle");
         var sidebar = document.getElementById("sidebar");
         var topBar = document.getElementById("topBarWrapper");
-        menuButton.addEventListener("click", function () {
+        this.boundMenuClick = function () {
             sidebar.classList.toggle("open");
             topBar.classList.toggle("shifted");
-        });
+        };
+        menuButton.addEventListener("click", this.boundMenuClick);
         //Check to see if WebGL working
         if (!this.gl) {
             alert("Unable to initialize WebGL. Your browser or machine may not support it.");
@@ -5057,6 +5070,47 @@ var GameEngine = /** @class */ (function () {
         }
         this.initialize();
     }
+    /**
+     * Dispose engine resources and remove DOM / event hooks.
+     */
+    GameEngine.prototype.dispose = function () {
+        var _a, _b, _c;
+        // Remove event listeners
+        try {
+            if (this.boundMouseDown)
+                this.canvas.removeEventListener("mousedown", this.boundMouseDown);
+            if (this.boundMouseMove)
+                this.canvas.removeEventListener("mousemove", this.boundMouseMove);
+            if (this.boundResize)
+                window.removeEventListener("resize", this.boundResize);
+            if (this.boundRayClick)
+                (_a = document.getElementById("raytracing")) === null || _a === void 0 ? void 0 : _a.removeEventListener("click", this.boundRayClick);
+            if (this.boundPathClick)
+                (_b = document.getElementById("pathtracing")) === null || _b === void 0 ? void 0 : _b.removeEventListener("click", this.boundPathClick);
+            if (this.boundMenuClick)
+                (_c = document.getElementById("menu-toggle")) === null || _c === void 0 ? void 0 : _c.removeEventListener("click", this.boundMenuClick);
+            if (this.boundKeyDown)
+                window.removeEventListener("keydown", this.boundKeyDown);
+            if (this.boundKeyUp)
+                window.removeEventListener("keyup", this.boundKeyUp);
+        }
+        catch (e) {
+            // ignore
+        }
+        // Dispose subsystems
+        try {
+            this.renderer.dispose();
+        }
+        catch (e) { }
+        try {
+            this.pathTracer.dispose();
+        }
+        catch (e) { }
+        try {
+            this.world.dispose();
+        }
+        catch (e) { }
+    };
     GameEngine.prototype.initialize = function () {
         return __awaiter(this, void 0, void 0, function () {
             var mesh, identity2;
@@ -5074,6 +5128,14 @@ var GameEngine = /** @class */ (function () {
                         this.world.onObjectAdded = function (obj) {
                             _this.world.objectUI.setupObjectUI(obj, _this.world, document.getElementById("world-objects"), _this.world.objectUI);
                             _this.renderer.vaoManager.createWorldObjectVAOs(_this.world.worldObjects);
+                        };
+                        this.world.onObjectRemoved = function (id) {
+                            try {
+                                _this.renderer.vaoManager.removeWorldObjectVAO(id);
+                            }
+                            catch (e) {
+                                // ignore
+                            }
                         };
                         return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__)];
                     case 3:
@@ -5150,12 +5212,14 @@ var GameEngine = /** @class */ (function () {
     };
     GameEngine.prototype.addKeys = function () {
         var _this = this;
-        window.addEventListener("keydown", function (event) {
+        this.boundKeyDown = function (event) {
             _this.keys[event.code] = true;
-        });
-        window.addEventListener("keyup", function (event) {
+        };
+        this.boundKeyUp = function (event) {
             _this.keys[event.code] = false;
-        });
+        };
+        window.addEventListener("keydown", this.boundKeyDown);
+        window.addEventListener("keyup", this.boundKeyUp);
     };
     /*--------------------------------Utilities--------------------------------*/
     /**
@@ -5251,6 +5315,13 @@ var PathTracer = /** @class */ (function () {
         this.currentFrame = 0; // The source texture/framebuffer index
         this.frameNumber = 0; // The accumulation counter
         this.numBounces = 15;
+        // VAO/VBO for fullscreen triangle
+        this.fullscreenVAO = null;
+        this.fullscreenVBO = null;
+        // bound event handlers so we can remove listeners
+        this.boundHandleBounce = null;
+        // Textures created for pathtracing data (vertices, bvh, etc.)
+        this.pathDataTextures = [];
         //Information
         this.vertices = null;
         this.terrains = null;
@@ -5279,7 +5350,8 @@ var PathTracer = /** @class */ (function () {
         this.copyProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _glsl_copyShader_copy_vert__WEBPACK_IMPORTED_MODULE_8__, _glsl_copyShader_copy_frag__WEBPACK_IMPORTED_MODULE_7__);
         //Slider
         var slider = document.getElementById("bounceSlider");
-        slider.addEventListener("input", this.handleBounceInput.bind(this));
+        this.boundHandleBounce = this.handleBounceInput.bind(this);
+        slider.addEventListener("input", this.boundHandleBounce);
         slider.value = this.numBounces.toString();
         var bounceValue = document.getElementById("bounceValue");
         bounceValue.textContent = "".concat(this.numBounces);
@@ -5321,8 +5393,8 @@ var PathTracer = /** @class */ (function () {
         this.drawMesh();
     };
     PathTracer.prototype.drawMesh = function () {
-        this.initPathtracing();
-        this.makeVao();
+        // initPathtracing and makeVao are done during init() / initBVH to avoid
+        // recreating GPU resources every frame.
         //Put camera position, direction in shader
         this.gl.uniform3fv(this.gl.getUniformLocation(this.meshProgram, "u_cameraPos"), this.camera.position);
         var viewProjMatrix = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
@@ -5348,6 +5420,8 @@ var PathTracer = /** @class */ (function () {
         this.gl.uniform1f(this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"), this.frameNumber); // Send as a float for seeding
         // Draw
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffers[nextFrameIndex]);
+        if (this.fullscreenVAO)
+            this.gl.bindVertexArray(this.fullscreenVAO);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
         //Ping Pong
@@ -5359,6 +5433,8 @@ var PathTracer = /** @class */ (function () {
         var frameLoc = this.gl.getUniformLocation(this.copyProgram, "u_frameNumber");
         this.gl.uniform1f(frameLoc, this.frameNumber);
         // We can reuse the same fullscreen triangle VAO
+        if (this.fullscreenVAO)
+            this.gl.bindVertexArray(this.fullscreenVAO);
         this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
@@ -5366,6 +5442,8 @@ var PathTracer = /** @class */ (function () {
         this.glRenderer.render(true);
     };
     PathTracer.prototype.makeVao = function () {
+        if (this.fullscreenVAO)
+            return; // already created
         var fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
         var vao = this.gl.createVertexArray();
         this.gl.bindVertexArray(vao);
@@ -5374,6 +5452,8 @@ var PathTracer = /** @class */ (function () {
         this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenTriangle, this.gl.STATIC_DRAW);
         this.gl.enableVertexAttribArray(0);
         this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
+        this.fullscreenVAO = vao;
+        this.fullscreenVBO = vbo;
     };
     PathTracer.prototype.init = function (showAccumulation) {
         var _this = this;
@@ -5389,6 +5469,14 @@ var PathTracer = /** @class */ (function () {
     };
     PathTracer.prototype.initPathtracing = function () {
         this.gl.useProgram(this.meshProgram);
+        // Delete old path data textures if any
+        if (this.pathDataTextures.length > 0) {
+            for (var _i = 0, _a = this.pathDataTextures; _i < _a.length; _i++) {
+                var t = _a[_i];
+                this.gl.deleteTexture(t);
+            }
+            this.pathDataTextures = [];
+        }
         //Textures
         var verticeTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
         var terrainTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
@@ -5397,6 +5485,7 @@ var PathTracer = /** @class */ (function () {
         var leafsTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
         var terrainTypeTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
         var vertexNormalsTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+        this.pathDataTextures.push(verticeTex, terrainTex, boundingBoxesTex, nodesTex, leafsTex, terrainTypeTex, vertexNormalsTex);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, boundingBoxesTex, "u_boundingBox", 2);
@@ -5406,8 +5495,23 @@ var PathTracer = /** @class */ (function () {
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, vertexNormalsTex, "u_normals", 6);
     };
     PathTracer.prototype.initBuffers = function () {
-        this.accumulationTextures = [];
-        this.framebuffers = [];
+        // Delete old textures/framebuffers if present
+        if (this.accumulationTextures && this.accumulationTextures.length > 0) {
+            for (var _i = 0, _a = this.accumulationTextures; _i < _a.length; _i++) {
+                var tex = _a[_i];
+                if (tex)
+                    this.gl.deleteTexture(tex);
+            }
+            this.accumulationTextures = [];
+        }
+        if (this.framebuffers && this.framebuffers.length > 0) {
+            for (var _b = 0, _c = this.framebuffers; _b < _c.length; _b++) {
+                var fbo = _c[_b];
+                if (fbo)
+                    this.gl.deleteFramebuffer(fbo);
+            }
+            this.framebuffers = [];
+        }
         for (var i = 0; i < 2; ++i) {
             // Create a texture to store the accumulated image
             var texture = this.gl.createTexture();
@@ -5429,6 +5533,45 @@ var PathTracer = /** @class */ (function () {
     PathTracer.prototype.resetAccumulation = function () {
         this.frameNumber = 0;
         this.initBuffers();
+    };
+    PathTracer.prototype.dispose = function () {
+        // delete accumulation textures/framebuffers
+        if (this.accumulationTextures) {
+            for (var _i = 0, _a = this.accumulationTextures; _i < _a.length; _i++) {
+                var tex = _a[_i];
+                if (tex)
+                    this.gl.deleteTexture(tex);
+            }
+            this.accumulationTextures = [];
+        }
+        if (this.framebuffers) {
+            for (var _b = 0, _c = this.framebuffers; _b < _c.length; _b++) {
+                var fbo = _c[_b];
+                if (fbo)
+                    this.gl.deleteFramebuffer(fbo);
+            }
+            this.framebuffers = [];
+        }
+        // delete programs
+        if (this.meshProgram)
+            this.gl.deleteProgram(this.meshProgram);
+        if (this.copyProgram)
+            this.gl.deleteProgram(this.copyProgram);
+        // delete fullscreen VAO/VBO
+        if (this.fullscreenVAO) {
+            this.gl.deleteVertexArray(this.fullscreenVAO);
+            this.fullscreenVAO = null;
+        }
+        if (this.fullscreenVBO) {
+            this.gl.deleteBuffer(this.fullscreenVBO);
+            this.fullscreenVBO = null;
+        }
+        // remove slider listener
+        var slider = document.getElementById("bounceSlider");
+        if (slider && this.boundHandleBounce) {
+            slider.removeEventListener("input", this.boundHandleBounce);
+            this.boundHandleBounce = null;
+        }
     };
     return PathTracer;
 }());
@@ -5712,11 +5855,12 @@ __webpack_require__.r(__webpack_exports__);
 
 var kMainCanvasId = "#MainCanvas";
 var Engine = new _GameEngine__WEBPACK_IMPORTED_MODULE_0__.GameEngine(kMainCanvasId);
+var rafId = null;
 var gameTick = function (timestamp) {
     Engine.tick(timestamp);
-    requestAnimationFrame(gameTick);
+    rafId = requestAnimationFrame(gameTick);
 };
-requestAnimationFrame(gameTick);
+rafId = requestAnimationFrame(gameTick);
 
 
 /***/ }),
@@ -5912,9 +6056,9 @@ var WorldMap = /** @class */ (function () {
         this.lights = [
             new _Light__WEBPACK_IMPORTED_MODULE_1__.Light(gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0, 500, 0), new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 255, 255), 1, 200, new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 228, 132))
         ];
-        this.resolution = 64; //#of vertices square size of chunk
+        this.resolution = 16; //#of vertices square size of chunk
         this.Workers = [];
-        this.seed = 10; // Random seed for noise generation
+        this.seed = Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
         this.worldObjects = [];
         this.nextWorldObjectId = 0;
         this.tracerUpdateSupplier = updateTracer;
@@ -5930,6 +6074,27 @@ var WorldMap = /** @class */ (function () {
         this.fieldMap = new Map();
         this.objectUI = new _ObjectUI__WEBPACK_IMPORTED_MODULE_6__.ObjectUI(this, this.tracerUpdateSupplier);
     }
+    /**
+     * Clean up resources associated with the map (terminate workers, clear data).
+     */
+    WorldMap.prototype.dispose = function () {
+        if (this.Workers && this.Workers.length > 0) {
+            for (var _i = 0, _a = this.Workers; _i < _a.length; _i++) {
+                var w = _a[_i];
+                try {
+                    w.terminate();
+                }
+                catch (e) {
+                    // ignore termination errors
+                }
+            }
+            this.Workers = [];
+        }
+        // Clear other large structures
+        this.chunks = [];
+        this.fieldMap.clear();
+        this.worldObjects = [];
+    };
     WorldMap.prototype.populateFieldMap = function () {
         for (var _i = 0, _a = this.chunks; _i < _a.length; _i++) {
             var chunk = _a[_i];
@@ -5945,13 +6110,12 @@ var WorldMap = /** @class */ (function () {
     };
     //Generates map
     WorldMap.prototype.generate = function () {
-        this.chunks = [
-            // Row 1
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[0]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[1]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(2 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[2]),
-            new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(3 * this.resolution, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[3])
-        ];
+        this.chunks = [];
+        var worker = 0;
+        for (var i = 0; i < 7; i++)
+            for (var j = 0; j < 7; j++) {
+                this.chunks.push(new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(i * this.resolution, j * this.resolution), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[worker++ % navigator.hardwareConcurrency]));
+            }
     };
     WorldMap.prototype.combinedMesh = function () {
         var CombinedMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
@@ -6445,6 +6609,19 @@ var ObjectUI = /** @class */ (function () {
         deleteBtn.textContent = "Delete Object";
         deleteBtn.style.marginBottom = "10px";
         deleteBtn.addEventListener("click", function () {
+            // Delete GPU buffers associated with this object (if any)
+            try {
+                if (obj.buffer) {
+                    var b = obj.buffer;
+                    if (world.gl && b.vertex)
+                        world.gl.deleteBuffer(b.vertex);
+                    if (world.gl && b.indices)
+                        world.gl.deleteBuffer(b.indices);
+                }
+            }
+            catch (e) {
+                // ignore
+            }
             // Remove from world
             world.worldObjects = world.worldObjects.filter(function (o) { return o.id !== obj.id; });
             // Remove UI
@@ -6452,6 +6629,9 @@ var ObjectUI = /** @class */ (function () {
             // Trigger re-trace/update if needed
             if (UI.tracerUpdateSupplier)
                 UI.tracerUpdateSupplier()();
+            // Notify external systems that an object was removed (so they can cleanup VAOs, buffers, etc.)
+            if (world.onObjectRemoved)
+                world.onObjectRemoved(obj.id);
         });
         wrapper.appendChild(deleteBtn);
         // Helper to create labeled number input
@@ -7043,18 +7223,24 @@ var Chunk = /** @class */ (function () {
             var _this = this;
             return __generator(this, function (_a) {
                 return [2 /*return*/, new Promise(function (resolve) {
+                        var requestId = Math.random().toString(36).slice(2);
+                        var handler = function (event) {
+                            if (event.data.requestId !== requestId)
+                                return;
+                            _this.Field = event.data.field;
+                            _this.FieldMap = new Map(event.data.fieldMap);
+                            _this.Worker.removeEventListener("message", handler);
+                            resolve(_this.Field);
+                        };
+                        _this.Worker.addEventListener("message", handler);
                         _this.Worker.postMessage({
+                            requestId: requestId,
                             GridSize: _this.GridSize,
                             ChunkPosition: _this.ChunkPosition,
                             Seed: _this.seed,
                             generatingTerrain: true,
                             worldFieldMap: _this.FieldMap
                         });
-                        _this.Worker.onmessage = function (event) {
-                            _this.Field = event.data.field;
-                            _this.FieldMap = new Map(event.data.fieldMap);
-                            resolve(_this.Field);
-                        };
                     })];
             });
         });
@@ -7064,20 +7250,26 @@ var Chunk = /** @class */ (function () {
             var _this = this;
             return __generator(this, function (_a) {
                 return [2 /*return*/, new Promise(function (resolve) {
+                        var requestId = Math.random().toString(36).slice(2);
+                        var handler = function (event) {
+                            if (event.data.requestId !== requestId)
+                                return;
+                            _this.Mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+                            _this.Mesh.setVertices(event.data.meshVertices);
+                            _this.Mesh.setNormals(event.data.meshNormals);
+                            _this.Mesh.setTypes(event.data.meshTypes);
+                            _this.Worker.removeEventListener("message", handler);
+                            resolve(_this.Mesh);
+                        };
+                        _this.Worker.addEventListener("message", handler);
                         _this.Worker.postMessage({
+                            requestId: requestId,
                             GridSize: _this.GridSize,
                             ChunkPosition: _this.ChunkPosition,
                             Seed: _this.seed,
                             generatingTerrain: false,
                             worldFieldMap: _this.WorldFieldMap
                         });
-                        _this.Worker.onmessage = function (event) {
-                            _this.Mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
-                            _this.Mesh.setVertices(event.data.meshVertices);
-                            _this.Mesh.setNormals(event.data.meshNormals);
-                            _this.Mesh.setTypes(event.data.meshTypes);
-                            resolve(_this.Mesh);
-                        };
                     })];
             });
         });
@@ -9572,6 +9764,9 @@ var VAOManager = /** @class */ (function () {
     function VAOManager(gl) {
         this.terrainVAOInfo = null;
         this.screenQuadVAOInfo = null;
+        // Keep references to buffers so we can delete them later
+        this.terrainBuffers = null;
+        this.screenQuadBuffers = null;
         this.geometryProgram = null;
         this.gl = gl;
         this.vaoCache = new Map();
@@ -9602,6 +9797,13 @@ var VAOManager = /** @class */ (function () {
                 color: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleColors))
             },
             indices: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateIndexBuffer(this.gl, triangleIndices)
+        };
+        // Save buffers so we can delete them later
+        this.terrainBuffers = {
+            vertex: TerrainTriangleBuffer.vertex.position,
+            normal: TerrainTriangleBuffer.vertex.normal,
+            color: TerrainTriangleBuffer.vertex.color,
+            indices: TerrainTriangleBuffer.indices
         };
         var terrainVAO = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.createNonInterleavedVao(this.gl, {
             position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
@@ -9639,6 +9841,8 @@ var VAOManager = /** @class */ (function () {
         var ebo = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
         this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, quadIndices, this.gl.STATIC_DRAW);
+        // store quad buffers for cleanup
+        this.screenQuadBuffers = { vbo: vbo, ebo: ebo };
         this.gl.enableVertexAttribArray(0);
         this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 20, 0);
         this.gl.enableVertexAttribArray(1);
@@ -9663,6 +9867,16 @@ var VAOManager = /** @class */ (function () {
     VAOManager.prototype.getScreenQuadVAO = function () {
         return this.screenQuadVAOInfo;
     };
+    /**
+     * Remove VAO for a world object and delete the vertex array.
+     */
+    VAOManager.prototype.removeWorldObjectVAO = function (id) {
+        var info = this.vaoCache.get(id);
+        if (info) {
+            this.gl.deleteVertexArray(info.vao);
+            this.vaoCache.delete(id);
+        }
+    };
     VAOManager.prototype.dispose = function () {
         var _this = this;
         if (this.terrainVAOInfo) {
@@ -9670,9 +9884,30 @@ var VAOManager = /** @class */ (function () {
             this.terrainVAOInfo = null;
         }
         this.vaoCache.forEach(function (vao) {
-            _this.gl.deleteVertexArray(vao);
+            // vao is VaoInfo
+            _this.gl.deleteVertexArray(vao.vao);
         });
         this.vaoCache.clear();
+        // delete terrain attribute/index buffers if present
+        if (this.terrainBuffers) {
+            if (this.terrainBuffers.vertex)
+                this.gl.deleteBuffer(this.terrainBuffers.vertex);
+            if (this.terrainBuffers.normal)
+                this.gl.deleteBuffer(this.terrainBuffers.normal);
+            if (this.terrainBuffers.color)
+                this.gl.deleteBuffer(this.terrainBuffers.color);
+            if (this.terrainBuffers.indices)
+                this.gl.deleteBuffer(this.terrainBuffers.indices);
+            this.terrainBuffers = null;
+        }
+        // delete screen quad buffers
+        if (this.screenQuadBuffers) {
+            if (this.screenQuadBuffers.vbo)
+                this.gl.deleteBuffer(this.screenQuadBuffers.vbo);
+            if (this.screenQuadBuffers.ebo)
+                this.gl.deleteBuffer(this.screenQuadBuffers.ebo);
+            this.screenQuadBuffers = null;
+        }
     };
     return VAOManager;
 }());
@@ -10179,7 +10414,7 @@ var WorldUtils = /** @class */ (function () {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("d1571baa60d4714526e6")
+/******/ 		__webpack_require__.h = () => ("da2ece15a2ea2fcf6868")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
