@@ -431,11 +431,8 @@ vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float 
 }
 
 vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float curveAngle, float sunShadow) {
-        // albedoData contains (height, curveAngle, 0.0, materialId)
-
     vec3 viewDirection = normalize(cameraPosition - worldPos);
 
-    // Use a default direction for camera-based calculations when sun is disabled
     vec3 toCamera = sunDisabled ? vec3(0.0f, 0.0f, -1.0f) : normalize(-SunLight.direction);
     toCamera.y = 0.0f;
 
@@ -443,66 +440,56 @@ vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float 
     bool isInnerCurve = curveViewDot > 0.0f;
 
     float t = clamp(vHeight / 1.5f, 0.0f, 1.0f);
-    vec3 grassColor = mix(grassBaseColor, grassTipColor, pow(t, grassAmbientTransitionPower));
+    vec3 baseGrassColor = mix(grassBaseColor, grassTipColor, pow(t, grassAmbientTransitionPower));
 
     vec3 normal = normalize(worldNormal) * (isInnerCurve ? -1.0f : 1.0f);
-
-    // Calculate tangent for anisotropic specular (needed for both sun and point lights)
     vec3 tangent = normalize(cross(normal, vec3(0.0f, 1.0f, 0.0f)));
 
-    // Only apply sun-based lighting if sun is not disabled
+    // Ambient
+    vec3 grassColor = baseGrassColor * grassBaseDarkness;
+
+    // Sun lighting
     if(!sunDisabled) {
         vec3 lightDir = normalize(-SunLight.direction);
         float diffuse = max(dot(normal, lightDir), 0.0f);
         diffuse = diffuse * 0.6f + 0.4f;
-        grassColor *= grassBaseDarkness + grassDiffuseStrength * diffuse;
+        vec3 sunDiffuse = baseGrassColor * grassDiffuseStrength * diffuse;
 
-            // Anisotropic specular (Kajiya-Kay model for hair/grass)
         vec3 halfDir = normalize(lightDir + viewDirection);
         float tdh = dot(tangent, halfDir);
         float spec = pow(sqrt(1.0f - tdh * tdh), grassShininess);
         spec = mix(0.0f, spec, pow(t, grassSpecularTransitionPower));
         vec3 specular = grassSpecularStrength * spec * grassSpecularColor;
-        grassColor += specular;
 
         float translucency = max(dot(-lightDir, normal), 0.0f);
         translucency = mix(0.0f, translucency, pow(t, grassTranslucencyTransitionPower));
-        grassColor += grassTranslucencyColor * translucency * grassTranslucencyStrength;
+        vec3 translucentColor = grassTranslucencyColor * translucency * grassTranslucencyStrength;
 
-            // Apply sun shadow
-        grassColor *= mix(1.0f, sunShadow, sunShadowStrength);
-    } else {
-        // When sun is disabled, just use base darkness
-        grassColor *= grassBaseDarkness;
+        float shadowFactor = mix(1.0f, sunShadow, sunShadowStrength);
+        grassColor += (sunDiffuse + specular + translucentColor) * shadowFactor;
     }
 
-        // Apply point lights
+    // Point lights
     for(int i = 0; i < numActivePointLights; i++) {
         float pointLightShadow = (i < numShadowedLights) ? computePointShadow(worldPos, worldNormal, i) : 1.0f;
         vec3 pointLightDir = normalize(pointLights[i].position - worldPos);
 
-            // Diffuse contribution from point light
         float pointDiffuse = max(dot(normal, pointLightDir), 0.0f);
         pointDiffuse = pointDiffuse * (1.0f - grassPointLightDiffuseSoftness) + grassPointLightDiffuseSoftness;
-        // Scale down point light contribution significantly to prevent overexposure
-        // Use grassDiffuseStrength to match sun lighting behavior and apply additional scaling
-        vec3 pointDiffuseColor = pointDiffuse * pointLights[i].color * pointLights[i].intensity * grassDiffuseStrength * grassPointLightintensity;
+        // Multiply by baseGrassColor so point lights tint the grass properly
+        vec3 pointDiffuseColor = baseGrassColor * pointDiffuse * pointLights[i].color * pointLights[i].intensity * grassDiffuseStrength * grassPointLightintensity;
 
-            // Anisotropic specular for point light
         vec3 pointHalfDir = normalize(pointLightDir + viewDirection);
         float pointTdh = dot(tangent, pointHalfDir);
         float pointSpec = pow(sqrt(1.0f - pointTdh * pointTdh), grassShininess);
         pointSpec = mix(0.0f, pointSpec, pow(t, grassSpecularTransitionPower));
-        // Scale down specular contribution as well
-        vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor * 0.3f;
+        vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor * grassPointLightintensity;
 
-            // Point light attenuation
         float distance = length(pointLights[i].position - worldPos);
         float attenuation = calculateAttenuation(distance, pointLights[i].radius, pointLights[i].range);
 
-        // Add point light contribution with shadow applied
-        // The scaling above prevents the grass from becoming too bright/white
-        grassColor += (pointDiffuseColor + pointSpecular) * attenuation * mix(1.0f, pointLightShadow, pointLightShadowStrength);
+        float shadowFactor = mix(1.0f, pointLightShadow, pointLightShadowStrength);
+        grassColor += (pointDiffuseColor + pointSpecular) * attenuation * shadowFactor;
     }
 
     return pow(grassColor, vec3(2.2f));
