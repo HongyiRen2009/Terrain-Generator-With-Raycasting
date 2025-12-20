@@ -127,6 +127,22 @@ export class WorldMap {
         }
       }
     }
+
+    // Collect timings for all chunks
+    const allTimings: {
+      noise: number;
+      fieldReadback: number;
+      marchingCubes: number;
+      countsReadback: number;
+      vertexBufferReadback: number;
+      indexBufferReadback: number;
+      normalsBufferReadback: number;
+      terrainTypeBufferReadback: number;
+      meshConstruction: number;
+      edgeTriangles: number;
+      total: number;
+    }[] = [];
+
     for (const chunkParam of chunkParams) {
       const chunk = new Chunk(
         chunkParam.pos,
@@ -137,7 +153,38 @@ export class WorldMap {
       );
       const key = `${chunkParam.pos[0]},${chunkParam.pos[1]},${chunkParam.pos[2]}`;
       this.chunks[key] = chunk;
-      await chunk.generate();
+      const { mesh, timings } = await chunk.generate(false);
+      allTimings.push(timings);
+    }
+
+    // Average timings
+    if (allTimings.length > 0) {
+      const avg = (key: keyof (typeof allTimings)[0]) =>
+        allTimings.reduce((sum, t) => sum + t[key], 0) / allTimings.length;
+      console.log(
+        `[Chunk Generation Timings] avg noise: ${avg("noise").toFixed(
+          2
+        )} ms, fieldReadback: ${avg("fieldReadback").toFixed(
+          2
+        )} ms, marchingCubes: ${avg("marchingCubes").toFixed(
+          2
+        )} ms, countsReadback: ${avg("countsReadback").toFixed(
+          2
+        )} ms, vertexBufferReadback: ${avg("vertexBufferReadback").toFixed(
+          2
+        )} ms, indexBufferReadback: ${avg("indexBufferReadback").toFixed(
+          2
+        )} ms, normalsBufferReadback: ${avg("normalsBufferReadback").toFixed(
+          2
+        )} ms, terrainTypeBufferReadback: ${avg(
+          "terrainTypeBufferReadback"
+        ).toFixed(2)}
+         ms, meshConstruction: ${avg("meshConstruction").toFixed(
+           2
+         )} ms, edgeTriangles: ${avg("edgeTriangles").toFixed(
+           2
+         )} ms, total: ${avg("total").toFixed(2)} ms`
+      );
     }
   }
 
@@ -278,7 +325,16 @@ export class WorldMap {
 
 import { CASES, EDGES, VERTICES } from "./geometry";
 import { ComputeShader } from "./WebGPU compute";
-
+//Log an array that shows the number of vertices per CASE
+const caseVertexCounts: number[] = new Array(256).fill(0);
+for (let caseIndex = 0; caseIndex < CASES.length; caseIndex++) {
+  const triangles = CASES[caseIndex];
+  caseVertexCounts[caseIndex] = triangles.length * 3; // 3 vertices per triangle
+}
+console.log(
+  "Marching Cubes Case Vertex Counts:",
+  JSON.stringify(caseVertexCounts)
+);
 export class Chunk {
   ChunkPosition: vec3;
   GridSize: vec3;
@@ -515,9 +571,33 @@ export class Chunk {
     return normal;
   }
 
-  // Single pass generation: terrain field + mesh
-  async generate(): Promise<Mesh> {
+  /**
+   *
+   * Generates the chunk's mesh using the compute shader, must be called sequentially to avoid two chunks using the same shader at once
+   * @param logPerformance Whether to log performance metrics
+   * @returns The generated mesh and timing information
+   */
+  async generate(logPerformance = true): Promise<{
+    mesh: Mesh;
+    timings: {
+      noise: number;
+      fieldReadback: number;
+      marchingCubes: number;
+      countsReadback: number;
+      vertexBufferReadback: number;
+      indexBufferReadback: number;
+      normalsBufferReadback: number;
+      terrainTypeBufferReadback: number;
+      meshConstruction: number;
+      edgeTriangles: number;
+      total: number;
+    };
+  }> {
+    const timings: any = {};
+    let totalStart = performance.now();
+
     // Generate field using compute shader
+    let startTime = performance.now();
     const computeShader = this.worldMap.computeShader;
     const width = this.GridSize[0] + 1;
     const height = this.GridSize[1] + 1;
@@ -531,12 +611,18 @@ export class Chunk {
       this.ChunkPosition[1],
       this.ChunkPosition[2]
     );
+    timings.noise = performance.now() - startTime;
+
+    startTime = performance.now();
     this.Field = await computeShader.readFieldBuffer(
       fieldBuffer,
       width,
       height,
       depth
     );
+    timings.fieldReadback = performance.now() - startTime;
+
+    startTime = performance.now();
     const {
       vertexBuffer,
       indexBuffer,
@@ -550,24 +636,41 @@ export class Chunk {
       height,
       depth
     );
+    timings.marchingCubes = performance.now() - startTime;
+
+    startTime = performance.now();
     // Read the results from GPU
     const vertexCount = await computeShader.readUint(vertexCountBuffer);
     const indexCount = await computeShader.readUint(indexCountBuffer);
+    timings.countsReadback = performance.now() - startTime;
 
+    startTime = performance.now();
     const vertices = await computeShader.readVectorBuffer(
       vertexBuffer,
       vertexCount * 4 // 4 floats per vec3 (due to padding)
     );
+    timings.vertexBufferReadback = performance.now() - startTime;
+
+    startTime = performance.now();
     const indices = await computeShader.readUintBuffer(indexBuffer, indexCount);
+    timings.indexBufferReadback = performance.now() - startTime;
+
+    startTime = performance.now();
     const normals = await computeShader.readVectorBuffer(
       normalsBuffer,
       vertexCount * 4 // 4 floats per vec3 (due to padding)
     );
+    timings.normalsBufferReadback = performance.now() - startTime;
+
+    startTime = performance.now();
     const terrainTypes = await computeShader.readUintBuffer(
       terrainTypeBuffer,
       vertexCount
     );
-    debugger;
+    timings.terrainTypeBufferReadback = performance.now() - startTime;
+
+    startTime = performance.now();
+
     // Reconstruct mesh from compute shader results
     this.Mesh = new Mesh();
 
@@ -621,8 +724,20 @@ export class Chunk {
 
       this.Mesh.addTriangle(tri, norm, types);
     }
+    timings.meshConstruction = performance.now() - startTime;
+
+    startTime = performance.now();
+    // Generate edge triangles on CPU
     this.generateEdgeTriangles();
-    return this.Mesh;
+    timings.edgeTriangles = performance.now() - startTime;
+
+    timings.total = performance.now() - totalStart;
+
+    if (logPerformance) {
+      // Logging is now handled outside, after averaging
+    }
+
+    return { mesh: this.Mesh, timings };
   }
 
   getMesh() {

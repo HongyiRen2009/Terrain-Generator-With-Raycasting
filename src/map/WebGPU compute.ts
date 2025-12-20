@@ -1,5 +1,7 @@
 import noiseShaderCode from "./noise.wgsl";
 import marchingCubesCode from "./marching_cubes.wgsl";
+import prefixSumShaderCode from "./prefix_sum.wgsl";
+import calcVertexCountCode from "./calc_vertex_count.wgsl";
 import { CASES } from "./geometry";
 export class ComputeShader {
   device: GPUDevice = null!;
@@ -7,6 +9,25 @@ export class ComputeShader {
 
   constructor() {
     this.init();
+    const prefixSumTest = async () => {
+      debugger;
+      const testArray = new Float32Array([1, 2, 3, 4, 5]);
+      // Pad to next power of two (8)
+      const padded = new Float32Array(8);
+      padded.set(testArray);
+      // Use padded.length for buffer creation and shader dispatch
+      const inputBuffer = await this.createBufferFromArray(
+        padded,
+        GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+      );
+      const outputBuffer = await this.computePrefixSum(
+        inputBuffer,
+        padded.length
+      );
+      const result = await this.readVectorBuffer(outputBuffer, padded.length);
+      console.log("Prefix Sum Result:", result.slice(0, testArray.length));
+    };
+    prefixSumTest();
   }
 
   async init() {
@@ -366,6 +387,174 @@ export class ComputeShader {
       vertexCountBuffer,
       indexCountBuffer
     };
+  }
+  async computeVertexCount(
+    fieldBuffer: GPUBuffer,
+    width: number,
+    height: number,
+    depth: number
+  ): Promise<number> {
+    if (!this.device) {
+      await this.init();
+    }
+    // Create params buffer
+    const paramsBuffer = this.device.createBuffer({
+      size: 12, // 3 u32s
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: true
+    });
+    new Uint32Array(paramsBuffer.getMappedRange()).set([width, height, depth]);
+    paramsBuffer.unmap();
+    // Create vertex count buffer
+    const vertexCountBuffer = this.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      mappedAtCreation: true
+    });
+    new Uint32Array(vertexCountBuffer.getMappedRange()).set([0]);
+    vertexCountBuffer.unmap();
+    // Create shader module
+    const shaderModule = this.device.createShaderModule({
+      code: calcVertexCountCode
+    });
+
+    // Create bind group layout
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "read-only-storage" }
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "read-only-storage" }
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "storage" }
+        }
+      ]
+    });
+    // Create bind group
+    const bindGroup = this.device.createBindGroup({
+      layout: bindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: fieldBuffer } },
+        { binding: 1, resource: { buffer: paramsBuffer } },
+        { binding: 2, resource: { buffer: vertexCountBuffer } }
+      ]
+    });
+    // Create and run compute pipeline
+    const pipeline = this.device.createComputePipeline({
+      layout: this.device.createPipelineLayout({
+        bindGroupLayouts: [bindGroupLayout]
+      }),
+      compute: { module: shaderModule, entryPoint: "main" }
+    });
+
+    const commandEncoder = this.device.createCommandEncoder();
+    const passEncoder = commandEncoder.beginComputePass();
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.dispatchWorkgroups(
+      Math.ceil((width - 1) / 4),
+      Math.ceil((height - 1) / 4),
+      Math.ceil((depth - 1) / 4)
+    );
+    passEncoder.end();
+    this.device.queue.submit([commandEncoder.finish()]);
+    // Read back vertex count
+    const vertexCount = await this.readUint(vertexCountBuffer);
+    return vertexCount;
+  }
+  async computePrefixSum(
+    inputBuffer: GPUBuffer,
+    elementCount: number
+  ): Promise<GPUBuffer> {
+    if (!this.device) {
+      await this.init();
+    }
+    // Create uniform buffer for element count
+    const paramBuffer = this.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.UNIFORM,
+      mappedAtCreation: true
+    });
+    new Uint32Array(paramBuffer.getMappedRange()).set([elementCount]);
+    paramBuffer.unmap();
+
+    const outputBuffer = this.device.createBuffer({
+      size: elementCount * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+    });
+    const shaderModule = this.device.createShaderModule({
+      code: prefixSumShaderCode
+    });
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "read-only-storage" }
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "storage" }
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "uniform" }
+        }
+      ]
+    });
+    const bindGroup = this.device.createBindGroup({
+      layout: bindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: inputBuffer } },
+        { binding: 1, resource: { buffer: outputBuffer } },
+        { binding: 2, resource: { buffer: paramBuffer } }
+      ]
+    });
+    const pipeline = this.device.createComputePipeline({
+      layout: this.device.createPipelineLayout({
+        bindGroupLayouts: [bindGroupLayout]
+      }),
+      compute: { module: shaderModule, entryPoint: "main" }
+    });
+    const commandEncoder = this.device.createCommandEncoder();
+    const passEncoder = commandEncoder.beginComputePass();
+    passEncoder.setPipeline(pipeline);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.dispatchWorkgroups(Math.ceil(elementCount / 256));
+    passEncoder.end();
+    this.device.queue.submit([commandEncoder.finish()]);
+    return outputBuffer;
+  }
+  async createBufferFromArray(
+    array: Float32Array | Uint32Array,
+    usage: GPUBufferUsageFlags
+  ): Promise<GPUBuffer> {
+    if (!this.device) {
+      await this.init();
+    }
+    const buffer = this.device.createBuffer({
+      size: array.byteLength,
+      usage,
+      mappedAtCreation: true
+    });
+    const mapping = buffer.getMappedRange();
+    if (array instanceof Float32Array) {
+      new Float32Array(mapping).set(array);
+    } else if (array instanceof Uint32Array) {
+      new Uint32Array(mapping).set(array);
+    }
+    buffer.unmap();
+    return buffer;
   }
   async visualizeNoiseField(
     canvas: HTMLCanvasElement,
