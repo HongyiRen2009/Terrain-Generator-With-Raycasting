@@ -5,8 +5,6 @@ import { RenderUtils } from "../../../utils/RenderUtils";
 import { meshToNonInterleavedVerticesAndIndices } from "../../../map/cubes_utils";
 import GeometryVertexShaderSource from "../../glsl/DeferredRendering/Geometry.vert";
 import GeometryFragmentShaderSource from "../../glsl/DeferredRendering/Geometry.frag";
-import GrassVertexShaderSource from "../../glsl/Grass/Grass.vert";
-import GrassFragmentShaderSource from "../../glsl/Grass/Grass.frag";
 import e from "express";
 import { Color } from "../../../map/terrains";
 import { PointLight } from "../../../map/Light";
@@ -63,11 +61,6 @@ export class VAOManager {
       this.gl,
       GeometryVertexShaderSource,
       GeometryFragmentShaderSource
-    )!;
-    this.grassProgram = RenderUtils.CreateProgram(
-      this.gl,
-      GrassVertexShaderSource,
-      GrassFragmentShaderSource
     )!;
     this.initializeScreenQuad();
   }

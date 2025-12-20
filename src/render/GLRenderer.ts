@@ -14,7 +14,6 @@ import { CSMPass } from "./passes/CSMPass";
 import { mat4, vec3 } from "gl-matrix";
 import { DirectionalLight } from "../map/Light";
 import { CubeShadowsPass } from "./passes/CubeShadowsPass";
-import { GrassPass } from "./passes/GrassPass";
 import { FinalPass } from "./passes/FinalPass";
 import { GrassGeometryPass } from "./passes/GrassGeometryPass";
 import { CombineGeometryPass } from "./passes/CombineGeometryPass";
@@ -117,12 +116,6 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
-    const grassPass = new GrassPass(
-      this.gl,
-      this.resourceCache,
-      this.canvas,
-      this.renderGraph
-    );
     const finalPass = new FinalPass(
       this.gl,
       this.resourceCache,
@@ -145,7 +138,6 @@ export class GLRenderer {
 
     this.renderGraph.addRoot(geometryPass);
     this.renderGraph.addRoot(grassGeometryPass);
-    this.renderGraph.add(grassPass, grassGeometryPass, geometryPass);
     this.renderGraph.add(combineGeometryPass, geometryPass, grassGeometryPass);
     this.renderGraph.add(csmPass, combineGeometryPass);
     this.renderGraph.add(cubeShadowsPass, combineGeometryPass);
