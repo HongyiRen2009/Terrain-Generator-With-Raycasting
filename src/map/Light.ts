@@ -28,11 +28,39 @@ export class PointLight {
     this.color = color;
     this.intensity = intensity;
     this.radius = radius;
-    this.range = radius * 5.0; // Default range is 5x radius for smooth falloff
+    this.range = PointLight.calculateRangeFromIntensity(radius, intensity);
     this.showColor = showColor ? showColor : this.color;
     this.name = name;
     this.visualizerEnabled = false;
     this.showShadowMap = false;
+  }
+
+  /**
+   * Calculate range so the light cuts off when its contribution
+   * drops below a perceptual threshold (no visible cutoff line)
+   * @param radius The light's radius
+   * @param intensity The light's intensity
+   * @param threshold The minimum noticeable light contribution (default 0.005)
+   */
+  static calculateRangeFromIntensity(
+    radius: number,
+    intensity: number,
+    threshold: number = 0.05,
+    maxRangeMultiplier: number = 10
+  ): number {
+    const maxAttenuation = 2.0;
+    const p = 1 - threshold / (maxAttenuation * intensity);
+
+    // If intensity is too low, use minimum range
+    if (p <= 0) return radius;
+
+    // Clamp to avoid infinite range for very bright lights
+    const pClamped = Math.min(p, 0.9995);
+
+    const calculatedRange = radius * pClamped / Math.sqrt(1 - pClamped * pClamped);
+    
+    // Cap range to prevent performance issues with very bright lights
+    return Math.min(calculatedRange, radius * maxRangeMultiplier);
   }
   public setPosition(position: vec3) {
     this.position = position;
