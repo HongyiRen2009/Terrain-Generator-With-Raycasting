@@ -225,7 +225,7 @@ export class ComputeShader {
 
     // Create vertex data buffer
     const vertexBuffer = this.device.createBuffer({
-      size: maxVertices * 12, // vec3<f32> = 12 bytes
+      size: maxVertices * 16, // vec3<f32> = 12 bytes
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
       mappedAtCreation: true
     });
@@ -258,7 +258,7 @@ export class ComputeShader {
     new Uint32Array(indexCountBuffer.getMappedRange()).set([0]);
     indexCountBuffer.unmap();
     const normalsBuffer = this.device.createBuffer({
-      size: maxVertices * 12, // vec3<f32> = 12 bytes
+      size: maxVertices * 16, // vec3<f32> = 12 bytes
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
       mappedAtCreation: true
     });

@@ -33,7 +33,7 @@ export class WorldMap {
   ];
 
   public height: number;
-  public resolution = 64; //#of vertices square size of chunk
+  public resolution = 32; //#of vertices square size of chunk
   public chunks: { [key: string]: Chunk } = {};
   public Workers: Worker[] = [];
   public seed: number = Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
@@ -127,57 +127,17 @@ export class WorldMap {
         }
       }
     }
-
-    // Step 2: Generate field arrays sequentially using the compute shader
-    const fieldArrays: Float32Array[] = [];
-    for (const params of chunkParams) {
-      const width = params.grid[0] + 1;
-      const height = params.grid[1] + 1;
-      const depth = params.grid[2] + 1;
-      const fieldBuffer = await this.computeShader.createPerlinNoise3D(
-        width,
-        height,
-        depth,
-        params.seed,
-        params.pos[0],
-        params.pos[1],
-        params.pos[2]
-      );
-      const fieldArray = await this.computeShader.readFieldBuffer(
-        fieldBuffer,
-        width,
-        height,
-        depth
-      );
-      for (let i = 0; i < fieldArray.length; i++) {
-        fieldArray[i] = fieldArray[i] * 0.5 + 0.5; // Normalize to [0,1]
-      }
-      fieldArrays.push(fieldArray);
-    }
-
-    // Step 3: Create chunks and pass field arrays to them
-    let idx = 0;
-    for (const params of chunkParams) {
-      const key = `${params.pos[0]},${params.pos[1]},${params.pos[2]}`;
-      this.chunks[key] = new Chunk(
-        params.pos,
-        params.grid,
-        params.seed,
-        params.worker,
+    for (const chunkParam of chunkParams) {
+      const chunk = new Chunk(
+        chunkParam.pos,
+        chunkParam.grid,
+        chunkParam.seed,
+        chunkParam.worker,
         this
       );
-      // Assign the field array directly
-      this.chunks[key].Field = fieldArrays[idx++];
-    }
-    // Step 4: Generate meshes using the precomputed field arrays
-    const generationPromises: Promise<Mesh>[] = [];
-    for (const chunkKey in this.chunks) {
-      const chunk = this.chunks[chunkKey];
-      generationPromises.push(chunk.generate());
-    }
-    await Promise.all(generationPromises);
-    for (const chunk of Object.values(this.chunks)) {
-      chunk.generateEdgeTriangles();
+      const key = `${chunkParam.pos[0]},${chunkParam.pos[1]},${chunkParam.pos[2]}`;
+      this.chunks[key] = chunk;
+      await chunk.generate();
     }
   }
 
@@ -328,8 +288,6 @@ export class Chunk {
   Mesh: Mesh = null!;
   gearObjects: vec3[];
   worldMap: WorldMap;
-
-  static computeShader: ComputeShader | null = null;
 
   constructor(
     ChunkPosition: vec3,
@@ -559,119 +517,112 @@ export class Chunk {
 
   // Single pass generation: terrain field + mesh
   async generate(): Promise<Mesh> {
-    // Generate the field using the compute shader
+    // Generate field using compute shader
+    const computeShader = this.worldMap.computeShader;
     const width = this.GridSize[0] + 1;
     const height = this.GridSize[1] + 1;
     const depth = this.GridSize[2] + 1;
+    const fieldBuffer = await computeShader.createPerlinNoise3D(
+      width,
+      height,
+      depth,
+      this.seed,
+      this.ChunkPosition[0],
+      this.ChunkPosition[1],
+      this.ChunkPosition[2]
+    );
+    this.Field = await computeShader.readFieldBuffer(
+      fieldBuffer,
+      width,
+      height,
+      depth
+    );
+    const {
+      vertexBuffer,
+      indexBuffer,
+      normalsBuffer,
+      terrainTypeBuffer,
+      vertexCountBuffer,
+      indexCountBuffer
+    } = await computeShader.createMarchingCubes(
+      fieldBuffer,
+      width,
+      height,
+      depth
+    );
+    // Read the results from GPU
+    const vertexCount = await computeShader.readUint(vertexCountBuffer);
+    const indexCount = await computeShader.readUint(indexCountBuffer);
 
-    // Now pass the fieldArray to the worker
-    return new Promise((resolve) => {
-      const requestId = Math.random().toString(36).slice(2);
-      const handler = (
-        event: MessageEvent<{
-          requestId?: string;
-          field?: Float32Array;
-          packedVertices?: Float32Array;
-          packedNormals?: Float32Array;
-          packedTerrains?: Float32Array;
-          triangleCount?: number;
-          interleavedVertices?: Float32Array;
-          interleavedIndices?: Uint32Array;
-          timings?: { [k: string]: number };
-          meshVertices?: Triangle[];
-          meshNormals?: Triangle[];
-          meshTypes?: [number, number, number][];
-          justGearObjectsLol?: vec3[];
-        }>
-      ) => {
-        if (event.data.requestId !== requestId) return;
+    const vertices = await computeShader.readVectorBuffer(
+      vertexBuffer,
+      vertexCount * 4 // 4 floats per vec3 (due to padding)
+    );
+    const indices = await computeShader.readUintBuffer(indexBuffer, indexCount);
+    const normals = await computeShader.readVectorBuffer(
+      normalsBuffer,
+      vertexCount * 4 // 4 floats per vec3 (due to padding)
+    );
+    const terrainTypes = await computeShader.readUintBuffer(
+      terrainTypeBuffer,
+      vertexCount
+    );
+    debugger;
+    // Reconstruct mesh from compute shader results
+    this.Mesh = new Mesh();
 
-        // Store field data
-        if (event.data.field) {
-          this.Field = event.data.field;
-        }
+    // Group vertices by triangle (3 vertices per triangle)
+    for (let i = 0; i < indices.length; i += 3) {
+      const idx0 = indices[i];
+      const idx1 = indices[i + 1];
+      const idx2 = indices[i + 2];
 
-        // Reconstruct mesh from worker data
-        this.Mesh = new Mesh();
+      const tri: Triangle = [
+        vec3.fromValues(
+          vertices[idx0 * 4], // x
+          vertices[idx0 * 4 + 1], // y
+          vertices[idx0 * 4 + 2] // z (skip idx0*4+3 which is padding)
+        ),
+        vec3.fromValues(
+          vertices[idx1 * 4],
+          vertices[idx1 * 4 + 1],
+          vertices[idx1 * 4 + 2]
+        ),
+        vec3.fromValues(
+          vertices[idx2 * 4],
+          vertices[idx2 * 4 + 1],
+          vertices[idx2 * 4 + 2]
+        )
+      ];
 
-        if (
-          event.data.packedVertices &&
-          event.data.packedNormals &&
-          event.data.packedTerrains &&
-          event.data.triangleCount
-        ) {
-          const verts = event.data.packedVertices;
-          const norms = event.data.packedNormals;
-          const terrains = event.data.packedTerrains;
-          const triCount = event.data.triangleCount;
+      const norm: Triangle = [
+        vec3.fromValues(
+          normals[idx0 * 4],
+          normals[idx0 * 4 + 1],
+          normals[idx0 * 4 + 2]
+        ),
+        vec3.fromValues(
+          normals[idx1 * 4],
+          normals[idx1 * 4 + 1],
+          normals[idx1 * 4 + 2]
+        ),
+        vec3.fromValues(
+          normals[idx2 * 4],
+          normals[idx2 * 4 + 1],
+          normals[idx2 * 4 + 2]
+        )
+      ];
 
-          for (let i = 0; i < triCount; i++) {
-            const baseV = i * 9;
-            const baseN = i * 9;
-            const baseT = i * 3;
+      const types: [number, number, number] = [
+        terrainTypes[idx0],
+        terrainTypes[idx1],
+        terrainTypes[idx2]
+      ];
 
-            const t: Triangle = [
-              vec3.fromValues(verts[baseV], verts[baseV + 1], verts[baseV + 2]),
-              vec3.fromValues(
-                verts[baseV + 3],
-                verts[baseV + 4],
-                verts[baseV + 5]
-              ),
-              vec3.fromValues(
-                verts[baseV + 6],
-                verts[baseV + 7],
-                verts[baseV + 8]
-              )
-            ];
-
-            const n: Triangle = [
-              vec3.fromValues(norms[baseN], norms[baseN + 1], norms[baseN + 2]),
-              vec3.fromValues(
-                norms[baseN + 3],
-                norms[baseN + 4],
-                norms[baseN + 5]
-              ),
-              vec3.fromValues(
-                norms[baseN + 6],
-                norms[baseN + 7],
-                norms[baseN + 8]
-              )
-            ];
-
-            const ty: [number, number, number] = [
-              terrains[baseT],
-              terrains[baseT + 1],
-              terrains[baseT + 2]
-            ];
-
-            this.Mesh.addTriangle(t, n, ty);
-          }
-        } else if (
-          event.data.meshVertices &&
-          event.data.meshNormals &&
-          event.data.meshTypes
-        ) {
-          this.Mesh.setVertices(event.data.meshVertices);
-          this.Mesh.setNormals(event.data.meshNormals);
-          this.Mesh.setTypes(event.data.meshTypes);
-          this.gearObjects = event.data.justGearObjectsLol ?? [];
-        }
-
-        this.Worker.removeEventListener("message", handler as EventListener);
-        resolve(this.Mesh);
-      };
-      this.Worker.addEventListener("message", handler as EventListener);
-      this.Worker.postMessage(
-        {
-          requestId,
-          GridSize: this.GridSize,
-          ChunkPosition: this.ChunkPosition,
-          Seed: this.seed,
-          field: this.Field // <-- pass the field array
-        },
-        [this.Field.buffer]
-      );
-    });
+      this.Mesh.addTriangle(tri, norm, types);
+    }
+    this.generateEdgeTriangles();
+    return this.Mesh;
   }
 
   getMesh() {
