@@ -178,6 +178,11 @@ export class CubeShadowsPass extends RenderPass {
     this.gl.clearColor(1.0, 1.0, 1.0, 1.0); // White = far plane (max distance normalized)
 
     for (let i = 0; i < 6; i++) {
+      if (
+        this.resourceCache.getData("lights")!.length <= this.currentLightIndex
+      ) {
+        continue;
+      }
       // Set viewport for this face
       this.gl.viewport(0, 0, shadowMapSize, shadowMapSize);
 
