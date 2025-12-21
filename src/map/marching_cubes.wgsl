@@ -7,13 +7,11 @@ var<storage, read> fieldData: array<f32>;
 @group(0) @binding(3)
 var<storage, read> params: Params;
 @group(0) @binding(4)
-var<storage, read_write> vertexCount: atomic<u32>;
-@group(0) @binding(5)
-var<storage, read_write> indexCount: atomic<u32>;
+var<storage, read> vertexOffsets: array<u32>;
 // --- Add these bindings ---
-@group(0) @binding(6)
+@group(0) @binding(5)
 var<storage, read_write> normalData: array<vec3<f32>>;
-@group(0) @binding(7)
+@group(0) @binding(6)
 var<storage, read_write> terrainTypeData: array<u32>;
 
 struct Params {
@@ -121,6 +119,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
+    let voxel_idx = x + y * (params.width - 1u) + z * (params.width - 1u) * (params.height - 1u);
+    let base_vertex = vertexOffsets[voxel_idx];
+
+    var written: u32 = 0u;
     for (var tri_idx: u32 = 0u; tri_idx < 5u; tri_idx = tri_idx + 1u) {
         let packed_tri = get_case_triangle(cube_mask, tri_idx);
         if (packed_tri == 0u) {
@@ -142,24 +144,27 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let t1 = get_terrain_type(v1, n1);
         let t2 = get_terrain_type(v2, n2);
 
-        let base_vertex = atomicAdd(&vertexCount, 3u);
-        vertexData[base_vertex] = v0;
-        vertexData[base_vertex + 1u] = v1;
-        vertexData[base_vertex + 2u] = v2;
+        let vtx_idx = base_vertex + written;
+        vertexData[vtx_idx] = v0;
+        vertexData[vtx_idx + 1u] = v1;
+        vertexData[vtx_idx + 2u] = v2;
 
         // --- Write normals ---
-        normalData[base_vertex] = n0;
-        normalData[base_vertex + 1u] = n1;
-        normalData[base_vertex + 2u] = n2;
+        normalData[vtx_idx] = n0;
+        normalData[vtx_idx + 1u] = n1;
+        normalData[vtx_idx + 2u] = n2;
 
         // --- Write terrain types ---
-        terrainTypeData[base_vertex] = t0;
-        terrainTypeData[base_vertex + 1u] = t1;
-        terrainTypeData[base_vertex + 2u] = t2;
+        terrainTypeData[vtx_idx] = t0;
+        terrainTypeData[vtx_idx + 1u] = t1;
+        terrainTypeData[vtx_idx + 2u] = t2;
 
-        let base_index = atomicAdd(&indexCount, 3u);
-        indexData[base_index] = base_vertex;
-        indexData[base_index + 1u] = base_vertex + 1u;
-        indexData[base_index + 2u] = base_vertex + 2u;
+        // Write indices
+        let idx_idx = vtx_idx;
+        indexData[idx_idx] = vtx_idx;
+        indexData[idx_idx + 1u] = vtx_idx + 1u;
+        indexData[idx_idx + 2u] = vtx_idx + 2u;
+
+        written = written + 3u;
     }
 }

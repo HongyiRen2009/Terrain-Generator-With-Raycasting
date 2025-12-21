@@ -133,7 +133,6 @@ export class WorldMap {
       noise: number;
       fieldReadback: number;
       marchingCubes: number;
-      countsReadback: number;
       vertexBufferReadback: number;
       indexBufferReadback: number;
       normalsBufferReadback: number;
@@ -167,8 +166,6 @@ export class WorldMap {
         )} ms, fieldReadback: ${avg("fieldReadback").toFixed(
           2
         )} ms, marchingCubes: ${avg("marchingCubes").toFixed(
-          2
-        )} ms, countsReadback: ${avg("countsReadback").toFixed(
           2
         )} ms, vertexBufferReadback: ${avg("vertexBufferReadback").toFixed(
           2
@@ -325,16 +322,6 @@ export class WorldMap {
 
 import { CASES, EDGES, VERTICES } from "./geometry";
 import { ComputeShader } from "./WebGPU compute";
-//Log an array that shows the number of vertices per CASE
-const caseVertexCounts: number[] = new Array(256).fill(0);
-for (let caseIndex = 0; caseIndex < CASES.length; caseIndex++) {
-  const triangles = CASES[caseIndex];
-  caseVertexCounts[caseIndex] = triangles.length * 3; // 3 vertices per triangle
-}
-console.log(
-  "Marching Cubes Case Vertex Counts:",
-  JSON.stringify(caseVertexCounts)
-);
 export class Chunk {
   ChunkPosition: vec3;
   GridSize: vec3;
@@ -583,7 +570,6 @@ export class Chunk {
       noise: number;
       fieldReadback: number;
       marchingCubes: number;
-      countsReadback: number;
       vertexBufferReadback: number;
       indexBufferReadback: number;
       normalsBufferReadback: number;
@@ -628,8 +614,8 @@ export class Chunk {
       indexBuffer,
       normalsBuffer,
       terrainTypeBuffer,
-      vertexCountBuffer,
-      indexCountBuffer
+      vertexCount,
+      indexCount
     } = await computeShader.createMarchingCubes(
       fieldBuffer,
       width,
@@ -637,12 +623,6 @@ export class Chunk {
       depth
     );
     timings.marchingCubes = performance.now() - startTime;
-
-    startTime = performance.now();
-    // Read the results from GPU
-    const vertexCount = await computeShader.readUint(vertexCountBuffer);
-    const indexCount = await computeShader.readUint(indexCountBuffer);
-    timings.countsReadback = performance.now() - startTime;
 
     startTime = performance.now();
     const vertices = await computeShader.readVectorBuffer(

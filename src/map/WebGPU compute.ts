@@ -1,6 +1,9 @@
 import noiseShaderCode from "./noise.wgsl";
 import marchingCubesCode from "./marching_cubes.wgsl";
 import prefixSumShaderCode from "./prefix_sum.wgsl";
+import prefixSumChunkCode from "./prefix_sum_chunk.wgsl";
+import prefixSumScanBlocksCode from "./prefix_sum_scan_blocks.wgsl";
+import prefixSumUniformAddCode from "./prefix_sum_uniform_add.wgsl";
 import calcVertexCountCode from "./calc_vertex_count.wgsl";
 import { CASES } from "./geometry";
 export class ComputeShader {
@@ -9,25 +12,6 @@ export class ComputeShader {
 
   constructor() {
     this.init();
-    const prefixSumTest = async () => {
-      debugger;
-      const testArray = new Float32Array([1, 2, 3, 4, 5]);
-      // Pad to next power of two (8)
-      const padded = new Float32Array(8);
-      padded.set(testArray);
-      // Use padded.length for buffer creation and shader dispatch
-      const inputBuffer = await this.createBufferFromArray(
-        padded,
-        GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
-      );
-      const outputBuffer = await this.computePrefixSum(
-        inputBuffer,
-        padded.length
-      );
-      const result = await this.readVectorBuffer(outputBuffer, padded.length);
-      console.log("Prefix Sum Result:", result.slice(0, testArray.length));
-    };
-    prefixSumTest();
   }
 
   async init() {
@@ -115,6 +99,43 @@ export class ComputeShader {
     const value = new Uint32Array(arrayBuffer.slice(0))[0];
     readBuffer.unmap();
     return value;
+  }
+  /**
+   * Reads a single uint32 value from a GPUBuffer at the given index.
+   */
+  async readUintAt(buffer: GPUBuffer, index: number): Promise<number> {
+    const readBuffer = this.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+    const commandEncoder = this.device.createCommandEncoder();
+    commandEncoder.copyBufferToBuffer(buffer, index * 4, readBuffer, 0, 4);
+    this.device.queue.submit([commandEncoder.finish()]);
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+    const value = new Uint32Array(arrayBuffer)[0];
+    readBuffer.unmap();
+    return value;
+  }
+
+  /**
+   * Reads the total vertex and index count from marching cubes buffers.
+   * Returns { vertexCount, indexCount }
+   */
+  async getMarchingCubesCounts(
+    prefixSumBuffer: GPUBuffer,
+    vertexCountsBuffer: GPUBuffer,
+    width: number,
+    height: number,
+    depth: number
+  ): Promise<{ vertexCount: number; indexCount: number }> {
+    const numVoxels = (width - 1) * (height - 1) * (depth - 1);
+    const lastIdx = numVoxels - 1;
+    const lastPrefix = await this.readUintAt(prefixSumBuffer, lastIdx);
+    const lastCount = await this.readUintAt(vertexCountsBuffer, lastIdx);
+    const vertexCount = lastPrefix + lastCount;
+    const indexCount = vertexCount; // or (vertexCount / 3) * 3 if always triangles
+    return { vertexCount, indexCount };
   }
   async createPerlinNoise3D(
     width: number,
@@ -231,6 +252,28 @@ export class ComputeShader {
       await this.init();
     }
 
+    const vertexCountsBuffer = await this.computeVertexCount(
+      fieldBuffer,
+      width,
+      height,
+      depth
+    );
+    const counts = await this.readUintBuffer(
+      vertexCountsBuffer,
+      (width - 1) * (height - 1) * (depth - 1)
+    );
+    const testArray = new Float32Array(163840);
+    for (let i = 0; i < testArray.length; i++) {
+      testArray[i] = Math.random() < 0.7 ? 0 : Math.floor(Math.random() * 10);
+    }
+    const vertexOffsetsBuffer = await this.computePrefixSum(
+      vertexCountsBuffer,
+      (width - 1) * (height - 1) * (depth - 1)
+    );
+    const offsets = await this.readUintBuffer(
+      vertexOffsetsBuffer,
+      (width - 1) * (height - 1) * (depth - 1)
+    );
     // Create params buffer
     const paramsBuffer = this.device.createBuffer({
       size: 12, // 3 u32s
@@ -239,10 +282,15 @@ export class ComputeShader {
     });
     new Uint32Array(paramsBuffer.getMappedRange()).set([width, height, depth]);
     paramsBuffer.unmap();
-
-    // Estimate max vertices and indices (adjust multiplier as needed)
-    const maxVertices = width * height * depth * 15;
-    const maxIndices = width * height * depth * 15;
+    const vertexCountData = await this.getMarchingCubesCounts(
+      vertexOffsetsBuffer,
+      vertexCountsBuffer,
+      width,
+      height,
+      depth
+    );
+    const maxVertices = vertexCountData.vertexCount;
+    const maxIndices = vertexCountData.indexCount;
 
     // Create vertex data buffer
     const vertexBuffer = this.device.createBuffer({
@@ -261,23 +309,6 @@ export class ComputeShader {
     });
     new Uint32Array(indexBuffer.getMappedRange()).fill(0);
     indexBuffer.unmap();
-
-    // Create atomic counters
-    const vertexCountBuffer = this.device.createBuffer({
-      size: 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-      mappedAtCreation: true
-    });
-    new Uint32Array(vertexCountBuffer.getMappedRange()).set([0]);
-    vertexCountBuffer.unmap();
-
-    const indexCountBuffer = this.device.createBuffer({
-      size: 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-      mappedAtCreation: true
-    });
-    new Uint32Array(indexCountBuffer.getMappedRange()).set([0]);
-    indexCountBuffer.unmap();
     const normalsBuffer = this.device.createBuffer({
       size: maxVertices * 16, // vec3<f32> = 12 bytes
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
@@ -323,7 +354,7 @@ export class ComputeShader {
         {
           binding: 4,
           visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "storage" }
+          buffer: { type: "read-only-storage" }
         },
         {
           binding: 5,
@@ -332,11 +363,6 @@ export class ComputeShader {
         },
         {
           binding: 6,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "storage" }
-        },
-        {
-          binding: 7,
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "storage" }
         }
@@ -351,10 +377,9 @@ export class ComputeShader {
         { binding: 1, resource: { buffer: indexBuffer } },
         { binding: 2, resource: { buffer: fieldBuffer } },
         { binding: 3, resource: { buffer: paramsBuffer } },
-        { binding: 4, resource: { buffer: vertexCountBuffer } },
-        { binding: 5, resource: { buffer: indexCountBuffer } },
-        { binding: 6, resource: { buffer: normalsBuffer } },
-        { binding: 7, resource: { buffer: terrainTypeBuffer } }
+        { binding: 4, resource: { buffer: vertexOffsetsBuffer } },
+        { binding: 5, resource: { buffer: normalsBuffer } },
+        { binding: 6, resource: { buffer: terrainTypeBuffer } }
       ]
     });
 
@@ -378,14 +403,13 @@ export class ComputeShader {
     passEncoder.end();
 
     this.device.queue.submit([commandEncoder.finish()]);
-
     return {
       vertexBuffer,
       indexBuffer,
       normalsBuffer,
       terrainTypeBuffer,
-      vertexCountBuffer,
-      indexCountBuffer
+      vertexCount: vertexCountData.vertexCount,
+      indexCount: vertexCountData.indexCount
     };
   }
   async computeVertexCount(
@@ -393,10 +417,11 @@ export class ComputeShader {
     width: number,
     height: number,
     depth: number
-  ): Promise<number> {
+  ): Promise<GPUBuffer> {
     if (!this.device) {
       await this.init();
     }
+    const numVoxels = (width - 1) * (height - 1) * (depth - 1);
     // Create params buffer
     const paramsBuffer = this.device.createBuffer({
       size: 12, // 3 u32s
@@ -407,11 +432,11 @@ export class ComputeShader {
     paramsBuffer.unmap();
     // Create vertex count buffer
     const vertexCountBuffer = this.device.createBuffer({
-      size: 4,
+      size: numVoxels * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
       mappedAtCreation: true
     });
-    new Uint32Array(vertexCountBuffer.getMappedRange()).set([0]);
+    new Uint32Array(vertexCountBuffer.getMappedRange()).fill(0);
     vertexCountBuffer.unmap();
     // Create shader module
     const shaderModule = this.device.createShaderModule({
@@ -466,9 +491,7 @@ export class ComputeShader {
     );
     passEncoder.end();
     this.device.queue.submit([commandEncoder.finish()]);
-    // Read back vertex count
-    const vertexCount = await this.readUint(vertexCountBuffer);
-    return vertexCount;
+    return vertexCountBuffer;
   }
   async computePrefixSum(
     inputBuffer: GPUBuffer,
@@ -477,23 +500,17 @@ export class ComputeShader {
     if (!this.device) {
       await this.init();
     }
-    // Create uniform buffer for element count
-    const paramBuffer = this.device.createBuffer({
-      size: 4,
-      usage: GPUBufferUsage.UNIFORM,
-      mappedAtCreation: true
+    const pass1ShaderModule = this.device.createShaderModule({
+      code: prefixSumChunkCode
     });
-    new Uint32Array(paramBuffer.getMappedRange()).set([elementCount]);
-    paramBuffer.unmap();
+    const pass2ShaderModule = this.device.createShaderModule({
+      code: prefixSumScanBlocksCode
+    });
+    const pass3ShaderModule = this.device.createShaderModule({
+      code: prefixSumUniformAddCode
+    });
 
-    const outputBuffer = this.device.createBuffer({
-      size: elementCount * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
-    });
-    const shaderModule = this.device.createShaderModule({
-      code: prefixSumShaderCode
-    });
-    const bindGroupLayout = this.device.createBindGroupLayout({
+    const pass1UniformBindGroupLayout = this.device.createBindGroupLayout({
       entries: [
         {
           binding: 0,
@@ -508,32 +525,237 @@ export class ComputeShader {
         {
           binding: 2,
           visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "uniform" }
+          buffer: { type: "storage" }
         }
       ]
     });
-    const bindGroup = this.device.createBindGroup({
-      layout: bindGroupLayout,
+
+    const pass2UniformBindGroupLayout = this.device.createBindGroupLayout({
       entries: [
-        { binding: 0, resource: { buffer: inputBuffer } },
-        { binding: 1, resource: { buffer: outputBuffer } },
-        { binding: 2, resource: { buffer: paramBuffer } }
+        {
+          binding: 0,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "read-only-storage" }
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "storage" }
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: {}
+        }
       ]
     });
-    const pipeline = this.device.createComputePipeline({
+
+    const pass3UniformBindGroupLayout = this.device.createBindGroupLayout({
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "storage" }
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.COMPUTE,
+          buffer: { type: "read-only-storage" }
+        }
+      ]
+    });
+
+    const chunkCount = Math.ceil(elementCount / 512);
+
+    // get nearest power of 2 for chunkCount
+    let powerOf2 = 1;
+    while (powerOf2 < chunkCount) {
+      powerOf2 *= 2;
+    }
+
+    /*     const inputArrayBuffer = this.createGPUBuffer(
+      new Float32Array(input),
+      GPUBufferUsage.STORAGE
+    );
+    const outputArrayBuffer = this.createGPUBuffer(
+      new Float32Array(input),
+      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+    );
+    const readOutputArrayBuffer = this.createGPUBuffer(
+      new Float32Array(input),
+      GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+    ); */
+    const inputArrayBuffer = inputBuffer;
+    const outputArrayBuffer = this.copyGPUBuffer(
+      inputBuffer,
+      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+    );
+    const sumArrayBuffer = this.createGPUBuffer(
+      new Uint32Array(powerOf2),
+      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+    );
+    const outputSumArrayBuffer = this.createGPUBuffer(
+      new Uint32Array(powerOf2),
+      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+    );
+
+    const sumSizeBuffer = this.createGPUBuffer(
+      new Uint32Array([powerOf2]),
+      GPUBufferUsage.UNIFORM
+    );
+
+    const pass1UniformBindGroup = this.device.createBindGroup({
+      layout: pass1UniformBindGroupLayout,
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: inputArrayBuffer
+          }
+        },
+        {
+          binding: 1,
+          resource: {
+            buffer: outputArrayBuffer
+          }
+        },
+        {
+          binding: 2,
+          resource: {
+            buffer: sumArrayBuffer
+          }
+        }
+      ]
+    });
+
+    const pass2UniformBindGroup = this.device.createBindGroup({
+      layout: pass2UniformBindGroupLayout,
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: sumArrayBuffer
+          }
+        },
+        {
+          binding: 1,
+          resource: {
+            buffer: outputSumArrayBuffer
+          }
+        },
+        {
+          binding: 2,
+          resource: {
+            buffer: sumSizeBuffer
+          }
+        }
+      ]
+    });
+
+    const pass3UniformBindGroup = this.device.createBindGroup({
+      layout: pass3UniformBindGroupLayout,
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: outputArrayBuffer
+          }
+        },
+        {
+          binding: 1,
+          resource: {
+            buffer: outputSumArrayBuffer
+          }
+        }
+      ]
+    });
+
+    const pass1Pipeline = this.device.createComputePipeline({
       layout: this.device.createPipelineLayout({
-        bindGroupLayouts: [bindGroupLayout]
+        bindGroupLayouts: [pass1UniformBindGroupLayout]
       }),
-      compute: { module: shaderModule, entryPoint: "main" }
+      compute: {
+        module: pass1ShaderModule,
+        entryPoint: "main"
+      }
+    });
+
+    const pass2Pipeline = this.device.createComputePipeline({
+      layout: this.device.createPipelineLayout({
+        bindGroupLayouts: [pass2UniformBindGroupLayout]
+      }),
+      compute: {
+        module: pass2ShaderModule,
+        entryPoint: "main"
+      }
+    });
+
+    const pass3Pipeline = this.device.createComputePipeline({
+      layout: this.device.createPipelineLayout({
+        bindGroupLayouts: [pass3UniformBindGroupLayout]
+      }),
+      compute: {
+        module: pass3ShaderModule,
+        entryPoint: "main"
+      }
+    });
+
+    const computePassDescriptor = {};
+
+    const commandEncoder = this.device.createCommandEncoder();
+
+    const passEncoder1 = commandEncoder.beginComputePass(computePassDescriptor);
+    passEncoder1.setPipeline(pass1Pipeline);
+    passEncoder1.setBindGroup(0, pass1UniformBindGroup);
+    passEncoder1.dispatchWorkgroups(chunkCount);
+    passEncoder1.end();
+
+    const passEncoder2 = commandEncoder.beginComputePass(computePassDescriptor);
+    passEncoder2.setPipeline(pass2Pipeline);
+    passEncoder2.setBindGroup(0, pass2UniformBindGroup);
+    passEncoder2.dispatchWorkgroups(1);
+    passEncoder2.end();
+
+    const passEncoder3 = commandEncoder.beginComputePass(computePassDescriptor);
+    passEncoder3.setPipeline(pass3Pipeline);
+    passEncoder3.setBindGroup(0, pass3UniformBindGroup);
+    passEncoder3.dispatchWorkgroups(chunkCount);
+    passEncoder3.end();
+
+    this.device.queue.submit([commandEncoder.finish()]);
+    return outputArrayBuffer;
+  }
+  copyGPUBuffer(
+    source: GPUBuffer,
+    usage: GPUBufferUsageFlags = GPUBufferUsage.COPY_SRC |
+      GPUBufferUsage.COPY_DST
+  ): GPUBuffer {
+    const buffer = this.device.createBuffer({
+      size: source.size,
+      usage
     });
     const commandEncoder = this.device.createCommandEncoder();
-    const passEncoder = commandEncoder.beginComputePass();
-    passEncoder.setPipeline(pipeline);
-    passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatchWorkgroups(Math.ceil(elementCount / 256));
-    passEncoder.end();
+    commandEncoder.copyBufferToBuffer(source, 0, buffer, 0, source.size);
     this.device.queue.submit([commandEncoder.finish()]);
-    return outputBuffer;
+    return buffer;
+  }
+  createGPUBuffer(
+    array: Float32Array | Uint32Array,
+    usage: GPUBufferUsageFlags
+  ): GPUBuffer {
+    const buffer = this.device.createBuffer({
+      size: array.byteLength,
+      usage,
+      mappedAtCreation: true
+    });
+    const mapping = buffer.getMappedRange();
+    if (array instanceof Float32Array) {
+      new Float32Array(mapping).set(array);
+    } else if (array instanceof Uint32Array) {
+      new Uint32Array(mapping).set(array);
+    }
+    buffer.unmap();
+    return buffer;
   }
   async createBufferFromArray(
     array: Float32Array | Uint32Array,
