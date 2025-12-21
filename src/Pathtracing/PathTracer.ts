@@ -168,7 +168,7 @@ export class PathTracer {
     );
 
     //put lights in the shader
-    WorldUtils.updateLights(this.gl, this.meshProgram, this.world.lights);
+    WorldUtils.updateLights(this.gl, this.meshProgram, this.world.lights, this.world.sunLight);
 
     //Bind Previous Frame
     const lastFrameIndex = this.currentFrame;

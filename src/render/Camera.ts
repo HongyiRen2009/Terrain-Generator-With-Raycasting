@@ -14,6 +14,7 @@ export class Camera {
   pathtracingFarPlane = 10000000000;
   farPlane: number;
   speed: number;
+  nearPlane: number = 0.1;
   constructor(position: vec3) {
     this.position = position;
 
@@ -59,7 +60,7 @@ export class Camera {
       matProj,
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
-      /* near, far= */ 0.1,
+      /* near, far= */ this.nearPlane,
       this.farPlane
     );
     mat4.multiply(matViewProj, matProj, matView);
@@ -73,7 +74,7 @@ export class Camera {
       matProj,
       /* fovy= */ glMatrix.toRadian(90),
       /* aspectRatio= */ canvasWidth / canvasHeight,
-      /* near, far= */ 0.1,
+      /* near, far= */ this.nearPlane,
       this.farPlane
     );
     return { matView, matProj };
@@ -91,5 +92,9 @@ export class Camera {
     vec3.normalize(this.front, front); // Normalize to maintain unit length
     vec3.cross(this.right, this.front, this.up);
     vec3.normalize(this.right, this.right);
+  }
+
+  getNearFarPlanes(): { near: number; far: number } {
+    return { near: this.nearPlane, far: this.farPlane };
   }
 }

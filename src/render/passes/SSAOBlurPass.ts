@@ -16,15 +16,15 @@ export class SSAOBlurPass extends RenderPass {
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
     canvas: HTMLCanvasElement,
-    renderGraph?: RenderGraph
+    renderGraph?: RenderGraph,
+    name?: string
   ) {
-    super(gl, resourceCache, canvas, renderGraph);
+    super(gl, resourceCache, canvas, renderGraph, name);
     this.program = RenderUtils.CreateProgram(
       gl,
       SSAOBlurVertexShaderSource,
       SSAOBlurFragmentShaderSource
     )!;
-    this.renderTarget = this.initRenderTarget();
     this.uniforms = getUniformLocations(gl, this.program!, ["enableBlur"]);
   }
 
@@ -87,7 +87,6 @@ export class SSAOBlurPass extends RenderPass {
       "depthTexture",
       1
     );
-    this.settingsSection?.updateUniforms(this.gl);
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
@@ -103,7 +102,7 @@ export class SSAOBlurPass extends RenderPass {
       }
       if (this.renderTarget.textures) {
         for (const texture of Object.values(this.renderTarget.textures)) {
-          this.gl.deleteTexture(texture);
+          this.gl.deleteTexture(texture as WebGLTexture);
         }
       }
     }

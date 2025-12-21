@@ -1,5 +1,5 @@
 import { RenderPass } from "./RenderPass";
-type TextureMap = { [key: string]: WebGLTexture };
+type TextureMap = { [key: string]: WebGLTexture | WebGLTexture[] };
 export class RenderGraph {
   private roots: Set<RenderPass>;
   private dependencies: Map<RenderPass, Set<RenderPass>>;
@@ -80,7 +80,9 @@ export class RenderGraph {
     return sorted;
   }
 
-  getOutputs(renderPass: RenderPass): { [key: string]: WebGLTexture } {
+  getOutputs(renderPass: RenderPass): {
+    [key: string]: WebGLTexture | WebGLTexture[];
+  } {
     const deps = this.dependencies.get(renderPass);
     if (!deps || deps.size === 0) {
       return {} as TextureMap;
@@ -99,5 +101,16 @@ export class RenderGraph {
 
   getRoots(): RenderPass[] {
     return Array.from(this.roots);
+  }
+
+  /** Get a pass by its name */
+  getPass(name: string): RenderPass | undefined {
+    for (const pass of Array.from(this.dependencies.keys())) {
+      if (pass.name === name) return pass;
+    }
+    for (const pass of Array.from(this.roots.keys())) {
+      if (pass.name === name) return pass;
+    }
+    return undefined;
   }
 }
