@@ -12,7 +12,7 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 
 export class GeometryPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.SCENE;
-  public pathtracerRender: boolean = false;
+  public pathtracerRender: boolean = true;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,

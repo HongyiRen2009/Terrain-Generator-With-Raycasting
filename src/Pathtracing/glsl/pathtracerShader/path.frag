@@ -652,6 +652,8 @@ float PhaseFunction(float cosTheta, float g) {
     return (1.0f - g2) / (4.0f * PI * denom);
 }
 vec4 handleClouds(vec3 rayOriginWorld,vec3 rayDirWorld,float distanceToTerrain,vec3 skyColor, uint rng_state){
+    //Can't get this to work natively on the pathtracer. Will keep it off for now and use raytraced shader.
+    return vec4(0.0);
     if(!CLOUDS_enableClouds) {
         return vec4(0.0);
     }
@@ -928,7 +930,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
             // Apply clouds and final color
             if(bounce == 0 || bounce == hasMirror + 1){
-                vec4 cloudHandled = handleClouds(rayOrigin,rayDir,100000.0, finalSky, rng_state);//handleFog(rayOrigin, rayDir, finalSky, 1.0/0.0001, rng_state);
+                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir,100000.0, finalSky, rng_state);//handleFog(rayOrigin, rayDir, finalSky, 1.0/0.0001, rng_state);
                 color = throughput * mix(finalSky, cloudHandled.xyz, cloudHandled.a);
             }
             

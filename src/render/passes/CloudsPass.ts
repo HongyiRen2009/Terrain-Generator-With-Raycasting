@@ -16,7 +16,7 @@ import { vec3 } from "gl-matrix";
 import { DirectionalLight } from "../../map/Light";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
-  public pathtracerRender: boolean = false;
+  public pathtracerRender: boolean = true;
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
   private noiseGenerator: NoiseGenerator;

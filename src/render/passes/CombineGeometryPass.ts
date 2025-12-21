@@ -9,7 +9,7 @@ import CombineGeometryVertexShaderSource from "../glsl/DeferredRendering/Combine
 import CombineGeometryFragmentShaderSource from "../glsl/DeferredRendering/CombineGeometryPass.frag";
 export class CombineGeometryPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
-  public pathtracerRender: boolean = false;
+  public pathtracerRender: boolean = true;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
