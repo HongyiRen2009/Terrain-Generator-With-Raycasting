@@ -11,8 +11,12 @@ export class ObjectUI {
   private nextSpawnPosition: vec3 = vec3.fromValues(0, 50, 0);
   private camera?: { position: vec3 }; // Optional camera reference
   private transformUpdateTimeout: number | null = null; // For debouncing transform updates
-  
-  constructor(map: WorldMap, updateTracer: () => () => void, camera?: { position: vec3 }) {
+
+  constructor(
+    map: WorldMap,
+    updateTracer: () => () => void,
+    camera?: { position: vec3 }
+  ) {
     this.tracerUpdateSupplier = updateTracer;
     this.camera = camera;
 
@@ -23,10 +27,18 @@ export class ObjectUI {
     const addMapEntryBtn = document.getElementById("add-map-entry")!;
     const importMapDiv = document.getElementById("import-map")!;
     const fileInput = document.getElementById("ply-file") as HTMLInputElement;
-    const nameInput = document.getElementById("object-name") as HTMLInputElement;
-    const scaleInput = document.getElementById("model-scale") as HTMLInputElement;
-    const qualityInput = document.getElementById("model-quality") as HTMLInputElement;
-    const qualityValueSpan = document.getElementById("quality-value") as HTMLElement;
+    const nameInput = document.getElementById(
+      "object-name"
+    ) as HTMLInputElement;
+    const scaleInput = document.getElementById(
+      "model-scale"
+    ) as HTMLInputElement;
+    const qualityInput = document.getElementById(
+      "model-quality"
+    ) as HTMLInputElement;
+    const qualityValueSpan = document.getElementById(
+      "quality-value"
+    ) as HTMLElement;
 
     // Update quality display when slider changes
     if (qualityInput && qualityValueSpan) {
@@ -44,7 +56,7 @@ export class ObjectUI {
       // Update spawn position inputs when popup opens
       this.updateSpawnInputs();
     });
-    
+
     closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
 
     // Add mapping UI
@@ -63,7 +75,7 @@ export class ObjectUI {
         { value: 4, label: "Transmission (Glass)" },
         { value: 5, label: "Emission (Light)" }
       ];
-      
+
       terrainTypes.forEach((t) => {
         const opt = document.createElement("option");
         opt.value = t.value.toString();
@@ -114,7 +126,14 @@ export class ObjectUI {
     submitBtn.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
 
-      if (!file || !(file.name.endsWith(".ply") || file.name.endsWith(".3mf") || file.name.endsWith(".obj"))) {
+      if (
+        !file ||
+        !(
+          file.name.endsWith(".ply") ||
+          file.name.endsWith(".3mf") ||
+          file.name.endsWith(".obj")
+        )
+      ) {
         alert("Please upload a valid .ply, .3mf, or .obj file.");
         return;
       }
@@ -124,26 +143,43 @@ export class ObjectUI {
       }
 
       const scaleValue = parseFloat(scaleInput.value) || 1.0;
-      const qualityValue = parseFloat((document.getElementById("model-quality") as HTMLInputElement)?.value || "1");
+      const qualityValue = parseFloat(
+        (document.getElementById("model-quality") as HTMLInputElement)?.value ||
+          "1"
+      );
       const spawnPos = this.getSpawnPosition();
 
       // Show loading indicator
       const loadingMsg = document.createElement("div");
       loadingMsg.textContent = "Loading model...";
-      loadingMsg.style.cssText = "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 10000; font-family: monospace;";
+      loadingMsg.style.cssText =
+        "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 10000; font-family: monospace;";
       document.body.appendChild(loadingMsg);
 
       try {
         // Collect import map entries
         const importMap: { [id: string]: number } = {};
         document.querySelectorAll(".map-entry").forEach((entry) => {
-          const inputs = entry.querySelectorAll("input, select") as NodeListOf<HTMLInputElement | HTMLSelectElement>;
+          const inputs = entry.querySelectorAll("input, select") as NodeListOf<
+            HTMLInputElement | HTMLSelectElement
+          >;
           const color = Color.fromHex((inputs[0] as HTMLInputElement).value);
-          const type = parseInt((inputs[1] as HTMLSelectElement).value) as 1 | 2 | 3 | 4 | 5;
+          const type = parseInt((inputs[1] as HTMLSelectElement).value) as
+            | 1
+            | 2
+            | 3
+            | 4
+            | 5;
           Terrains[Object.keys(Terrains).length] = {
             color: color,
-            reflectiveness: Math.min(1, Math.max(0, parseFloat((inputs[2] as HTMLInputElement).value))),
-            roughness: Math.min(1, Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value))),
+            reflectiveness: Math.min(
+              1,
+              Math.max(0, parseFloat((inputs[2] as HTMLInputElement).value))
+            ),
+            roughness: Math.min(
+              1,
+              Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value))
+            ),
             type: type
           };
           importMap[color.toString()] = Object.keys(Terrains).length - 1;
@@ -159,8 +195,12 @@ export class ObjectUI {
         } else if (file.name.endsWith(".3mf")) {
           const fileUrl = URL.createObjectURL(file);
           try {
-            const result = await threemfToMesh(fileUrl, importMap, qualityValue);
-            if(result == null){
+            const result = await threemfToMesh(
+              fileUrl,
+              importMap,
+              qualityValue
+            );
+            if (result == null) {
               return;
             }
             mesh = result.mesh;
@@ -188,7 +228,7 @@ export class ObjectUI {
         // FIXED: Apply 3MF transform first, then translate to spawn position
         // This keeps vertices in local space for proper center calculation
         const transform = mat4.create();
-        
+
         // Apply 3MF transform if present (this is the transform from the 3MF file)
         // IMPORTANT: The 3MF transform should only include rotation/scale, not translation
         // because translation is handled separately as the world position
@@ -199,17 +239,17 @@ export class ObjectUI {
             threeMFTransform[13],
             threeMFTransform[14]
           );
-          
+
           // Copy 3MF transform but zero out translation (we'll handle translation separately)
           mat4.copy(transform, threeMFTransform);
           transform[12] = 0;
           transform[13] = 0;
           transform[14] = 0;
-          
+
           // Add 3MF translation to spawn position (so object appears at correct location)
           const adjustedSpawnPos = vec3.create();
           vec3.add(adjustedSpawnPos, spawnPos, threeMFTranslation);
-          
+
           // Then translate to adjusted spawn position
           mat4.translate(transform, transform, adjustedSpawnPos);
         } else {
@@ -228,16 +268,19 @@ export class ObjectUI {
         fileInput.value = "";
         nameInput.value = "";
         scaleInput.value = "1";
-        (document.getElementById("model-quality") as HTMLInputElement).value = "1";
-        (document.getElementById("quality-value") as HTMLElement).textContent = "100%";
+        (document.getElementById("model-quality") as HTMLInputElement).value =
+          "1";
+        (document.getElementById("quality-value") as HTMLElement).textContent =
+          "100%";
         popup.classList.add("hidden");
 
         // Generate for pathtracing
         if (this.tracerUpdateSupplier) this.tracerUpdateSupplier()();
 
         // Success message with position
-        alert(`Successfully loaded ${file.name} at position [${spawnPos[0].toFixed(1)}, ${spawnPos[1].toFixed(1)}, ${spawnPos[2].toFixed(1)}]!`);
-        
+        alert(
+          `Successfully loaded ${file.name} at position [${spawnPos[0].toFixed(1)}, ${spawnPos[1].toFixed(1)}, ${spawnPos[2].toFixed(1)}]!`
+        );
       } catch (error) {
         console.error("❌ Error loading model:", error);
         const errorMsg = error instanceof Error ? error.message : String(error);
@@ -262,25 +305,26 @@ export class ObjectUI {
     if (document.getElementById("spawn-position-section")) {
       return; // Already added
     }
-    
+
     // Create position control section
     const positionSection = document.createElement("div");
     positionSection.id = "spawn-position-section";
-    positionSection.style.cssText = "margin: 15px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5;";
-    
+    positionSection.style.cssText =
+      "margin: 15px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5;";
+
     const positionTitle = document.createElement("h3");
     positionTitle.textContent = "Spawn Position";
     positionTitle.style.margin = "0 0 10px 0";
     positionSection.appendChild(positionTitle);
 
     // X, Y, Z position inputs
-    const axes = ['X', 'Y', 'Z'];
+    const axes = ["X", "Y", "Z"];
     axes.forEach((axis, index) => {
       const label = document.createElement("label");
       label.style.display = "block";
       label.style.marginBottom = "8px";
       label.innerHTML = `${axis}: `;
-      
+
       const input = document.createElement("input");
       input.type = "number";
       input.id = `spawn-${axis.toLowerCase()}`;
@@ -288,7 +332,7 @@ export class ObjectUI {
       input.step = "1";
       input.style.width = "100px";
       input.style.marginLeft = "10px";
-      
+
       label.appendChild(input);
       positionSection.appendChild(label);
     });
@@ -297,14 +341,20 @@ export class ObjectUI {
     const useCameraBtn = document.createElement("button");
     useCameraBtn.textContent = "📷 Use Camera Position";
     useCameraBtn.type = "button";
-    useCameraBtn.style.cssText = "margin-top: 10px; width: 100%; padding: 5px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;";
+    useCameraBtn.style.cssText =
+      "margin-top: 10px; width: 100%; padding: 5px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;";
     useCameraBtn.addEventListener("click", () => {
       if (this.camera && this.camera.position) {
-        (document.getElementById("spawn-x") as HTMLInputElement).value = this.camera.position[0].toFixed(1);
-        (document.getElementById("spawn-y") as HTMLInputElement).value = this.camera.position[1].toFixed(1);
-        (document.getElementById("spawn-z") as HTMLInputElement).value = this.camera.position[2].toFixed(1);
+        (document.getElementById("spawn-x") as HTMLInputElement).value =
+          this.camera.position[0].toFixed(1);
+        (document.getElementById("spawn-y") as HTMLInputElement).value =
+          this.camera.position[1].toFixed(1);
+        (document.getElementById("spawn-z") as HTMLInputElement).value =
+          this.camera.position[2].toFixed(1);
       } else {
-        alert("Camera position not available. Please enter coordinates manually.");
+        alert(
+          "Camera position not available. Please enter coordinates manually."
+        );
       }
     });
     positionSection.appendChild(useCameraBtn);
@@ -313,7 +363,8 @@ export class ObjectUI {
     const resetBtn = document.createElement("button");
     resetBtn.textContent = "↺ Reset to Default";
     resetBtn.type = "button";
-    resetBtn.style.cssText = "margin-top: 5px; width: 100%; padding: 5px; background: #666; color: white; border: none; border-radius: 3px; cursor: pointer;";
+    resetBtn.style.cssText =
+      "margin-top: 5px; width: 100%; padding: 5px; background: #666; color: white; border: none; border-radius: 3px; cursor: pointer;";
     resetBtn.addEventListener("click", () => {
       (document.getElementById("spawn-x") as HTMLInputElement).value = "0";
       (document.getElementById("spawn-y") as HTMLInputElement).value = "50";
@@ -329,19 +380,34 @@ export class ObjectUI {
    * Update spawn position inputs with current nextSpawnPosition
    */
   private updateSpawnInputs() {
-    (document.getElementById("spawn-x") as HTMLInputElement)?.setAttribute("value", this.nextSpawnPosition[0].toString());
-    (document.getElementById("spawn-y") as HTMLInputElement)?.setAttribute("value", this.nextSpawnPosition[1].toString());
-    (document.getElementById("spawn-z") as HTMLInputElement)?.setAttribute("value", this.nextSpawnPosition[2].toString());
+    (document.getElementById("spawn-x") as HTMLInputElement)?.setAttribute(
+      "value",
+      this.nextSpawnPosition[0].toString()
+    );
+    (document.getElementById("spawn-y") as HTMLInputElement)?.setAttribute(
+      "value",
+      this.nextSpawnPosition[1].toString()
+    );
+    (document.getElementById("spawn-z") as HTMLInputElement)?.setAttribute(
+      "value",
+      this.nextSpawnPosition[2].toString()
+    );
   }
 
   /**
    * Get spawn position from UI inputs
    */
   private getSpawnPosition(): vec3 {
-    const x = parseFloat((document.getElementById("spawn-x") as HTMLInputElement)?.value || "0");
-    const y = parseFloat((document.getElementById("spawn-y") as HTMLInputElement)?.value || "50");
-    const z = parseFloat((document.getElementById("spawn-z") as HTMLInputElement)?.value || "0");
-    
+    const x = parseFloat(
+      (document.getElementById("spawn-x") as HTMLInputElement)?.value || "0"
+    );
+    const y = parseFloat(
+      (document.getElementById("spawn-y") as HTMLInputElement)?.value || "50"
+    );
+    const z = parseFloat(
+      (document.getElementById("spawn-z") as HTMLInputElement)?.value || "0"
+    );
+
     return vec3.fromValues(x, y, z);
   }
 
@@ -353,26 +419,36 @@ export class ObjectUI {
   ) {
     const wrapper = document.createElement("div");
     wrapper.className = "world-object";
-    wrapper.style.cssText = "margin-bottom: 15px; padding: 0; border: 1px solid #444; border-radius: 8px; background: rgba(50, 50, 50, 0.8); overflow: hidden;";
+    wrapper.style.cssText =
+      "margin-bottom: 15px; padding: 0; border: 1px solid #444; border-radius: 8px; background: rgba(50, 50, 50, 0.8); overflow: hidden;";
 
     // Header section with name and delete button
     const header = document.createElement("div");
-    header.style.cssText = "padding: 12px 15px; background: rgba(60, 60, 60, 0.9); border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;";
-    
+    header.style.cssText =
+      "padding: 12px 15px; background: rgba(60, 60, 60, 0.9); border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;";
+
     const nameEl = document.createElement("h3");
     nameEl.textContent = obj.name;
-    nameEl.style.cssText = "margin: 0; font-size: 1.1em; font-weight: 600; color: #fff;";
+    nameEl.style.cssText =
+      "margin: 0; font-size: 1.1em; font-weight: 600; color: #fff;";
     header.appendChild(nameEl);
 
     const deleteBtn = document.createElement("button");
     deleteBtn.textContent = "🗑️";
     deleteBtn.title = "Delete Object";
-    deleteBtn.style.cssText = "background-color: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s;";
-    deleteBtn.addEventListener("mouseenter", () => deleteBtn.style.backgroundColor = "#c82333");
-    deleteBtn.addEventListener("mouseleave", () => deleteBtn.style.backgroundColor = "#dc3545");
+    deleteBtn.style.cssText =
+      "background-color: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s;";
+    deleteBtn.addEventListener(
+      "mouseenter",
+      () => (deleteBtn.style.backgroundColor = "#c82333")
+    );
+    deleteBtn.addEventListener(
+      "mouseleave",
+      () => (deleteBtn.style.backgroundColor = "#dc3545")
+    );
     deleteBtn.addEventListener("click", () => {
       if (!confirm(`Delete "${obj.name}"?`)) return;
-      
+
       try {
         if ((obj as any).buffer) {
           const b = (obj as any).buffer;
@@ -394,7 +470,6 @@ export class ObjectUI {
 
       if (UI.tracerUpdateSupplier) UI.tracerUpdateSupplier()();
       if (world.onObjectRemoved) world.onObjectRemoved(obj.id);
-      
     });
     header.appendChild(deleteBtn);
     wrapper.appendChild(header);
@@ -405,20 +480,22 @@ export class ObjectUI {
 
     // Info section
     const infoSection = document.createElement("div");
-    infoSection.style.cssText = "margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #555;";
-    
+    infoSection.style.cssText =
+      "margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #555;";
+
     const infoRow = (label: string, value: string) => {
       const row = document.createElement("div");
-      row.style.cssText = "display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em;";
-      
+      row.style.cssText =
+        "display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em;";
+
       const labelSpan = document.createElement("span");
       labelSpan.textContent = label + ":";
       labelSpan.style.cssText = "color: #aaa; font-weight: 500;";
-      
+
       const valueSpan = document.createElement("span");
       valueSpan.textContent = value;
       valueSpan.style.cssText = "color: #fff; font-family: monospace;";
-      
+
       row.appendChild(labelSpan);
       row.appendChild(valueSpan);
       return row;
@@ -427,10 +504,13 @@ export class ObjectUI {
     const vertCount = obj.mesh.mesh.length * 3;
     const triangleCount = obj.mesh.mesh.length;
     infoSection.appendChild(infoRow("Vertices", vertCount.toLocaleString()));
-    infoSection.appendChild(infoRow("Triangles", triangleCount.toLocaleString()));
+    infoSection.appendChild(
+      infoRow("Triangles", triangleCount.toLocaleString())
+    );
 
     const posEl = document.createElement("div");
-    posEl.style.cssText = "display: flex; justify-content: space-between; font-size: 0.9em;";
+    posEl.style.cssText =
+      "display: flex; justify-content: space-between; font-size: 0.9em;";
     const posLabel = document.createElement("span");
     posLabel.textContent = "Position:";
     posLabel.style.cssText = "color: #aaa; font-weight: 500;";
@@ -454,17 +534,29 @@ export class ObjectUI {
     // We need to decompose it to extract translation, rotation, and scale
     // For now, we'll extract what we can, but start with identity rotation/scale
     // and let the user adjust from there
-    
+
     // Extract translation (last column, bottom 3 elements)
     const translation = [obj.position[12], obj.position[13], obj.position[14]];
-    
+
     // Extract scale from matrix (length of first 3 column vectors, before rotation)
     // This is approximate but should work for most cases
-    const sx = Math.sqrt(obj.position[0] * obj.position[0] + obj.position[1] * obj.position[1] + obj.position[2] * obj.position[2]);
-    const sy = Math.sqrt(obj.position[4] * obj.position[4] + obj.position[5] * obj.position[5] + obj.position[6] * obj.position[6]);
-    const sz = Math.sqrt(obj.position[8] * obj.position[8] + obj.position[9] * obj.position[9] + obj.position[10] * obj.position[10]);
+    const sx = Math.sqrt(
+      obj.position[0] * obj.position[0] +
+        obj.position[1] * obj.position[1] +
+        obj.position[2] * obj.position[2]
+    );
+    const sy = Math.sqrt(
+      obj.position[4] * obj.position[4] +
+        obj.position[5] * obj.position[5] +
+        obj.position[6] * obj.position[6]
+    );
+    const sz = Math.sqrt(
+      obj.position[8] * obj.position[8] +
+        obj.position[9] * obj.position[9] +
+        obj.position[10] * obj.position[10]
+    );
     const scale = [sx, sy, sz];
-    
+
     // Start with zero rotation (user can adjust)
     const rotationDegrees = [0, 0, 0];
 
@@ -489,14 +581,18 @@ export class ObjectUI {
       // After T(-P), the center is at (0,0,0). After R*S, it's still at (0,0,0).
       // After T_world, it should be at world position.
       // However, we need to account for the fact that the center offset gets scaled/rotated.
-      
+
       // Build rotation/scale matrix first
       const rotScaleMat = mat4.create();
-      mat4.scale(rotScaleMat, rotScaleMat, vec3.fromValues(scale[0], scale[1], scale[2]));
+      mat4.scale(
+        rotScaleMat,
+        rotScaleMat,
+        vec3.fromValues(scale[0], scale[1], scale[2])
+      );
       mat4.rotateX(rotScaleMat, rotScaleMat, rad[0]);
       mat4.rotateY(rotScaleMat, rotScaleMat, rad[1]);
       mat4.rotateZ(rotScaleMat, rotScaleMat, rad[2]);
-      
+
       // After T(-center), center is at (0,0,0)
       // After R*S, center is still at (0,0,0)
       // We want center to end up at 'translation' in world space
@@ -505,18 +601,26 @@ export class ObjectUI {
       const invRotScaleMat = mat4.create();
       mat4.invert(invRotScaleMat, rotScaleMat);
       const worldTransInLocalSpace = vec3.create();
-      vec3.transformMat4(worldTransInLocalSpace, vec3.fromValues(translation[0], translation[1], translation[2]), invRotScaleMat);
-      
+      vec3.transformMat4(
+        worldTransInLocalSpace,
+        vec3.fromValues(translation[0], translation[1], translation[2]),
+        invRotScaleMat
+      );
+
       // Build the full transform: T(worldTransInLocalSpace) * R * S * T(-center)
       const newMat = mat4.create();
-      
+
       // 1. Translate to -center (move object center to origin in LOCAL space)
-      const negCenter = vec3.fromValues(-meshCenter[0], -meshCenter[1], -meshCenter[2]);
+      const negCenter = vec3.fromValues(
+        -meshCenter[0],
+        -meshCenter[1],
+        -meshCenter[2]
+      );
       mat4.translate(newMat, newMat, negCenter);
-      
+
       // 2. Apply rotation/scale (center is now at origin, so it stays at origin)
       mat4.multiply(newMat, rotScaleMat, newMat);
-      
+
       // 3. Translate by world translation (in local/rotated space) to place center at world position
       mat4.translate(newMat, newMat, worldTransInLocalSpace);
 
@@ -530,7 +634,7 @@ export class ObjectUI {
       if (UI.transformUpdateTimeout !== null) {
         clearTimeout(UI.transformUpdateTimeout);
       }
-      
+
       UI.transformUpdateTimeout = window.setTimeout(() => {
         if (UI.tracerUpdateSupplier) {
           UI.tracerUpdateSupplier()();
@@ -540,17 +644,24 @@ export class ObjectUI {
     }
 
     // Helper to create a transform section
-    const createTransformSection = (title: string, values: number[], axes: string[], onChange: (axis: number, value: number) => void) => {
+    const createTransformSection = (
+      title: string,
+      values: number[],
+      axes: string[],
+      onChange: (axis: number, value: number) => void
+    ) => {
       const section = document.createElement("div");
       section.style.cssText = "margin-bottom: 15px;";
-      
+
       const sectionTitle = document.createElement("div");
       sectionTitle.textContent = title;
-      sectionTitle.style.cssText = "font-size: 0.85em; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;";
+      sectionTitle.style.cssText =
+        "font-size: 0.85em; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;";
       section.appendChild(sectionTitle);
 
       const inputsContainer = document.createElement("div");
-      inputsContainer.style.cssText = "display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;";
+      inputsContainer.style.cssText =
+        "display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;";
 
       axes.forEach((axis, i) => {
         const inputGroup = document.createElement("div");
@@ -558,21 +669,29 @@ export class ObjectUI {
 
         const label = document.createElement("label");
         label.textContent = axis;
-        label.style.cssText = "font-size: 0.8em; color: #aaa; margin-bottom: 4px; font-weight: 500;";
+        label.style.cssText =
+          "font-size: 0.8em; color: #aaa; margin-bottom: 4px; font-weight: 500;";
 
         const input = document.createElement("input");
         input.type = "number";
         input.value = values[i].toString();
         input.step = axis === "Rotation" ? "1" : "0.1";
-        input.style.cssText = "padding: 6px 8px; background: #333; border: 1px solid #555; border-radius: 4px; color: #fff; font-size: 0.9em; font-family: monospace; width: 100%; box-sizing: border-box;";
+        input.style.cssText =
+          "padding: 6px 8px; background: #333; border: 1px solid #555; border-radius: 4px; color: #fff; font-size: 0.9em; font-family: monospace; width: 100%; box-sizing: border-box;";
         input.addEventListener("input", () => {
           const val = input.value === "" ? 0 : parseFloat(input.value);
           values[i] = val;
           onChange(i, val);
           updatePosDisplay();
         });
-        input.addEventListener("focus", () => input.style.borderColor = "#666");
-        input.addEventListener("blur", () => input.style.borderColor = "#555");
+        input.addEventListener(
+          "focus",
+          () => (input.style.borderColor = "#666")
+        );
+        input.addEventListener(
+          "blur",
+          () => (input.style.borderColor = "#555")
+        );
 
         inputGroup.appendChild(label);
         inputGroup.appendChild(input);
@@ -584,22 +703,38 @@ export class ObjectUI {
     };
 
     // Translation section
-    content.appendChild(createTransformSection("Translation", translation, ["X", "Y", "Z"], (i, v) => {
-      translation[i] = v;
-      rebuildMatrix();
-    }));
+    content.appendChild(
+      createTransformSection(
+        "Translation",
+        translation,
+        ["X", "Y", "Z"],
+        (i, v) => {
+          translation[i] = v;
+          rebuildMatrix();
+        }
+      )
+    );
 
     // Rotation section
-    content.appendChild(createTransformSection("Rotation (degrees)", rotationDegrees, ["X", "Y", "Z"], (i, v) => {
-      rotationDegrees[i] = v;
-      rebuildMatrix();
-    }));
+    content.appendChild(
+      createTransformSection(
+        "Rotation (degrees)",
+        rotationDegrees,
+        ["X", "Y", "Z"],
+        (i, v) => {
+          rotationDegrees[i] = v;
+          rebuildMatrix();
+        }
+      )
+    );
 
     // Scale section
-    content.appendChild(createTransformSection("Scale", scale, ["X", "Y", "Z"], (i, v) => {
-      scale[i] = v;
-      rebuildMatrix();
-    }));
+    content.appendChild(
+      createTransformSection("Scale", scale, ["X", "Y", "Z"], (i, v) => {
+        scale[i] = v;
+        rebuildMatrix();
+      })
+    );
 
     wrapper.appendChild(content);
     container.appendChild(wrapper);
