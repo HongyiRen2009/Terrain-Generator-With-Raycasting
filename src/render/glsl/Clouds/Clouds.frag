@@ -57,7 +57,7 @@ vec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {
     vec3 tmax = max(t0, t1);
 
     float dstA = max(max(tmin.x, tmin.y), tmin.z);
-    float dstB = min(tmax.x, min(tmax.y, tmax.z));
+    float dstB = min(tmax.x, min(tmax.x, tmax.z));
 
     // CASE 1: ray intersects box from outside (0 <= dstA <= dstB)
     // dstA is dst to nearest intersection, dstB dst to far intersection

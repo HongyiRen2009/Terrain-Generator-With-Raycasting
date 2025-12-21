@@ -53,7 +53,13 @@ uniform float CLOUDS_weatherMapOffsetX;
 uniform float CLOUDS_weatherMapOffsetY;
 uniform int CLOUDS_MAX_STEPS;
 uniform int CLOUDS_MAX_STEPS_LIGHT;
-
+uniform float CLOUDS_blueNoiseAmplitude;
+uniform vec3 CLOUDS_baseCloudColor;
+uniform float CLOUDS_skyContribution;
+uniform float CLOUDS_lightDarkSharpness;
+uniform float CLOUDS_simplexMultiplier;
+const float CLOUDS_DENSITY_THRESHOLD_SKIP = 0.01f;
+const float CLOUDS_ALPHA_THRESHOLD = 0.99f;
 struct Light {
     vec3 position;
     vec3 color;
@@ -578,198 +584,121 @@ vec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albe
 }
 
 //Copied from the goat Hongyi Ren
-float sampleBaseNoise(vec3 pos) {
-    float noise = texture(u_CloudNoise, vec3(pos.x, pos.y, pos.z)).r;
-    return noise;
-}
+float sampleDensity(vec3 pos,vec3 ogPos) {
+    vec3 windOffset = vec3(0.0);
+    vec3 animatedPos = pos + windOffset + vec3(ogPos.x, 0.0f, ogPos.z);
 
-float fbm(vec3 pos, int octaves, float persistence, float lacunarity) {
-    float total = 0.0f;
-    float amplitude = 1.0f;
-    float maxValue = 0.0f;
-    for(int i = 0; i < octaves; i++) {
-        total += sampleBaseNoise(pos) * amplitude;
-        maxValue += amplitude;
-        amplitude *= persistence;
-        pos *= lacunarity;
+    vec3 localPos = (animatedPos - u_cloudsCubeMin) / (u_cloudsCubeMax - u_cloudsCubeMin);
+    vec2 weatherUV = vec2(localPos.x + CLOUDS_weatherMapOffsetX, localPos.z + CLOUDS_weatherMapOffsetY);
+    float coverage = texture(u_WeatherMap, weatherUV).r;
+
+    // Sample base Worley noise (inverted so high values = dense clouds)
+    float worley = 1.0f - texture(u_CloudNoise, localPos * CLOUDS_baseFrequency).r;
+
+    // Sample Simplex noise for variation
+    float simplex = texture(u_CloudNoise, localPos * CLOUDS_baseFrequency).a;
+
+    // Combine: Worley for structure, Simplex for billowy variation
+    // Use remapping to make Simplex centered around 0.5
+    float simplexRemapped = (simplex - 0.5f) * 2.0f; // Range: -1 to 1
+    float base = worley + simplexRemapped * CLOUDS_simplexMultiplier * worley; // Modulate by worley
+
+    // Apply coverage from weather map
+    base *= (coverage);
+
+    float density = base;
+
+    // Height gradient for natural cloud formation
+    float height01 = (pos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
+    float heightWeight = smoothstep(0.15f, 0.5f, height01) * (1.0f - smoothstep(0.7f, 1.0f, height01));
+    density *= heightWeight;
+
+    // Add detail erosion using smaller-scale Worley noise
+    float detail = 1.0f - (texture(u_CloudNoise, localPos * CLOUDS_detailFrequency).g * 0.5f +
+        texture(u_CloudNoise, localPos * (CLOUDS_detailFrequency * 2.0f)).b * 0.25f);
+    density -= detail * 0.5f * density; // Erode proportionally
+
+    return clamp(density - CLOUDS_densityThreshold, 0.0f, 1.0f);
+}
+float sampleLight(vec3 pos, vec3 lightDir, float rayDensity, vec3 ogPos) {
+    float tNear;
+    float tFar;
+    intersectAABB(pos,lightDir,u_cloudsCubeMin,u_cloudsCubeMax,tNear,tFar);
+    float distInsideBox = tFar-tNear;
+
+    int lightSteps = rayDensity > 0.5f ? CLOUDS_MAX_STEPS_LIGHT : CLOUDS_MAX_STEPS_LIGHT / 2;
+
+    float lightTransmittance = 1.0f;
+    float tStep = distInsideBox / float(lightSteps);
+
+    for(int i = 0; i < lightSteps; i++) {
+        if(lightTransmittance < 0.01f) {
+            return CLOUDS_darknessThreshold;
+        }
+
+        float t = tStep * (float(i) + 0.5f);
+        vec3 samplePos = pos + lightDir * t;
+        float rawDensity = sampleDensity(samplePos,ogPos);
+        float density = rawDensity;
+        lightTransmittance *= exp(-density * tStep * CLOUDS_lightAbsorption);
     }
-    return total / maxValue;
+    lightTransmittance = pow(lightTransmittance, CLOUDS_lightDarkSharpness);
+
+    return CLOUDS_darknessThreshold + (1.0f - CLOUDS_darknessThreshold) * lightTransmittance;
 }
-float sampleDetailNoise(vec3 p) {
-    vec3 worley = texture(u_CloudNoise, vec3(p.x, p.y, p.z) * 2.0f).gba;
-    return (worley.r * 0.625f + worley.g * 0.25f + worley.b * 0.125f);
-}
-float sampleDensity(vec3 pos) {
-    vec3 windDirection = normalize(vec3(1, 0.0f, 1));
-    vec3 windOffset = windDirection * 1.0 * 1.0 ;
-    vec3 animatedPos = pos + windOffset;
-
-    vec3 localPos = (animatedPos - u_cloudsCubeMin) / (u_cloudsCubeMax - u_cloudsCubeMin);
-    // Weather map (right now idk if this is the best implementation and it needs some improvement)
-
-    vec2 weatherUV = (animatedPos.xz - u_cloudsCubeMin.xz) / (u_cloudsCubeMax.xz - u_cloudsCubeMin.xz);
-    vec2 weatherMapOffset = vec2(CLOUDS_weatherMapOffsetX, CLOUDS_weatherMapOffsetY);
-    vec2 weatherWindOffset = windDirection.xz * 1.0 * 1.0 * 0.001f;
-    vec4 weather = texture(u_WeatherMap, weatherUV + weatherMapOffset + weatherWindOffset);
-    float coverage = weather.r;
-    if(coverage < 0.01f)
-        return 0.0f;
-
-    float height01 = (animatedPos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
-    if(height01 < 0.1f || height01 > 1.0f)
-        return 0.0f;
-
-    float base = fbm(localPos * CLOUDS_baseFrequency, 5, 0.5f, 2.0f);
-    float density = base * coverage;
-    if(density < CLOUDS_densityThreshold)
-        return 0.0f;
-
-    vec3 detailWindOffset = windOffset * 0.5f;
-    vec3 detailPos = (pos + detailWindOffset - u_cloudsCubeMin) / (u_cloudsCubeMax - u_cloudsCubeMin);
-    float detail = sampleDetailNoise(detailPos * CLOUDS_detailFrequency);
-    density *= mix(0.5f, 1.0f, detail);
-
-    // Height falloff and edge fade (stolen from Sebastian Lague)
-    float originalHeight = (pos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
-    float heightWeight = smoothstep(0.1f, 0.5f, originalHeight) * (1.0f - smoothstep(0.6f, 1.0f, originalHeight));
-    float containerEdgeFadeDst = 50.0f;
-    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - u_cloudsCubeMin.x, u_cloudsCubeMax.x - pos.x));
-    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - u_cloudsCubeMin.z, u_cloudsCubeMax.z - pos.z));
-    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
-    heightWeight *= edgeWeight;
-
-    density = (density - CLOUDS_densityThreshold) * heightWeight;
-    return clamp(density, 0.0f, 1.0f);
-}
-// Optimized density function for ground shadows (approx 5x faster)
-float sampleDensityLow(vec3 pos) {
-    // 1. Wind Animation (Must match sampleDensity to keep shadows synced)
-    vec3 windDirection = normalize(vec3(1, 0.0f, 1));
-    vec3 windOffset = windDirection * 1.0 * 1.0; 
-    vec3 animatedPos = pos + windOffset;
-    
-    // 2. Weather Map (Crucial for correct cloud coverage)
-    vec2 weatherUV = (animatedPos.xz - u_cloudsCubeMin.xz) / (u_cloudsCubeMax.xz - u_cloudsCubeMin.xz);
-    vec2 weatherMapOffset = vec2(CLOUDS_weatherMapOffsetX, CLOUDS_weatherMapOffsetY);
-    vec2 weatherWindOffset = windDirection.xz * 1.0 * 1.0 * 0.001f;
-    vec4 weather = texture(u_WeatherMap, weatherUV + weatherMapOffset + weatherWindOffset);
-    float coverage = weather.r;
-    
-    if(coverage < 0.01f) return 0.0f;
-
-    // 3. Bounds check
-    vec3 localPos = (animatedPos - u_cloudsCubeMin) / (u_cloudsCubeMax - u_cloudsCubeMin);
-    if(localPos.y < 0.1f || localPos.y > 1.0f) return 0.0f;
-
-    // 4. Base Noise ONLY (1 Octave instead of 5)
-    // We skip the fbm loop and detail noise.
-    // Note: Use vec3(x,y,z) alignment as fixed previously
-    float base = texture(u_CloudNoise, localPos.xyz * CLOUDS_baseFrequency).r;
-    
-    float density = base * coverage;
-
-    // 5. Simple Height Falloff
-    float heightWeight = smoothstep(0.1f, 0.5f, localPos.y) * (1.0f - smoothstep(0.6f, 1.0f, localPos.y));
-    density = (density - CLOUDS_densityThreshold) * heightWeight;
-
-    return max(density, 0.0f);
-}
-
 float PhaseFunction(float cosTheta, float g) {
     float g2 = g * g;
     float denom = pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f);
     return (1.0f - g2) / (4.0f * PI * denom);
 }
-float sampleCloudLight(vec3 pos, vec3 lightDir, float rayDensity) {
-    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
-
-    float Tmin, Tmax;
-    intersectAABB(pos,normalize(lightDir),u_cloudsCubeMin,u_cloudsCubeMax,Tmin,Tmax);
-    float distInsideBox = Tmax-Tmin;
-    if(distInsideBox <=0.0) return 1.0;
-    bool isGroundShadow = (rayDensity <= 0.001);
-
-    int lightSteps = isGroundShadow ? 6 : (rayDensity > 0.5f ? CLOUDS_MAX_STEPS_LIGHT : CLOUDS_MAX_STEPS_LIGHT / 2);
-
-
-    float lightTransmittance = 1.0f;
-    float tStep = distInsideBox / float(lightSteps);
-
-    float jitter = 0.5;
-    if(isGroundShadow){
-        jitter = fract(sin(dot(pos.xz * 0.01, vec2(12.9898,78.233))) * 43758.5453);
-    }
-
-    for(int i = 0; i < lightSteps; i++) {
-        if(lightTransmittance < 0.01f) {
-            break;
-        }
-
-        float t = tStep * (float(i) + jitter);
-        vec3 samplePos = pos + lightDir * t;
-
-        float rawDensity;
-        if(isGroundShadow){
-            rawDensity = sampleDensityLow(samplePos);
-        }else{ 
-            rawDensity = sampleDensity(samplePos);
-        }
-        if(rawDensity > 0.0) {
-            // Simplify math for shadows to save performance
-            float density = isGroundShadow ? rawDensity : pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
-            lightTransmittance *= exp(-density * tStep * CLOUDS_lightAbsorption);
-        }
-    }
-    return CLOUDS_darknessThreshold + (1.0f - CLOUDS_darknessThreshold) * lightTransmittance;
-}
-
-vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor, float maxD){
-    maxD = max(maxD - 0.01,0.0); //Avoid precision issues
-    if(!CLOUDS_enableClouds){
-        return vec4(0.0);
-    }
-    float cloudTmin;
-    float cloudTmax;
-    if(!intersectAABB(rayOrigin, rayDir, u_cloudsCubeMin, u_cloudsCubeMax, cloudTmin, cloudTmax)){
-        return vec4(0.0);
-    }
-    if(cloudTmin > maxD){
+vec4 handleClouds(vec3 rayOriginWorld,vec3 rayDirWorld,float distanceToTerrain,vec3 skyColor, uint rng_state){
+    if(!CLOUDS_enableClouds) {
         return vec4(0.0);
     }
 
-    float cloudInside = min(cloudTmax, maxD) - cloudTmin;
-    if(cloudInside <= 0.0f) {
-        return vec4(0.0f);
+    // Ray-box intersection
+    float tNear;
+    float tFar;
+    intersectAABB(rayOriginWorld,rayDirWorld,u_cloudsCubeMin,u_cloudsCubeMax,tNear,tFar);
+
+    if(tFar-tNear <= 0.0f) {
+        return vec4(0.0);
     }
-    float tStep = (cloudInside)/float(CLOUDS_MAX_STEPS);
+    tFar = min(tFar, distanceToTerrain);
+
+    // If terrain is in front of cloud box, don't render clouds
+    if(tNear >= distanceToTerrain) {
+        return vec4(0.0);
+    }
+
+    float tStep = (tFar - tNear) / float(CLOUDS_MAX_STEPS);
+
     vec4 accumulatedColor = vec4(0.0f);
-    float blueNoiseOffset = 0.0;//fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);
 
-    const float DENSITY_THRESHOLD_SKIP = 0.01f;
-    const float ALPHA_THRESHOLD = 0.99f;
-
+    // Blue noise offset to reduce banding
+    float blueNoiseOffset = fract(sin(dot(v_uv.xy + rand(rng_state) * 0.1f, vec2(12.9898f, 78.233f))) * 43758.5453f) * 0.5f;
     for(int i = 0; i < CLOUDS_MAX_STEPS; i++) {
-        float t = cloudTmin + tStep * (float(i) + blueNoiseOffset);
-        if(maxD < t){
+        float t = tNear + tStep * (float(i) + blueNoiseOffset * CLOUDS_blueNoiseAmplitude); // Reduced from 1.0 to 0.25
+        // Stop raymarching if we've reached the terrain
+        if(t >= distanceToTerrain) {
             break;
         }
 
-        vec3 samplePos = rayOrigin + rayDir * t;
+        vec3 samplePos = rayOriginWorld + rayDirWorld * t;
 
         // Sample density
-        float rawDensity = sampleDensity(samplePos);
-        if(rawDensity < DENSITY_THRESHOLD_SKIP) {
+        float rawDensity = sampleDensity(samplePos,rayOriginWorld);
+        if(rawDensity < CLOUDS_DENSITY_THRESHOLD_SKIP) {
             continue;
         }
-        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);
+        float density = rawDensity;
 
-        // Calculate lighting with adaptive quality
-        vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
-        vec3 lightDir = normalize(-u_sunDirection);
-        float lightTransmittance = sampleCloudLight(samplePos, lightDir, density);
+        // Calculate lighting
+        vec3 lightDir = normalize(vec3(sunDirX, sunDirY, sunDirZ));;
+        float lightTransmittance = sampleLight(samplePos, lightDir, density, rayOriginWorld);
 
         // Phase function for silver lining
-        float cosTheta = dot(normalize(rayDir), lightDir);
+        float cosTheta = dot(rayDirWorld, lightDir);
         float phaseVal = PhaseFunction(cosTheta, CLOUDS_phaseG);
         phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);
 
@@ -784,7 +713,7 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor, float maxD){
         float height = (samplePos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
         float groundFactor = 1.0f - height;
         vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;
-        vec3 ambientLight = skyColor * CLOUDS_ambientIntensity;
+        vec3 ambientLight = mix(CLOUDS_baseCloudColor, skyColor, CLOUDS_skyContribution) * CLOUDS_ambientIntensity;
 
         //Final light color
         vec3 lightColor = sunLight + ambientLight + bounceLight;
@@ -795,7 +724,7 @@ vec4 handleClouds(vec3 rayOrigin, vec3 rayDir, vec3 skyColor, float maxD){
         vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
         accumulatedColor += color * (1.0f - accumulatedColor.a);
 
-        if(accumulatedColor.a > ALPHA_THRESHOLD)
+        if(accumulatedColor.a > CLOUDS_ALPHA_THRESHOLD)
             break;
     }
     return accumulatedColor;
@@ -875,73 +804,6 @@ vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     return directLight;
 }
 
-// Helper to get just the 2D weather coverage (very cheap)
-float getWeatherCoverage(vec3 pos) {
-    vec3 windDirection = normalize(vec3(1, 0.0f, 1));
-    vec3 windOffset = windDirection * 1.0 * 1.0; 
-    vec3 animatedPos = pos + windOffset;
-    
-    vec2 weatherUV = (animatedPos.xz - u_cloudsCubeMin.xz) / (u_cloudsCubeMax.xz - u_cloudsCubeMin.xz);
-    vec2 weatherMapOffset = vec2(CLOUDS_weatherMapOffsetX, CLOUDS_weatherMapOffsetY);
-    vec2 weatherWindOffset = windDirection.xz * 1.0 * 1.0 * 0.001f;
-    
-    return texture(u_WeatherMap, weatherUV + weatherMapOffset + weatherWindOffset).r;
-}
-
-// Ultra-fast shadow approach: 
-// 1. Check bounds
-// 2. Check 2D weather map at midpoint (Early Exit)
-// 3. Take 3 fixed samples of 3D noise
-float sampleCloudShadowFast(vec3 pos, vec3 lightDir) {
-    float Tmin, Tmax;
-    // 1. Box Intersection
-    if(!intersectAABB(pos, normalize(lightDir), u_cloudsCubeMin, u_cloudsCubeMax, Tmin, Tmax)) {
-        return 1.0;
-    }
-    
-    // If box is behind us or we are past it
-    if(Tmax < 0.0) return 1.0;
-
-    float tStart = max(Tmin, 0.0);
-    float tEnd = Tmax;
-    float dist = tEnd - tStart;
-    
-    if(dist <= 0.0) return 1.0;
-
-    // 2. Weather Map Early Exit (Heuristic)
-    // Check the weather map at the middle of the ray segment through the clouds.
-    // If there is no cloud coverage here, assume the path is clear.
-    // This saves us from doing the expensive 3D Noise lookup.
-    vec3 midPoint = pos + lightDir * (tStart + dist * 0.5);
-    if(getWeatherCoverage(midPoint) < 0.05) {
-        return 1.0;
-    }
-
-    // 3. Fixed 3-Tap Sampling
-    // Instead of a loop, we manually sample 3 points. This encourages the compiler 
-    // to pipeline these texture fetches and avoids branch overhead.
-    float shadowAccum = 0.0;
-    
-    // Sample 1: 25% through
-    vec3 p1 = pos + lightDir * (tStart + dist * 0.25);
-    if(sampleDensityLow(p1) > 0.01) shadowAccum += 1.0;
-
-    // Sample 2: 50% through
-    vec3 p2 = midPoint; 
-    if(sampleDensityLow(p2) > 0.01) shadowAccum += 1.0;
-
-    // Sample 3: 75% through
-    vec3 p3 = pos + lightDir * (tStart + dist * 0.75);
-    if(sampleDensityLow(p3) > 0.01) shadowAccum += 1.0;
-
-    // If we hit density, reduce light. 
-    // We average the hits. If all 3 hit, full shadow.
-    float shadowStrength = (shadowAccum / 3.0);
-    
-    // Lerp between 1.0 (light) and threshold (dark)
-    return mix(1.0, CLOUDS_darknessThreshold, shadowStrength);
-}
-
 vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state, int bounce) {
     vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
     vec3 sunAxis = -u_sunDirection; // Direction *to* the sun
@@ -977,10 +839,10 @@ vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
                 
         vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
 
-        if(CLOUDS_enableClouds && bounce == 0){ //only care if it's the first bounce for efficiency. 
+        /*if(CLOUDS_enableClouds && bounce == 0){ //only care if it's the first bounce for efficiency. 
             float cloudTransmittance = sampleCloudShadowFast(origin, lightDir);
             directLight *= cloudTransmittance;
-        }
+        }*/
 
         return directLight;
     }
@@ -1029,7 +891,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             // Ray hit light source
             if(bounce == 0 || bounce == hasMirror + 1){
                 // Directly visible light or after mirror/glossy
-                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir, lights[hitLightIndex].color * lights[hitLightIndex].intensity, 1.0/0.0001);
+                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir, 10000000.0, lights[hitLightIndex].color * lights[hitLightIndex].intensity,rng_state);
                 color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
                 color = mix(color,cloudHandled.xyz,cloudHandled.a);
             }
@@ -1059,8 +921,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
             // Apply clouds and final color
             if(bounce == 0 || bounce == hasMirror + 1){
-                
-                vec4 cloudHandled = handleClouds(rayOrigin,rayDir, finalSky, 1.0/0.0001);//handleFog(rayOrigin, rayDir, finalSky, 1.0/0.0001, rng_state);
+                vec4 cloudHandled = handleClouds(rayOrigin,rayDir,100000.0, finalSky, rng_state);//handleFog(rayOrigin, rayDir, finalSky, 1.0/0.0001, rng_state);
                 color = throughput * mix(finalSky, cloudHandled.xyz, cloudHandled.a);
             }
             
@@ -1210,7 +1071,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         //fog
         if(bounce == 0 || hasMirror == bounce - 1){
-            vec4 cloudHandled = handleClouds(currentRayOrigin,currentRayDir, throughput, minHitDistance);//handleFog(rayOrigin, rayDir, throughput, minHitDistance, rng_state);
+            vec4 cloudHandled = handleClouds(currentRayOrigin,currentRayDir,minHitDistance, throughput,rng_state);//handleFog(rayOrigin, rayDir, throughput, minHitDistance, rng_state);
             color = mix(color,cloudHandled.xyz,cloudHandled.a);
         } 
     }
@@ -1254,7 +1115,7 @@ void main() {
     if(u_frameNumber == 1){
         newSum = newSampleColor;
     }else{
-        vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color
+        vec3 lastSum = textureLod(u_lastFrame, v_uv,0.0).rgb; //Old color
         newSum = lastSum + (newSampleColor - lastSum)/float(u_frameNumber);
     }
 

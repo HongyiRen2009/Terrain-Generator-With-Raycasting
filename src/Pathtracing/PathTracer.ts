@@ -433,7 +433,12 @@ export class PathTracer {
       "CLOUDS_ambientIntensity",
       "CLOUDS_darknessThreshold",
       "CLOUDS_phaseG",
-      "CLOUDS_phaseMultiplier"
+      "CLOUDS_phaseMultiplier",
+      "CLOUDS_blueNoiseAmplitude",
+      "CLOUDS_baseCloudColor",
+      "CLOUDS_skyContribution",
+      "CLOUDS_lightDarkSharpness",
+      "CLOUDS_simplexMultiplier"
     ]);
   }
 }
