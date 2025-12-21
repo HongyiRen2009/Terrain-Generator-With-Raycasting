@@ -285,13 +285,16 @@ export class PathTracer {
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, "u_terrainTypes", 5);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, "u_normals", 6);
 
+    //NOTE: When we fix natively pathtraced clouds we will put this back.
+    /*
     this.gl.activeTexture(this.gl.TEXTURE7);
     this.gl.bindTexture(this.gl.TEXTURE_3D, this.noiseTexture!);
+    
     this.gl.uniform1i(
       this.gl.getUniformLocation(this.meshProgram, "u_CloudNoise"),
       7
     );
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.weatherMapTexture!, "u_WeatherMap", 8);
+    //TextureUtils.bindTex(this.gl, this.meshProgram, this.weatherMapTexture!, "u_WeatherMap", 8);
 
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMin"),
@@ -300,7 +303,7 @@ export class PathTracer {
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMax"),
       vec3.fromValues(300, 160, 300)
-    );
+    );*/
 
     this.gl.uniform1i(
       this.gl.getUniformLocation(this.meshProgram, "u_numTerrains"),
@@ -419,7 +422,8 @@ export class PathTracer {
       "u_redScatter",
       "u_greenScatter",
       "u_blueScatter",
-      "CLOUDS_enableClouds",
+      //NOTE: When we fix natively pathtraced clouds we will put this back.
+      /*"CLOUDS_enableClouds",
       "CLOUDS_MAX_STEPS",
       "CLOUDS_MAX_STEPS_LIGHT",
       "CLOUDS_weatherMapOffsetX",
@@ -438,7 +442,7 @@ export class PathTracer {
       "CLOUDS_baseCloudColor",
       "CLOUDS_skyContribution",
       "CLOUDS_lightDarkSharpness",
-      "CLOUDS_simplexMultiplier"
+      "CLOUDS_simplexMultiplier"*/
     ]);
   }
 }
