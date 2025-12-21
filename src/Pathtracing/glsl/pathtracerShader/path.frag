@@ -586,7 +586,7 @@ vec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albe
 //Copied from the goat Hongyi Ren
 float sampleDensity(vec3 pos,vec3 ogPos) {
     vec3 windOffset = vec3(0.0);
-    vec3 animatedPos = pos + windOffset + vec3(ogPos.x, 0.0f, ogPos.z);
+    vec3 animatedPos = pos + windOffset; //+ vec3(ogPos.x, 0.0f, ogPos.z);
 
     vec3 localPos = (animatedPos - u_cloudsCubeMin) / (u_cloudsCubeMax - u_cloudsCubeMin);
     vec2 weatherUV = vec2(localPos.x + CLOUDS_weatherMapOffsetX, localPos.z + CLOUDS_weatherMapOffsetY);
@@ -596,7 +596,7 @@ float sampleDensity(vec3 pos,vec3 ogPos) {
     float worley = 1.0f - texture(u_CloudNoise, localPos * CLOUDS_baseFrequency).r;
 
     // Sample Simplex noise for variation
-    float simplex = texture(u_CloudNoise, localPos * CLOUDS_baseFrequency).a;
+    float simplex = texture(u_CloudNoise, localPos.xzy * CLOUDS_baseFrequency).a;
 
     // Combine: Worley for structure, Simplex for billowy variation
     // Use remapping to make Simplex centered around 0.5
@@ -660,7 +660,14 @@ vec4 handleClouds(vec3 rayOriginWorld,vec3 rayDirWorld,float distanceToTerrain,v
     float tNear;
     float tFar;
     intersectAABB(rayOriginWorld,rayDirWorld,u_cloudsCubeMin,u_cloudsCubeMax,tNear,tFar);
+    // FIX: If the exit point is behind the camera, the box is not visible.
+    if(tFar < 0.0f) {
+        return vec4(0.0);
+    }
 
+    // FIX: Clamp the start point to the camera position (0.0).
+    // This prevents sampling clouds behind your head.
+    tNear = max(tNear, 0.0f);
     if(tFar-tNear <= 0.0f) {
         return vec4(0.0);
     }

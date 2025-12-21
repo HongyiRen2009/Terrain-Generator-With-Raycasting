@@ -12,7 +12,7 @@ import { RenderGraph } from "../renderSystem/RenderGraph";
 import { createNoise2D } from "simplex-noise";
 
 export class GrassGeometryPass extends RenderPass {
-  public pathtracerRender: boolean = true;
+  public pathtracerRender: boolean = false;
   public VAOInputType: VAOInputType = VAOInputType.GRASS;
   private windStrengthNoiseTexture: WebGLTexture | null = null;
   private windDirectionNoiseTexture: WebGLTexture | null = null;
