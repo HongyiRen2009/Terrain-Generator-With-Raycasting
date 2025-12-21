@@ -16,7 +16,7 @@ import copyVertexShader from "./glsl/copyShader/copy.vert";
 import { GLRenderer } from "../render/GLRenderer";
 import { NoiseGenerator } from "../render/passes/CloudsPass";
 import { Terrains } from "../map/terrains";
-import { SettingsSection } from "../Settings";
+import { SettingsManager } from "../Settings";
 
 export class PathTracer {
   //Rendering
@@ -51,7 +51,6 @@ export class PathTracer {
   private debug: DebugMenu;
   private glRenderer: GLRenderer;
   private noiseGenerator: NoiseGenerator;
-  private settingsSection: SettingsSection | null = null;
 
   //textures
   private vertexTex?: WebGLTexture;
@@ -186,7 +185,7 @@ export class PathTracer {
     this.gl.uniform1i(lastFrameLoc, 8);
 
     //put samples, bounce in shader
-    this.settingsSection?.updateUniforms(this.gl);
+    SettingsManager.instance.updateProgramUniforms(this.gl,this.meshProgram);
     this.frameNumber++;
     this.gl.uniform1i(
       this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"),
@@ -408,12 +407,11 @@ export class PathTracer {
   }
 
   private initSettingsSection() {
-    this.settingsSection = new SettingsSection(
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "Pathtracer Settings",
-      this.meshProgram!
+      "Pathtracer Settings"
     );
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "numBounces",
       label: "Maximum Number of Bounces",
       min: 1,
@@ -423,7 +421,7 @@ export class PathTracer {
       numType: "int"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "sunDirX",
       label: "Sun X Direction",
       min: -1,
@@ -432,7 +430,7 @@ export class PathTracer {
       defaultValue: 1.0,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "sunDirY",
       label: "Sun Y Direction",
       min: -1,
@@ -441,7 +439,7 @@ export class PathTracer {
       defaultValue: -1.0,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "sunDirZ",
       label: "Sun Z Direction",
       min: -1,
@@ -451,7 +449,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "u_sunIntensity",
       label: "Sun Intensity",
       min: 0,
@@ -460,7 +458,7 @@ export class PathTracer {
       defaultValue: 4,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "u_sunAngularRadius",
       label: "Sun Angular Radius",
       min: 0.01,
@@ -470,7 +468,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "u_redScatter",
       label: "Red Scattering in the Sky",
       min: 0,
@@ -479,7 +477,7 @@ export class PathTracer {
       defaultValue: 5.5,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "u_greenScatter",
       label: "Green Scattering in the Sky",
       min: 0,
@@ -488,7 +486,7 @@ export class PathTracer {
       defaultValue: 13.0,
       numType: "float"
     });
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "u_blueScatter",
       label: "Blue Scattering in the Sky",
       min: 0,
@@ -498,13 +496,13 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addCheckbox({
+    SettingsManager.instance.addCheckboxToSection("Pathtracer Settings", {
       id: "CLOUDS_enableClouds",
       label: "Enable Clouds",
       defaultValue: true
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_MAX_STEPS",
       label: "Cloud Ray Marching Max Steps",
       min: 8,
@@ -514,7 +512,7 @@ export class PathTracer {
       numType: "int"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_MAX_STEPS_LIGHT",
       label: "Cloud Light Ray Marching Max Steps",
       min: 4,
@@ -524,7 +522,7 @@ export class PathTracer {
       numType: "int"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_weatherMapOffsetX",
       label: "Cloud Weather Map Offset X",
       min: 0.0,
@@ -534,7 +532,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_weatherMapOffsetY",
       label: "Cloud Weather Map Offset Y",
       min: 0.0,
@@ -544,7 +542,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_absorption",
       label: "Cloud Absorption",
       min: 0,
@@ -554,7 +552,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_densityThreshold",
       label: "Cloud Density Threshold",
       min: -2.0,
@@ -564,7 +562,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_baseFrequency",
       label: "Cloud Base Frequency",
       min: 0.01,
@@ -574,7 +572,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_detailFrequency",
       label: "Cloud Detail Frequency",
       min: 0.1,
@@ -584,7 +582,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_lightAbsorption",
       label: "Cloud Light Absorption",
       min: 0,
@@ -594,7 +592,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_lightIntensity",
       label: "Cloud Light Intensity",
       min: 0,
@@ -604,7 +602,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_ambientIntensity",
       label: "Cloud Ambient Intensity",
       min: 0,
@@ -614,7 +612,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_darknessThreshold",
       label: "Cloud Darkness Threshold",
       min: 0.0,
@@ -624,7 +622,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_phaseG",
       label: "Cloud Phase Function g",
       min: -1.0,
@@ -634,7 +632,7 @@ export class PathTracer {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "CLOUDS_phaseMultiplier",
       label: "Cloud Phase Function Multiplier",
       min: 0.0,
@@ -643,5 +641,33 @@ export class PathTracer {
       defaultValue: 0.5,
       numType: "float"
     });
+
+    // Attach program uniforms for all settings
+    SettingsManager.instance.attatchProgram(this.meshProgram, [
+      "numBounces",
+      "sunDirX",
+      "sunDirY",
+      "sunDirZ",
+      "u_sunIntensity",
+      "u_sunAngularRadius",
+      "u_redScatter",
+      "u_greenScatter",
+      "u_blueScatter",
+      "CLOUDS_enableClouds",
+      "CLOUDS_MAX_STEPS",
+      "CLOUDS_MAX_STEPS_LIGHT",
+      "CLOUDS_weatherMapOffsetX",
+      "CLOUDS_weatherMapOffsetY",
+      "CLOUDS_absorption",
+      "CLOUDS_densityThreshold",
+      "CLOUDS_baseFrequency",
+      "CLOUDS_detailFrequency",
+      "CLOUDS_lightAbsorption",
+      "CLOUDS_lightIntensity",
+      "CLOUDS_ambientIntensity",
+      "CLOUDS_darknessThreshold",
+      "CLOUDS_phaseG",
+      "CLOUDS_phaseMultiplier"
+    ]);
   }
 }
