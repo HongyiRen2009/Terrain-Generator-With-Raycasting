@@ -17,6 +17,7 @@ import { CubeShadowsPass } from "./passes/CubeShadowsPass";
 import { FinalPass } from "./passes/FinalPass";
 import { GrassGeometryPass } from "./passes/GrassGeometryPass";
 import { CombineGeometryPass } from "./passes/CombineGeometryPass";
+import { PathTracer } from "../Pathtracing/PathTracer";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -30,6 +31,7 @@ export class GLRenderer {
   private camera: Camera;
   private debug: DebugMenu;
   private world: WorldMap;
+  private pathtracer: PathTracer;
   private resourceCache: ResourceCache;
   private renderGraph: RenderGraph;
 
@@ -45,13 +47,15 @@ export class GLRenderer {
     canvas: HTMLCanvasElement,
     camera: Camera,
     debug: DebugMenu,
-    world: WorldMap
+    world: WorldMap,
+    pathtracer: PathTracer
   ) {
     this.gl = gl;
     this.canvas = canvas;
     this.camera = camera;
     this.debug = debug;
     this.world = world;
+    this.pathtracer = pathtracer;
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.depthFunc(gl.LEQUAL);
     this.resourceCache = new ResourceCache(gl);
@@ -154,11 +158,17 @@ export class GLRenderer {
     this.renderGraph.add(finalPass, cloudsPass);
   }
 
-  public render(pathtracerOn: boolean = false): void {
+  public render(time: number, pathtracerOn: boolean = false): void {
     if (!pathtracerOn) {
       this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
       this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     }
+    //Run Pathtracer
+    if(pathtracerOn){
+      this.pathtracer.render(time);
+    }
+
+    //Now run auxillary shaders
     this.calculateCameraInfo();
 
     const vaosToRender = this._vaoManager.getVaosToRender();

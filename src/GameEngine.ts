@@ -91,23 +91,24 @@ export class GameEngine {
     //Initialize Camera
     this.mainCamera = new Camera(vec3.fromValues(-22, 20, 33));
 
-    //Initialize Renderer
-    this.renderer = new GLRenderer(
-      this.gl,
-      this.canvas,
-      this.mainCamera,
-      this.debug,
-      this.world
-    );
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,
       this.gl,
       this.world,
       this.mainCamera,
-      this.renderer,
       this.debug
     );
+    //Initialize Renderer
+    this.renderer = new GLRenderer(
+      this.gl,
+      this.canvas,
+      this.mainCamera,
+      this.debug,
+      this.world,
+      this.pathTracer
+    );
+  
     this.updatePathracing = () => {
       this.pathTracer.initBVH(this.world.combinedMesh());
       this.pathTracer.init(false);
@@ -284,9 +285,10 @@ export class GameEngine {
       }
 
       if (this.mode == 0) {
-        this.renderer.render();
+        this.renderer.render(timestamp);
       } else {
-        this.pathTracer.render(timestamp);
+        this.renderer.render(timestamp,true);
+        //this.pathTracer.render(timestamp);
         //this.mode=-1;
       }
     }

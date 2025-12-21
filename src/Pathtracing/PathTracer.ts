@@ -13,7 +13,6 @@ import pathTracingVertexShaderCode from "./glsl/pathtracerShader/path.vert";
 import { BVHUtils } from "../map/BVHUtils";
 import copyFragmentShader from "./glsl/copyShader/copy.frag";
 import copyVertexShader from "./glsl/copyShader/copy.vert";
-import { GLRenderer } from "../render/GLRenderer";
 import { NoiseGenerator } from "../render/passes/CloudsPass";
 import { Terrains } from "../map/terrains";
 import { SettingsManager } from "../Settings";
@@ -49,7 +48,6 @@ export class PathTracer {
   private world: WorldMap;
   private camera: Camera;
   private debug: DebugMenu;
-  private glRenderer: GLRenderer;
   private noiseGenerator: NoiseGenerator;
 
   //textures
@@ -68,14 +66,12 @@ export class PathTracer {
     context: WebGL2RenderingContext,
     world: WorldMap,
     camera: Camera,
-    glRenderer: GLRenderer,
     debug: DebugMenu
   ) {
     this.canvas = canvas;
     this.gl = context;
     this.world = world;
     this.camera = camera;
-    this.glRenderer = glRenderer;
     this.debug = debug;
     this.noiseGenerator=new NoiseGenerator(this.gl);
     this.gl.enable(this.gl.BLEND);
@@ -225,8 +221,6 @@ export class PathTracer {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
     this.gl.bindVertexArray(null);
-    //draw other shaders
-    this.glRenderer.render(true);
   }
 
   public makeVao() {
