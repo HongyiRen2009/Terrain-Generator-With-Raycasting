@@ -137,6 +137,7 @@ export class WorldMap {
       indexBufferReadback: number;
       normalsBufferReadback: number;
       terrainTypeBufferReadback: number;
+      dedupe: number;
       meshConstruction: number;
       edgeTriangles: number;
       total: number;
@@ -175,7 +176,7 @@ export class WorldMap {
           2
         )} ms, terrainTypeBufferReadback: ${avg(
           "terrainTypeBufferReadback"
-        ).toFixed(2)}
+        ).toFixed(2)} ms, dedupe: ${avg("dedupe").toFixed(2)}
          ms, meshConstruction: ${avg("meshConstruction").toFixed(
            2
          )} ms, edgeTriangles: ${avg("edgeTriangles").toFixed(
@@ -557,7 +558,60 @@ export class Chunk {
     vec3.normalize(normal, normal);
     return normal;
   }
+  private deduplicateVertices(
+    vertices: Float32Array,
+    normals: Float32Array,
+    terrainTypes: Uint32Array,
+    indices: Uint32Array
+  ): {
+    vertices: Float32Array;
+    normals: Float32Array;
+    terrainTypes: Uint32Array;
+    indices: Uint32Array;
+  } {
+    const vertexMap = new Map<string, number>();
+    const newVertices: number[] = [];
+    const newNormals: number[] = [];
+    const newTerrainTypes: number[] = [];
+    const remap = new Map<number, number>();
+    let uniqueIndex = 0;
 
+    for (let i = 0; i < vertices.length; i += 4) {
+      const key = `${vertices[i].toFixed(5)},${vertices[i + 1].toFixed(5)},${vertices[i + 2].toFixed(5)}`;
+      if (!vertexMap.has(key)) {
+        vertexMap.set(key, uniqueIndex);
+        remap.set(i / 4, uniqueIndex);
+        // Add unique vertex, normal, terrainType
+        newVertices.push(
+          vertices[i],
+          vertices[i + 1],
+          vertices[i + 2],
+          vertices[i + 3]
+        );
+        newNormals.push(
+          normals[i],
+          normals[i + 1],
+          normals[i + 2],
+          normals[i + 3]
+        );
+        newTerrainTypes.push(terrainTypes[i / 4]);
+        uniqueIndex++;
+      }
+      remap.set(i / 4, vertexMap.get(key)!);
+    }
+
+    const newIndices = new Uint32Array(indices.length);
+    for (let i = 0; i < indices.length; i++) {
+      newIndices[i] = remap.get(indices[i])!;
+    }
+
+    return {
+      vertices: new Float32Array(newVertices),
+      normals: new Float32Array(newNormals),
+      terrainTypes: new Uint32Array(newTerrainTypes),
+      indices: newIndices
+    };
+  }
   /**
    *
    * Generates the chunk's mesh using the compute shader, must be called sequentially to avoid two chunks using the same shader at once
@@ -574,6 +628,7 @@ export class Chunk {
       indexBufferReadback: number;
       normalsBufferReadback: number;
       terrainTypeBufferReadback: number;
+      dedupe: number;
       meshConstruction: number;
       edgeTriangles: number;
       total: number;
@@ -648,58 +703,66 @@ export class Chunk {
       vertexCount
     );
     timings.terrainTypeBufferReadback = performance.now() - startTime;
-
+    startTime = performance.now();
+    // Deduplicate vertices
+    const {
+      vertices: dedupedVertices,
+      normals: dedupedNormals,
+      terrainTypes: dedupedTerrainTypes,
+      indices: dedupedIndices
+    } = this.deduplicateVertices(vertices, normals, terrainTypes, indices);
+    timings.dedupe = performance.now() - startTime;
     startTime = performance.now();
 
     // Reconstruct mesh from compute shader results
     this.Mesh = new Mesh();
 
     // Group vertices by triangle (3 vertices per triangle)
-    for (let i = 0; i < indices.length; i += 3) {
-      const idx0 = indices[i];
-      const idx1 = indices[i + 1];
-      const idx2 = indices[i + 2];
+    for (let i = 0; i < dedupedIndices.length; i += 3) {
+      const idx0 = dedupedIndices[i];
+      const idx1 = dedupedIndices[i + 1];
+      const idx2 = dedupedIndices[i + 2];
 
       const tri: Triangle = [
         vec3.fromValues(
-          vertices[idx0 * 4], // x
-          vertices[idx0 * 4 + 1], // y
-          vertices[idx0 * 4 + 2] // z (skip idx0*4+3 which is padding)
+          dedupedVertices[idx0 * 4], // x
+          dedupedVertices[idx0 * 4 + 1], // y
+          dedupedVertices[idx0 * 4 + 2] // z (skip idx0*4+3 which is padding)
         ),
         vec3.fromValues(
-          vertices[idx1 * 4],
-          vertices[idx1 * 4 + 1],
-          vertices[idx1 * 4 + 2]
+          dedupedVertices[idx1 * 4],
+          dedupedVertices[idx1 * 4 + 1],
+          dedupedVertices[idx1 * 4 + 2]
         ),
         vec3.fromValues(
-          vertices[idx2 * 4],
-          vertices[idx2 * 4 + 1],
-          vertices[idx2 * 4 + 2]
+          dedupedVertices[idx2 * 4],
+          dedupedVertices[idx2 * 4 + 1],
+          dedupedVertices[idx2 * 4 + 2]
         )
       ];
 
       const norm: Triangle = [
         vec3.fromValues(
-          normals[idx0 * 4],
-          normals[idx0 * 4 + 1],
-          normals[idx0 * 4 + 2]
+          dedupedNormals[idx0 * 4],
+          dedupedNormals[idx0 * 4 + 1],
+          dedupedNormals[idx0 * 4 + 2]
         ),
         vec3.fromValues(
-          normals[idx1 * 4],
-          normals[idx1 * 4 + 1],
-          normals[idx1 * 4 + 2]
+          dedupedNormals[idx1 * 4],
+          dedupedNormals[idx1 * 4 + 1],
+          dedupedNormals[idx1 * 4 + 2]
         ),
         vec3.fromValues(
-          normals[idx2 * 4],
-          normals[idx2 * 4 + 1],
-          normals[idx2 * 4 + 2]
+          dedupedNormals[idx2 * 4],
+          dedupedNormals[idx2 * 4 + 1],
+          dedupedNormals[idx2 * 4 + 2]
         )
       ];
 
       const types: [number, number, number] = [
-        terrainTypes[idx0],
-        terrainTypes[idx1],
-        terrainTypes[idx2]
+        dedupedTerrainTypes[idx0],
+        dedupedTerrainTypes[idx1],
+        dedupedTerrainTypes[idx2]
       ];
 
       this.Mesh.addTriangle(tri, norm, types);
@@ -719,7 +782,6 @@ export class Chunk {
 
     return { mesh: this.Mesh, timings };
   }
-
   getMesh() {
     return this.Mesh;
   }
