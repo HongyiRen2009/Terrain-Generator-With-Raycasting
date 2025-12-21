@@ -58,24 +58,24 @@ export class WorldUtils {
       const lights = pointLights || [];
 
       // Convert sun (directional light) to a PointLight for pathtracer
-      const sunPointLight = new PointLight(
-        vec3.fromValues(0, 500, 0),
-        new Color(255, 255, 255),
-        1,
-        200,
-        new Color(255, 228, 132)
-      );
+      if(sun){
+        gl.uniform1f(gl.getUniformLocation(program,"sunDirX"),sun.direction[0]);
+        gl.uniform1f(gl.getUniformLocation(program,"sunDirY"),sun.direction[1]);
+        gl.uniform1f(gl.getUniformLocation(program,"sunDirZ"),sun.direction[2]);
+        gl.uniform1f(gl.getUniformLocation(program,"u_sunIntensity"),sun.intensity);
+        gl.uniform1f(gl.getUniformLocation(program,"u_sunAngularRadius"),sun.angularRadius);
+        gl.uniform3fv(gl.getUniformLocation(program,"u_sunColor"),sun.color.createVec3())
+      }
 
       // Combine sun with existing point lights
-      const allLights = [sunPointLight, ...lights];
-      const numLights = Math.min(allLights.length, 30); // MAX_LIGHTS is 30
+      const numLights = Math.min(lights.length, 100); // MAX_LIGHTS is 100
 
       // Set number of active lights
       gl.uniform1i(numActiveLightsLocation, numLights);
 
       // Update each light
       for (let i = 0; i < numLights; i++) {
-        const light = allLights[i];
+        const light = lights[i];
         const baseUniform = `lights[${i}]`;
 
         const posLocation = gl.getUniformLocation(

@@ -9,7 +9,7 @@
 precision highp float;
 precision highp sampler3D;
 precision highp int;
-#define MAX_LIGHTS 30
+#define MAX_LIGHTS 100
 #define PI 3.1415926
 #define BVH_DEPTH 64
 #define NUM_TERRAINS 50 

@@ -16,7 +16,7 @@ import { vec3 } from "gl-matrix";
 import { DirectionalLight } from "../../map/Light";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
-  public pathtracerRender: boolean = true;
+  public pathtracerRender: boolean = false;
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
   private noiseGenerator: NoiseGenerator;
@@ -229,13 +229,13 @@ export class CloudsPass extends RenderPass {
     );
 
     SettingsManager.instance.addCheckboxToSection("Clouds Settings", {
-      id: "enableClouds",
+      id: "CLOUDS_enableClouds",
       label: "Enable Clouds",
       defaultValue: true
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "MAX_STEPS",
+      id: "CLOUDS_MAX_STEPS",
       label: "Cloud Ray Marching Max Steps",
       min: 8,
       max: 128,
@@ -245,7 +245,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "MAX_STEPS_LIGHT",
+      id: "CLOUDS_MAX_STEPS_LIGHT",
       label: "Cloud Light Ray Marching Max Steps",
       min: 4,
       max: 32,
@@ -255,13 +255,13 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addColorPickerToSection("Clouds Settings", {
-      id: "baseCloudColor",
+      id: "CLOUDS_baseCloudColor",
       label: "Base Cloud Color",
       defaultValue: "#FFFFFF"
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "skyContribution",
+      id: "CLOUDS_skyContribution",
       label: "Sky Color Contribution",
       min: 0.0,
       max: 1.0,
@@ -271,7 +271,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "absorption",
+      id: "CLOUDS_absorption",
       label: "Cloud Absorption",
       min: 0,
       max: 2.0,
@@ -281,7 +281,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "densityThreshold",
+      id: "CLOUDS_densityThreshold",
       label: "Cloud Density Threshold",
       min: -2.0,
       max: 1.0,
@@ -291,7 +291,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "baseFrequency",
+      id: "CLOUDS_baseFrequency",
       label: "Cloud Base Frequency",
       min: 0.01,
       max: 2.0,
@@ -301,7 +301,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "detailFrequency",
+      id: "CLOUDS_detailFrequency",
       label: "Cloud Detail Frequency",
       min: 0.1,
       max: 2.0,
@@ -310,7 +310,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "simplexMultiplier",
+      id: "CLOUDS_simplexMultiplier",
       label: "Cloud Simplex Noise Multiplier",
       min: 0.0,
       max: 2.0,
@@ -319,7 +319,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "lightAbsorption",
+      id: "CLOUDS_lightAbsorption",
       label: "Cloud Light Absorption",
       min: 0,
       max: 2.0,
@@ -329,7 +329,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "lightIntensity",
+      id: "CLOUDS_lightIntensity",
       label: "Cloud Light Intensity",
       min: 0,
       max: 5.0,
@@ -339,7 +339,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "ambientIntensity",
+      id: "CLOUDS_ambientIntensity",
       label: "Cloud Ambient Intensity",
       min: 0,
       max: 2.0,
@@ -349,7 +349,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "darknessThreshold",
+      id: "CLOUDS_darknessThreshold",
       label: "Cloud Darkness Threshold",
       min: 0.0,
       max: 1.0,
@@ -358,7 +358,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "lightDarkSharpness",
+      id: "CLOUDS_lightDarkSharpness",
       label: "Cloud Light/Dark Sharpness",
       min: 0.1,
       max: 5.0,
@@ -367,7 +367,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "phaseG",
+      id: "CLOUDS_phaseG",
       label: "Cloud Phase Function g",
       min: -1.0,
       max: 1.0,
@@ -377,7 +377,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "phaseMultiplier",
+      id: "CLOUDS_phaseMultiplier",
       label: "Cloud Phase Function Multiplier",
       min: 0.0,
       max: 1.0,
@@ -386,7 +386,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "blueNoiseAmplitude",
+      id: "CLOUDS_blueNoiseAmplitude",
       label: "Cloud Blue Noise Amplitude",
       min: 0.0,
       max: 5.0,
@@ -395,7 +395,7 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "weatherMapOffsetX",
+      id: "CLOUDS_weatherMapOffsetX",
       label: "Cloud Weather Map Offset X",
       min: 0.0,
       max: 10.0,
@@ -405,7 +405,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "weatherMapOffsetY",
+      id: "CLOUDS_weatherMapOffsetY",
       label: "Cloud Weather Map Offset Y",
       min: 0.0,
       max: 10.0,
@@ -415,7 +415,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "windSpeed",
+      id: "CLOUDS_windSpeed",
       label: "Cloud Wind Speed",
       min: 0.0,
       max: 10.0,
@@ -425,7 +425,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "windDirectionX",
+      id: "CLOUDS_windDirectionX",
       label: "Cloud Wind Direction X",
       min: -1.0,
       max: 1.0,
@@ -435,7 +435,7 @@ export class CloudsPass extends RenderPass {
     });
 
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "windDirectionZ",
+      id: "CLOUDS_windDirectionZ",
       label: "Cloud Wind Direction Z",
       min: -1.0,
       max: 1.0,
@@ -446,29 +446,29 @@ export class CloudsPass extends RenderPass {
 
     // Attach program uniforms for all settings
     SettingsManager.instance.attatchProgram(this.program!, [
-      "enableClouds",
-      "MAX_STEPS",
-      "MAX_STEPS_LIGHT",
-      "baseCloudColor",
-      "skyContribution",
-      "absorption",
-      "densityThreshold",
-      "baseFrequency",
-      "detailFrequency",
-      "simplexMultiplier",
-      "lightAbsorption",
-      "lightIntensity",
-      "ambientIntensity",
-      "darknessThreshold",
-      "lightDarkSharpness",
-      "phaseG",
-      "phaseMultiplier",
-      "weatherMapOffsetX",
-      "weatherMapOffsetY",
-      "windSpeed",
-      "windDirectionX",
-      "windDirectionZ",
-      "blueNoiseAmplitude"
+      "CLOUDS_enableClouds",
+      "CLOUDS_MAX_STEPS",
+      "CLOUDS_MAX_STEPS_LIGHT",
+      "CLOUDS_baseCloudColor",
+      "CLOUDS_skyContribution",
+      "CLOUDS_absorption",
+      "CLOUDS_densityThreshold",
+      "CLOUDS_baseFrequency",
+      "CLOUDS_detailFrequency",
+      "CLOUDS_simplexMultiplier",
+      "CLOUDS_lightAbsorption",
+      "CLOUDS_lightIntensity",
+      "CLOUDS_ambientIntensity",
+      "CLOUDS_darknessThreshold",
+      "CLOUDS_lightDarkSharpness",
+      "CLOUDS_phaseG",
+      "CLOUDS_phaseMultiplier",
+      "CLOUDS_weatherMapOffsetX",
+      "CLOUDS_weatherMapOffsetY",
+      "CLOUDS_windSpeed",
+      "CLOUDS_windDirectionX",
+      "CLOUDS_windDirectionZ",
+      "CLOUDS_blueNoiseAmplitude"
     ]);
   }
   public resize(): void {

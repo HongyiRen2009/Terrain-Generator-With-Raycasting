@@ -11,6 +11,7 @@ import { WorldObject } from "./WorldObject";
 import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { ObjectUI } from "./ObjectUI";
 import { LightUI } from "./LightUI";
+import { SettingsManager } from "../Settings";
 
 interface ImportMapEntry {
   color: string;
@@ -32,7 +33,8 @@ export class WorldMap {
   public sunLight: DirectionalLight = new DirectionalLight(
     vec3.fromValues(0, -1, 0),
     new Color(255, 255, 255),
-    0.143047 // Equivalent intensity calculated from point light attenuation
+    4,
+    0.1
   );
   public lights: PointLight[] = [];
   public numShadowedLights: number = 5;
@@ -84,6 +86,40 @@ export class WorldMap {
 
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
     this.lightUI = new LightUI(this, this.tracerUpdateSupplier);
+    this.initSettings();
+  }
+
+  public initSettings(){
+    SettingsManager.instance.createSection(document.getElementById("settings-section")!,"Sky Settings");
+    //TODO: Add settings editing sun color and stuff. 
+
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_redScatter",
+      label: "Red Scattering in the Sky",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      defaultValue: 5.5,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_greenScatter",
+      label: "Green Scattering in the Sky",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      defaultValue: 13.0,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_blueScatter",
+      label: "Blue Scattering in the Sky",
+      min: 0,
+      max: 100,
+      step: 0.1,
+      defaultValue: 33.1,
+      numType: "float"
+    });
   }
 
   /**
