@@ -596,7 +596,7 @@ float sampleDensity(vec3 pos,vec3 ogPos) {
     float worley = 1.0f - texture(u_CloudNoise, localPos * CLOUDS_baseFrequency).r;
 
     // Sample Simplex noise for variation
-    float simplex = texture(u_CloudNoise, localPos.xzy * CLOUDS_baseFrequency).a;
+    float simplex = texture(u_CloudNoise, localPos * CLOUDS_baseFrequency).a;
 
     // Combine: Worley for structure, Simplex for billowy variation
     // Use remapping to make Simplex centered around 0.5
