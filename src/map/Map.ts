@@ -91,7 +91,7 @@ export class WorldMap {
 
   public initSettings(){
     SettingsManager.instance.createSection(document.getElementById("settings-section")!,"Sky Settings");
-    //TODO: Add settings editing sun color and stuff. 
+    //Further Sky settings are in the LightingPass Code
 
     SettingsManager.instance.addSliderToSection("Sky Settings",{
       id: "u_redScatter",

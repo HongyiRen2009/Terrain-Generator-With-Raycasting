@@ -326,11 +326,7 @@ export class LightingPass extends RenderPass {
   }
 
   private InitSettings() {
-    SettingsManager.instance.createSection(
-      document.getElementById("settings-section")!,
-      "Lighting Settings"
-    );
-    SettingsManager.instance.addCheckboxToSection("Lighting Settings", {
+    SettingsManager.instance.addCheckboxToSection("Sky Settings", {
       id: "disableSun",
       label: "Disable Sun",
       defaultValue: false,
@@ -338,13 +334,13 @@ export class LightingPass extends RenderPass {
         this.resourceCache.setData("disableSun", value);
       }
     });
-    SettingsManager.instance.addSliderToSection("Lighting Settings", {
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "sunlightIntensity",
       label: "Sunlight Intensity",
       min: 0,
       max: 5,
       step: 0.01,
-      defaultValue: 0.143047, // Equivalent intensity calculated from point light attenuation
+      defaultValue: 4,
       numType: "float",
       onChange: (value: number) => {
         const sunLight = this.resourceCache.getData("sunLight");
@@ -354,7 +350,23 @@ export class LightingPass extends RenderPass {
         }
       }
     });
-    SettingsManager.instance.addSliderToSection("Lighting Settings", {
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
+      id: "angularRadius",
+      label: "Sunlight Angular Radius",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.1,
+      numType: "float",
+      onChange: (value: number) => {
+        const sunLight = this.resourceCache.getData("sunLight");
+        if (sunLight) {
+          sunLight.angularRadius = value;
+          this.resourceCache.setData("sunLight", sunLight);
+        }
+      }
+    });
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "ambientLightIntensity",
       label: "Ambient Light Intensity",
       min: 0,
@@ -363,7 +375,7 @@ export class LightingPass extends RenderPass {
       defaultValue: 0.1,
       numType: "float"
     });
-    SettingsManager.instance.addCheckboxToSection("Lighting Settings", {
+    SettingsManager.instance.addCheckboxToSection("Sky Settings", {
       id: "showCameraDepth",
       label: "Show Camera Depth",
       defaultValue: false
@@ -422,7 +434,7 @@ export class LightingPass extends RenderPass {
       let currentElevation = initialElevation;
 
       // Sun azimuth slider (0-360 degrees)
-      SettingsManager.instance.addSliderToSection("Lighting Settings", {
+      SettingsManager.instance.addSliderToSection("Sky Settings", {
         id: "sunAzimuth",
         label: "Sun Azimuth (degrees)",
         min: 0,
@@ -437,7 +449,7 @@ export class LightingPass extends RenderPass {
       });
 
       // Sun elevation slider (-90 to 90 degrees)
-      SettingsManager.instance.addSliderToSection("Lighting Settings", {
+      SettingsManager.instance.addSliderToSection("Sky Settings", {
         id: "sunElevation",
         label: "Sun Elevation (degrees)",
         min: -90,
