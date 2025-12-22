@@ -13,7 +13,9 @@ import pathTracingVertexShaderCode from "./glsl/pathtracerShader/path.vert";
 import { BVHUtils } from "../map/BVHUtils";
 import copyFragmentShader from "./glsl/copyShader/copy.frag";
 import copyVertexShader from "./glsl/copyShader/copy.vert";
-import { GLRenderer } from "../render/GLRenderer";
+import { NoiseGenerator } from "../render/passes/CloudsPass";
+import { Terrains } from "../map/terrains";
+import { SettingsManager } from "../Settings";
 
 export class PathTracer {
   //Rendering
@@ -24,7 +26,6 @@ export class PathTracer {
   private accumulationTextures: WebGLTexture[] = [];
   private currentFrame = 0; // The source texture/framebuffer index
   private frameNumber = 0; // The accumulation counter
-  private numBounces = 15;
   //Shaders
   private meshProgram: WebGLProgram;
   private copyProgram: WebGLProgram;
@@ -47,8 +48,9 @@ export class PathTracer {
   private world: WorldMap;
   private camera: Camera;
   private debug: DebugMenu;
-  private glRenderer: GLRenderer;
+  private noiseGenerator: NoiseGenerator;
 
+  //textures
   private vertexTex?: WebGLTexture;
   private terrainTex?: WebGLTexture;
   private boundingBoxesTex?: WebGLTexture;
@@ -56,22 +58,22 @@ export class PathTracer {
   private leafsTex?: WebGLTexture;
   private terrainTypeTex?: WebGLTexture;
   private vertexNormalsTex?: WebGLTexture;
-
+  private noiseTexture?: WebGLTexture;
+  private weatherMapTexture?: WebGLTexture;
 
   public constructor(
     canvas: HTMLCanvasElement,
     context: WebGL2RenderingContext,
     world: WorldMap,
     camera: Camera,
-    glRenderer: GLRenderer,
     debug: DebugMenu
   ) {
     this.canvas = canvas;
     this.gl = context;
     this.world = world;
     this.camera = camera;
-    this.glRenderer = glRenderer;
     this.debug = debug;
+    this.noiseGenerator=new NoiseGenerator(this.gl);
     this.gl.enable(this.gl.BLEND);
 
     //Enable float texture writing extention
@@ -94,25 +96,8 @@ export class PathTracer {
       copyVertexShader,
       copyFragmentShader
     )!;
-    //Slider
-    const slider = document.getElementById("bounceSlider")! as HTMLInputElement;
 
-    slider.addEventListener("input", this.handleBounceInput.bind(this));
-    slider.value = this.numBounces.toString();
-    const bounceValue = document.getElementById(
-      "bounceValue"
-    )! as HTMLSpanElement;
-    bounceValue.textContent = `${this.numBounces}`;
-  }
-
-  private handleBounceInput(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const newValue = parseInt(target.value);
-    this.numBounces = newValue;
-    const bounceValue = document.getElementById(
-      "bounceValue"
-    )! as HTMLSpanElement;
-    bounceValue.textContent = newValue.toString();
+    this.initSettingsSection();
   }
   public initBVH(mainMesh: Mesh) {
     ////////////////////// build flat BVH structure
@@ -196,12 +181,9 @@ export class PathTracer {
     this.gl.uniform1i(lastFrameLoc, 8);
 
     //put samples, bounce in shader
+    SettingsManager.instance.updateProgramUniforms(this.gl,this.meshProgram);
     this.frameNumber++;
     this.gl.uniform1i(
-      this.gl.getUniformLocation(this.meshProgram, "numBounces"),
-      this.numBounces
-    );
-    this.gl.uniform1f(
       this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"),
       this.frameNumber
     ); // Send as a float for seeding
@@ -239,8 +221,6 @@ export class PathTracer {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
     this.gl.bindVertexArray(null);
-    //draw other shaders
-    this.glRenderer.render(true);
   }
 
   public makeVao() {
@@ -286,10 +266,16 @@ export class PathTracer {
     this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
     this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
     this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+
+    //clouds
+    this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
+    this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
   }
 
   private setupFrame() {
     this.gl.useProgram(this.meshProgram);
+    const ext = this.gl.getExtension("EXT_color_buffer_float");
+    if (!ext) console.warn("No float render targets available.");
     //Textures
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex!, "u_vertices", 0);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex!, "u_terrains", 1);
@@ -299,6 +285,30 @@ export class PathTracer {
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, "u_terrainTypes", 5);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, "u_normals", 6);
 
+    //NOTE: When we fix natively pathtraced clouds we will put this back.
+    /*
+    this.gl.activeTexture(this.gl.TEXTURE7);
+    this.gl.bindTexture(this.gl.TEXTURE_3D, this.noiseTexture!);
+    
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.meshProgram, "u_CloudNoise"),
+      7
+    );
+    //TextureUtils.bindTex(this.gl, this.meshProgram, this.weatherMapTexture!, "u_WeatherMap", 8);
+
+    this.gl.uniform3fv(
+      this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMin"),
+      vec3.fromValues(-300, 100, -300)
+    );
+    this.gl.uniform3fv(
+      this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMax"),
+      vec3.fromValues(300, 160, 300)
+    );*/
+
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.meshProgram, "u_numTerrains"),
+      Object.keys(Terrains).length
+    );
     //VAO
     this.gl.bindVertexArray(this.fullscreenVAO);
   }
@@ -359,7 +369,7 @@ export class PathTracer {
   }
 
   public resetAccumulation() {
-    this.frameNumber = 0;
+    this.frameNumber = 1;
     this.initBuffers();
   }
 
@@ -389,5 +399,50 @@ export class PathTracer {
       this.gl.deleteBuffer(this.fullscreenVBO);
       this.fullscreenVBO = null;
     }
+  }
+
+  private initSettingsSection() {
+    SettingsManager.instance.createSection(
+      document.getElementById("settings-section")!,
+      "Pathtracer Settings"
+    );
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
+      id: "numBounces",
+      label: "Maximum Number of Bounces",
+      min: 1,
+      max: 20,
+      step: 1,
+      defaultValue: 15,
+      numType: "int"
+    });
+
+    // Attach program uniforms for all settings
+    SettingsManager.instance.attatchProgram(this.meshProgram, [
+      "numBounces",
+      "u_redScatter",
+      "u_greenScatter",
+      "u_blueScatter",
+      //NOTE: When we fix natively pathtraced clouds we will put this back.
+      /*"CLOUDS_enableClouds",
+      "CLOUDS_MAX_STEPS",
+      "CLOUDS_MAX_STEPS_LIGHT",
+      "CLOUDS_weatherMapOffsetX",
+      "CLOUDS_weatherMapOffsetY",
+      "CLOUDS_absorption",
+      "CLOUDS_densityThreshold",
+      "CLOUDS_baseFrequency",
+      "CLOUDS_detailFrequency",
+      "CLOUDS_lightAbsorption",
+      "CLOUDS_lightIntensity",
+      "CLOUDS_ambientIntensity",
+      "CLOUDS_darknessThreshold",
+      "CLOUDS_phaseG",
+      "CLOUDS_phaseMultiplier",
+      "CLOUDS_blueNoiseAmplitude",
+      "CLOUDS_baseCloudColor",
+      "CLOUDS_skyContribution",
+      "CLOUDS_lightDarkSharpness",
+      "CLOUDS_simplexMultiplier"*/
+    ]);
   }
 }

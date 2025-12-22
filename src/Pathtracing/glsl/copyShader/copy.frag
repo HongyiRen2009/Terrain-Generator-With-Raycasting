@@ -17,16 +17,10 @@ vec3 ACESFilmic(vec3 x) {
 }
 
 void main() {
-    // 1. Get the SUM of colors from the accumulation texture
     vec3 sumColor = texture(u_sourceTexture, v_uv).rgb;
 
-    // 2. Calculate the correct average by dividing by the number of samples (frames)
-    //    Add a max to prevent division by zero if frameNumber is somehow 0.
-    vec3 avgColor = sumColor / max(u_frameNumber, 1.0);
-
-    // 3. Now apply tone mapping and gamma to the STABLE AVERAGE
     float exposure = 1.0;
-    vec3 tonedColor = ACESFilmic(avgColor * exposure);
+    vec3 tonedColor = ACESFilmic(sumColor * exposure);
     
     float gamma = 2.2;
     vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));

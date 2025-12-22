@@ -74,10 +74,12 @@ export class DirectionalLight {
   direction: vec3;
   color: Color;
   intensity: number;
-  constructor(direction: vec3, color: Color, intensity: number) {
+  angularRadius: number;
+  constructor(direction: vec3, color: Color, intensity: number, angularRadius: number) {
     this.direction = direction;
     this.color = color;
     this.intensity = intensity;
+    this.angularRadius = angularRadius;
   }
 }
 
