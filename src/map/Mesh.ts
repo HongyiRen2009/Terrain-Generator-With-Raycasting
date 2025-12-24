@@ -8,7 +8,6 @@ export interface BVHTriangle {
   triangle: Triangle;
   center: vec3; //centroid
   boundingBox: { min: vec3; max: vec3 };
-  type: Terrain[]; //Terrain information - length of 3
   index: number; //index in the large thing.
   vertexNormals: Triangle;
 }

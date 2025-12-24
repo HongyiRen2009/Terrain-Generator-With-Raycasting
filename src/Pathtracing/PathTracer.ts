@@ -2,7 +2,7 @@
 
 import { mat4, vec2, vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
-import { Mesh } from "../map/Mesh";
+import { BVHTriangle, Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { RenderUtils } from "../utils/RenderUtils";
 import { TextureUtils } from "../utils/TextureUtils";
@@ -44,6 +44,7 @@ export class PathTracer {
   // Terrain Info
   private terrainTypes: Float32Array = null!;
   private vertexNormals: Float32Array = null!;
+  private grassBB: Float32Array = null!;
 
   //Classes
   private world: WorldMap;
@@ -60,6 +61,7 @@ export class PathTracer {
   private leafsTex?: WebGLTexture;
   private terrainTypeTex?: WebGLTexture;
   private vertexNormalsTex?: WebGLTexture;
+  private grassTexture?: WebGLTexture;
   private noiseTexture?: WebGLTexture;
   private weatherMapTexture?: WebGLTexture;
 
@@ -105,8 +107,11 @@ export class PathTracer {
     ////////////////////// build flat BVH structure
     //Obtain bvh from mesh.
     const BVHtriangles = mainMesh.exportBVHTriangles();
+    let stuff: BVHTriangle[] = [];
     if(this.glRendererVaoManager){
-      const stuff = this.glRendererVaoManager.getGrassBVHTriangle();
+      stuff = this.glRendererVaoManager.getGrassBVHTriangle();
+      console.log("Number of thingities:", stuff.length);
+      console.log(stuff);
       for(let i = 0; i < stuff.length; i++){
         BVHtriangles.push(stuff[i]);
       }
@@ -133,6 +138,21 @@ export class PathTracer {
     this.leafs = leafs;
     this.terrainTypes = terrainTypes;
     this.vertexNormals = normals;
+
+    //Extract Stuff out of grass bb
+    let floatsPerTexel = 4;
+    if(stuff.length != 0){
+      let thingity = new Float32Array(
+        Math.ceil((stuff.length * 6) / floatsPerTexel) * floatsPerTexel
+      );
+      for(let i = 0; i < stuff.length; i++){
+        for (let j = 0; j < 3; j++) {
+          thingity[i * 6 + j] = stuff[i].boundingBox.min[j];
+          thingity[i * 6 + 3 + j] = stuff[i].boundingBox.max[j];
+        }
+      }
+      this.grassBB = thingity;
+    }
   }
   public render(time: number) {
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -274,6 +294,7 @@ export class PathTracer {
     this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
     this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
     this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+    this.grassTexture = TextureUtils.packFloatArrayToTexture(this.gl,this.grassBB);
 
     //clouds
     this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
@@ -292,6 +313,7 @@ export class PathTracer {
     TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, "u_leafsTex", 4);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, "u_terrainTypes", 5);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, "u_normals", 6);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture!, "u_grassBB", 9);
 
     //NOTE: When we fix natively pathtraced clouds we will put this back.
     /*
@@ -439,7 +461,7 @@ export class PathTracer {
       "u_redScatter",
       "u_greenScatter",
       "u_blueScatter",
-      "u_skips"
+      "u_skips",
       //NOTE: When we fix natively pathtraced clouds we will put this back.
       /*"CLOUDS_enableClouds",
       "CLOUDS_MAX_STEPS",
@@ -460,7 +482,8 @@ export class PathTracer {
       "CLOUDS_baseCloudColor",
       "CLOUDS_skyContribution",
       "CLOUDS_lightDarkSharpness",
-      "CLOUDS_simplexMultiplier"*/
+      "CLOUDS_simplexMultiplier",*/
+      "grassBaseColor"
     ]);
   }
 }

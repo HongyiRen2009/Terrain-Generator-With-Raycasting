@@ -397,17 +397,6 @@ export class VAOManager {
     return { vertices, indices };
   }
 
-  /*export type Triangle = [vec3, vec3, vec3];
-
-export interface BVHTriangle {
-  triangle: Triangle;
-  center: vec3; //centroid
-  boundingBox: { min: vec3; max: vec3 };
-  type: Terrain[]; //Terrain information - length of 3
-  index: number; //index in the large thing.
-  vertexNormals: Triangle;
-}
- */
   public getGrassBVHTriangle() {
     if (!this.grassVAOInfo || !this.instanceVBO) return [];
 
@@ -449,11 +438,10 @@ export interface BVHTriangle {
 
         primitives.push({
             boundingBox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
-            triangle:[vec3.fromValues(0,0,0),vec3.fromValues(1,1,1),vec3.fromValues(0,1,0)], //Thisis shouldn't matter in the pathtracer this terrain type should do something
-            index: i, // Store this so the ray-tracer knows which blade it hit
+            triangle:[vec3.fromValues(minX,minY,minY),vec3.fromValues(maxX,maxY,maxZ),vec3.fromValues(minX,minY,minZ+0.01)], //Thisis shouldn't matter in the pathtracer this terrain type should do something
+            index: -2-i, //Tell that it's grass
             vertexNormals: [vec3.fromValues(0,0,0),vec3.fromValues(1,1,1),vec3.fromValues(0,1,0)], //Thisis shouldn't matter in the pathtracer this terrain type should do something
             center: [centerX, centerY, centerZ],
-            type: [Terrains[-1],Terrains[-1],Terrains[-1]]
         });
     }
 
