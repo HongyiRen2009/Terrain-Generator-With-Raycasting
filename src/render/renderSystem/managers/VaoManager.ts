@@ -398,14 +398,15 @@ export class VAOManager {
   }
 
   public getGrassBVHTriangle() {
-    if (!this.grassVAOInfo || !this.instanceVBO) return [];
+    if (!this.grassVAOInfo || !this.instanceVBO) return {triangles: [], primitives: new Float32Array(0)};
 
     const numInstances = this.grassVAOInfo.numInstances;
     const instanceData = new Float32Array(numInstances * 5);
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceVBO);
     this.gl.getBufferSubData(this.gl.ARRAY_BUFFER, 0, instanceData);
 
-    const primitives: BVHTriangle[] = [];
+    const triangles: BVHTriangle[] = [];
+    const primitives = new Float32Array(numInstances * 8); //minX,miny,minz,maxX,maxy,maxz,lean, angle
     const height = 1.0; 
     const width = 0.1;
 
@@ -436,7 +437,17 @@ export class VAOManager {
         const centerY = (minY + maxY) * 0.5;
         const centerZ = (minZ + maxZ) * 0.5;
 
-        primitives.push({
+        const newOff = i * 8;
+        primitives[newOff + 0] = minX;
+        primitives[newOff + 1] = minY;
+        primitives[newOff + 2] = minZ;
+        primitives[newOff + 3] = maxX;
+        primitives[newOff + 4] = maxY;
+        primitives[newOff + 5] = maxZ;
+        primitives[newOff + 6] = lean;
+        primitives[newOff + 7] = angle;
+
+        triangles.push({
             boundingBox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
             triangle:[vec3.fromValues(minX,minY,minY),vec3.fromValues(maxX,maxY,maxZ),vec3.fromValues(minX,minY,minZ+0.01)], //Thisis shouldn't matter in the pathtracer this terrain type should do something
             index: -2-i, //Tell that it's grass
@@ -445,7 +456,7 @@ export class VAOManager {
         });
     }
 
-    return primitives;
+    return {triangles: triangles,primitives: primitives};
 }
 
   createSphericalMesh(radius: number, showColor: Color): Mesh {

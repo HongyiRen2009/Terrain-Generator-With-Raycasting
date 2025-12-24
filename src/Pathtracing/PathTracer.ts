@@ -107,13 +107,14 @@ export class PathTracer {
     ////////////////////// build flat BVH structure
     //Obtain bvh from mesh.
     const BVHtriangles = mainMesh.exportBVHTriangles();
-    let stuff: BVHTriangle[] = [];
     if(this.glRendererVaoManager){
-      stuff = this.glRendererVaoManager.getGrassBVHTriangle();
-      console.log("Number of thingities:", stuff.length);
-      console.log(stuff);
-      for(let i = 0; i < stuff.length; i++){
-        BVHtriangles.push(stuff[i]);
+      const grassInfo = this.glRendererVaoManager.getGrassBVHTriangle();
+      let grassTriangles = grassInfo.triangles;
+      for(let i = 0; i < grassTriangles.length; i++){
+        BVHtriangles.push(grassTriangles[i]);
+      }
+      if(grassTriangles.length != 0){
+        this.grassBB = grassInfo.primitives;
       }
     }
     const BVHtree = Mesh.exportBVH(BVHtriangles);
@@ -138,21 +139,6 @@ export class PathTracer {
     this.leafs = leafs;
     this.terrainTypes = terrainTypes;
     this.vertexNormals = normals;
-
-    //Extract Stuff out of grass bb
-    let floatsPerTexel = 4;
-    if(stuff.length != 0){
-      let thingity = new Float32Array(
-        Math.ceil((stuff.length * 6) / floatsPerTexel) * floatsPerTexel
-      );
-      for(let i = 0; i < stuff.length; i++){
-        for (let j = 0; j < 3; j++) {
-          thingity[i * 6 + j] = stuff[i].boundingBox.min[j];
-          thingity[i * 6 + 3 + j] = stuff[i].boundingBox.max[j];
-        }
-      }
-      this.grassBB = thingity;
-    }
   }
   public render(time: number) {
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -483,7 +469,10 @@ export class PathTracer {
       "CLOUDS_skyContribution",
       "CLOUDS_lightDarkSharpness",
       "CLOUDS_simplexMultiplier",*/
-      "grassBaseColor"
+      //Grass
+      "grassBaseColor",
+      "grassEnabled",
+      "grassTipColor"
     ]);
   }
 }

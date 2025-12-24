@@ -64,6 +64,8 @@ const float CLOUDS_ALPHA_THRESHOLD = 0.99f;
 
 //Grass
 uniform vec3 grassBaseColor;
+uniform vec3 grassTipColor;
+uniform bool grassEnabled;
 
 //Light/Sun
 struct Light {
@@ -288,6 +290,7 @@ bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean
     // 1. TRANSFORM RAY TO LOCAL SPACE
     vec3 localOrigin = rayOrigin - instancePos;
     vec3 localDir = rayDir;
+    float hitY = 0.0;
 
     // Inverse Rotation (Rotate by -rotation)
     localOrigin = rotateY(localOrigin, -rotation);
@@ -319,6 +322,7 @@ bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean
                     // Base normal (0,0,1) -> Sheared normal -> Rotated normal
                     // Sheared Plane Z: z - lean*y = 0. Normal is (0, -lean, 1)
                     normalClosest = normalize(vec3(0.0, -lean, 1.0));
+                    hitY = p.y;
                     // Flip if hitting backface
                     if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;
                 }
@@ -340,6 +344,7 @@ bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean
                     // Base normal (1,0,0) -> Sheared normal -> Rotated normal
                     // Sheared Plane X: x - lean*y = 0. Normal is (1, -lean, 0)
                     normalClosest = normalize(vec3(1.0, -lean, 0.0));
+                    hitY = p.y;
                     if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;
                 }
             }
@@ -357,10 +362,6 @@ bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean
     // Rotate the normal back to world space
     vec3 worldNormal = rotateY(normalClosest, rotation);
     
-    // Fill only the required fields
-    result.types[0] = -1;       // As requested
-    result.triNormal = worldNormal; // The calculated normal
-    
     // Fill required dummy data to prevent compilation errors/undefined behavior
     result.vertices = vec3[3](vec3(0.), vec3(0.), vec3(0.));
     result.types[1] = 0;
@@ -370,6 +371,10 @@ bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean
     result.center = vec3(0.);
     result.normals = vec3[3](vec3(0.), vec3(0.), vec3(0.));
 
+    // Fill only the required fields
+    result.types[0] = -1;       // As requested
+    result.triNormal = worldNormal; // The calculated normal
+    result.normals[0].x = hitY; //Height
     return true;
 }
 
@@ -441,15 +446,18 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out fl
         if (node.left == -1) { // Leaf Node
             for (int j = 0; j < 4; j++) {
                 int triIdx = node.triangles[j];
-                if(triIdx <= -2){//gRaS
+                if(triIdx <= -2 && grassEnabled){//gRaS
                     //Do cool stuff later
                     int thingI = triIdx*(-1)-2;
-                    vec3 min = vec3(fetchFloatFrom1D(u_grassBB, thingI*6),fetchFloatFrom1D(u_grassBB, thingI*6+1),fetchFloatFrom1D(u_grassBB, thingI*6+2));
-                    vec3 max = vec3(fetchFloatFrom1D(u_grassBB, thingI*6+3),fetchFloatFrom1D(u_grassBB, thingI*6+4),fetchFloatFrom1D(u_grassBB, thingI*6+5));
+                    int grassInfoSize = 8;
+                    vec3 min = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+1),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+2));
+                    //vec3 max = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+3),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+4),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+5));
+                    float lean = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+6);
+                    float angle = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+7);
                     //bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) 
                     Triangle tri;
                     float hitDist;
-                    bool val = intersectGrassBlade(rayOrigin,rayDir, min, 0.5, 0.9, hitDist, tri);
+                    bool val = intersectGrassBlade(rayOrigin,rayDir, min, lean, angle, hitDist, tri);
                     if(val && hitDist < minHitDistance){
                         minHitDistance = hitDist;
                         closestHitIndex = triIdx;
@@ -1107,7 +1115,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             //pretend diffuse for now
             type = 1;
             smoothNormal = tri.triNormal;
-            matColor = grassBaseColor;
+            matColor =  mix(grassBaseColor,grassTipColor, tri.normals[0].x);
         }
         if(type != 4) //Transmission goes through
             rayOrigin = hitPoint + geometricNormal * 0.1;

@@ -111,13 +111,6 @@ export interface Terrain {
  */
 export const Terrains: { [id: number]: Terrain } = {
   //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
-  //Grass blade. This will be handled independently, non of the values matter.
-  "-1": {
-    color: Color.fromHex("#6BAA3A"),
-    reflectiveness: 0.02,
-    roughness: 0.9,
-    type: 3
-  },
   // 0: Grass
   0: {
     color: Color.fromHex("#6BAA3A"),
