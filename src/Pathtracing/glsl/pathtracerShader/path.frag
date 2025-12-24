@@ -941,9 +941,18 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         //Get information
         vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
 
-        TerrainType t1 = Terrains[tri.types[0]];//getTerrainType(tri.types[0]);
-        TerrainType t2 = Terrains[tri.types[1]];
-        TerrainType t3 = Terrains[tri.types[2]];
+        bool isGrassBlade = false;
+        if(tri.types[0] == -1){
+            isGrassBlade = true; 
+        }
+        TerrainType t1;//getTerrainType(tri.types[0]);
+        TerrainType t2;
+        TerrainType t3;
+        if(!isGrassBlade){
+            t1 = Terrains[tri.types[0]];//getTerrainType(tri.types[0]);
+            t2 = Terrains[tri.types[1]];
+            t3 = Terrains[tri.types[2]];
+        }
 
         vec3 smoothNormal, matColor;
         float matRoughness, reflectiveness;
@@ -957,20 +966,25 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
         }else{
             type = t1.type; //default to first one in triangle
         }
-        
-        getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);
-        
+        if(!isGrassBlade){
+            getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);
+        }
 
         vec3 geometricNormal = tri.triNormal;
         bool didSwitch = false;
         if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal; //"same direction"
-        if (dot(smoothNormal, geometricNormal) < 0.0) {
-            smoothNormal = -smoothNormal;
-            didSwitch = true;
-        } //If pointing in opposite directions, flip
-        
+        if(!isGrassBlade){
+            if (dot(smoothNormal, geometricNormal) < 0.0) {
+                smoothNormal = -smoothNormal;
+                didSwitch = true;
+            } //If pointing in opposite directions, flip
+        }
 
         // Create the next bounce ray
+        if(isGrassBlade){
+            //Do something cool 
+            continue;
+        }
         if(type != 4) //Transmission goes through
             rayOrigin = hitPoint + geometricNormal * 0.1;
         if(type == 1){ //Diffuse

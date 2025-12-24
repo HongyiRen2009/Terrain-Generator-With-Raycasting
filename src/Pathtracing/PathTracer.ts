@@ -16,6 +16,7 @@ import copyVertexShader from "./glsl/copyShader/copy.vert";
 import { NoiseGenerator } from "../render/passes/CloudsPass";
 import { Terrains } from "../map/terrains";
 import { SettingsManager } from "../Settings";
+import { VAOManager } from "../render/renderSystem/managers/VaoManager";
 
 export class PathTracer {
   //Rendering
@@ -49,6 +50,7 @@ export class PathTracer {
   private camera: Camera;
   private debug: DebugMenu;
   private noiseGenerator: NoiseGenerator;
+  public glRendererVaoManager: VAOManager | null = null;
 
   //textures
   private vertexTex?: WebGLTexture;
@@ -103,6 +105,12 @@ export class PathTracer {
     ////////////////////// build flat BVH structure
     //Obtain bvh from mesh.
     const BVHtriangles = mainMesh.exportBVHTriangles();
+    if(this.glRendererVaoManager){
+      const stuff = this.glRendererVaoManager.getGrassBVHTriangle();
+      for(let i = 0; i < stuff.length; i++){
+        BVHtriangles.push(stuff[i]);
+      }
+    }
     const BVHtree = Mesh.exportBVH(BVHtriangles);
     const flatBVHtree = Mesh.flattenBVH(BVHtree);
 

@@ -98,6 +98,9 @@ export class BVHUtils {
     ); //r,g,b,illuminosity, reflectiveness
     let i = 0;
     for (const key in Terrains) {
+      if(key == "-1"){
+        continue;
+      }
       let terrain = Terrains[key];
       out[i * numberFloats] = terrain.color.r / 255;
       out[i * numberFloats + 1] = terrain.color.g / 255;
