@@ -18,7 +18,7 @@ precision highp int;
 uniform sampler2D u_lastFrame;
 uniform int u_frameNumber;
 uniform int numBounces;
-
+uniform int u_skips;
 
 uniform sampler2D u_vertices;
 uniform sampler2D u_terrains;
@@ -1102,6 +1102,15 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 }
 
 void main() {
+    int pixelX = int(v_uv.x * u_resolution.x);
+    int pixelY = int(v_uv.y * u_resolution.y);
+    int patternIndex = pixelX + pixelY * 199;
+
+    // Check if we should render this frame
+    if(patternIndex % u_skips != u_frameNumber % u_skips){
+        fragColor = vec4(textureLod(u_lastFrame, v_uv, 0.0).rgb, 1.0);
+        return;
+    }
     //Random Hash
     uint pixel_x = uint(v_uv.x * u_resolution.x); 
     uint pixel_y = uint(v_uv.y * u_resolution.y);
@@ -1135,11 +1144,14 @@ void main() {
 
     vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color
     vec3 newSum;
-    if(u_frameNumber == 1){
+    float effectiveSampleCount = ceil(float(u_frameNumber) / float(u_skips));
+    
+    effectiveSampleCount = max(effectiveSampleCount, 1.0);
+    if(u_frameNumber <= u_skips){ 
         newSum = newSampleColor;
-    }else{
-        vec3 lastSum = textureLod(u_lastFrame, v_uv,0.0).rgb; //Old color
-        newSum = lastSum + (newSampleColor - lastSum)/float(u_frameNumber);
+    } else {
+        vec3 lastSum = textureLod(u_lastFrame, v_uv, 0.0).rgb;
+        newSum = lastSum + (newSampleColor - lastSum) / effectiveSampleCount;
     }
 
     fragColor = vec4(newSum,1.0); 

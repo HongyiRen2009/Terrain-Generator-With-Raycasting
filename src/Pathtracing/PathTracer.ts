@@ -423,6 +423,15 @@ export class PathTracer {
       defaultValue: 15,
       numType: "int"
     });
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
+      id: "u_skips",
+      label: "Skips",
+      min: 1,
+      max: 50,
+      step: 1,
+      defaultValue: 4,
+      numType: "int"
+    });
 
     // Attach program uniforms for all settings
     SettingsManager.instance.attatchProgram(this.meshProgram, [
@@ -430,6 +439,7 @@ export class PathTracer {
       "u_redScatter",
       "u_greenScatter",
       "u_blueScatter",
+      "u_skips"
       //NOTE: When we fix natively pathtraced clouds we will put this back.
       /*"CLOUDS_enableClouds",
       "CLOUDS_MAX_STEPS",
