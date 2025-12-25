@@ -448,7 +448,10 @@ export class PathTracer {
       "u_redScatter",
       "u_greenScatter",
       "u_blueScatter",
-      "u_atmosphericDensity",
+      "u_haloSize",
+      "u_skyGradientQuality",
+      "u_sunsetQuality",
+      "u_MIE",
       //NOTE: When we fix natively pathtraced clouds we will put this back.
       /*"CLOUDS_enableClouds",
       "CLOUDS_MAX_STEPS",

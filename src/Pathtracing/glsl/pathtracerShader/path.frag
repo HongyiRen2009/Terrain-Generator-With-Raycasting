@@ -13,6 +13,7 @@ precision highp int;
 #define PI 3.1415926
 #define BVH_DEPTH 64
 #define NUM_TERRAINS 50 
+#define MAX_FLOAT 1e20
 
 //Note: 
 uniform sampler2D u_lastFrame;
@@ -88,7 +89,10 @@ uniform vec3 u_sunColor;
 uniform float u_blueScatter;
 uniform float u_redScatter;
 uniform float u_greenScatter;
-uniform float u_atmosphericDensity;
+uniform float u_haloSize;
+uniform int u_skyGradientQuality;
+uniform int u_sunsetQuality; 
+uniform float u_MIE;
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -869,52 +873,113 @@ vec4 handleClouds(vec3 rayOriginWorld,vec3 rayDirWorld,float distanceToTerrain,v
     }
     return accumulatedColor;
 }
-//AI Written: Atmospheric Scattering Sky Model 
+//Get sky color
 vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
-    // --- SETTINGS ---
-    // 1. The Scattering Ratios (Key for Sunset Color)
-    // We enforce the physics here: Blue scatters 5.8x more than Red.
-    // Tweak 'density' to make the whole atmosphere thicker (redder) or thinner (bluer).
-    float density = u_atmosphericDensity; 
-    vec3 kRlh = vec3(u_redScatter, u_greenScatter, u_blueScatter) * density; 
+    // -------------------------------------
+    // Constants (Moved inside as requested)
+    // -------------------------------------
+    const float RE = 6360e3;          // Earth Radius (meters)
+    const float RA = 6420e3;          // Atmosphere Radius (meters)
+    const float HR = 8000.0;          // Rayleigh Scale Height
+    const float HM = 1200.0;          // Mie Scale Height
+    float G_MIE = u_haloSize;         // Mie Anisotropy (Controls halo size)
     
-    // Mie (Haze/Sun Halo) coefficients
-    float kMie = 0.05 * density; 
+    // Scattering Coefficients (Sea Level)
+    vec3 BETA_R = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.001; // Rayleigh (Blue)
+    vec3 BETA_M = vec3(u_MIE*0.001);                    // Mie (White)
 
-    // --- GEOMETRY ---
-    // 2. Optical Depth
-    // We use a smaller offset (0.02) to allow the horizon depth to get huge (50x zenith).
-    float zenith = max(rayDir.y, 0.0);
-    float sunZenith = max(sunDir.y, 0.0);
+    float SUN_INTENSITY = u_sunIntensity; 
+    int STEPS_PRIMARY = u_skyGradientQuality;     // Quality of the gradient
+    int STEPS_LIGHT = u_sunsetQuality;        // Quality of the sunset shadows
+
+    // -------------------------------------
+    // Setup Geometry
+    // -------------------------------------
+    // We treat the atmosphere as a large spherical "Light" for intersection purposes
+    Light atmosphere;
+    atmosphere.position = vec3(0.0);
+    atmosphere.radius = RA;
+
+    //Note we have a "constant" camera x and z coordinates since we're at the center of the world trust. (Basically to avoid it being goofy)
+    vec3 camPos = vec3(0.0, RE + u_cameraPos.y, 0.0); 
+
+    // Variable to satisfy your function signature
+    vec3 dummyNormal; 
+
+    // 1. Calculate distance to leave the atmosphere
+    float distToTop = intersectLight(camPos, rayDir, atmosphere, dummyNormal);
     
-    float viewDepth = 1.0 / (zenith + 0.02);
-    float sunDepth = 1.0 / (sunZenith + 0.02);
+    // If we look at the ground (and your ground logic handles it), return black here
+    if (distToTop < 0.0) return vec3(0.0); 
+
+    // -------------------------------------
+    // Raymarching
+    // -------------------------------------
+    float stepSize = distToTop / float(STEPS_PRIMARY);
+    vec3 currentPos = camPos;
     
-    // --- PHASE FUNCTIONS ---
-    float cosTheta = dot(rayDir, sunDir);
-    float rPhase = 3.0 / (16.0 * PI) * (1.0 + cosTheta * cosTheta);
-    float g = 0.85; // Sharp sun peak
-    float mPhase = (1.0 - g*g) / (4.0 * PI * pow(1.0 + g*g - 2.0 * g * cosTheta, 1.5));
-
-    // --- EXTINCTION (The Sunset Engine) ---
-    // We combine the view path and the sun path.
-    // If the sun is low, sunDepth is ~50.0. 
-    // Blue extinction: exp(-0.28 * 50) = exp(-14) = 0.0 (All blue blocked)
-    // Red extinction:  exp(-0.05 * 50) = exp(-2.5) = 0.08 (Some red gets through)
-    vec3 totalExtinction = exp(-kRlh * (viewDepth + sunDepth));
-
-    // --- SCATTERING IN ---
-    // Calculate Rayleigh and Mie Light
-    vec3 rayleigh = kRlh * rPhase * totalExtinction;
-    vec3 mie = vec3(kMie) * mPhase * totalExtinction;
+    vec3 totalR = vec3(0.0); // Rayleigh accumulation
+    vec3 totalM = vec3(0.0); // Mie accumulation
+    float optDepthR = 0.0;
+    float optDepthM = 0.0;
     
-    // --- BRIGHTNESS COMPENSATION ---
-    // This is the "Cheat" to prevent dark skies. 
-    // As the sun goes down, the sky naturally gets dark. 
-    // We boost the brightness slightly based on sun height so the sunset glows.
-    float brightnessFalloff = 1.0 + (sunZenith * 2.0); 
+    // Pre-calculate Phase Functions (constant for this pixel)
+    float mu = dot(rayDir, sunDir);
+    float phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
+    float g = G_MIE; float g2 = g * g;
+    float phaseM = 3.0 / (8.0 * PI) * ((1.0 - g2) * (1.0 + mu * mu)) / 
+                   ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));
 
-    return (rayleigh + mie) * u_sunIntensity * brightnessFalloff;
+    for (int i = 0; i < STEPS_PRIMARY; ++i) {
+        // Sample in the middle of the step
+        vec3 samplePos = currentPos + rayDir * (stepSize * 0.5);
+        float height = length(samplePos) - RE;
+        
+        // Use abs() or max() to avoid negative height precision issues at exact sea level
+        if (height < 0.0) height = 0.0;
+
+        // Density at this height
+        float hr = exp(-height / HR) * stepSize;
+        float hm = exp(-height / HM) * stepSize;
+        
+        optDepthR += hr;
+        optDepthM += hm;
+        
+        // 2. Secondary Ray: Distance from sample point to Sun (Atmosphere exit)
+        // We use your intersection function again here
+        float distToSun = intersectLight(samplePos, sunDir, atmosphere, dummyNormal);
+        
+        // Calculate light attenuation (Optical Depth towards sun)
+        float stepSizeSun = distToSun / float(STEPS_LIGHT);
+        float sunDepthR = 0.0;
+        float sunDepthM = 0.0;
+        vec3 sunPos = samplePos;
+        
+        for (int j = 0; j < STEPS_LIGHT; ++j) {
+            vec3 sPos = sunPos + sunDir * (stepSizeSun * 0.5);
+            float h = length(sPos) - RE;
+            if (h < 0.0) h = 0.0;
+            
+            sunDepthR += exp(-h / HR) * stepSizeSun;
+            sunDepthM += exp(-h / HM) * stepSizeSun;
+            sunPos += sunDir * stepSizeSun;
+        }
+        
+        // Combine Camera Depth + Sun Depth
+        vec3 tau = BETA_R * (optDepthR + sunDepthR) + BETA_M * 1.1 * (optDepthM + sunDepthM);
+        vec3 attenuation = exp(-tau);
+        
+        totalR += hr * attenuation;
+        totalM += hm * attenuation;
+        
+        currentPos += rayDir * stepSize;
+    }
+    
+    // -------------------------------------
+    // Final Color
+    // -------------------------------------
+    // No explicit sun disc math here, just the atmospheric glow
+    return SUN_INTENSITY * (totalR * BETA_R * phaseR + totalM * BETA_M * phaseM);
 }
 vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
     vec3 directLight = vec3(0.0);
@@ -1015,7 +1080,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     float ZENITH_ANGLE = acos(COS_ZENITH) * 57.2958; //converted to degrees
     float AIR_MASS = 1.0 / (COS_ZENITH + 0.15 * pow(93.885 - ZENITH_ANGLE, -1.253));
     AIR_MASS = clamp(AIR_MASS, 1.0, 50.0);
-    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter); 
+    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.001; 
     vec3 SUN_TRANSMISSION = exp(-AIR_MASS * BETA_EXTINCTION);
 
     int hasMirror = -1;

@@ -120,16 +120,45 @@ export class WorldMap {
       defaultValue: 0.022,
       numType: "float"
     });
-
     SettingsManager.instance.addSliderToSection("Sky Settings",{
-      id: "u_atmosphericDensity",
-      label: "Atmospheric Density",
+      id: "u_MIE",
+      label: "Mie (whiteness at sea level)",
       min: 0,
-      max: 1,
-      step: 0.01,
-      defaultValue: 1.0,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.021,
       numType: "float"
     });
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_haloSize",
+      label: "Mie Anisotropy (Lower = larger halo)",
+      min: 0,
+      max: 5,
+      step: 0.01,
+      defaultValue: 0.76,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_skyGradientQuality",
+      label: "Sky Gradient Quality",
+      min: 1,
+      max: 50,
+      step: 1,
+      defaultValue: 12,
+      numType: "int"
+    });
+
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_sunsetQuality",
+      label: "Sunset Quality",
+      min: 1,
+      max: 50,
+      step: 1,
+      defaultValue: 4,
+      numType: "int"
+    });
+
+
   }
 
   /**
