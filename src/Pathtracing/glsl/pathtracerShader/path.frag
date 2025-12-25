@@ -88,6 +88,7 @@ uniform vec3 u_sunColor;
 uniform float u_blueScatter;
 uniform float u_redScatter;
 uniform float u_greenScatter;
+uniform float u_atmosphericDensity;
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -868,42 +869,53 @@ vec4 handleClouds(vec3 rayOriginWorld,vec3 rayDirWorld,float distanceToTerrain,v
     }
     return accumulatedColor;
 }
-//AI Written: Atmospheric Scattering Sky Model
+//AI Written: Atmospheric Scattering Sky Model 
 vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
-    // 1. Constants for Earth's Atmosphere
-    // Rayleigh coefficient 
-    vec3 kRlh = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.005;
-    // Mie coefficient (scatters white)
-    float kMie = 0.01;
+    // --- SETTINGS ---
+    // 1. The Scattering Ratios (Key for Sunset Color)
+    // We enforce the physics here: Blue scatters 5.8x more than Red.
+    // Tweak 'density' to make the whole atmosphere thicker (redder) or thinner (bluer).
+    float density = u_atmosphericDensity; 
+    vec3 kRlh = vec3(u_redScatter, u_greenScatter, u_blueScatter) * density; 
     
-    // 2. Geometry: How "thick" is the atmosphere in this direction?
-    // We approximate the optical depth using the zenith angle.
-    // When looking up (y=1), depth is 1. When looking at horizon (y=0), depth is huge.
-    // The "max" prevents division by zero below the horizon.
-    float zenithAngle = clamp(rayDir.y,0.0, 1.0);
-    float opticalDepth = 1.0 / (zenithAngle + 0.05); // +0.05 acts as the "scale height" approximation
+    // Mie (Haze/Sun Halo) coefficients
+    float kMie = 0.05 * density; 
+
+    // --- GEOMETRY ---
+    // 2. Optical Depth
+    // We use a smaller offset (0.02) to allow the horizon depth to get huge (50x zenith).
+    float zenith = max(rayDir.y, 0.0);
+    float sunZenith = max(sunDir.y, 0.0);
     
-    // 3. Phase Functions: How much light scatters towards the camera?
+    float viewDepth = 1.0 / (zenith + 0.02);
+    float sunDepth = 1.0 / (sunZenith + 0.02);
+    
+    // --- PHASE FUNCTIONS ---
     float cosTheta = dot(rayDir, sunDir);
-    
-    // Rayleigh Phase (simple symmetric scattering)
     float rPhase = 3.0 / (16.0 * PI) * (1.0 + cosTheta * cosTheta);
-    
-    // Mie Phase (Henyey-Greenstein) - Creates the bright sun halo
-    // g is anisotropy: 0.7-0.8 for strong forward glare
-    float g = 0.76; 
-    float g2 = g * g;
-    float mPhase = (1.0 - g2) / (4.0 * PI * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
+    float g = 0.85; // Sharp sun peak
+    float mPhase = (1.0 - g*g) / (4.0 * PI * pow(1.0 + g*g - 2.0 * g * cosTheta, 1.5));
 
-    // 4. Combine
-    // Calculate how much blue (Rayleigh) and white (Mie) light is scattered to us
-    vec3 rayleigh = kRlh * opticalDepth * rPhase;
-    vec3 mie = vec3(kMie) * opticalDepth * mPhase;
+    // --- EXTINCTION (The Sunset Engine) ---
+    // We combine the view path and the sun path.
+    // If the sun is low, sunDepth is ~50.0. 
+    // Blue extinction: exp(-0.28 * 50) = exp(-14) = 0.0 (All blue blocked)
+    // Red extinction:  exp(-0.05 * 50) = exp(-2.5) = 0.08 (Some red gets through)
+    vec3 totalExtinction = exp(-kRlh * (viewDepth + sunDepth));
+
+    // --- SCATTERING IN ---
+    // Calculate Rayleigh and Mie Light
+    vec3 rayleigh = kRlh * rPhase * totalExtinction;
+    vec3 mie = vec3(kMie) * mPhase * totalExtinction;
     
-    // Add them up and multiply by sun intensity
-    return (rayleigh + mie) * u_sunIntensity;
+    // --- BRIGHTNESS COMPENSATION ---
+    // This is the "Cheat" to prevent dark skies. 
+    // As the sun goes down, the sky naturally gets dark. 
+    // We boost the brightness slightly based on sun height so the sunset glows.
+    float brightnessFalloff = 1.0 + (sunZenith * 2.0); 
+
+    return (rayleigh + mie) * u_sunIntensity * brightnessFalloff;
 }
-
 vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
     vec3 directLight = vec3(0.0);
     bool autoNormal = false;
@@ -1003,7 +1015,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
     float ZENITH_ANGLE = acos(COS_ZENITH) * 57.2958; //converted to degrees
     float AIR_MASS = 1.0 / (COS_ZENITH + 0.15 * pow(93.885 - ZENITH_ANGLE, -1.253));
     AIR_MASS = clamp(AIR_MASS, 1.0, 50.0);
-    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.05; 
+    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter); 
     vec3 SUN_TRANSMISSION = exp(-AIR_MASS * BETA_EXTINCTION);
 
     int hasMirror = -1;

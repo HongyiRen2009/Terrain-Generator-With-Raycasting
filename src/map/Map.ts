@@ -97,27 +97,37 @@ export class WorldMap {
       id: "u_redScatter",
       label: "Red Scattering in the Sky",
       min: 0,
-      max: 100,
-      step: 0.1,
-      defaultValue: 5.5,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.005,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings",{
       id: "u_greenScatter",
       label: "Green Scattering in the Sky",
       min: 0,
-      max: 100,
-      step: 0.1,
-      defaultValue: 13.0,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.011,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings",{
       id: "u_blueScatter",
       label: "Blue Scattering in the Sky",
       min: 0,
-      max: 100,
-      step: 0.1,
-      defaultValue: 33.1,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.022,
+      numType: "float"
+    });
+
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_atmosphericDensity",
+      label: "Atmospheric Density",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 1.0,
       numType: "float"
     });
   }

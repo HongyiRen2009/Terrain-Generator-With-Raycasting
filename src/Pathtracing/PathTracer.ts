@@ -444,10 +444,11 @@ export class PathTracer {
     // Attach program uniforms for all settings
     SettingsManager.instance.attatchProgram(this.meshProgram, [
       "numBounces",
+      "u_skips",
       "u_redScatter",
       "u_greenScatter",
       "u_blueScatter",
-      "u_skips",
+      "u_atmosphericDensity",
       //NOTE: When we fix natively pathtraced clouds we will put this back.
       /*"CLOUDS_enableClouds",
       "CLOUDS_MAX_STEPS",
