@@ -334,18 +334,14 @@ export class LightingPass extends RenderPass {
         this.resourceCache.setData("disableSun", value);
       }
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings", {
-      id: "sunlightIntensity",
-      label: "Sunlight Intensity",
-      min: 0,
-      max: 5,
-      step: 0.01,
-      defaultValue: 4,
-      numType: "float",
-      onChange: (value: number) => {
+    SettingsManager.instance.addColorPickerToSection("Sky Settings", {
+      id: "__SUNCOLOR__",
+      label: "Sun Color",
+      defaultValue: "#ffffffff",
+      onChange: (value: string)=>{
         const sunLight = this.resourceCache.getData("sunLight");
         if (sunLight) {
-          sunLight.intensity = value;
+          sunLight.color = Color.fromHex(value);
           this.resourceCache.setData("sunLight", sunLight);
         }
       }
