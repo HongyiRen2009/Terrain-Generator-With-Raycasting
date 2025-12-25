@@ -137,6 +137,8 @@ export class ComputeShader {
     const indexCount = vertexCount; // or (vertexCount / 3) * 3 if always triangles
     return { vertexCount, indexCount };
   }
+
+  // TODO: sync with noise.wgsl
   async createPerlinNoise3D(
     width: number,
     height: number,
@@ -163,7 +165,7 @@ export class ComputeShader {
 
     // Create uniform buffer for parameters (7 u32s = 28 bytes)
     const paramsBuffer = this.device.createBuffer({
-      size: 28,
+      size: 28, // TODO: make dynamic
       usage: GPUBufferUsage.UNIFORM,
       mappedAtCreation: true
     });

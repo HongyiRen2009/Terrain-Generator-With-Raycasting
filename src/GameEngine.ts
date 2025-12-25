@@ -212,9 +212,6 @@ export class GameEngine {
     try {
       this.pathTracer.dispose();
     } catch (e) {}
-    try {
-      this.world.dispose();
-    } catch (e) {}
   }
   public async initialize() {
     await this.world.generate();

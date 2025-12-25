@@ -35,7 +35,6 @@ export class WorldMap {
   public height: number;
   public resolution = 32; //#of vertices square size of chunk
   public chunks: { [key: string]: Chunk } = {};
-  public Workers: Worker[] = [];
   public seed: number = Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
 
   public worldObjects: WorldObject[] = [];
@@ -67,44 +66,20 @@ export class WorldMap {
     this.length = length;
     this.height = height;
     this.chunks = {};
-    for (let i = 0; i < navigator.hardwareConcurrency; i++) {
-      this.Workers.push(new Worker(new URL("./Worker.ts", import.meta.url)));
-    }
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
     this.computeShader = new ComputeShader();
     this.computeShader.init();
   }
 
-  /**
-   * Clean up resources associated with the map (terminate workers, clear data).
-   */
-  public dispose(): void {
-    if (this.Workers && this.Workers.length > 0) {
-      for (const w of this.Workers) {
-        try {
-          w.terminate();
-        } catch (e) {
-          // ignore termination errors
-        }
-      }
-      this.Workers = [];
-    }
-    // Clear other large structures
-    this.chunks = {};
-    this.worldObjects = [];
-  }
-
   //Generates map
   public async generate() {
     this.chunks = {};
-    let worker = 0;
 
     // Step 1: Prepare chunk positions and grid sizes
     const chunkParams: {
       pos: vec3;
       grid: vec3;
       seed: number;
-      worker: Worker;
     }[] = [];
     for (let i = 0; i < 6; i++) {
       for (let j = 0; j < 6; j++) {
@@ -122,7 +97,6 @@ export class WorldMap {
               this.resolution
             ),
             seed: this.seed,
-            worker: this.Workers[worker++ % navigator.hardwareConcurrency]
           });
         }
       }
@@ -148,7 +122,6 @@ export class WorldMap {
         chunkParam.pos,
         chunkParam.grid,
         chunkParam.seed,
-        chunkParam.worker,
         this
       );
       const key = `${chunkParam.pos[0]},${chunkParam.pos[1]},${chunkParam.pos[2]}`;
@@ -328,7 +301,6 @@ export class Chunk {
   GridSize: vec3;
   Field: Float32Array = new Float32Array();
   seed: number;
-  Worker: Worker;
   Mesh: Mesh = null!;
   gearObjects: vec3[];
   worldMap: WorldMap;
@@ -337,13 +309,11 @@ export class Chunk {
     ChunkPosition: vec3,
     GridSize: vec3,
     seed: number,
-    Worker: Worker,
     worldMap: WorldMap
   ) {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
     this.seed = seed;
-    this.Worker = Worker;
     this.gearObjects = [];
     this.worldMap = worldMap;
   }
