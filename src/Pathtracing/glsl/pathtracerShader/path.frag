@@ -988,34 +988,36 @@ vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
         // For our code this means that set the normal to the direction of the ray
         autoNormal = true;
     }
-    for(int i = 0; i < numActiveLights; i++){
-        Light light = lights[i]; 
-        rng_state = hash(rng_state);
-        //choose a point on the light sphere
-        float r1 = (rand(rng_state)-0.5)*2.0;
-        float r2 = (rand(rng_state)-0.5)*2.0;
-        float r3 = (rand(rng_state)-0.5)*2.0;
-        vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;
-        vec3 lightPoint = light.position + jitter;
+    if(numActiveLights == 0){
+        return vec3(0.0);
+    }
+    int i = int(rand(rng_state)*float(numActiveLights));
+    Light light = lights[i]; 
+    rng_state = hash(rng_state);
+    //choose a point on the light sphere
+    float r1 = (rand(rng_state)-0.5)*2.0;
+    float r2 = (rand(rng_state)-0.5)*2.0;
+    float r3 = (rand(rng_state)-0.5)*2.0;
+    vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;
+    vec3 lightPoint = light.position + jitter;
 
-        vec3 lightDir = normalize(lightPoint - origin);
-        float lightDistance = length(lightPoint - origin);
-        //shadow ray
+    vec3 lightDir = normalize(lightPoint - origin);
+    float lightDistance = length(lightPoint - origin);
+    //shadow ray
 
-        if(autoNormal){
-            smoothNormal = lightDir;
-        }
+    if(autoNormal){
+        smoothNormal = lightDir;
+    }
 
-        vec3 shadowOrigin = origin;
-        vec3 shadowBarycentric;
-        float shadowHitDistance;
-        Triangle shadowTri;
-        int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
-        if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
-            float P = 1.0/(lightDistance*lightDistance);
-            float NdotL = max(dot(smoothNormal, lightDir), 0.0);
-            directLight += BRDF*light.color*light.intensity*NdotL*P*PI*light.radius*light.radius;
-        }
+    vec3 shadowOrigin = origin;
+    vec3 shadowBarycentric;
+    float shadowHitDistance;
+    Triangle shadowTri;
+    int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
+    if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
+        float P = 1.0/(lightDistance*lightDistance);
+        float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+        directLight += BRDF*light.color*light.intensity*NdotL*P*PI*light.radius*light.radius;
     }
     return directLight;
 }
