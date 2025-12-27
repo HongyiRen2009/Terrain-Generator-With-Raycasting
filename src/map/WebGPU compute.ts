@@ -1,17 +1,156 @@
 import noiseShaderCode from "./noise.wgsl";
 import marchingCubesCode from "./marching_cubes.wgsl";
-import prefixSumShaderCode from "./prefix_sum.wgsl";
 import prefixSumChunkCode from "./prefix_sum_chunk.wgsl";
 import prefixSumScanBlocksCode from "./prefix_sum_scan_blocks.wgsl";
 import prefixSumUniformAddCode from "./prefix_sum_uniform_add.wgsl";
 import calcVertexCountCode from "./calc_vertex_count.wgsl";
-import { CASES } from "./geometry";
+import { SettingsSection } from "../Settings";
+
+interface TerrainOptions {
+  frequency: number;
+  heightScale: number;
+  waterLevel: number;
+  islandAmount: number;
+  octaves: number;
+  persistence: number;
+  lacunarity: number;
+  caveThreshold: number;
+}
+
 export class ComputeShader {
   device: GPUDevice = null!;
   adapter: GPUAdapter = null!;
+  private terrainOptions: TerrainOptions = {
+    frequency: 0.01,
+    heightScale: 50.0,
+    waterLevel: 30.0,
+    islandAmount: 0.0,
+    octaves: 5,
+    persistence: 0.5,
+    lacunarity: 2.0,
+    caveThreshold: 0.55
+  };
 
   constructor() {
     this.init();
+  }
+
+  /**
+   * Create settings UI in the provided parent element.
+   * Calls `onChange` when a setting is changed.
+   */
+  public initSettings(onChange: (id: string, value: number) => void) {
+    // TODO: actually refresh terrain on change
+    // please also change/add settings when neccessary
+
+    const s = new SettingsSection(
+      document.getElementById("settings-section")!,
+      "Terrain"
+    );
+    s.addSlider({
+      id: "frequency",
+      label: "Noise Frequency",
+      defaultValue: this.terrainOptions.frequency,
+      min: 0.001,
+      max: 0.1,
+      step: 0.001,
+      numType: "float",
+      onChange: (v: number) => {
+        this.terrainOptions.frequency = v;
+        onChange("frequency", v);
+      }
+    });
+    s.addSlider({
+      id: "heightScale",
+      label: "Height Scale",
+      defaultValue: this.terrainOptions.heightScale,
+      min: 1,
+      max: 200,
+      step: 1,
+      numType: "float",
+      onChange: (v: number) => {
+        this.terrainOptions.heightScale = v;
+        onChange("heightScale", v);
+      }
+    });
+    s.addSlider({
+      id: "octaves",
+      label: "Octaves",
+      defaultValue: this.terrainOptions.octaves,
+      min: 1,
+      max: 8,
+      step: 1,
+      numType: "int",
+      onChange: (v: number) => {
+        this.terrainOptions.octaves = Math.floor(v);
+        onChange("octaves", v);
+      }
+    });
+    s.addSlider({
+      id: "persistence",
+      label: "Persistence",
+      defaultValue: this.terrainOptions.persistence,
+      min: 0.1,
+      max: 1.0,
+      step: 0.05,
+      numType: "float",
+      onChange: (v: number) => {
+        this.terrainOptions.persistence = v;
+        onChange("persistence", v);
+      }
+    });
+    s.addSlider({
+      id: "lacunarity",
+      label: "Lacunarity",
+      defaultValue: this.terrainOptions.lacunarity,
+      min: 1.0,
+      max: 4.0,
+      step: 0.1,
+      numType: "float",
+      onChange: (v: number) => {
+        this.terrainOptions.lacunarity = v;
+        onChange("lacunarity", v);
+      }
+    });
+    s.addSlider({
+      id: "islandAmount",
+      label: "Island Amount",
+      defaultValue: this.terrainOptions.islandAmount,
+      min: 0.0,
+      max: 1.0,
+      step: 0.01,
+      numType: "float",
+      onChange: (v: number) => {
+        this.terrainOptions.islandAmount = v;
+        onChange("islandAmount", v);
+      }
+    });
+    s.addSlider({
+      id: "waterLevel",
+      label: "Water Level",
+      defaultValue: this.terrainOptions.waterLevel,
+      min: 0,
+      max: 200,
+      step: 1,
+      numType: "float",
+      onChange: (v: number) => {
+        this.terrainOptions.waterLevel = v;
+        onChange("waterLevel", v);
+      }
+    });
+    s.addSlider({
+      id: "caveThreshold",
+      label: "Cave Threshold",
+      defaultValue: this.terrainOptions.caveThreshold,
+      min: 0.0,
+      max: 1.0,
+      step: 0.01,
+      numType: "float",
+      onChange: (v: number) => {
+        this.terrainOptions.caveThreshold = v;
+        onChange("caveThreshold", v);
+      }
+    });
   }
 
   async init() {
@@ -27,6 +166,9 @@ export class ComputeShader {
     if (!this.device) {
       throw new Error("WebGPU is not supported on this browser.");
     }
+
+    // FIXME: actually update terrain on change
+    this.initSettings((id, value) => console.log(`changed ${id} to ${value}`));
   }
   async readFieldBuffer(
     fieldBuffer: GPUBuffer,
@@ -139,14 +281,15 @@ export class ComputeShader {
   }
 
   // TODO: sync with noise.wgsl
-  async createPerlinNoise3D(
+  async createSimplexNoise3D(
     width: number,
     height: number,
     depth: number,
     seed: number = 0,
     baseX: number = 0,
     baseY: number = 0,
-    baseZ: number = 0
+    baseZ: number = 0,
+    options?: TerrainOptions
   ) {
     if (!this.device) {
       await this.init();
@@ -163,21 +306,43 @@ export class ComputeShader {
     new Float32Array(fieldBuffer.getMappedRange()).fill(0);
     fieldBuffer.unmap();
 
-    // Create uniform buffer for parameters (7 u32s = 28 bytes)
+    // Create uniform buffer for parameters (expanded to include noise settings)
     const paramsBuffer = this.device.createBuffer({
-      size: 28, // TODO: make dynamic
+      size: 64, // 8 * 4 bytes (first 8 u32) + 8 * 4 bytes for floats/extra
       usage: GPUBufferUsage.UNIFORM,
       mappedAtCreation: true
     });
-    new Uint32Array(paramsBuffer.getMappedRange()).set([
-      seed,
-      width,
-      height,
-      depth,
-      baseX,
-      baseY,
-      baseZ
-    ]);
+    const dv = new DataView(paramsBuffer.getMappedRange());
+    const littleEndian = true;
+    // u32 region
+    dv.setUint32(0, seed >>> 0, littleEndian);
+    dv.setUint32(4, width >>> 0, littleEndian);
+    dv.setUint32(8, height >>> 0, littleEndian);
+    dv.setUint32(12, depth >>> 0, littleEndian);
+    dv.setUint32(16, baseX >>> 0, littleEndian);
+    dv.setUint32(20, baseY >>> 0, littleEndian);
+    dv.setUint32(24, baseZ >>> 0, littleEndian);
+    dv.setUint32(28, 0, littleEndian); // _pad
+
+    // floats / extras region (offsets in bytes)
+    const frequency = options?.frequency ?? 0.01;
+    const heightScale = options?.heightScale ?? 50.0;
+    const waterLevel = options?.waterLevel ?? 30.0;
+    const islandAmount = options?.islandAmount ?? 0.0;
+    const octaves = options?.octaves ?? 5;
+    const persistence = options?.persistence ?? 0.5;
+    const lacunarity = options?.lacunarity ?? 2.0;
+    const caveThreshold = options?.caveThreshold ?? 0.55;
+
+    dv.setFloat32(32, frequency, littleEndian);
+    dv.setFloat32(36, heightScale, littleEndian);
+    dv.setFloat32(40, waterLevel, littleEndian);
+    dv.setFloat32(44, islandAmount, littleEndian);
+    dv.setUint32(48, octaves >>> 0, littleEndian);
+    dv.setFloat32(52, persistence, littleEndian);
+    dv.setFloat32(56, lacunarity, littleEndian);
+    dv.setFloat32(60, caveThreshold, littleEndian);
+
     paramsBuffer.unmap();
 
     // Create shader module

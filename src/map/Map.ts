@@ -613,7 +613,7 @@ export class Chunk {
     const width = this.GridSize[0] + 1;
     const height = this.GridSize[1] + 1;
     const depth = this.GridSize[2] + 1;
-    const fieldBuffer = await computeShader.createPerlinNoise3D(
+    const fieldBuffer = await computeShader.createSimplexNoise3D(
       width,
       height,
       depth,
