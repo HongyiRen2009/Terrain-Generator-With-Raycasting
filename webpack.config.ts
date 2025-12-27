@@ -28,12 +28,7 @@ const config: webpack.Configuration = {
     rules: [
       {
         test: /\.ts$/,
-        use: "ts-loader",
-        exclude: [
-          /node_modules/,
-          /OldGLRenderer\.ts$/,
-          /DeferredRenderer \(old\)\.ts$/
-        ]
+        use: "ts-loader"
       },
       {
         test: /\.obj$/,

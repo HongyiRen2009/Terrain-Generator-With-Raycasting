@@ -20,8 +20,8 @@
     <div id = "debugMenu">Hallo</div>
     <div id="topBarWrapper" class="top-bar-wrapper">
       <div id="topBar" class="top-bar">
-        <button id="raytracing" class="toggle-button active">Raytracing</button>
-        <button id="pathtracing" class="toggle-button">Path Tracing</button>
+        <button id="raytracing" class="toggle-button active">Raster</button>
+        <button id="pathtracing" class="toggle-button">Path Tracer</button>
         <button id="menu-toggle" class="menu-button">☰</button>
       </div>
     </div>
@@ -29,11 +29,6 @@
     <div id="sidebar" class="sidebar">
       <h2>Sidebar Menu</h2>
       <p>Put settings or extra tools here.</p>
-      <div class="bounce-slider-wrapper">
-        <label for="bounceSlider">Adjust Value:</label>
-        <input type="range" id="bounceSlider" min="0" max="15" value="10">
-        <p class = "sliderInput">(Pathtracing) Number of Bounces: <span id="bounceValue">5</span></p>
-      </div>
       <br>
       <h3>Noise preview</h3>
       <canvas id="noisePreview" width="128" height="128"></canvas>
@@ -67,6 +62,25 @@
           Note: We only support .ply files in ASCII format for now.
         </label>
         <br/>
+
+        <!-- NEW: Scale Input -->
+        <label>
+          Scale Factor:
+          <input type="number" id="model-scale" value="1" step="0.1" min="0.001" />
+          <br/>
+          <small style="color: #888;">Try 1000 for tiny models, 0.001 for huge models, 1 for original size</small>
+        </label>
+        <br/>
+
+        <!-- NEW: Quality/Decimation Input -->
+        <label>
+          Mesh Quality:
+          <input type="range" id="model-quality" value="1" min="0.1" max="1" step="0.1" />
+          <span id="quality-value" style="margin-left: 10px; font-weight: bold;">100%</span>
+          <br/>
+          <small style="color: #888;">Lower quality = fewer triangles = better performance. <strong>30-50% recommended for large models.</strong> Values below 30% may cause visual artifacts.</small>
+        </label>
+        <br/><br/>
 
         <!-- Import Map Section -->
         <h3>Import Map</h3>

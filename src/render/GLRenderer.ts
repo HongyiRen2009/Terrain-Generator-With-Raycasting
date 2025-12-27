@@ -10,7 +10,14 @@ import { SSAOPass } from "./passes/SSAOPass";
 import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
-import { mat4 } from "gl-matrix";
+import { CSMPass } from "./passes/CSMPass";
+import { mat4, vec3 } from "gl-matrix";
+import { DirectionalLight } from "../map/Light";
+import { CubeShadowsPass } from "./passes/CubeShadowsPass";
+import { FinalPass } from "./passes/FinalPass";
+import { GrassGeometryPass } from "./passes/GrassGeometryPass";
+import { CombineGeometryPass } from "./passes/CombineGeometryPass";
+import { PathTracer } from "../Pathtracing/PathTracer";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -24,6 +31,7 @@ export class GLRenderer {
   private camera: Camera;
   private debug: DebugMenu;
   private world: WorldMap;
+  private pathtracer: PathTracer;
   private resourceCache: ResourceCache;
   private renderGraph: RenderGraph;
 
@@ -39,13 +47,15 @@ export class GLRenderer {
     canvas: HTMLCanvasElement,
     camera: Camera,
     debug: DebugMenu,
-    world: WorldMap
+    world: WorldMap,
+    pathtracer: PathTracer
   ) {
     this.gl = gl;
     this.canvas = canvas;
     this.camera = camera;
     this.debug = debug;
     this.world = world;
+    this.pathtracer = pathtracer;
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.depthFunc(gl.LEQUAL);
     this.resourceCache = new ResourceCache(gl);
@@ -55,6 +65,14 @@ export class GLRenderer {
   }
 
   private init(): void {
+    // Set lights in resource cache before initializing passes that depend on them
+    this.resourceCache.setData("lights", this.world.lights);
+    this.resourceCache.setData("sunLight", this.world.sunLight);
+    this.resourceCache.setData(
+      "numShadowedLights",
+      this.world.numShadowedLights
+    );
+
     const geometryPass = new GeometryPass(
       this.gl,
       this.resourceCache,
@@ -77,6 +95,17 @@ export class GLRenderer {
       this.gl,
       this.resourceCache,
       this.canvas,
+      this.renderGraph,
+      "Terrain Lighting Pass",
+      (direction: vec3) => {
+        // Update the sun light direction in the world
+        vec3.copy(this.world.sunLight.direction, direction);
+      }
+    );
+    const csmPass = new CSMPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
       this.renderGraph
     );
     const cloudsPass = new CloudsPass(
@@ -85,41 +114,94 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const cubeShadowsPass = new CubeShadowsPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
+    const finalPass = new FinalPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
+    const grassGeometryPass = new GrassGeometryPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
+    const combineGeometryPass = new CombineGeometryPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     // Build render graph tree structure
-    this.renderGraph.addRoot(geometryPass);
-    this.renderGraph.add(ssaoPass, geometryPass);
-    this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
-    this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
 
-    this.renderGraph.add(cloudsPass, geometryPass);
+    this.renderGraph.addRoot(geometryPass);
+    this.renderGraph.addRoot(grassGeometryPass);
+    this.renderGraph.add(combineGeometryPass, geometryPass, grassGeometryPass);
+    this.renderGraph.add(csmPass, combineGeometryPass);
+    this.renderGraph.add(cubeShadowsPass, combineGeometryPass);
+    this.renderGraph.add(ssaoPass, combineGeometryPass);
+    this.renderGraph.add(ssaoBlurPass, ssaoPass, combineGeometryPass);
+    this.renderGraph.add(
+      lightingPass,
+      ssaoBlurPass,
+      csmPass,
+      cubeShadowsPass,
+      combineGeometryPass
+    );
+    this.renderGraph.add(cloudsPass, lightingPass, combineGeometryPass);
+    this.renderGraph.add(finalPass, cloudsPass);
   }
 
-  public render(pathtracerOn: boolean = false): void {
+  public render(time: number, pathtracerOn: boolean = false): void {
     if (!pathtracerOn) {
       this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
       this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     }
+    //Run Pathtracer
+    if(pathtracerOn){
+      this.pathtracer.render(time);
+    }
+
+    //Now run auxillary shaders
     this.calculateCameraInfo();
 
     const vaosToRender = this._vaoManager.getVaosToRender();
     const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
-
-    this.resourceCache.setUniformData("lights", this.world.lights);
+    const grassVAO = this._vaoManager.getGrassVAO();
+    this.resourceCache.setData("lights", this.world.lights);
+    this.resourceCache.setData("sunLight", this.world.sunLight);
+    this.resourceCache.setData(
+      "numShadowedLights",
+      this.world.numShadowedLights
+    );
 
     // Get passes in correct execution order
     const sortedPasses = this.renderGraph.getSortedPasses();
     for (const pass of sortedPasses) {
-      if (pass.VAOInputType === VAOInputType.FULLSCREENQUAD) {
-        if (!screenQuadVAO) {
-          console.warn("No screen quad VAO available for fullscreen pass");
-          continue;
-        }
-        if (!pathtracerOn || pass.pathtracerRender) {
-          pass.render(screenQuadVAO, pathtracerOn);
-        }
-      } else if (pass.VAOInputType === VAOInputType.SCENE) {
-        if (!pathtracerOn || pass.pathtracerRender) {
-          pass.render(vaosToRender, pathtracerOn);
+      const invocationCount = pass.getInvocationCount();
+      for (let i = 0; i < invocationCount; i++) {
+        pass.setInvocationIndex(i);
+        switch (pass.VAOInputType) {
+          case VAOInputType.FULLSCREENQUAD:
+            if (!pathtracerOn || pass.pathtracerRender) {
+              pass.render(screenQuadVAO!, pathtracerOn);
+            }
+            break;
+          case VAOInputType.SCENE:
+            pass.render(vaosToRender, pathtracerOn);
+            break;
+          case VAOInputType.GRASS:
+            pass.render(grassVAO!, pathtracerOn);
+            break;
+          case VAOInputType.NONE:
+            pass.render([], pathtracerOn);
+            break;
         }
       }
     }
@@ -141,8 +223,22 @@ export class GLRenderer {
       matViewInverse: mat4.invert(mat4.create(), matViewAndProj.matView),
       matProjInverse: mat4.invert(mat4.create(), matViewAndProj.matProj)
     };
-    this.resourceCache.setUniformData("CameraInfo", cameraInfo);
-    this.resourceCache.setUniformData("cameraPosition", this.camera.position);
+    this.resourceCache.setData("CameraInfo", cameraInfo);
+    this.resourceCache.setData("nearFarPlanes", this.camera.getNearFarPlanes());
+    this.resourceCache.setData("cameraPosition", this.camera.position);
+    this.resourceCache.setData("cameraDirection", this.camera.front);
+    const debugPauseActive =
+      this.resourceCache.getData("debugPauseMode") ??
+      this.resourceCache.getData("debugPause") ??
+      false;
+    if (!debugPauseActive) {
+      this.resourceCache.setData("pausedCameraInfo", cameraInfo);
+      this.resourceCache.setData(
+        "pausedNearFarPlanes",
+        this.camera.getNearFarPlanes()
+      );
+      this.resourceCache.setData("pausedCameraPosition", this.camera.position);
+    }
   }
   public resizeGBuffer(width: number, height: number): void {
     this.canvas.width = width;

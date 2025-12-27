@@ -1,4 +1,4 @@
-import { SettingsSection } from "../../Settings";
+import { SettingsManager } from "../../Settings";
 import { RenderPass, VAOInputType } from "../renderSystem/RenderPass";
 import { RenderUtils } from "../../utils/RenderUtils";
 import {
@@ -13,10 +13,10 @@ import { RenderGraph } from "../renderSystem/RenderGraph";
 import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { vec3 } from "gl-matrix";
+import { DirectionalLight } from "../../map/Light";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = true;
-  protected settingsSection: SettingsSection | null = null;
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
   private noiseGenerator: NoiseGenerator;
@@ -44,26 +44,79 @@ export class CloudsPass extends RenderPass {
     ]);
   }
   protected initRenderTarget(): RenderTarget {
-    return { fbo: null, textures: {} };
+    const fbo = this.gl.createFramebuffer();
+    // Use RGBA16F for HDR support (preserves emissive bloom values)
+    const colorTexture = TextureUtils.createTexture2D(
+      this.gl,
+      this.canvas.width,
+      this.canvas.height,
+      this.gl.RGBA16F,
+      this.gl.RGBA,
+      this.gl.FLOAT,
+      null,
+      this.gl.LINEAR,
+      this.gl.LINEAR,
+      this.gl.CLAMP_TO_EDGE,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.TEXTURE_2D,
+      colorTexture,
+      0
+    );
+    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    return {
+      fbo: fbo,
+      textures: {
+        finalTexture: colorTexture!
+      }
+    };
   }
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    this.gl.enable(this.gl.BLEND);
-    this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+
+    // Bind framebuffer or render to screen based on pathtracer state
+    if (pathtracerOn) {
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    } else {
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
+    }
+
+    // Configure blending based on pathtracer state
+    if (pathtracerOn) {
+      this.gl.enable(this.gl.BLEND);
+      this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+    } else {
+      this.gl.disable(this.gl.BLEND);
+    }
+
+    if (!pathtracerOn) {
+      this.gl.clearColor(0, 0, 0, 1.0);
+      this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+    }
     this.gl.depthMask(false);
     this.gl.disable(this.gl.DEPTH_TEST);
     this.gl.useProgram(this.program);
     this.gl.bindVertexArray(vao.vao);
+    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     const gBuffer = this.renderGraph!.getOutputs(this);
     const depthTexture = gBuffer["depth"];
+    const litSceneTexture = gBuffer["litSceneTexture"];
+    let cameraPosition = this.resourceCache.getData("cameraPosition");
+    if (!cameraPosition) {
+      cameraPosition = vec3.fromValues(0, 0, 0);
+    }
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMin"),
-      vec3.fromValues(-300, 100, -300)
+      vec3.fromValues(-300 + cameraPosition[0], 100, -300 + cameraPosition[2])
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMax"),
-      vec3.fromValues(300, 160, 300)
+      vec3.fromValues(300 + cameraPosition[0], 300, 300 + cameraPosition[2])
     );
     // Bind 3D texture
     this.gl.activeTexture(this.gl.TEXTURE0);
@@ -87,15 +140,45 @@ export class CloudsPass extends RenderPass {
       "depthTexture",
       2
     );
+    const sunLight = this.resourceCache.getData(
+      "sunLight"
+    ) as DirectionalLight | null;
+
+    // Use sunLight for sun position
+    let sunPos: vec3;
+    let sunColor: vec3;
+
+    if (
+      sunLight instanceof DirectionalLight &&
+      !this.resourceCache.getData("disableSun")
+    ) {
+      // For directional light, use direction to determine sun position in sky
+      // Scale the direction to represent sun position far away
+      sunPos = vec3.create();
+      vec3.scale(sunPos, sunLight.direction, -1000.0); // Negative because light direction points toward light
+      sunColor = sunLight.color.createVec3();
+    } else {
+      // Fallback - default sun position
+      sunPos = vec3.fromValues(0, 1000, 0);
+      sunColor = vec3.fromValues(1, 1, 1);
+    }
+
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      litSceneTexture,
+      "litSceneTexture",
+      3
+    );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunPos"),
-      this.resourceCache.getUniformData("lights")[0].position
+      sunPos
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunColor"),
-      this.resourceCache.getUniformData("lights")[0].color.createVec3()
+      sunColor
     );
-    const cameraInfo = this.resourceCache.getUniformData("CameraInfo");
+    const cameraInfo = this.resourceCache.getData("CameraInfo");
     this.gl.uniformMatrix4fv(
       this.uniforms["viewInverse"],
       false,
@@ -108,13 +191,21 @@ export class CloudsPass extends RenderPass {
     );
     this.gl.uniform3fv(
       this.uniforms["cameraPosition"],
-      this.resourceCache.getUniformData("cameraPosition")
+      this.resourceCache.getData("cameraPosition")
     );
+    this.gl.uniform3fv(this.uniforms["cameraPosition"], cameraPosition);
     this.gl.uniform1f(
       this.gl.getUniformLocation(this.program!, "time"),
       performance.now() * 0.001 // Convert to seconds
     );
-    this.settingsSection?.updateUniforms(this.gl);
+
+    // Pass pathtracer state to shader
+    this.gl.uniform1i(
+      this.gl.getUniformLocation(this.program!, "pathtracerOn"),
+      pathtracerOn ? 1 : 0
+    );
+
+    SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
@@ -132,20 +223,19 @@ export class CloudsPass extends RenderPass {
   }
 
   private InitSettings() {
-    this.settingsSection = new SettingsSection(
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "Clouds Settings",
-      this.program!
+      "Clouds Settings"
     );
 
-    this.settingsSection.addCheckbox({
-      id: "enableClouds",
+    SettingsManager.instance.addCheckboxToSection("Clouds Settings", {
+      id: "CLOUDS_enableClouds",
       label: "Enable Clouds",
       defaultValue: true
     });
 
-    this.settingsSection.addSlider({
-      id: "MAX_STEPS",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_MAX_STEPS",
       label: "Cloud Ray Marching Max Steps",
       min: 8,
       max: 128,
@@ -154,8 +244,8 @@ export class CloudsPass extends RenderPass {
       numType: "int"
     });
 
-    this.settingsSection.addSlider({
-      id: "MAX_STEPS_LIGHT",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_MAX_STEPS_LIGHT",
       label: "Cloud Light Ray Marching Max Steps",
       min: 4,
       max: 32,
@@ -164,8 +254,24 @@ export class CloudsPass extends RenderPass {
       numType: "int"
     });
 
-    this.settingsSection.addSlider({
-      id: "absorption",
+    SettingsManager.instance.addColorPickerToSection("Clouds Settings", {
+      id: "CLOUDS_baseCloudColor",
+      label: "Base Cloud Color",
+      defaultValue: "#FFFFFF"
+    });
+
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_skyContribution",
+      label: "Sky Color Contribution",
+      min: 0.0,
+      max: 1.0,
+      step: 0.01,
+      defaultValue: 0.1,
+      numType: "float"
+    });
+
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_absorption",
       label: "Cloud Absorption",
       min: 0,
       max: 2.0,
@@ -174,38 +280,46 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "densityThreshold",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_densityThreshold",
       label: "Cloud Density Threshold",
       min: -2.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.09,
+      defaultValue: 0.2,
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "baseFrequency",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_baseFrequency",
       label: "Cloud Base Frequency",
       min: 0.01,
-      max: 0.5,
+      max: 2.0,
       step: 0.001,
-      defaultValue: 0.45,
+      defaultValue: 0.42,
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "detailFrequency",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_detailFrequency",
       label: "Cloud Detail Frequency",
       min: 0.1,
-      max: 0.5,
+      max: 2.0,
       step: 0.001,
-      defaultValue: 0.46,
+      defaultValue: 1,
       numType: "float"
     });
-
-    this.settingsSection.addSlider({
-      id: "lightAbsorption",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_simplexMultiplier",
+      label: "Cloud Simplex Noise Multiplier",
+      min: 0.0,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 0.5,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_lightAbsorption",
       label: "Cloud Light Absorption",
       min: 0,
       max: 2.0,
@@ -214,8 +328,8 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "lightIntensity",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_lightIntensity",
       label: "Cloud Light Intensity",
       min: 0,
       max: 5.0,
@@ -224,8 +338,8 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "ambientIntensity",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_ambientIntensity",
       label: "Cloud Ambient Intensity",
       min: 0,
       max: 2.0,
@@ -234,8 +348,8 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "darknessThreshold",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_darknessThreshold",
       label: "Cloud Darkness Threshold",
       min: 0.0,
       max: 1.0,
@@ -243,9 +357,17 @@ export class CloudsPass extends RenderPass {
       defaultValue: 0.2,
       numType: "float"
     });
-
-    this.settingsSection.addSlider({
-      id: "phaseG",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_lightDarkSharpness",
+      label: "Cloud Light/Dark Sharpness",
+      min: 0.1,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_phaseG",
       label: "Cloud Phase Function g",
       min: -1.0,
       max: 1.0,
@@ -254,8 +376,8 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "phaseMultiplier",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_phaseMultiplier",
       label: "Cloud Phase Function Multiplier",
       min: 0.0,
       max: 1.0,
@@ -263,9 +385,17 @@ export class CloudsPass extends RenderPass {
       defaultValue: 0.5,
       numType: "float"
     });
-
-    this.settingsSection.addSlider({
-      id: "weatherMapOffsetX",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_blueNoiseAmplitude",
+      label: "Cloud Blue Noise Amplitude",
+      min: 0.0,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 1,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_weatherMapOffsetX",
       label: "Cloud Weather Map Offset X",
       min: 0.0,
       max: 10.0,
@@ -274,8 +404,8 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "weatherMapOffsetY",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_weatherMapOffsetY",
       label: "Cloud Weather Map Offset Y",
       min: 0.0,
       max: 10.0,
@@ -284,8 +414,8 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "windSpeed",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_windSpeed",
       label: "Cloud Wind Speed",
       min: 0.0,
       max: 10.0,
@@ -294,8 +424,8 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "windDirectionX",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_windDirectionX",
       label: "Cloud Wind Direction X",
       min: -1.0,
       max: 1.0,
@@ -304,8 +434,8 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
 
-    this.settingsSection.addSlider({
-      id: "windDirectionZ",
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_windDirectionZ",
       label: "Cloud Wind Direction Z",
       min: -1.0,
       max: 1.0,
@@ -313,14 +443,52 @@ export class CloudsPass extends RenderPass {
       defaultValue: 1.0,
       numType: "float"
     });
+
+    // Attach program uniforms for all settings
+    SettingsManager.instance.attatchProgram(this.program!, [
+      "CLOUDS_enableClouds",
+      "CLOUDS_MAX_STEPS",
+      "CLOUDS_MAX_STEPS_LIGHT",
+      "CLOUDS_baseCloudColor",
+      "CLOUDS_skyContribution",
+      "CLOUDS_absorption",
+      "CLOUDS_densityThreshold",
+      "CLOUDS_baseFrequency",
+      "CLOUDS_detailFrequency",
+      "CLOUDS_simplexMultiplier",
+      "CLOUDS_lightAbsorption",
+      "CLOUDS_lightIntensity",
+      "CLOUDS_ambientIntensity",
+      "CLOUDS_darknessThreshold",
+      "CLOUDS_lightDarkSharpness",
+      "CLOUDS_phaseG",
+      "CLOUDS_phaseMultiplier",
+      "CLOUDS_weatherMapOffsetX",
+      "CLOUDS_weatherMapOffsetY",
+      "CLOUDS_windSpeed",
+      "CLOUDS_windDirectionX",
+      "CLOUDS_windDirectionZ",
+      "CLOUDS_blueNoiseAmplitude"
+    ]);
   }
-  public resize(width: number, height: number): void {
-    // LightingPass renders to default framebuffer, no resize needed
-    // But we need to update viewport
-    this.gl.viewport(0, 0, width, height);
+  public resize(): void {
+    // Delete old resources
+    if (this.renderTarget) {
+      if (this.renderTarget.fbo) {
+        this.gl.deleteFramebuffer(this.renderTarget.fbo);
+      }
+      if (this.renderTarget.textures) {
+        for (const texture of Object.values(this.renderTarget.textures)) {
+          this.gl.deleteTexture(texture);
+        }
+      }
+    }
+
+    // Recreate render target with new dimensions
+    this.renderTarget = this.initRenderTarget();
   }
 }
-class NoiseGenerator {
+export class NoiseGenerator {
   gl: WebGL2RenderingContext;
   simplex: NoiseFunction3D = createNoise3D();
   dataR: Uint8Array = new Uint8Array();
@@ -421,57 +589,13 @@ class NoiseGenerator {
     }
     return data;
   }
-  simplexNoise3D(
-    width: number,
-    height: number,
-    depth: number,
-    frequency: number
-  ): Uint8Array {
-    const data = new Uint8Array(width * height * depth);
-    for (let z = 0; z < depth; z++) {
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const value = this.simplex(
-            x * frequency,
-            y * frequency,
-            z * frequency
-          );
-          const normalized = Math.floor(((value + 1) / 2) * 255);
-          data[x + y * width + z * width * height] = normalized;
-        }
-      }
-    }
-    return data;
-  }
-  simplexWorleyNoise3D(
-    width: number,
-    height: number,
-    depth: number,
-    frequency: number
-  ): Uint8Array {
-    const worelyData = this.worleyNoise3D(
-      width,
-      height,
-      depth,
-      Math.min(width, height, depth) / frequency
-    );
-    const simplexData = this.simplexNoise3D(width, height, depth, frequency);
-    const data = new Uint8Array(width * height * depth);
-    for (let i = 0; i < data.length; i++) {
-      const worleyNorm = worelyData[i] / 255.0;
-      const simplexNorm = simplexData[i] / 255.0;
-      const hybrid = 1.0 - Math.pow(1.0 - worleyNorm, simplexNorm);
-      data[i] = Math.floor(hybrid * 255);
-    }
-    return data;
-  }
+
   generateCloudNoiseTex(size: number): WebGLTexture {
-    const frequency = 8;
-    this.dataR = this.simplexWorleyNoise3D(size, size, size, frequency);
-    this.dataG = this.worleyNoise3D(size, size, size, size / (frequency * 2));
-    this.dataB = this.worleyNoise3D(size, size, size, (frequency * 4) / 2);
-    this.dataA = this.worleyNoise3D(size, size, size, size / (frequency * 8));
-    // Interleave RGBA channels
+    this.dataR = this.worleyNoise3D(size, size, size, size / 4);
+    this.dataG = this.worleyNoise3D(size, size, size, size / 32);
+    this.dataB = this.worleyNoise3D(size, size, size, size / 64);
+    this.dataA = this.simplexNoise3D(size, size, size, 4);
+
     const data = new Uint8Array(size * size * size * 4);
     for (let i = 0; i < size * size * size; i++) {
       data[i * 4 + 0] = this.dataR[i];
@@ -572,25 +696,62 @@ class NoiseGenerator {
     const data = new Uint8Array(width * height);
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const value = this.simplex(x * frequency, y * frequency, 10);
+        // Create tileable coordinates using sine/cosine remapping
+        const u = (x / width) * Math.PI * 2;
+        const v = (y / height) * Math.PI * 2;
+
+        const nx = Math.cos(u) * frequency;
+        const ny = Math.sin(u) * frequency;
+        const nz = Math.cos(v) * frequency;
+        const nw = Math.sin(v) * frequency;
+
+        // Sample 4D noise at these coordinates
+        const value1 = this.simplex(nx, ny, 0);
+        const value2 = this.simplex(nz, nw, 0);
+        const value = (value1 + value2) / 2;
+
         const normalized = Math.floor(((value + 1) / 2) * 255);
         data[x + y * width] = normalized;
       }
     }
     return data;
   }
-  generateWeatherMap(size: number): WebGLTexture {
-    const worely = this.worleyNoise2D(size, size, size / 4);
-    const simplex = this.simplexNoise2D(size, size, 0.08);
-    this.coverageData = new Uint8Array(size * size);
-    for (let i = 0; i < size * size; i++) {
-      const worelyNorm = 1 - worely[i] / 255.0;
-      const simplexNorm = simplex[i] / 255.0;
-      let coverage = Math.pow(worelyNorm, 1.2) - simplexNorm * 0.3;
-      coverage = Math.min(Math.max(coverage, 0.0), 1.0);
 
-      this.coverageData[i] = coverage * 255;
+  simplexNoise3D(
+    width: number,
+    height: number,
+    depth: number,
+    frequency: number
+  ): Uint8Array {
+    const data = new Uint8Array(width * height * depth);
+    for (let z = 0; z < depth; z++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          // Create tileable coordinates using sine/cosine remapping
+          const u = (x / width) * Math.PI * 2;
+          const v = (y / height) * Math.PI * 2;
+          const w = (z / depth) * Math.PI * 2;
+
+          const nx = Math.cos(u) * frequency;
+          const ny = Math.sin(u) * frequency;
+          const nz = Math.cos(v) * frequency;
+          const nw = Math.sin(v) * frequency;
+
+          // Sample noise - blend two 3D samples for better tiling
+          const value1 = this.simplex(nx, nz, Math.cos(w) * frequency);
+          const value2 = this.simplex(ny, nw, Math.sin(w) * frequency);
+          const value = (value1 + value2) / 2;
+
+          const normalized = Math.floor(((value + 1) / 2) * 255);
+          data[x + y * width + z * width * height] = normalized;
+        }
+      }
     }
+    return data;
+  }
+  generateWeatherMap(size: number): WebGLTexture {
+    const simplex = this.simplexNoise2D(size, size, 0.005);
+    this.coverageData = simplex;
     // Right now I have no idea what to put in density and type maps, so just fill with zeros
     this.densityData = new Uint8Array(size * size);
     this.typeData = new Uint8Array(size * size);
@@ -613,10 +774,6 @@ class NoiseGenerator {
       this.gl.LINEAR,
       this.gl.REPEAT,
       this.gl.REPEAT
-    );
-    this.visualizeWeatherMap(
-      document.getElementById("noisePreview") as HTMLCanvasElement,
-      "R"
     );
     return texture;
   }

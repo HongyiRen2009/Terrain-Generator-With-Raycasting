@@ -88,11 +88,12 @@ export interface Terrain {
   /* Note about type (if no like search it up)
   Here is a list of types of surfaces (from chatgpt)
   1. Diffuse (Labertian) ; Regular matte surface
+    NOTE: Roughness & Reflectivity takes no affect in the pathracer - we assume it to be pure lambertian. If you want that, see type 3
   2. Specular (Perfect Mirror)
     //Color doesn't matter
   3. Glossy (Microfacet Reflection)
     //Note: roughness 0 = perfect mirror, roughness 1 = diffuse
-    NOTE: COLORS MATTER A LOT. If "black spots" are showing up, increase brightness of other colors
+    // Reflectivity = How metallic it is
   4. Transmission (Dielectric/Glass; Tinted Glass, microfacet transmission)
     // Roughness refers to the blurriness of the transmission. 0 = perfect clear glass, 1 = frosted glass 
     //Note: reflectiveness refers to index of refraction
@@ -115,28 +116,28 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#6BAA3A"),
     reflectiveness: 0.02,
     roughness: 0.9,
-    type: 1
+    type: 3
   },
   // 1: Dirt
   1: {
     color: Color.fromHex("#7A5229"),
     reflectiveness: 0.03,
     roughness: 0.9,
-    type: 1
+    type: 3
   },
   // 2: Rock
   2: {
     color: Color.fromHex("#8B8F91"),
     reflectiveness: 0.04,
     roughness: 0.85,
-    type: 1
+    type: 3
   },
   // 3: Snow
   3: {
     color: Color.fromHex("#F7FBFF"),
     reflectiveness: 0.06,
     roughness: 0.95,
-    type: 1
+    type: 3
   },
   // 4: Water (slightly transmissive)
   4: {
@@ -150,6 +151,6 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#E3D2A3"),
     reflectiveness: 0.02,
     roughness: 0.92,
-    type: 1
+    type: 3
   }
 };

@@ -31,8 +31,6 @@ export class GameEngine {
 
   //
   private keys: { [key: string]: boolean } = {};
-  private maxFPS: number = 60;
-  private frameInterval = 1000 / this.maxFPS;
   private lastRenderTime: number = 0;
   private mode: number = 0; // 0 for hybrid, 1 for pathtracer, -1 for off
 
@@ -57,11 +55,11 @@ export class GameEngine {
    * @param canvasId The ID of the canvas rendered to
    * @returns
    */
-  constructor(canvasId: string) {
+  constructor(canvas: HTMLCanvasElement) {
     //Debugger
     this.debug = new DebugMenu(true); // Pass into class when want to use
 
-    this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    this.canvas = canvas;
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.canvas.style.display = "none";
@@ -93,23 +91,24 @@ export class GameEngine {
     //Initialize Camera
     this.mainCamera = new Camera(vec3.fromValues(-22, 20, 33));
 
-    //Initialize Renderer
-    this.renderer = new GLRenderer(
-      this.gl,
-      this.canvas,
-      this.mainCamera,
-      this.debug,
-      this.world
-    );
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,
       this.gl,
       this.world,
       this.mainCamera,
-      this.renderer,
       this.debug
     );
+    //Initialize Renderer
+    this.renderer = new GLRenderer(
+      this.gl,
+      this.canvas,
+      this.mainCamera,
+      this.debug,
+      this.world,
+      this.pathTracer
+    );
+  
     this.updatePathracing = () => {
       this.pathTracer.initBVH(this.world.combinedMesh());
       this.pathTracer.init(false);
@@ -236,8 +235,16 @@ export class GameEngine {
       }
     };
 
+    // Set up light change callback and create initial light VAOs
+    this.world.onLightsChanged = () => {
+      this.renderer.vaoManager.createPointLightVAOs(this.world.lights);
+    };
+    this.renderer.vaoManager.createPointLightVAOs(this.world.lights);
+
     // Add a gear object
-    const gearMesh = await threemfToMesh(gearModelUrl);
+    const gearResult = await threemfToMesh(gearModelUrl);
+    const gearMesh = gearResult!.mesh;
+    // Note: gearResult.transform could be applied if needed, but addChunkGears applies its own transforms
 
     WorldUtils.addChunkGears(this.world, gearMesh);
 
@@ -251,10 +258,7 @@ export class GameEngine {
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
   tick(timestamp: number) {
-    if (
-      timestamp - this.lastRenderTime < this.frameInterval ||
-      this.mode == -1
-    ) {
+    if (this.mode == -1) {
       return;
     }
     const timePassed = timestamp - this.lastRenderTime;
@@ -265,9 +269,10 @@ export class GameEngine {
       }
 
       if (this.mode == 0) {
-        this.renderer.render();
+        this.renderer.render(timestamp);
       } else {
-        this.pathTracer.render(timestamp);
+        this.renderer.render(timestamp,true);
+        //this.pathTracer.render(timestamp);
         //this.mode=-1;
       }
     }
@@ -291,6 +296,7 @@ export class GameEngine {
     vec3.copy(oldCamPos, this.mainCamera.position);
 
     //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
+    if (this.keys["KeyF"]) velocity *= 4;
     if (this.keys["KeyW"])
       vec3.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
     if (this.keys["KeyS"])
@@ -303,6 +309,7 @@ export class GameEngine {
       vec3.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
     if (this.keys["ShiftLeft"])
       vec3.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
+
     vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
 
     if (!vec3.equals(this.mainCamera.position, oldCamPos)) {

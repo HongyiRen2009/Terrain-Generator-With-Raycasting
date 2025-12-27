@@ -1,13 +1,22 @@
 #version 300 es
-precision highp float;
 
-#define MAX_LIGHTS 30
+//Sources:
+//Gemini/Chatgpt (GOATS) - Written most of the funky low level code (texture reading)
+//Hongyi Ren - Cloud sampling functions
+//https://www.reddit.com/r/GraphicsProgramming/comments/pjssze/directional_lighting_in_a_path_tracer/ - More specifically the two stackoverflow links in the comments - NEE implementation
+//https://www.cg.tuwien.ac.at/sites/default/files/course/4854/attachments/12_3_next%20event%20estimation_notes.pdf - NEE theory
+
+precision highp float;
+precision highp sampler3D;
+precision highp int;
+#define MAX_LIGHTS 100
 #define PI 3.1415926
-//#define NUM_TERRAINS 1000 
+#define BVH_DEPTH 64
+#define NUM_TERRAINS 50 
 
 //Note: 
 uniform sampler2D u_lastFrame;
-uniform float u_frameNumber;
+uniform int u_frameNumber;
 uniform int numBounces;
 
 
@@ -18,10 +27,39 @@ uniform sampler2D u_boundingBox;
 uniform sampler2D u_nodesTex;
 uniform sampler2D u_leafsTex;
 uniform sampler2D u_terrainTypes;
+uniform sampler3D u_CloudNoise;
+uniform sampler2D u_WeatherMap;
+
 uniform vec3 u_cameraPos;
 uniform mat4 u_invViewProjMatrix;
 uniform vec2 u_resolution;
 
+uniform vec3 u_cloudsCubeMin;
+uniform vec3 u_cloudsCubeMax;
+
+//Cloud settings
+uniform bool CLOUDS_enableClouds;
+uniform float CLOUDS_absorption;
+uniform float CLOUDS_densityThreshold;
+uniform float CLOUDS_baseFrequency;
+uniform float CLOUDS_detailFrequency;
+uniform float CLOUDS_lightAbsorption;
+uniform float CLOUDS_lightIntensity;
+uniform float CLOUDS_darknessThreshold;
+uniform float CLOUDS_ambientIntensity;
+uniform float CLOUDS_phaseG;
+uniform float CLOUDS_phaseMultiplier;
+uniform float CLOUDS_weatherMapOffsetX;
+uniform float CLOUDS_weatherMapOffsetY;
+uniform int CLOUDS_MAX_STEPS;
+uniform int CLOUDS_MAX_STEPS_LIGHT;
+uniform float CLOUDS_blueNoiseAmplitude;
+uniform vec3 CLOUDS_baseCloudColor;
+uniform float CLOUDS_skyContribution;
+uniform float CLOUDS_lightDarkSharpness;
+uniform float CLOUDS_simplexMultiplier;
+const float CLOUDS_DENSITY_THRESHOLD_SKIP = 0.01f;
+const float CLOUDS_ALPHA_THRESHOLD = 0.99f;
 struct Light {
     vec3 position;
     vec3 color;
@@ -31,6 +69,17 @@ struct Light {
 };
 uniform Light lights[MAX_LIGHTS];
 uniform int numActiveLights;
+
+uniform float sunDirX;
+uniform float sunDirY;
+uniform float sunDirZ;
+
+uniform float u_sunIntensity;    // Sun intensity (controls brightness)
+uniform float u_sunAngularRadius; // Angular radius of the sun in radians (approx 0.00465 radians or 0.266 degrees)
+uniform vec3 u_sunColor;
+uniform float u_blueScatter;
+uniform float u_redScatter;
+uniform float u_greenScatter;
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -60,7 +109,8 @@ struct TerrainType{
     int type; //Type. See terrains.ts
 };
 
-//TerrainType[NUM_TERRAINS] Terrains;
+TerrainType[NUM_TERRAINS] Terrains;
+uniform int u_numTerrains;
 
 // Provides a high quality 32-bit hash function to generate pseudo-random numbers
 // Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins
@@ -96,7 +146,7 @@ float fetchFloatFrom1D(sampler2D tex, int index) {
     float u = (float(x_coord) + 0.5) / float(texWidth);
     float v = (float(y_coord) + 0.5) / float(size.y);
 
-    vec4 texel = texture(tex, vec2(u, v));
+    vec4 texel = textureLod(tex, vec2(u, v), 0.0);//texture(tex, vec2(u, v));
 
     if (componentIndex == 0) return texel.r;
     else if (componentIndex == 1) return texel.g;
@@ -182,6 +232,7 @@ float intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 bary
     vec3 v0 = tri.vertices[0];
     vec3 v1 = tri.vertices[1];
     vec3 v2 = tri.vertices[2];
+
     vec3 edge1 = v1 - v0;
     vec3 edge2 = v2 - v0;
 
@@ -261,11 +312,11 @@ float intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNorma
 /**
  * Returns TRIANGLE index
  */
-int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {
+int traverseBVH(vec3 rayOrigin, vec3 rayDir, out vec3 closestBarycentric, out float minHitDistance, out Triangle hitTriangle) {
     int closestHitIndex = -1;
-    minHitDistance = 1.0/0.0; // Infinity
+    minHitDistance = 1.0/0.0001; // Infinity
 
-    int stack[128]; // Stack of 64 - May need to change for larger BVH later
+    int stack[BVH_DEPTH]; 
     int stackPtr = 0;
     stack[stackPtr++] = 0; // Push root node index
 
@@ -295,11 +346,12 @@ int traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBaryc
                     minHitDistance = hitDist;
                     closestHitIndex = triIdx;
                     closestBarycentric = currentBarycentric;
+                    hitTriangle= tri;
                 }
             }
         } else { // Internal Node
             // Check for space for two children to prevent stack overflow
-            if (stackPtr < 63) { 
+            if (stackPtr < BVH_DEPTH-1) { 
                 stack[stackPtr++] = node.left;
                 stack[stackPtr++] = node.right;
             }
@@ -392,6 +444,47 @@ vec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_stat
 
     return worldDir;
 }
+vec3 sampleCone(vec3 coneAxis, float maxAngle, inout uint rng_state) {
+    // 1. Generate 2 random numbers
+    float r1 = rand(rng_state);
+    float r2 = rand(rng_state);
+
+    float cosMaxAngle = cos(maxAngle);
+    
+    // --- 2. Spherical Coordinate Sampling (Inverse Transform Sampling) ---
+    // cos_theta: Samples the cosine of the polar angle (theta) uniformly 
+    // over the solid angle of the cone. This is the crucial step for uniformity.
+    float cos_theta = mix(cosMaxAngle, 1.0, r2); 
+    
+    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    float phi = 2.0 * PI * r1; // Azimuthal angle (phi) is uniform 0 to 2*PI
+
+    // --- 3. Create Local Direction (Cone Axis = Z-axis) ---
+    // The direction vector in the local cone space.
+    vec3 localDir = vec3(
+        cos(phi) * sin_theta,
+        sin(phi) * sin_theta,
+        cos_theta
+    );
+
+    // --- 4. Transform Local Direction to World Space (Tangent Space Transform) ---
+    
+    // Calculate an orthonormal basis (tangent space) around the coneAxis.
+    // The standard 'up' vector handles cases where coneAxis is near (0, 1, 0)
+    // by choosing a different vector to cross with.
+    vec3 up = abs(coneAxis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, coneAxis));
+    vec3 bitangent = cross(coneAxis, tangent);
+
+    // Transform the local direction (localDir) into the world space basis (tangent, bitangent, coneAxis)
+    vec3 worldDir = normalize(
+        tangent * localDir.x + 
+        bitangent * localDir.y + 
+        coneAxis * localDir.z
+    );
+    
+    return worldDir;
+}
 
 bool isValidVec3(vec3 v) {
     return all(greaterThanEqual(v, vec3(-1e20))) &&
@@ -399,19 +492,399 @@ bool isValidVec3(vec3 v) {
            !any(isnan(v));
 }
 
+// --- PBR Helper Functions ---
+
+// 1. Fresnel Schlick
+// cosTheta is dot(H, V)
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+// 2. Distribution GGX (Trowbridge-Reitz)
+float DistributionGGX(vec3 N, vec3 H, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float NdotH = max(dot(N, H), 0.0);
+    float NdotH2 = NdotH * NdotH;
+
+    float num = a2;
+    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return num / denom;
+}
+
+// 3. Geometry Schlick-GGX (Smith method)
+float GeometrySchlickGGX(float NdotV, float roughness) {
+    float r = (roughness + 1.0);
+    float k = (r * r) / 8.0; // Use k = a^2 / 2 for IBL, but (r+1)^2 / 8 for direct light path tracing
+
+    float num = NdotV;
+    float denom = NdotV * (1.0 - k) + k;
+
+    return num / denom;
+}
+
+float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
+    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+
+    return ggx1 * ggx2;
+}
+
+// 4. GGX Importance Sampling
+// Returns a Half-vector (H) based on roughness
+vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {
+    float a = roughness * roughness;
+    
+    float phi = 2.0 * PI * Xi.x;
+    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
+    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+    
+    // Spherical to Cartesian (Tangent space)
+    vec3 H;
+    H.x = cos(phi) * sinTheta;
+    H.y = sin(phi) * sinTheta;
+    H.z = cosTheta;
+    
+    // Tangent to World space
+    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, N));
+    vec3 bitangent = cross(N, tangent);
+    
+    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
+    return normalize(sampleVec);
+}
+
+// Evaluate Both Specular and Diffuse for Direct Light (NEE)
+// This calculates how much light reflects from the sun to the camera
+vec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albedo, float metallic) {
+    vec3 H = normalize(V + L);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float HdotV = max(dot(H, V), 0.0);
+    
+    if (NdotL <= 0.0 || NdotV <= 0.0) return vec3(0.0);
+
+    // 1. Specular Term (Cook-Torrance)
+    float D = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    vec3 F = fresnelSchlick(HdotV, F0);
+    
+    vec3 kS = F; // Specular contribution
+    vec3 kD = vec3(1.0) - kS; // Remaining energy for diffuse
+    kD *= (1.0 - metallic);   // Metals have 0 diffuse
+
+    vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.0001);
+    vec3 diffuse = albedo / PI; //regular lambertian diffuse
+    
+    return kD * diffuse + specular; 
+}
+
+//Copied from the goat Hongyi Ren
+float sampleDensity(vec3 pos,vec3 ogPos) {
+    vec3 windOffset = vec3(0.0);
+    vec3 animatedPos = pos + windOffset; //+ vec3(ogPos.x, 0.0f, ogPos.z);
+
+    vec3 localPos = (animatedPos - u_cloudsCubeMin) / (u_cloudsCubeMax - u_cloudsCubeMin);
+    vec2 weatherUV = vec2(localPos.x + CLOUDS_weatherMapOffsetX, localPos.z + CLOUDS_weatherMapOffsetY);
+    float coverage = texture(u_WeatherMap, weatherUV).r;
+
+    // Sample base Worley noise (inverted so high values = dense clouds)
+    float worley = 1.0f - texture(u_CloudNoise, localPos * CLOUDS_baseFrequency).r;
+
+    // Sample Simplex noise for variation
+    float simplex = texture(u_CloudNoise, localPos * CLOUDS_baseFrequency).a;
+
+    // Combine: Worley for structure, Simplex for billowy variation
+    // Use remapping to make Simplex centered around 0.5
+    float simplexRemapped = (simplex - 0.5f) * 2.0f; // Range: -1 to 1
+    float base = worley + simplexRemapped * CLOUDS_simplexMultiplier * worley; // Modulate by worley
+
+    // Apply coverage from weather map
+    base *= (coverage);
+
+    float density = base;
+
+    // Height gradient for natural cloud formation
+    float height01 = (pos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
+    float heightWeight = smoothstep(0.15f, 0.5f, height01) * (1.0f - smoothstep(0.7f, 1.0f, height01));
+    density *= heightWeight;
+
+    // Add detail erosion using smaller-scale Worley noise
+    float detail = 1.0f - (texture(u_CloudNoise, localPos * CLOUDS_detailFrequency).g * 0.5f +
+        texture(u_CloudNoise, localPos * (CLOUDS_detailFrequency * 2.0f)).b * 0.25f);
+    density -= detail * 0.5f * density; // Erode proportionally
+
+    return clamp(density - CLOUDS_densityThreshold, 0.0f, 1.0f);
+}
+float sampleLight(vec3 pos, vec3 lightDir, float rayDensity, vec3 ogPos) {
+    float tNear;
+    float tFar;
+    intersectAABB(pos,lightDir,u_cloudsCubeMin,u_cloudsCubeMax,tNear,tFar);
+    float distInsideBox = tFar-tNear;
+
+    int lightSteps = rayDensity > 0.5f ? CLOUDS_MAX_STEPS_LIGHT : CLOUDS_MAX_STEPS_LIGHT / 2;
+
+    float lightTransmittance = 1.0f;
+    float tStep = distInsideBox / float(lightSteps);
+
+    for(int i = 0; i < lightSteps; i++) {
+        if(lightTransmittance < 0.01f) {
+            return CLOUDS_darknessThreshold;
+        }
+
+        float t = tStep * (float(i) + 0.5f);
+        vec3 samplePos = pos + lightDir * t;
+        float rawDensity = sampleDensity(samplePos,ogPos);
+        float density = rawDensity;
+        lightTransmittance *= exp(-density * tStep * CLOUDS_lightAbsorption);
+    }
+    lightTransmittance = pow(lightTransmittance, CLOUDS_lightDarkSharpness);
+
+    return CLOUDS_darknessThreshold + (1.0f - CLOUDS_darknessThreshold) * lightTransmittance;
+}
+float PhaseFunction(float cosTheta, float g) {
+    float g2 = g * g;
+    float denom = pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f);
+    return (1.0f - g2) / (4.0f * PI * denom);
+}
+vec4 handleClouds(vec3 rayOriginWorld,vec3 rayDirWorld,float distanceToTerrain,vec3 skyColor, uint rng_state){
+    //Can't get this to work natively on the pathtracer. Will keep it off for now and use raytraced shader.
+    return vec4(0.0);
+    if(!CLOUDS_enableClouds) {
+        return vec4(0.0);
+    }
+
+    // Ray-box intersection
+    float tNear;
+    float tFar;
+    intersectAABB(rayOriginWorld,rayDirWorld,u_cloudsCubeMin,u_cloudsCubeMax,tNear,tFar);
+    // FIX: If the exit point is behind the camera, the box is not visible.
+    if(tFar < 0.0f) {
+        return vec4(0.0);
+    }
+
+    // FIX: Clamp the start point to the camera position (0.0).
+    // This prevents sampling clouds behind your head.
+    tNear = max(tNear, 0.0f);
+    if(tFar-tNear <= 0.0f) {
+        return vec4(0.0);
+    }
+    tFar = min(tFar, distanceToTerrain);
+
+    // If terrain is in front of cloud box, don't render clouds
+    if(tNear >= distanceToTerrain) {
+        return vec4(0.0);
+    }
+
+    float tStep = (tFar - tNear) / float(CLOUDS_MAX_STEPS);
+
+    vec4 accumulatedColor = vec4(0.0f);
+
+    // Blue noise offset to reduce banding
+    float blueNoiseOffset = fract(sin(dot(v_uv.xy + rand(rng_state) * 0.1f, vec2(12.9898f, 78.233f))) * 43758.5453f) * 0.5f;
+    for(int i = 0; i < CLOUDS_MAX_STEPS; i++) {
+        float t = tNear + tStep * (float(i) + blueNoiseOffset * CLOUDS_blueNoiseAmplitude); // Reduced from 1.0 to 0.25
+        // Stop raymarching if we've reached the terrain
+        if(t >= distanceToTerrain) {
+            break;
+        }
+
+        vec3 samplePos = rayOriginWorld + rayDirWorld * t;
+
+        // Sample density
+        float rawDensity = sampleDensity(samplePos,rayOriginWorld);
+        if(rawDensity < CLOUDS_DENSITY_THRESHOLD_SKIP) {
+            continue;
+        }
+        float density = rawDensity;
+
+        // Calculate lighting
+        vec3 lightDir = normalize(vec3(sunDirX, sunDirY, sunDirZ));;
+        float lightTransmittance = sampleLight(samplePos, lightDir, density, rayOriginWorld);
+
+        // Phase function for silver lining
+        float cosTheta = dot(rayDirWorld, lightDir);
+        float phaseVal = PhaseFunction(cosTheta, CLOUDS_phaseG);
+        phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);
+
+        // Final light color
+        vec3 sunLight = u_sunColor * lightTransmittance * CLOUDS_lightIntensity * phaseVal;
+
+        // Powder effect
+        float powderEffect = 1.0f - exp(-density * 2.0f);
+        sunLight *= mix(1.0f, powderEffect, 0.5f);
+
+        // Ambient and bounce light
+        float height = (samplePos.y - u_cloudsCubeMin.y) / (u_cloudsCubeMax.y - u_cloudsCubeMin.y);
+        float groundFactor = 1.0f - height;
+        vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;
+        vec3 ambientLight = mix(CLOUDS_baseCloudColor, skyColor, CLOUDS_skyContribution) * CLOUDS_ambientIntensity;
+
+        //Final light color
+        vec3 lightColor = sunLight + ambientLight + bounceLight;
+
+        float stepOpacity = 1.0f - exp(-density * tStep * CLOUDS_absorption);
+
+        // Accumulate color using front-to-back compositing and premultiplied alpha
+        vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
+        accumulatedColor += color * (1.0f - accumulatedColor.a);
+
+        if(accumulatedColor.a > CLOUDS_ALPHA_THRESHOLD)
+            break;
+    }
+    return accumulatedColor;
+}
+//AI Written: Atmospheric Scattering Sky Model
+vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
+    // 1. Constants for Earth's Atmosphere
+    // Rayleigh coefficient 
+    vec3 kRlh = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.005;
+    // Mie coefficient (scatters white)
+    float kMie = 0.01;
+    
+    // 2. Geometry: How "thick" is the atmosphere in this direction?
+    // We approximate the optical depth using the zenith angle.
+    // When looking up (y=1), depth is 1. When looking at horizon (y=0), depth is huge.
+    // The "max" prevents division by zero below the horizon.
+    float zenithAngle = clamp(rayDir.y,0.0, 1.0);
+    float opticalDepth = 1.0 / (zenithAngle + 0.05); // +0.05 acts as the "scale height" approximation
+    
+    // 3. Phase Functions: How much light scatters towards the camera?
+    float cosTheta = dot(rayDir, sunDir);
+    
+    // Rayleigh Phase (simple symmetric scattering)
+    float rPhase = 3.0 / (16.0 * PI) * (1.0 + cosTheta * cosTheta);
+    
+    // Mie Phase (Henyey-Greenstein) - Creates the bright sun halo
+    // g is anisotropy: 0.7-0.8 for strong forward glare
+    float g = 0.76; 
+    float g2 = g * g;
+    float mPhase = (1.0 - g2) / (4.0 * PI * pow(1.0 + g2 - 2.0 * g * cosTheta, 1.5));
+
+    // 4. Combine
+    // Calculate how much blue (Rayleigh) and white (Mie) light is scattered to us
+    vec3 rayleigh = kRlh * opticalDepth * rPhase;
+    vec3 mie = vec3(kMie) * opticalDepth * mPhase;
+    
+    // Add them up and multiply by sun intensity
+    return (rayleigh + mie) * u_sunIntensity;
+}
+
+vec3 shootShadowRay(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
+    vec3 directLight = vec3(0.0);
+    bool autoNormal = false;
+    if(length(smoothNormal) == 0.0){
+        // For our code this means that set the normal to the direction of the ray
+        autoNormal = true;
+    }
+    for(int i = 0; i < numActiveLights; i++){
+        Light light = lights[i]; 
+        rng_state = hash(rng_state);
+        //choose a point on the light sphere
+        float r1 = (rand(rng_state)-0.5)*2.0;
+        float r2 = (rand(rng_state)-0.5)*2.0;
+        float r3 = (rand(rng_state)-0.5)*2.0;
+        vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;
+        vec3 lightPoint = light.position + jitter;
+
+        vec3 lightDir = normalize(lightPoint - origin);
+        float lightDistance = length(lightPoint - origin);
+        //shadow ray
+
+        if(autoNormal){
+            smoothNormal = lightDir;
+        }
+
+        vec3 shadowOrigin = origin;
+        vec3 shadowBarycentric;
+        float shadowHitDistance;
+        Triangle shadowTri;
+        int shadowTriIndex = traverseBVH(shadowOrigin, lightDir, shadowBarycentric, shadowHitDistance,shadowTri);
+        if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
+            float P = 1.0/(lightDistance*lightDistance);
+            float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+            directLight += BRDF*light.color*light.intensity*NdotL*P*PI*light.radius*light.radius;
+        }
+    }
+    return directLight;
+}
+
+vec3 sampleSunLight(vec3 origin, vec3 BRDF, vec3 smoothNormal, inout uint rng_state, int bounce) {
+    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
+    vec3 sunAxis = -u_sunDirection; // Direction *to* the sun
+
+    vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);
+
+    if(length(smoothNormal) == 0.0){
+        // For our code this means that set the normal to the direction of the ray
+        smoothNormal = lightDir;
+    }
+    float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+    if (NdotL <= 0.0) {
+        return vec3(0.0);
+    }
+    
+    // 3. Shadow Test
+    vec3 shadowBarycentric;
+    float shadowHitDistance;
+    Triangle shadowTri;
+    int shadowTriIndex = traverseBVH(origin, lightDir, shadowBarycentric, shadowHitDistance, shadowTri);
+
+    if (shadowTriIndex == -1) {
+        // Ray is not blocked, calculate light contribution
+        // --- Light Contribution (Radiance) ---
+        // float cos_alpha = cos(u_sunAngularRadius);
+        // float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
+        // float PDF = 1.0 / solidAngle; 
+        // L_i = BRDF * NdotL / PDF * Radiance
+        // Radiance (L_e) = Intensity / SolidAngle
+        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
+        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
+        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
+                
+        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
+
+        /*if(CLOUDS_enableClouds && bounce == 0){ //only care if it's the first bounce for efficiency. 
+            float cloudTransmittance = sampleCloudShadowFast(origin, lightDir);
+            directLight *= cloudTransmittance;
+        }*/
+
+        return directLight;
+    }
+    
+    return vec3(0.0);
+}
+
+
 vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
+    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
     vec3 rayOrigin = OGrayOrigin;
     vec3 rayDir = OGrayDir;
 
     vec3 color = vec3(0.0);
     vec3 throughput = vec3(1.0);
 
-    int hasMirror = -2;
+    vec3 UP_VECTOR = vec3(0.0, 1.0, 0.0);
+    float COS_ZENITH = dot(-u_sunDirection, UP_VECTOR);
+    float ZENITH_ANGLE = acos(COS_ZENITH) * 57.2958; //converted to degrees
+    float AIR_MASS = 1.0 / (COS_ZENITH + 0.15 * pow(93.885 - ZENITH_ANGLE, -1.253));
+    AIR_MASS = clamp(AIR_MASS, 1.0, 50.0);
+    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.05; 
+    vec3 SUN_TRANSMISSION = exp(-AIR_MASS * BETA_EXTINCTION);
+
+    int hasMirror = -1;
     for (int bounce = 0; bounce < numBounces; bounce++) {
+        vec3 currentRayOrigin = rayOrigin;
+        vec3 currentRayDir = rayDir;
+
         vec3 baryCentric;
         float minHitDistance;
-        
-        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);
+        Triangle tri;
+        int triIndex = traverseBVH(rayOrigin, rayDir, baryCentric, minHitDistance,tri);
         
         int hitLightIndex = -1;
         for (int i = 0; i < numActiveLights; i++) {
@@ -425,38 +898,66 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
 
         if (hitLightIndex != -1) {
             // Ray hit light source
-            if(bounce != 0){
+            if(bounce == 0 || bounce == hasMirror + 1){
+                // Directly visible light or after mirror/glossy
+                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir, 10000000.0, lights[hitLightIndex].color * lights[hitLightIndex].intensity,rng_state);
                 color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;
-            }else{
-                color = lights[hitLightIndex].showColor;
+                color = mix(color,cloudHandled.xyz,cloudHandled.a);
             }
-            
+            //Note, now that we have an NEE we do not need to factor in light hit after the first bounce.
             break; // Path terminates.
         }
+        // Ray missed everything and flew into space (Sky).
+        vec3 atmosphereColor = getSkyColor(rayDir, -u_sunDirection);
 
+        vec3 sunDirToScene = -u_sunDirection; // Direction from scene TO the sun
+        float cosAngle = dot(rayDir, sunDirToScene);
+        
+        // The angular radius is very small, so we use its cosine
+        float cosAngularRadius = cos(u_sunAngularRadius);
+        
+        // If the angle between the ray and the center of the sun is less than the angular radius, 
+        // the ray hit the visible sun disk.
+        bool hitSunDisk = (cosAngle >= cosAngularRadius);
+
+        vec3 finalSky = atmosphereColor;
         if (triIndex == -1) {
-            // Ray missed everything and flew into space.
-            if(bounce == 0 || bounce == hasMirror + 1){
-                color = throughput * vec3(0.54,0.824,0.94);
-            }else{
-                color += throughput * 0.00001; // light sky!
+
+            if (hitSunDisk) {
+                // Ray hit the visible Sun disk
+                finalSky += u_sunColor * u_sunIntensity *SUN_TRANSMISSION; 
             }
+
+            // Apply clouds and final color
+            if(bounce == 0 || bounce == hasMirror + 1){
+                vec4 cloudHandled = handleClouds(OGrayOrigin,OGrayDir,100000.0, finalSky, rng_state);//handleFog(rayOrigin, rayDir, finalSky, 1.0/0.0001, rng_state);
+                color = throughput * mix(finalSky, cloudHandled.xyz, cloudHandled.a);
+            }
+            
             break;
         }
 
         // The ray hit a triangle 
         //Get information
         vec3 hitPoint = rayOrigin + rayDir * minHitDistance;
-        Triangle tri = getTriangle(triIndex);
 
-        TerrainType t1 = getTerrainType(tri.types[0]);
-        TerrainType t2 = getTerrainType(tri.types[1]);
-        TerrainType t3 = getTerrainType(tri.types[2]);
+        TerrainType t1 = Terrains[tri.types[0]];//getTerrainType(tri.types[0]);
+        TerrainType t2 = Terrains[tri.types[1]];
+        TerrainType t3 = Terrains[tri.types[2]];
 
         vec3 smoothNormal, matColor;
         float matRoughness, reflectiveness;
-        int type = 2;
-        type = getTerrainType(tri.types[0]).type;
+        int type = 1;
+        if(t1.type != 1){
+            type = t1.type;
+        }else if(t2.type != 1){
+            type = t2.type;
+        }else if(t3.type != 1){
+            type = t3.type;
+        }else{
+            type = t1.type; //default to first one in triangle
+        }
+        
         getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);
         
 
@@ -467,26 +968,22 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             smoothNormal = -smoothNormal;
             didSwitch = true;
         } //If pointing in opposite directions, flip
-
-        vec3 BRDF = matColor / PI;
         
-        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy
-        //Next Event Estimation (Direct Lighting)]
-        if(type == 1){ //Diffuse only for now
-            Light lightSample = lights[0]; // Pick first light for now
-            vec3 toLight = lightSample.position - hitPoint;
-            float distToLight = length(toLight);
-            toLight = normalize(toLight);
-            
-        }
 
-        // INDIRECT LIGHTING (Prepare for the NEXT bounce)
         // Create the next bounce ray
         if(type != 4) //Transmission goes through
             rayOrigin = hitPoint + geometricNormal * 0.1;
         if(type == 1){ //Diffuse
+            //direct lighting
+            vec3 directLight = vec3(0.0);
+            vec3 BRDF = matColor / PI;
+            directLight = sampleSunLight(rayOrigin,BRDF, smoothNormal, rng_state, bounce) + shootShadowRay(rayOrigin, BRDF, smoothNormal, rng_state);
+            
             rayDir = weightedDIR(smoothNormal, rng_state);
-            throughput *= matColor;
+            float cos_theta = dot(rayDir,smoothNormal);
+            float p = 0.5*PI;
+            throughput *= BRDF*cos_theta/p;
+            color += throughput * directLight;
         }else if (type == 2) { // Specular (mirror)
             vec3 useNormal = smoothNormal;
             if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
@@ -496,12 +993,58 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             hasMirror = bounce;
         }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular
             vec3 useNormal = smoothNormal;
-            if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
-            vec3 perfect = normalize(reflect(rayDir, useNormal));
-            rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);
-            throughput *= matColor; //Switch to BDF later
-            //Consider fresnel in the future
-            hasMirror = bounce;
+            vec3 backDir = -rayDir;
+            if(dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
+            float metallic = clamp(reflectiveness, 0.0, 1.0);
+            float roughness = clamp(matRoughness, 0.001, 1.0);
+            float alpha = roughness * roughness;
+            vec3 F0 = mix(vec3(0.04), matColor, metallic);
+            vec3 albedo = matColor * (1.0 - metallic);
+
+            //Direct Lighting
+            vec3 L_sun = -u_sunDirection;
+            vec3 brdf = EvalUnifiedBRDF(useNormal, backDir, L_sun, alpha, F0, albedo, metallic);
+            vec3 directLight = sampleSunLight(rayOrigin, brdf, useNormal, rng_state, bounce) + shootShadowRay(rayOrigin, brdf, useNormal, rng_state);
+            color += throughput * directLight;
+
+            //Indirect lighting
+            float F_view = fresnelSchlick(max(dot(useNormal, backDir), 0.0), F0).g; // use green channel as estimate
+            float specProb = mix(F_view, 1.0, metallic);
+            specProb = clamp(specProb, 0.05, 0.95); // Prevent divide by zero
+
+            float r_val = rand(rng_state);
+
+            if(r_val < specProb){ //Specular bounce
+                vec2 Xi = vec2(rand(rng_state), rand(rng_state));
+                vec3 H = ImportanceSampleGGX(Xi, useNormal, alpha);
+                vec3 L = normalize(reflect(-backDir, H));
+
+                float NdotL = dot(useNormal, L);
+                float NdotH = dot(useNormal, H);
+                float VdotH = dot(backDir, H);
+                float NdotV = dot(useNormal, backDir);
+
+                if (NdotL > 0.0 && VdotH > 0.0) {
+                    vec3 F = fresnelSchlick(VdotH, F0);
+                    float G = GeometrySmith(useNormal, backDir, L, alpha);
+                    
+                    // The Weight for GGX Importance Sampling:
+                    // Weight = (F * G * VdotH) / (NdotV * NdotH * specProb)
+                    vec3 weight = (F * G * VdotH) / (NdotV * NdotH + 0.0001);
+                    
+                    throughput *= weight / specProb;
+                    rayDir = L;
+                    hasMirror = bounce;
+                }
+            }else{
+                //regular diffuse
+                vec3 L = weightedDIR(useNormal, rng_state);
+                vec3 kS = fresnelSchlick(max(dot(useNormal, L), 0.0), F0);
+                vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
+                
+                throughput *= (kD * albedo) / (1.0 - specProb);
+                rayDir = L;
+            }    
         }else if (type == 4){ //Transmission (Glass)
             float eta;
             vec3 transmissionNormal;
@@ -525,7 +1068,7 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
                 if (dot(useNormal, rayDir) > 0.0) useNormal = -useNormal; //"same direction"
                 rayDir = sampleGlossyDirection(normalize(refracted), matRoughness, rng_state);
 
-                rayOrigin = hitPoint + rayDir * 0.01;
+                rayOrigin = hitPoint - geometricNormal * 0.01;
             }
             hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce
             vec3 absorption = -log(matColor)*0.1;  // if matColor is tint
@@ -534,6 +1077,12 @@ vec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {
             color += throughput * matColor;
             break;
         }
+
+        //fog
+        if(bounce == 0 || hasMirror == bounce - 1){
+            vec4 cloudHandled = handleClouds(currentRayOrigin,currentRayDir,minHitDistance, throughput,rng_state);//handleFog(rayOrigin, rayDir, throughput, minHitDistance, rng_state);
+            color = mix(color,cloudHandled.xyz,cloudHandled.a);
+        } 
     }
     return min(color, vec3(10.0));
 }
@@ -547,9 +1096,9 @@ void main() {
     rng_state = hash(rng_state + uint(u_frameNumber));
 
     //Load terrains
-    /*for(int i = 0; i < NUM_TERRAINS; i++){
+    for(int i = 0; i < u_numTerrains; i++){
         Terrains[i] = getTerrainType(i);
-    }*/
+    }
     
     // Jitter calculation for Anti-Alising
     uint jitter_rng_state = hash(rng_state); // Create a new state from the main one
@@ -570,9 +1119,14 @@ void main() {
     vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);
     vec3 rayOrigin = u_cameraPos;
 
-    vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color
     vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color
-    vec3 newSum = lastSum + newSampleColor; // New sum
+    vec3 newSum;
+    if(u_frameNumber == 1){
+        newSum = newSampleColor;
+    }else{
+        vec3 lastSum = textureLod(u_lastFrame, v_uv,0.0).rgb; //Old color
+        newSum = lastSum + (newSampleColor - lastSum)/float(u_frameNumber);
+    }
 
     fragColor = vec4(newSum,1.0); 
 }
