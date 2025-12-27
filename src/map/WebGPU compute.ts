@@ -33,6 +33,9 @@ export class ComputeShader {
 
   constructor() {
     this.init();
+
+    // FIXME: actually update terrain on change
+    this.initSettings((id, value) => console.log(`changed ${id} to ${value}`));
   }
 
   /**
@@ -166,9 +169,6 @@ export class ComputeShader {
     if (!this.device) {
       throw new Error("WebGPU is not supported on this browser.");
     }
-
-    // FIXME: actually update terrain on change
-    this.initSettings((id, value) => console.log(`changed ${id} to ${value}`));
   }
   async readFieldBuffer(
     fieldBuffer: GPUBuffer,
