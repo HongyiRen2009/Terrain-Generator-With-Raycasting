@@ -1157,6 +1157,28 @@ vec3 PathTrace(Ray OGRay, inout uint rng_state) {
             color += throughput * matColor;
             break;
         }
+
+        if (bounce >= 3) { 
+            // Calculate survival probability based on the brightness of the current throughput.
+            // Brighter paths have a higher chance of surviving.
+            float p = max(throughput.r, max(throughput.g, throughput.b));
+
+            // Clamp probability
+            p = clamp(p, 0.0, 0.95);
+
+            if (rand(rng_state) > p) {
+                break; // Terminate path
+            }
+
+            // If the ray survives, we must boost its intensity to compensate for the 
+            // rays we just killed. This ensures the average brightness remains correct.
+            throughput *= 1.0 / p;
+        }
+        
+        // [Sanity Check] Stop if throughput is zero to save performance
+        if (length(throughput) <= 0.001) {
+            break;
+        }
     }
     return min(color, vec3(10.0));
 }
