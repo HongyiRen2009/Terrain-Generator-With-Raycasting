@@ -439,7 +439,7 @@ export class PathTracer {
       min: 1,
       max: 20,
       step: 1,
-      defaultValue: 15,
+      defaultValue: 5,
       numType: "int"
     });
 

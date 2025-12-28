@@ -51,7 +51,7 @@ export class TextureUtils {
    */
   static packFloatArrayToTexture(
     gl: WebGL2RenderingContext,
-    data: Float32Array,
+    data: Float32Array | Float16Array | Int8Array,
     widthHint?: number
   ) {
     if (data.length % 4 !== 0) {
@@ -74,12 +74,12 @@ export class TextureUtils {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA32F, // Internal format
+      (data instanceof Float32Array) ? gl.RGBA32F: ((data instanceof Float16Array) ? gl.RGBA16F : gl.RGBA8_SNORM), // Internal format
       width,
       height,
       0,
       gl.RGBA, // Format of incoming data
-      gl.FLOAT,
+      (data instanceof Int8Array) ? gl.BYTE:gl.FLOAT,
       new Float32Array(width * height * 4).fill(0).map((_, i) => data[i] ?? 0) // Fill/pad if needed
     );
 
