@@ -166,6 +166,7 @@ export class GLRenderer {
     //Run Pathtracer
     if(pathtracerOn){
       this.pathtracer.render(time);
+      return;
     }
 
     //Now run auxillary shaders

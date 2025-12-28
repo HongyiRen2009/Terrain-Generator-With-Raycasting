@@ -15,7 +15,7 @@ export class TextureUtils {
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
     tex: WebGLTexture | null | undefined,
-    key: string,
+    key: string | WebGLUniformLocation,
     unit: number,
     target: number = gl.TEXTURE_2D
   ) {
@@ -23,7 +23,12 @@ export class TextureUtils {
       console.warn(`[TextureUtils] Attempted to bind null/undefined texture to sampler "${key}" at texture unit ${unit}`);
       return;
     }
-    const loc = gl.getUniformLocation(program, key);
+    var loc : WebGLUniformLocation | null;
+    if(typeof key === "string"){
+      loc = gl.getUniformLocation(program, key);
+    }else{
+      loc = key;
+    }
     if (loc === null) {
       console.warn(`[TextureUtils] Cannot find sampler uniform "${key}" in shader program`);
       return;

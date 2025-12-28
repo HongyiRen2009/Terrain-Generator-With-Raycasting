@@ -61,6 +61,23 @@ export class PathTracer {
   private noiseTexture?: WebGLTexture;
   private weatherMapTexture?: WebGLTexture;
 
+  private uniforms = {
+    vertices: null as WebGLUniformLocation | null,
+    terrains: null as WebGLUniformLocation | null,
+    boundindingBoxes: null as WebGLUniformLocation | null,
+    nodes: null as WebGLUniformLocation | null,
+    leafs: null as WebGLUniformLocation | null,
+    terrainTypes: null as WebGLUniformLocation | null,
+    vertexNormal: null as WebGLUniformLocation | null,
+    numTerrains: null as WebGLUniformLocation | null,
+    camera: null as WebGLUniformLocation | null,
+    inverseViewProj: null as WebGLUniformLocation | null,
+    resolution: null as WebGLUniformLocation | null,
+    lastFrame: null as WebGLUniformLocation | null,
+    frameNum: null as WebGLUniformLocation | null,
+    COPYPROGRAM_sourceTex: null as WebGLUniformLocation | null,
+  };
+
   public constructor(
     canvas: HTMLCanvasElement,
     context: WebGL2RenderingContext,
@@ -140,7 +157,7 @@ export class PathTracer {
 
     //Put camera position, direction in shader
     this.gl.uniform3fv(
-      this.gl.getUniformLocation(this.meshProgram, "u_cameraPos"),
+      this.uniforms.camera,
       this.camera.position
     );
     const viewProjMatrix = this.camera.calculateProjectionMatrix(
@@ -150,7 +167,7 @@ export class PathTracer {
     const invViewProjMatrix = mat4.create();
     mat4.invert(invViewProjMatrix, viewProjMatrix);
     this.gl.uniformMatrix4fv(
-      this.gl.getUniformLocation(this.meshProgram, "u_invViewProjMatrix"),
+      this.uniforms.inverseViewProj,
       false,
       invViewProjMatrix
     );
@@ -158,7 +175,7 @@ export class PathTracer {
     resolution[0] = this.canvas.width;
     resolution[1] = this.canvas.height;
     this.gl.uniform2fv(
-      this.gl.getUniformLocation(this.meshProgram, "u_resolution"),
+      this.uniforms.resolution,
       resolution
     );
 
@@ -174,17 +191,13 @@ export class PathTracer {
       this.gl.TEXTURE_2D,
       this.accumulationTextures[lastFrameIndex]
     );
-    const lastFrameLoc = this.gl.getUniformLocation(
-      this.meshProgram,
-      "u_lastFrame"
-    );
-    this.gl.uniform1i(lastFrameLoc, 8);
+    this.gl.uniform1i(this.uniforms.lastFrame, 8);
 
     //put samples, bounce in shader
     SettingsManager.instance.updateProgramUniforms(this.gl,this.meshProgram);
     this.frameNumber++;
     this.gl.uniform1i(
-      this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"),
+      this.uniforms.frameNum,
       this.frameNumber
     ); // Send as a float for seeding
 
@@ -207,14 +220,9 @@ export class PathTracer {
       this.gl,
       this.copyProgram,
       this.accumulationTextures[nextFrameIndex],
-      "u_sourceTexture",
+      this.uniforms.COPYPROGRAM_sourceTex!,
       0
     );
-    const frameLoc = this.gl.getUniformLocation(
-      this.copyProgram,
-      "u_frameNumber"
-    );
-    this.gl.uniform1f(frameLoc, this.frameNumber);
 
     // We can reuse the same fullscreen triangle VAO
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
@@ -249,6 +257,25 @@ export class PathTracer {
       this.debug.addElement("Accumulation Frame", () => this.frameNumber);
       this.camera.farPlane = this.camera.pathtracingFarPlane;
     }
+
+    this.uniforms.vertices = this.gl.getUniformLocation(this.meshProgram, "u_vertices");
+    this.uniforms.terrains = this.gl.getUniformLocation(this.meshProgram, "u_terrains");
+    this.uniforms.boundindingBoxes = this.gl.getUniformLocation(this.meshProgram, "u_boundingBox");
+    this.uniforms.nodes = this.gl.getUniformLocation(this.meshProgram, "u_nodesTex");
+    this.uniforms.leafs = this.gl.getUniformLocation(this.meshProgram, "u_leafsTex");
+    this.uniforms.terrainTypes = this.gl.getUniformLocation(this.meshProgram, "u_terrainTypes");
+    this.uniforms.vertexNormal = this.gl.getUniformLocation(this.meshProgram, "u_normals");
+    this.uniforms.numTerrains = this.gl.getUniformLocation(this.meshProgram,"u_numTerrains");
+    this.uniforms.camera = this.gl.getUniformLocation(this.meshProgram, "u_cameraPos");
+    this.uniforms.inverseViewProj = this.gl.getUniformLocation(this.meshProgram, "u_invViewProjMatrix");
+    this.uniforms.resolution = this.gl.getUniformLocation(this.meshProgram, "u_resolution");
+    this.uniforms.lastFrame = this.gl.getUniformLocation(
+      this.meshProgram,
+      "u_lastFrame"
+    );
+    this.uniforms.frameNum = this.gl.getUniformLocation(this.meshProgram, "u_frameNumber");
+    this.uniforms.COPYPROGRAM_sourceTex = this.gl.getUniformLocation(this.copyProgram, "u_sourceTexture");
+
     this.initBVHTextures();
     this.setupFrame();
     this.makeVao();
@@ -277,13 +304,13 @@ export class PathTracer {
     const ext = this.gl.getExtension("EXT_color_buffer_float");
     if (!ext) console.warn("No float render targets available.");
     //Textures
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex!, "u_vertices", 0);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex!, "u_terrains", 1);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.boundingBoxesTex!, "u_boundingBox", 2);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.nodesTex!, "u_nodesTex", 3);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, "u_leafsTex", 4);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, "u_terrainTypes", 5);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, "u_normals", 6);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex!, this.uniforms.vertices!, 0);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex!, this.uniforms.terrains!, 1);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.boundingBoxesTex!, this.uniforms.boundindingBoxes!, 2);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.nodesTex!, this.uniforms.nodes!, 3);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, this.uniforms.leafs!, 4);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, this.uniforms.terrainTypes!, 5);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, this.uniforms.vertexNormal!, 6);
 
     //NOTE: When we fix natively pathtraced clouds we will put this back.
     /*
@@ -306,7 +333,7 @@ export class PathTracer {
     );*/
 
     this.gl.uniform1i(
-      this.gl.getUniformLocation(this.meshProgram, "u_numTerrains"),
+      this.uniforms.numTerrains,
       Object.keys(Terrains).length
     );
     //VAO
