@@ -501,6 +501,71 @@ int traverseBVH(Ray mainRay, out vec3 closestBarycentric, out float minHitDistan
     return closestHitIndex;
 }
 
+// New optimized traversal for shadows: Returns TRUE immediately on any hit
+bool traverseBVHShadow(Ray shadowRay, float maxDist) {
+    int stack[BVH_DEPTH]; 
+    int stackPtr = 0;
+    stack[stackPtr++] = 0; // Push root node index
+
+    while (stackPtr > 0) {
+        int nodeIndex = stack[--stackPtr];
+        BVH node = getBVH(nodeIndex);
+
+        float tMin, tMax;
+        if (!intersectAABB(shadowRay, node.min, node.max, tMin, tMax)) {
+            continue;
+        }
+
+        // Optimization: If the AABB is further away than the light source, ignore it
+        if (tMin >= maxDist) {
+            continue;
+        }
+
+        if (node.left == -1) { // Leaf Node
+            for (int j = 0; j < 4; j++) {
+                int triIdx = node.triangles[j];
+                
+                // Grass Logic
+                if(triIdx <= -2 && grassEnabled){
+                    int thingI = triIdx*(-1)-2;
+                    int grassInfoSize = 8;
+                    vec3 minB = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+1),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+2));
+                    float lean = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+6);
+                    float angle = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+7);
+                    
+                    Triangle dummyTri; // Not used, but required by function signature
+                    float hitDist;
+                    bool hit = intersectGrassBlade(shadowRay, minB, lean, angle, hitDist, dummyTri);
+                    
+                    // If we hit grass closer than the light, we are blocked
+                    if(hit && hitDist > 0.001 && hitDist < maxDist){
+                        return true;
+                    }
+                    continue;
+                }
+
+                if (triIdx == -1) continue;
+
+                Triangle tri = getTriangle(triIdx);
+                vec3 dummyBary;
+                float hitDist = intersectTriangle(shadowRay.origin, shadowRay.dir, tri, dummyBary);
+
+                // If we hit geometry closer than the light, we are blocked
+                if (hitDist > 0.001 && hitDist < maxDist) {
+                    return true;
+                }
+            }
+        } else { // Internal Node
+            if (stackPtr < BVH_DEPTH-1) { 
+                stack[stackPtr++] = node.left;
+                stack[stackPtr++] = node.right;
+            }
+        }
+    }
+
+    return false; // No occlusion found
+}
+
 vec3 smoothItem(vec3[3] a, vec3 baryCentric){
     return (
         baryCentric.x * a[0] + 
@@ -835,16 +900,17 @@ vec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     vec3 directLight = vec3(0.0);
     bool autoNormal = false;
     if(length(smoothNormal) == 0.0){
-        // For our code this means that set the normal to the direction of the ray
         autoNormal = true;
     }
     if(numActiveLights == 0){
         return vec3(0.0);
     }
+    
     int i = int(rand(rng_state)*float(numActiveLights));
     Light light = lights[i]; 
     rng_state = hash(rng_state);
-    //choose a point on the light sphere
+    
+    // choose a point on the light sphere
     float r1 = (rand(rng_state)-0.5)*2.0;
     float r2 = (rand(rng_state)-0.5)*2.0;
     float r3 = (rand(rng_state)-0.5)*2.0;
@@ -853,36 +919,33 @@ vec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
 
     vec3 lightDir = normalize(lightPoint - mainRay.origin);
     float lightDistance = length(lightPoint - mainRay.origin);
-    //shadow ray
 
     if(autoNormal){
         smoothNormal = lightDir;
     }
 
-    vec3 shadowOrigin = mainRay.origin;
-    vec3 shadowBarycentric;
-    float shadowHitDistance;
-    Triangle shadowTri;
     Ray shadowRay;
-    shadowRay.origin = shadowOrigin;
+    shadowRay.origin = mainRay.origin;
     shadowRay.dir = lightDir;
-    int shadowTriIndex = traverseBVH(shadowRay, shadowBarycentric, shadowHitDistance,shadowTri);
-    if(shadowTriIndex == -1 || shadowHitDistance > lightDistance){
+
+    // Fast Shadow Check
+    bool blocked = traverseBVHShadow(shadowRay, lightDistance);
+
+    if(!blocked){
         float P = 1.0/(lightDistance*lightDistance);
         float NdotL = max(dot(smoothNormal, lightDir), 0.0);
-        directLight += BRDF*light.color*light.intensity*NdotL*P*PI*light.radius*light.radius;
+        directLight += BRDF * light.color * light.intensity * NdotL * P * PI * light.radius * light.radius;
     }
     return directLight;
 }
 
 vec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state, int bounce) {
     vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
-    vec3 sunAxis = -u_sunDirection; // Direction *to* the sun
+    vec3 sunAxis = -u_sunDirection; 
 
     vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);
 
     if(length(smoothNormal) == 0.0){
-        // For our code this means that set the normal to the direction of the ray
         smoothNormal = lightDir;
     }
     float NdotL = max(dot(smoothNormal, lightDir), 0.0);
@@ -890,16 +953,14 @@ vec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
         return vec3(0.0);
     }
     
-    // 3. Shadow Test
-    vec3 shadowBarycentric;
-    float shadowHitDistance;
-    Triangle shadowTri;
     Ray shadowRay;
     shadowRay.origin = mainRay.origin;
     shadowRay.dir = lightDir;
-    int shadowTriIndex = traverseBVH(shadowRay, shadowBarycentric, shadowHitDistance, shadowTri);
 
-    if (shadowTriIndex == -1) {
+    // Fast Shadow Check (Max distance is effectively infinite for sun)
+    bool blocked = traverseBVHShadow(shadowRay, 1e20);
+
+    if (!blocked) {
         // Ray is not blocked, calculate light contribution
         // --- Light Contribution (Radiance) ---
         // float cos_alpha = cos(u_sunAngularRadius);
@@ -910,14 +971,7 @@ vec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
         // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
         // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
         // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
-                
         vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
-
-        /*if(CLOUDS_enableClouds && bounce == 0){ //only care if it's the first bounce for efficiency. 
-            float cloudTransmittance = sampleCloudShadowFast(origin, lightDir);
-            directLight *= cloudTransmittance;
-        }*/
-
         return directLight;
     }
     
