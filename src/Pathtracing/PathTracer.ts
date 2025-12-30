@@ -453,6 +453,7 @@ export class PathTracer {
       "u_sunsetQuality",
       "u_MIE",
       "ambientLightIntensity",
+      "u_skyBrightnessBoost",
       //NOTE: When we fix natively pathtraced clouds we will put this back.
       /*"CLOUDS_enableClouds",
       "CLOUDS_MAX_STEPS",

@@ -158,6 +158,16 @@ export class WorldMap {
       numType: "int"
     });
 
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_skyBrightnessBoost",
+      label: "Sky Brighness Coefficient",
+      min: 0,
+      max: 10,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+
 
   }
 

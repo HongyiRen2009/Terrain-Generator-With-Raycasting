@@ -79,9 +79,11 @@ struct Light {
 uniform Light lights[MAX_LIGHTS];
 uniform int numActiveLights;
 
-uniform float sunDirX;
+
+/*uniform float sunDirX;
 uniform float sunDirY;
-uniform float sunDirZ;
+uniform float sunDirZ;*/
+uniform vec3 u_sunDirection;
 
 uniform float u_sunIntensity;    // Sun intensity (controls brightness)
 uniform float u_sunAngularRadius; // Angular radius of the sun in radians (approx 0.00465 radians or 0.266 degrees)
@@ -94,6 +96,7 @@ uniform int u_skyGradientQuality;
 uniform int u_sunsetQuality; 
 uniform float u_MIE;
 uniform float ambientLightIntensity;
+uniform float u_skyBrightnessBoost; 
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -792,41 +795,39 @@ vec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albe
 //Get sky color. AI generated
 vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     // -------------------------------------
-    // Constants (Moved inside as requested)
+    // Constants
     // -------------------------------------
     const float RE = 6360e3;          // Earth Radius (meters)
     const float RA = 6420e3;          // Atmosphere Radius (meters)
     const float HR = 8000.0;          // Rayleigh Scale Height
     const float HM = 1200.0;          // Mie Scale Height
-    float G_MIE = u_haloSize;         // Mie Anisotropy (Controls halo size)
+    float G_MIE = u_haloSize;         // Mie Anisotropy
     
-    // Scattering Coefficients (Sea Level)
-    vec3 BETA_R = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.001; // Rayleigh (Blue)
-    vec3 BETA_M = vec3(u_MIE*0.001);                    // Mie (White)
+
+
+    vec3 BETA_R = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.001; 
+    vec3 BETA_M = vec3(u_MIE * 0.001);                 
 
     float SUN_INTENSITY = u_sunIntensity; 
-    int STEPS_PRIMARY = u_skyGradientQuality;     // Quality of the gradient
-    int STEPS_LIGHT = u_sunsetQuality;        // Quality of the sunset shadows
+    int STEPS_PRIMARY = u_skyGradientQuality;   
+    int STEPS_LIGHT = u_sunsetQuality;       
 
     // -------------------------------------
     // Setup Geometry
     // -------------------------------------
-    // We treat the atmosphere as a large spherical "Light" for intersection purposes
     Light atmosphere;
     atmosphere.position = vec3(0.0);
     atmosphere.radius = RA;
 
-    //Note we have a "constant" camera x and z coordinates since we're at the center of the world trust. (Basically to avoid it being goofy)
     vec3 camPos = vec3(0.0, RE + u_cameraPos.y, 0.0); 
-
-    // Variable to satisfy your function signature
     vec3 dummyNormal; 
 
-    // 1. Calculate distance to leave the atmosphere
+    // Calculate distance to leave the atmosphere
     float distToTop = intersectLight(camPos, rayDir, atmosphere, dummyNormal);
     
-    // If we look at the ground (and your ground logic handles it), return black here
-    if (distToTop < 0.0) return vec3(0.0); 
+    // If we look down and don't hit the atmosphere cap (or hit ground logic),
+    // we initialize with White instead of Black.
+    if (distToTop < 0.0) return vec3(1.0); 
 
     // -------------------------------------
     // Raymarching
@@ -834,12 +835,11 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     float stepSize = distToTop / float(STEPS_PRIMARY);
     vec3 currentPos = camPos;
     
-    vec3 totalR = vec3(0.0); // Rayleigh accumulation
-    vec3 totalM = vec3(0.0); // Mie accumulation
+    vec3 totalR = vec3(0.0); 
+    vec3 totalM = vec3(0.0); 
     float optDepthR = 0.0;
     float optDepthM = 0.0;
     
-    // Pre-calculate Phase Functions (constant for this pixel)
     float mu = dot(rayDir, sunDir);
     float phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
     float g = G_MIE; float g2 = g * g;
@@ -847,25 +847,18 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
                    ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));
 
     for (int i = 0; i < STEPS_PRIMARY; ++i) {
-        // Sample in the middle of the step
         vec3 samplePos = currentPos + rayDir * (stepSize * 0.5);
         float height = length(samplePos) - RE;
         
-        // Use abs() or max() to avoid negative height precision issues at exact sea level
         if (height < 0.0) height = 0.0;
 
-        // Density at this height
         float hr = exp(-height / HR) * stepSize;
         float hm = exp(-height / HM) * stepSize;
         
         optDepthR += hr;
         optDepthM += hm;
         
-        // 2. Secondary Ray: Distance from sample point to Sun (Atmosphere exit)
-        // We use your intersection function again here
         float distToSun = intersectLight(samplePos, sunDir, atmosphere, dummyNormal);
-        
-        // Calculate light attenuation (Optical Depth towards sun)
         float stepSizeSun = distToSun / float(STEPS_LIGHT);
         float sunDepthR = 0.0;
         float sunDepthM = 0.0;
@@ -881,7 +874,6 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
             sunPos += sunDir * stepSizeSun;
         }
         
-        // Combine Camera Depth + Sun Depth
         vec3 tau = BETA_R * (optDepthR + sunDepthR) + BETA_M * 1.1 * (optDepthM + sunDepthM);
         vec3 attenuation = exp(-tau);
         
@@ -892,10 +884,23 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     }
     
     // -------------------------------------
-    // Final Color
+    // Final Color Calculation
     // -------------------------------------
-    // No explicit sun disc math here, just the atmospheric glow
-    return SUN_INTENSITY * (totalR * BETA_R * phaseR + totalM * BETA_M * phaseM);
+    vec3 skyColor = SUN_INTENSITY * (totalR * BETA_R * phaseR + totalM * BETA_M * phaseM);
+    
+    // Apply Brightness
+    skyColor *= u_skyBrightnessBoost;
+
+    // --- [CHANGE #2 PART B] Smooth Horizon Blend ---
+    // Instead of a sharp cut, we mix the calculated sky with a white color
+    // based on how far the ray is looking down. 
+    // -0.1 to 0.1 creates a small foggy blur at the horizon line.
+    // If rayDir.y is very negative (looking down), blendingFactor becomes 0.0 (All white).
+    
+    vec3 groundColor = vec3(1.0); // White
+    float horizonBlend = smoothstep(-0.05, 0.05, rayDir.y);
+    
+    return mix(groundColor, skyColor, horizonBlend);
 }
 vec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
     vec3 directLight = vec3(0.0);
@@ -941,7 +946,6 @@ vec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
 }
 
 vec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state, int bounce) {
-    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
     vec3 sunAxis = -u_sunDirection; 
 
     vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);
@@ -981,7 +985,6 @@ vec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
 
 
 vec3 PathTrace(Ray OGRay, inout uint rng_state) {
-    vec3 u_sunDirection = normalize(vec3(sunDirX, sunDirY, sunDirZ));
     Ray ourRay;
     ourRay.origin = OGRay.origin;
     ourRay.dir = OGRay.dir;
