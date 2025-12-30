@@ -363,6 +363,23 @@ export class LightingPass extends RenderPass {
       }
     });
     SettingsManager.instance.addSliderToSection("Sky Settings", {
+      id: "__SUN_INTENSITY__",
+      label: "Sunlight Intensity",
+      min: 0,
+      max: 20,
+      step: 0.1,
+      defaultValue: 4,
+      numType: "float",
+      onChange: (value: number) => {
+        const sunLight = this.resourceCache.getData("sunLight");
+        if (sunLight) {
+          sunLight.intensity = value;
+          this.resourceCache.setData("sunLight", sunLight);
+        }
+      }
+    });
+
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "ambientLightIntensity",
       label: "Ambient Light Intensity",
       min: 0,

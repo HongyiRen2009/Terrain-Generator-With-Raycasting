@@ -93,6 +93,7 @@ uniform float u_haloSize;
 uniform int u_skyGradientQuality;
 uniform int u_sunsetQuality; 
 uniform float u_MIE;
+uniform float ambientLightIntensity;
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -1048,8 +1049,9 @@ vec3 PathTrace(Ray OGRay, inout uint rng_state) {
 
             // Apply clouds and final color
             if(bounce == 0 || bounce == hasMirror + 1){
-                color = throughput * finalSky;
+                color += throughput * finalSky;
             }
+            color += finalSky*ambientLightIntensity;
             
             break;
         }
