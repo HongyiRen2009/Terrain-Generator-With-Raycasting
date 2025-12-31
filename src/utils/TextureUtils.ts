@@ -5,17 +5,17 @@ export class TextureUtils {
    * @param gl - The WebGL2RenderingContext to use for binding.
    * @param program - The WebGLProgram to bind the texture to.
    * @param tex - The WebGLTexture to bind.
-   * @param key - The name of the sampler uniform in the shader program to associate with the texture.
+   * @param key - The name of the sampler uniform orthe sampler location in the shader program to associate with the texture.
    * @param unit - The texture unit to bind the texture to (0-15 for WebGL2).
    *
    * @remarks
    * If the specified uniform cannot be found in the shader program, a warning is logged to the console.
    */
-  static bindTex(
+    static bindTex(
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
     tex: WebGLTexture | null | undefined,
-    key: string,
+    key: string | WebGLUniformLocation,
     unit: number,
     target: number = gl.TEXTURE_2D
   ) {
@@ -23,7 +23,12 @@ export class TextureUtils {
       console.warn(`[TextureUtils] Attempted to bind null/undefined texture to sampler "${key}" at texture unit ${unit}`);
       return;
     }
-    const loc = gl.getUniformLocation(program, key);
+    var loc : WebGLUniformLocation | null;
+    if(typeof key === "string"){
+      loc = gl.getUniformLocation(program, key);
+    }else{
+      loc = key;
+    }
     if (loc === null) {
       console.warn(`[TextureUtils] Cannot find sampler uniform "${key}" in shader program`);
       return;
@@ -35,18 +40,19 @@ export class TextureUtils {
     gl.uniform1i(loc, unit);
   }
 
+
   /**
    * Uploads a Float32Array to GPU as a 2D RGBA32F texture.
    * Each texel stores 4 floats (R, G, B, A).
    * (totally not vibecoded)
    * @param gl         - WebGL2RenderingContext
-   * @param data       - Float32Array containing your raw float data
+   * @param data       - Float32Array, Float16Array, or Int8Array containing your raw data
    * @param widthHint  - Optional: manual texture width (default auto-calculated)
    * @returns texture: WebGLTexture
    */
   static packFloatArrayToTexture(
     gl: WebGL2RenderingContext,
-    data: Float32Array,
+    data: Float32Array | Float16Array | Int8Array,
     widthHint?: number
   ) {
     if (data.length % 4 !== 0) {
@@ -69,12 +75,12 @@ export class TextureUtils {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA32F, // Internal format
+      (data instanceof Float32Array) ? gl.RGBA32F: ((data instanceof Float16Array) ? gl.RGBA16F : gl.RGBA8_SNORM), // Internal format
       width,
       height,
       0,
       gl.RGBA, // Format of incoming data
-      gl.FLOAT,
+      (data instanceof Int8Array) ? gl.BYTE:gl.FLOAT,
       new Float32Array(width * height * 4).fill(0).map((_, i) => data[i] ?? 0) // Fill/pad if needed
     );
 

@@ -2,7 +2,6 @@
 precision highp float;
 
 uniform sampler2D u_sourceTexture; // This texture now contains the SUM of samples
-uniform float u_frameNumber;       // We need the frame number here now
 in vec2 v_uv;
 out vec4 fragColor;
 
