@@ -146,7 +146,7 @@ export class WorldMap {
         }
       }
     }
-
+    let vertexCount = 0;
     // Collect timings for all chunks
     const allTimings: {
       noise: number;
@@ -173,6 +173,7 @@ export class WorldMap {
       this.chunks[key] = chunk;
       const { mesh, timings } = await chunk.generate(false);
       allTimings.push(timings);
+      vertexCount += mesh.mesh.length;
     }
 
     // Average timings
@@ -201,6 +202,7 @@ export class WorldMap {
            2
          )} ms, total: ${avg("total").toFixed(2)} ms`
       );
+      console.log(`Total vertices in world: ${vertexCount}`);
     }
   }
 

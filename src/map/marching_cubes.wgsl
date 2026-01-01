@@ -146,18 +146,18 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         let vtx_idx = base_vertex + written;
         vertexData[vtx_idx] = v0;
-        vertexData[vtx_idx + 1u] = v1;
-        vertexData[vtx_idx + 2u] = v2;
+        vertexData[vtx_idx + 1u] = v2; 
+        vertexData[vtx_idx + 2u] = v1; 
 
         // --- Write normals ---
         normalData[vtx_idx] = n0;
-        normalData[vtx_idx + 1u] = n1;
-        normalData[vtx_idx + 2u] = n2;
+        normalData[vtx_idx + 1u] = n2; 
+        normalData[vtx_idx + 2u] = n1; 
 
         // --- Write terrain types ---
         terrainTypeData[vtx_idx] = t0;
-        terrainTypeData[vtx_idx + 1u] = t1;
-        terrainTypeData[vtx_idx + 2u] = t2;
+        terrainTypeData[vtx_idx + 1u] = t2; 
+        terrainTypeData[vtx_idx + 2u] = t1; 
 
         // Write indices
         let idx_idx = vtx_idx;
