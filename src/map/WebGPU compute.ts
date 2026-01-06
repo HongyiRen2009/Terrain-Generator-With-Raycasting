@@ -397,14 +397,6 @@ export class ComputeShader {
 
     // Submit the command buffer
     this.device.queue.submit([commandEncoder.finish()]);
-    // Visualization: show the middle slice by default
-    await this.visualizeNoiseField(
-      document.getElementById("noisePreview") as HTMLCanvasElement,
-      fieldBuffer,
-      width,
-      height,
-      Math.floor(depth / 2)
-    );
     return fieldBuffer;
   }
 

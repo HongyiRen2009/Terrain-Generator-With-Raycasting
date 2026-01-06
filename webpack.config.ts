@@ -53,7 +53,20 @@ const config: webpack.Configuration = {
       {
         test: /\.wgsl$/,
         type: "asset/source"
-      }
+      },
+      {
+        test: /\.glsl$/,
+        type: "asset/source"
+      },
+      {
+        test:/\.txt$/,
+        type: "asset/source"
+      },      
+      
+      {
+        test: /\.png$/,
+        type: 'asset/resource',
+      },
     ]
   },
   plugins: [new webpack.HotModuleReplacementPlugin()]

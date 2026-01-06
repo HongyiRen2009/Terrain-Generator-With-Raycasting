@@ -14,12 +14,14 @@ import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { vec3 } from "gl-matrix";
 import { DirectionalLight } from "../../map/Light";
+import coveragePNG from "../../../assets/coverage map.png";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = true;
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
   private noiseGenerator: NoiseGenerator;
+  noiseDetailTexture: WebGLTexture;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -35,8 +37,13 @@ export class CloudsPass extends RenderPass {
     this.renderTarget = this.initRenderTarget();
     this.InitSettings();
     this.noiseGenerator = new NoiseGenerator(gl);
-    this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
-    this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
+    this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(64);
+    const weatherMapPromise = this.noiseGenerator.generateWeatherMap(128);
+    weatherMapPromise.then((texture) => {
+      this.weatherMapTexture = texture;
+    });
+    this.noiseDetailTexture =
+      this.noiseGenerator.generateDetailedCloudNoiseTex(32);
     this.uniforms = getUniformLocations(gl, this.program!, [
       "viewInverse",
       "projInverse",
@@ -110,20 +117,34 @@ export class CloudsPass extends RenderPass {
     if (!cameraPosition) {
       cameraPosition = vec3.fromValues(0, 0, 0);
     }
+    const boxWidth = SettingsManager.instance.getSetting("CLOUDS_boxWidth")
+      ?.value as number;
+    const boxHeight = SettingsManager.instance.getSetting("CLOUDS_boxHeight")
+      ?.value as number;
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMin"),
-      vec3.fromValues(-300 + cameraPosition[0], 100, -300 + cameraPosition[2])
+      vec3.fromValues(-boxWidth / 2, 100, -boxWidth / 2)
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMax"),
-      vec3.fromValues(300 + cameraPosition[0], 300, 300 + cameraPosition[2])
+      vec3.fromValues(boxWidth / 2, 100 + boxHeight, boxWidth / 2)
     );
-    // Bind 3D texture
-    this.gl.activeTexture(this.gl.TEXTURE0);
-    this.gl.bindTexture(this.gl.TEXTURE_3D, this.noiseTexture);
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.program!, "noiseTexture"),
-      0
+    // Bind noise texture
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      this.noiseTexture!,
+      "noiseTexture",
+      0,
+      this.gl.TEXTURE_3D
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      this.noiseDetailTexture!,
+      "detailNoiseTexture",
+      1,
+      this.gl.TEXTURE_3D
     );
     // Bind weather map texture
     TextureUtils.bindTex(
@@ -131,14 +152,21 @@ export class CloudsPass extends RenderPass {
       this.program!,
       this.weatherMapTexture!,
       "weatherMap",
-      1
+      2
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       depthTexture,
       "depthTexture",
-      2
+      3
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      litSceneTexture,
+      "litSceneTexture",
+      4
     );
     const sunLight = this.resourceCache.getData(
       "sunLight"
@@ -163,13 +191,6 @@ export class CloudsPass extends RenderPass {
       sunColor = vec3.fromValues(1, 1, 1);
     }
 
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      litSceneTexture,
-      "litSceneTexture",
-      3
-    );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "sunPos"),
       sunPos
@@ -215,11 +236,6 @@ export class CloudsPass extends RenderPass {
     this.gl.disable(this.gl.BLEND);
     this.gl.depthMask(true);
     this.gl.enable(this.gl.DEPTH_TEST);
-
-    this.gl.activeTexture(this.gl.TEXTURE0);
-    this.gl.bindTexture(this.gl.TEXTURE_3D, null);
-    this.gl.activeTexture(this.gl.TEXTURE1);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, null);
   }
 
   private InitSettings() {
@@ -248,9 +264,9 @@ export class CloudsPass extends RenderPass {
       id: "CLOUDS_MAX_STEPS_LIGHT",
       label: "Cloud Light Ray Marching Max Steps",
       min: 4,
-      max: 32,
+      max: 64,
       step: 1,
-      defaultValue: 8,
+      defaultValue: 32,
       numType: "int"
     });
 
@@ -279,43 +295,40 @@ export class CloudsPass extends RenderPass {
       defaultValue: 1.0,
       numType: "float"
     });
-
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "CLOUDS_densityThreshold",
-      label: "Cloud Density Threshold",
-      min: -2.0,
+      id: "CLOUDS_globalCoverage",
+      label: "Cloud Coverage",
+      min: 0.0,
       max: 1.0,
       step: 0.01,
+      defaultValue: 0.6,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_globalDensity",
+      label: "Cloud Density",
+      min: 0.0,
+      max: 1.0,
+      step: 0.001,
       defaultValue: 0.2,
       numType: "float"
     });
-
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "CLOUDS_baseFrequency",
-      label: "Cloud Base Frequency",
+      id: "CLOUDS_baseNoiseFrequency",
+      label: "Cloud Base Noise Frequency",
       min: 0.01,
-      max: 2.0,
-      step: 0.001,
-      defaultValue: 0.42,
-      numType: "float"
-    });
-
-    SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "CLOUDS_detailFrequency",
-      label: "Cloud Detail Frequency",
-      min: 0.1,
-      max: 2.0,
-      step: 0.001,
-      defaultValue: 1,
-      numType: "float"
-    });
-    SettingsManager.instance.addSliderToSection("Clouds Settings", {
-      id: "CLOUDS_simplexMultiplier",
-      label: "Cloud Simplex Noise Multiplier",
-      min: 0.0,
-      max: 2.0,
+      max: 5.0,
       step: 0.01,
-      defaultValue: 0.5,
+      defaultValue: 2.28,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_detailNoiseFrequency",
+      label: "Cloud Detail Noise Frequency",
+      min: 0.01,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 0.01,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
@@ -334,7 +347,7 @@ export class CloudsPass extends RenderPass {
       min: 0,
       max: 5.0,
       step: 0.01,
-      defaultValue: 2.4,
+      defaultValue: 3,
       numType: "float"
     });
 
@@ -391,14 +404,30 @@ export class CloudsPass extends RenderPass {
       min: 0.0,
       max: 5.0,
       step: 0.01,
-      defaultValue: 1,
+      defaultValue: 4,
       numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_boxWidth",
+      label: "Cloud Box Width",
+      min: 100,
+      max: 8000,
+      step: 10,
+      defaultValue: 1000
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_boxHeight",
+      label: "Cloud Box Height",
+      min: 100,
+      max: 2000,
+      step: 10,
+      defaultValue: 500
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "CLOUDS_weatherMapOffsetX",
       label: "Cloud Weather Map Offset X",
       min: 0.0,
-      max: 10.0,
+      max: 100.0,
       step: 0.01,
       defaultValue: 0.0,
       numType: "float"
@@ -408,12 +437,20 @@ export class CloudsPass extends RenderPass {
       id: "CLOUDS_weatherMapOffsetY",
       label: "Cloud Weather Map Offset Y",
       min: 0.0,
-      max: 10.0,
+      max: 100.0,
       step: 0.01,
       defaultValue: 0.0,
       numType: "float"
     });
-
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_weatherMapFrequency",
+      label: "Cloud Weather Map Frequency",
+      min: 0.01,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 0.08,
+      numType: "float"
+    });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "CLOUDS_windSpeed",
       label: "Cloud Wind Speed",
@@ -452,10 +489,10 @@ export class CloudsPass extends RenderPass {
       "CLOUDS_baseCloudColor",
       "CLOUDS_skyContribution",
       "CLOUDS_absorption",
-      "CLOUDS_densityThreshold",
-      "CLOUDS_baseFrequency",
-      "CLOUDS_detailFrequency",
-      "CLOUDS_simplexMultiplier",
+      "CLOUDS_baseNoiseFrequency",
+      "CLOUDS_detailNoiseFrequency",
+      "CLOUDS_globalCoverage",
+      "CLOUDS_globalDensity",
       "CLOUDS_lightAbsorption",
       "CLOUDS_lightIntensity",
       "CLOUDS_ambientIntensity",
@@ -465,6 +502,7 @@ export class CloudsPass extends RenderPass {
       "CLOUDS_phaseMultiplier",
       "CLOUDS_weatherMapOffsetX",
       "CLOUDS_weatherMapOffsetY",
+      "CLOUDS_weatherMapFrequency",
       "CLOUDS_windSpeed",
       "CLOUDS_windDirectionX",
       "CLOUDS_windDirectionZ",
@@ -495,9 +533,13 @@ export class NoiseGenerator {
   dataG: Uint8Array = new Uint8Array();
   dataB: Uint8Array = new Uint8Array();
   dataA: Uint8Array = new Uint8Array();
+  detailR: Uint8Array = new Uint8Array();
+  detailG: Uint8Array = new Uint8Array();
+  detailB: Uint8Array = new Uint8Array();
   coverageData: Uint8Array = new Uint8Array();
+  heightData: Uint8Array = new Uint8Array();
   densityData: Uint8Array = new Uint8Array();
-  typeData: Uint8Array = new Uint8Array();
+  highCoverageData: any;
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
   }
@@ -589,19 +631,245 @@ export class NoiseGenerator {
     }
     return data;
   }
+  simplexWorelyNoise2D(
+    width: number,
+    height: number,
+    frequency: number,
+    gridSize: number,
+    pointsPerCell: number = 1
+  ): Uint8Array {
+    const simplexData = this.fbmSimplexNoise2D(width, height, frequency);
+    const worleyData = this.fbmWorleyNoise2D(
+      width,
+      height,
+      gridSize,
+      pointsPerCell
+    );
 
+    const data = new Uint8Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+      // Normalize to 0-1 range
+      const simplex = simplexData[i] / 255.0;
+      const worley = worleyData[i] / 255.0;
+      // Invert Worley (cloud interiors)
+      let value = simplex * (1.0 - worley);
+      // Smoothstep remap
+      value = this.smoothstep(0.2, 0.8, value);
+      // Optional contrast boost
+      value = Math.pow(value, 1.2);
+      // Back to 0-255 range
+      data[i] = Math.max(0, Math.min(255, Math.floor(value * 255)));
+    }
+    return data;
+  }
+  private smoothstep(edge0: number, edge1: number, x: number): number {
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  }
+  // Tileable FBM Simplex Noise 2D
+  fbmSimplexNoise2D(
+    width: number,
+    height: number,
+    frequency: number,
+    octaves: number = 4,
+    lacunarity: number = 2,
+    gain: number = 0.5
+  ): Uint8Array {
+    const data = new Uint8Array(width * height);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let amp = 1.0;
+        let freq = frequency;
+        let sum = 0.0;
+        let norm = 0.0;
+        for (let o = 0; o < octaves; o++) {
+          // Tileable coordinates
+          const u = (x / width) * Math.PI * 2;
+          const v = (y / height) * Math.PI * 2;
+          const nx = Math.cos(u) * freq;
+          const ny = Math.sin(u) * freq;
+          const nz = Math.cos(v) * freq;
+          const nw = Math.sin(v) * freq;
+          const value1 = this.simplex(nx, ny, 0);
+          const value2 = this.simplex(nz, nw, 0);
+          const value = (value1 + value2) / 2;
+          sum += value * amp;
+          norm += amp;
+          amp *= gain;
+          freq *= lacunarity;
+        }
+        const normalized = Math.floor(((sum / norm + 1) / 2) * 255);
+        data[x + y * width] = normalized;
+      }
+    }
+    return data;
+  }
+
+  // Tileable FBM Simplex Noise 3D
+  fbmSimplexNoise3D(
+    width: number,
+    height: number,
+    depth: number,
+    frequency: number,
+    octaves: number = 4,
+    lacunarity: number = 2,
+    gain: number = 0.5
+  ): Uint8Array {
+    const data = new Uint8Array(width * height * depth);
+    for (let z = 0; z < depth; z++) {
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          let amp = 1.0;
+          let freq = frequency;
+          let sum = 0.0;
+          let norm = 0.0;
+          for (let o = 0; o < octaves; o++) {
+            const u = (x / width) * Math.PI * 2;
+            const v = (y / height) * Math.PI * 2;
+            const w = (z / depth) * Math.PI * 2;
+            const nx = Math.cos(u) * freq;
+            const ny = Math.sin(u) * freq;
+            const nz = Math.cos(v) * freq;
+            const nw = Math.sin(v) * freq;
+            const value1 = this.simplex(nx, nz, Math.cos(w) * freq);
+            const value2 = this.simplex(ny, nw, Math.sin(w) * freq);
+            const value = (value1 + value2) / 2;
+            sum += value * amp;
+            norm += amp;
+            amp *= gain;
+            freq *= lacunarity;
+          }
+          const normalized = Math.floor(((sum / norm + 1) / 2) * 255);
+          data[x + y * width + z * width * height] = normalized;
+        }
+      }
+    }
+    return data;
+  }
+
+  // Tileable FBM Worley Noise 2D
+  fbmWorleyNoise2D(
+    width: number,
+    height: number,
+    gridSize: number,
+    octaves: number = 4,
+    pointsPerCell: number = 1,
+    lacunarity: number = 2,
+    gain: number = 0.5
+  ): Uint8Array {
+    const data = new Float32Array(width * height);
+    let amp = 1.0;
+    let norm = 0.0;
+    for (let o = 0; o < octaves; o++) {
+      const octaveData = this.worleyNoise2D(
+        width,
+        height,
+        gridSize,
+        pointsPerCell
+      );
+      for (let i = 0; i < width * height; i++) {
+        data[i] += (octaveData[i] / 255.0) * amp;
+      }
+      norm += amp;
+      amp *= gain;
+      gridSize = Math.max(1, Math.floor(gridSize / lacunarity));
+    }
+    // Normalize and convert to Uint8
+    const out = new Uint8Array(width * height);
+    for (let i = 0; i < width * height; i++) {
+      out[i] = Math.floor(Math.max(0, Math.min(1, data[i] / norm)) * 255);
+    }
+    return out;
+  }
+
+  // Tileable FBM Worley Noise 3D
+  fbmWorleyNoise3D(
+    width: number,
+    height: number,
+    depth: number,
+    gridSize: number,
+    pointsPerCell: number = 1,
+    octaves: number = 4,
+    lacunarity: number = 2,
+    gain: number = 0.5
+  ): Uint8Array {
+    const data = new Float32Array(width * height * depth);
+    let amp = 1.0;
+    let norm = 0.0;
+    for (let o = 0; o < octaves; o++) {
+      const octaveData = this.worleyNoise3D(
+        width,
+        height,
+        depth,
+        gridSize,
+        pointsPerCell
+      );
+      for (let i = 0; i < width * height * depth; i++) {
+        data[i] += (octaveData[i] / 255.0) * amp;
+      }
+      norm += amp;
+      amp *= gain;
+      gridSize = Math.max(1, Math.floor(gridSize / lacunarity));
+    }
+    // Normalize and convert to Uint8
+    const out = new Uint8Array(width * height * depth);
+    for (let i = 0; i < width * height * depth; i++) {
+      out[i] = Math.floor(Math.max(0, Math.min(1, data[i] / norm)) * 255);
+    }
+    return out;
+  }
+  simplexWorleyNoise3D(
+    width: number,
+    height: number,
+    depth: number,
+    frequency: number,
+    gridSize: number,
+    pointsPerCell: number = 1
+  ): Uint8Array {
+    const simplexData = this.fbmSimplexNoise3D(width, height, depth, frequency);
+    const worleyData = this.fbmWorleyNoise3D(
+      width,
+      height,
+      depth,
+      gridSize,
+      pointsPerCell
+    );
+
+    const data = new Uint8Array(width * height * depth);
+    for (let i = 0; i < width * height * depth; i++) {
+      // Normalize to 0-1 range
+      const simplex = simplexData[i] / 255.0;
+      const worley = worleyData[i] / 255.0;
+
+      // Remap simplex using worley for cloud-like appearance
+      let remapped = this.remap(simplex, worley - 1.0, 1.0, 0.0, 1.0);
+      data[i] = Math.floor(Math.max(0, Math.min(1, remapped)) * 255);
+    }
+    return data;
+  }
+
+  // Helper remap function
+  private remap(
+    value: number,
+    low1: number,
+    high1: number,
+    low2: number,
+    high2: number
+  ): number {
+    return low2 + ((value - low1) * (high2 - low2)) / (high1 - low1);
+  }
   generateCloudNoiseTex(size: number): WebGLTexture {
-    this.dataR = this.worleyNoise3D(size, size, size, size / 4);
-    this.dataG = this.worleyNoise3D(size, size, size, size / 32);
-    this.dataB = this.worleyNoise3D(size, size, size, size / 64);
-    this.dataA = this.simplexNoise3D(size, size, size, 4);
+    this.dataR = this.simplexWorleyNoise3D(size, size, size, 1, 8, 2);
+    this.dataG = this.worleyNoise3D(size, size, size, 16, 2);
+    this.dataB = this.worleyNoise3D(size, size, size, 32, 3);
+    this.dataA = this.worleyNoise3D(size, size, size, 64, 4);
 
     const data = new Uint8Array(size * size * size * 4);
     for (let i = 0; i < size * size * size; i++) {
       data[i * 4 + 0] = this.dataR[i];
-      data[i * 4 + 1] = this.dataG[i];
-      data[i * 4 + 2] = this.dataB[i];
-      data[i * 4 + 3] = this.dataA[i];
+      data[i * 4 + 1] = 255 - this.dataG[i];
+      data[i * 4 + 2] = 255 - this.dataB[i];
+      data[i * 4 + 3] = 255 - this.dataA[i];
     }
     const texture = TextureUtils.createTexture3D(
       this.gl,
@@ -618,7 +886,33 @@ export class NoiseGenerator {
       this.gl.REPEAT,
       this.gl.REPEAT
     );
-
+    return texture!;
+  }
+  generateDetailedCloudNoiseTex(size: number): WebGLTexture {
+    this.detailR = this.worleyNoise3D(size, size, size, 32, 2);
+    this.detailG = this.worleyNoise3D(size, size, size, 16, 2);
+    this.detailB = this.worleyNoise3D(size, size, size, 8, 2);
+    const data = new Uint8Array(size * size * size * 4);
+    for (let i = 0; i < size * size * size; i++) {
+      data[i * 4 + 0] = 255 - this.detailR[i];
+      data[i * 4 + 1] = 255 - this.detailG[i];
+      data[i * 4 + 2] = 255 - this.detailB[i];
+    }
+    const texture = TextureUtils.createTexture3D(
+      this.gl,
+      size,
+      size,
+      size,
+      this.gl.RGB8,
+      this.gl.RGB,
+      this.gl.UNSIGNED_BYTE,
+      data,
+      this.gl.LINEAR,
+      this.gl.LINEAR,
+      this.gl.REPEAT,
+      this.gl.REPEAT,
+      this.gl.REPEAT
+    );
     return texture!;
   }
   worleyNoise2D(
@@ -749,25 +1043,73 @@ export class NoiseGenerator {
     }
     return data;
   }
-  generateWeatherMap(size: number): WebGLTexture {
-    const simplex = this.simplexNoise2D(size, size, 0.005);
-    this.coverageData = simplex;
-    // Right now I have no idea what to put in density and type maps, so just fill with zeros
+  private parseCoverageMap(str: string, size: number): Uint8Array {
+    // Remove whitespace and split by comma, space, or newline
+    const numbers = str
+      .replace(/[\r\n]+/g, " ") // replace newlines with spaces
+      .split(/[\s,]+/) // split by spaces or commas
+      .filter(Boolean) // remove empty strings
+      .map(Number) // convert to numbers
+      .map((n) => Math.max(0, Math.min(255, n))); // clamp to 0-255
+
+    // Ensure the array is exactly size*size
+    const arr = new Uint8Array(size * size);
+    for (let i = 0; i < arr.length; i++) {
+      arr[i] = numbers[i] ?? 0; // fill with 0 if not enough numbers
+    }
+    return arr;
+  }
+  async loadCoverageFromPNG(path: string, size: number): Promise<Uint8Array> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        // Draw image to canvas
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject("No 2D context");
+        ctx.drawImage(img, 0, 0, size, size);
+        const imageData = ctx.getImageData(0, 0, size, size).data;
+        // Convert to grayscale Uint8Array (use red channel or average)
+        const arr = new Uint8Array(size * size);
+        for (let i = 0; i < size * size; i++) {
+          // Use red channel for coverage, or average RGB for more general grayscale
+          arr[i] = imageData[i * 4]; // Red channel
+          // arr[i] = (imageData[i*4] + imageData[i*4+1] + imageData[i*4+2]) / 3;
+        }
+        resolve(arr);
+      };
+      img.onerror = reject;
+      img.src = path;
+    });
+  }
+  async generateWeatherMap(size: number): Promise<WebGLTexture> {
+    // Load PNG coverage data
+    this.coverageData = await this.loadCoverageFromPNG(coveragePNG, size);
+
+    // ...rest of your code unchanged...
+    this.highCoverageData = this.simplexWorelyNoise2D(size, size, 0.2, 32, 4);
+    this.heightData = new Uint8Array(size * size);
     this.densityData = new Uint8Array(size * size);
-    this.typeData = new Uint8Array(size * size);
-    // Interleave RGB channels
-    const data = new Uint8Array(size * size * 3);
     for (let i = 0; i < size * size; i++) {
-      data[i * 3 + 0] = this.coverageData[i];
-      data[i * 3 + 1] = this.densityData[i];
-      data[i * 3 + 2] = this.typeData[i];
+      this.heightData[i] = 255;
+      this.densityData[i] = 255;
+    }
+    const data = new Uint8Array(size * size * 4);
+    for (let i = 0; i < size * size; i++) {
+      data[i * 4 + 0] = this.coverageData[i];
+      data[i * 4 + 1] = this.highCoverageData[i];
+      data[i * 4 + 2] = this.heightData[i];
+      data[i * 4 + 3] = this.densityData[i];
     }
     const texture = TextureUtils.createTexture2D(
       this.gl,
       size,
       size,
-      this.gl.RGB8,
-      this.gl.RGB,
+      this.gl.RGBA8,
+      this.gl.RGBA,
       this.gl.UNSIGNED_BYTE,
       data,
       this.gl.LINEAR,
@@ -794,7 +1136,7 @@ export class NoiseGenerator {
         const idx2D = (x + y * canvas.width) * 4;
         let r = this.coverageData[idx];
         let g = this.densityData[idx];
-        let b = this.typeData[idx];
+        let b = this.heightData[idx];
         if (channel === "R") {
           g = b = r;
         } else if (channel === "G") {
@@ -810,10 +1152,66 @@ export class NoiseGenerator {
     }
     ctx.putImageData(imageData, 0, 0);
   }
+  visualizeSliceUnscaled(
+    sliceZ: number,
+    canvas: HTMLCanvasElement,
+    channel: "R" | "G" | "B" | "A",
+    detail = false
+  ) {
+    const size = Math.cbrt(this.dataR.length);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const imageData = ctx.createImageData(size, size);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const wrappedZ = ((sliceZ % size) + size) % size;
+        const idx3D = x + y * size + wrappedZ * size * size;
+        const idx2D = (x + y * size) * 4;
+        let value = 0;
+        if (detail) {
+          switch (channel) {
+            case "R":
+              value = this.detailR[idx3D];
+              break;
+            case "G":
+              value = this.detailG[idx3D];
+              break;
+            case "B":
+              value = this.detailB[idx3D];
+              break;
+            case "A":
+              value = 255;
+              break;
+          }
+        } else {
+          switch (channel) {
+            case "R":
+              value = this.dataR[idx3D];
+              break;
+            case "G":
+              value = this.dataG[idx3D];
+              break;
+            case "B":
+              value = this.dataB[idx3D];
+              break;
+            case "A":
+              value = this.dataA[idx3D];
+              break;
+          }
+        }
+        imageData.data[idx2D + 0] = value;
+        imageData.data[idx2D + 1] = value;
+        imageData.data[idx2D + 2] = value;
+        imageData.data[idx2D + 3] = 255;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+  }
   visualizeSlice(
     sliceZ: number,
     canvas: HTMLCanvasElement,
-    channel: "R" | "G" | "B" | "A"
+    channel: "R" | "G" | "B" | "A",
+    detail = false
   ) {
     const size = Math.cbrt(this.dataR.length);
     const ctx = canvas.getContext("2d");
@@ -830,19 +1228,36 @@ export class NoiseGenerator {
         const idx3D = scaledX + scaledY * size + wrappedZ * size * size;
         const idx2D = (x + y * canvas.width) * 4;
         let value = 0;
-        switch (channel) {
-          case "R":
-            value = this.dataR[idx3D];
-            break;
-          case "G":
-            value = this.dataG[idx3D];
-            break;
-          case "B":
-            value = this.dataB[idx3D];
-            break;
-          case "A":
-            value = this.dataA[idx3D];
-            break;
+        if (detail) {
+          switch (channel) {
+            case "R":
+              value = this.detailR[idx3D];
+              break;
+            case "G":
+              value = this.detailG[idx3D];
+              break;
+            case "B":
+              value = this.detailB[idx3D];
+              break;
+            case "A":
+              value = 255;
+              break;
+          }
+        } else {
+          switch (channel) {
+            case "R":
+              value = this.dataR[idx3D];
+              break;
+            case "G":
+              value = this.dataG[idx3D];
+              break;
+            case "B":
+              value = this.dataB[idx3D];
+              break;
+            case "A":
+              value = this.dataA[idx3D];
+              break;
+          }
         }
         imageData.data[idx2D + 0] = value;
         imageData.data[idx2D + 1] = value;
@@ -851,5 +1266,6 @@ export class NoiseGenerator {
       }
     }
     ctx.putImageData(imageData, 0, 0);
+    debugger;
   }
 }

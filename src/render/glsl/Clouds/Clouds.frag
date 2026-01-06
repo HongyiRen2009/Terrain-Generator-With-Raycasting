@@ -1,7 +1,9 @@
 #version 300 es
 precision highp float;
+precision highp sampler2D;
 precision highp sampler3D;
 #define PI 3.14159265359
+#define e 2.71828182846
 in vec2 fragUV;
 uniform vec3 cameraPosition;
 uniform vec3 cubeMin;
@@ -9,6 +11,7 @@ uniform vec3 cubeMax;
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
 uniform sampler3D noiseTexture;
+uniform sampler3D detailNoiseTexture;
 uniform sampler2D weatherMap;
 uniform sampler2D depthTexture;
 uniform sampler2D litSceneTexture;
@@ -19,10 +22,6 @@ uniform vec3 sunColor;
 uniform bool CLOUDS_enableClouds;
 uniform vec3 CLOUDS_baseCloudColor;
 uniform float CLOUDS_absorption;
-uniform float CLOUDS_densityThreshold;
-uniform float CLOUDS_baseFrequency;
-uniform float CLOUDS_detailFrequency;
-uniform float CLOUDS_simplexMultiplier;
 uniform float CLOUDS_lightAbsorption;
 uniform float CLOUDS_lightIntensity;
 uniform float CLOUDS_darknessThreshold;
@@ -36,6 +35,13 @@ uniform float CLOUDS_weatherMapOffsetX;
 uniform float CLOUDS_weatherMapOffsetY;
 uniform int CLOUDS_MAX_STEPS;
 uniform int CLOUDS_MAX_STEPS_LIGHT;
+
+// density settings
+uniform float CLOUDS_globalCoverage;
+uniform float CLOUDS_globalDensity;
+uniform float CLOUDS_baseNoiseFrequency;
+uniform float CLOUDS_detailNoiseFrequency;
+uniform float CLOUDS_weatherMapFrequency;
 
 uniform float time;
 uniform float CLOUDS_windDirectionX;
@@ -71,43 +77,59 @@ vec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {
     float dstInsideBox = max(0.0f, dstB - dstToBox);
     return vec2(dstToBox, dstInsideBox);
 }
-
+float SAT(float value){
+    return clamp(value, 0.0f, 1.0f);
+}
+float Remap(float value, float minA, float maxA, float minB, float maxB) {
+    return minB + (value - minA) * (maxB - minB) / (maxA - minA);
+}
+float SATRemap(float value, float minA, float maxA, float minB, float maxB) {
+    return SAT(Remap(value, minA, maxA, minB, maxB));
+}
+float lerp(float a, float b, float t) {
+    return a + t * (b - a);
+}
+float shapeAlteringFactor(float heightPercent, vec4 weatherMapValue) {
+    float peakHeight = weatherMapValue.b;
+    float bottomRound = SAT(Remap(heightPercent, 0.0f, 0.07f, 0.0f, 1.0f));
+    float topRound = SAT(Remap(heightPercent, peakHeight*0.2,peakHeight, 1.0f, 0.0f));
+    float shapeAlter = topRound * bottomRound;
+    return shapeAlter;
+}
+float densityAlteringFactor(float heightPercent, vec4 weatherMapValue) {
+    float bottomAlter = heightPercent*SAT(Remap(heightPercent,0.0,0.15,0.0,1.0));
+    float topAlter = SAT(Remap(heightPercent,0.9,1.0,1.0,0.0));
+    float densityAlter = CLOUDS_globalDensity*bottomAlter*topAlter*weatherMapValue.a*2.0f;
+    return densityAlter;
+}
+float coverage(vec4 weatherMapValue) {
+    float lowCoverage = weatherMapValue.r;
+    float highCoverage = weatherMapValue.g;
+    float coverage = max(lowCoverage,SAT(CLOUDS_globalCoverage-0.5f)*2.0f*highCoverage);
+    return coverage;
+    }
 float sampleDensity(vec3 pos) {
     vec3 windDirection = normalize(vec3(CLOUDS_windDirectionX, 0.0f, CLOUDS_windDirectionZ));
     vec3 windOffset = windDirection * CLOUDS_windSpeed * time;
     vec3 animatedPos = pos + windOffset + vec3(cameraPosition.x, 0.0f, cameraPosition.z);
 
-    vec3 localPos = (animatedPos - cubeMin) / (cubeMax - cubeMin);
-    vec2 weatherUV = vec2(localPos.x + CLOUDS_weatherMapOffsetX, localPos.z + CLOUDS_weatherMapOffsetY);
-    float coverage = texture(weatherMap, weatherUV).r;
+    vec3 localPos = animatedPos * 0.001f; // Scale down for noise sampling
+    vec2 weatherUV = vec2(localPos.x + CLOUDS_weatherMapOffsetX, localPos.z + CLOUDS_weatherMapOffsetY)* CLOUDS_weatherMapFrequency;
+    vec4 weatherSample = texture(weatherMap, weatherUV);
+    float heightPercent = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
+    vec4 noiseSample = texture(noiseTexture, localPos*CLOUDS_baseNoiseFrequency);
+    float shapeAlter = shapeAlteringFactor(heightPercent, weatherSample);
+    float densityAlter = densityAlteringFactor(heightPercent, weatherSample);
+    float coverageFactor = coverage(weatherSample);
+    float baseNosie = Remap(noiseSample.r,(noiseSample.g*0.625+noiseSample.b*0.25+noiseSample.a*0.125)-1.0,1.0,0.0,1.0);
 
-    // Sample base Worley noise (inverted so high values = dense clouds)
-    float worley = 1.0f - texture(noiseTexture, localPos * CLOUDS_baseFrequency).r;
-
-    // Sample Simplex noise for variation
-    float simplex = texture(noiseTexture, localPos * CLOUDS_baseFrequency).a;
-
-    // Combine: Worley for structure, Simplex for billowy variation
-    // Use remapping to make Simplex centered around 0.5
-    float simplexRemapped = (simplex - 0.5f) * 2.0f; // Range: -1 to 1
-    float base = worley + simplexRemapped * CLOUDS_simplexMultiplier * worley; // Modulate by worley
-
-    // Apply coverage from weather map
-    base *= (coverage);
-
-    float density = base;
-
-    // Height gradient for natural cloud formation
-    float height01 = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
-    float heightWeight = smoothstep(0.15f, 0.5f, height01) * (1.0f - smoothstep(0.7f, 1.0f, height01));
-    density *= heightWeight;
-
-    // Add detail erosion using smaller-scale Worley noise
-    float detail = 1.0f - (texture(noiseTexture, localPos * CLOUDS_detailFrequency).g * 0.5f +
-        texture(noiseTexture, localPos * (CLOUDS_detailFrequency * 2.0f)).b * 0.25f);
-    density -= detail * 0.5f * density; // Erode proportionally
-
-    return clamp(density - CLOUDS_densityThreshold, 0.0f, 1.0f);
+    float alteredNoise = SATRemap(baseNosie*shapeAlter,1.0-CLOUDS_globalCoverage*coverageFactor,1.0,0.0,1.0);
+    vec4 detailNoise = texture(detailNoiseTexture, localPos*CLOUDS_detailNoiseFrequency);
+    float detailFBM = detailNoise.r*0.625+detailNoise.g*0.25+detailNoise.b*0.125;
+    float detailNoiseMod = 0.35*pow(e,-CLOUDS_globalCoverage*0.75)*lerp(detailFBM,1.0-detailFBM,SAT(heightPercent*5.0));
+    float density = SATRemap(alteredNoise,detailNoiseMod,1.0,0.0,1.0  ) * densityAlter;
+    return density;
+    
 }
 
 float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
@@ -225,7 +247,8 @@ void main() {
             continue;
         }
         float density = rawDensity;
-
+/*         fragColor = vec4(vec3(density),1.0f);
+        return; */
         // Calculate lighting with adaptive quality
         vec3 lightDir = normalize(sunPos - samplePos);
         float lightTransmittance = sampleLight(samplePos, lightDir, density);
