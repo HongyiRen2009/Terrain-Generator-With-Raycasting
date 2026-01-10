@@ -329,7 +329,7 @@ export class CloudsPass extends RenderPass {
       min: 0.01,
       max: 5.0,
       step: 0.01,
-      defaultValue: 0.01,
+      defaultValue: 5,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {

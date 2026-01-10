@@ -138,13 +138,8 @@ float sampleDensity(vec3 pos) {
     
 }
 float calculateStepLength(float baseStep, float density, float distanceFromCamera) {
-    // Smoothstep gives a natural S-curve transition
-    float densityNorm = SAT(density * 2.0);
-    float densityFactor = mix(2.5, 0.5, smoothstep(0.0, 1.0, pow(densityNorm, CLOUDS_densityFalloffIntensity)));
-    
-    float distNorm = SAT(distanceFromCamera / 1000.0);
-    float distanceFactor = mix(1.0, 3.0, smoothstep(0.0, 1.0, pow(distNorm, CLOUDS_distanceFalloffIntensity)));
-    
+    float densityFactor = pow(1.0f / (density + 0.1f), CLOUDS_densityFalloffIntensity);
+    float distanceFactor = pow(distanceFromCamera / 1000.0f, CLOUDS_distanceFalloffIntensity);
     return baseStep * densityFactor * distanceFactor;
 }
 float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
