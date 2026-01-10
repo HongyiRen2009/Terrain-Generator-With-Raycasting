@@ -332,6 +332,42 @@ export class CloudsPass extends RenderPass {
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_noiseWeights",
+      label: "Cloud Base Noise Weights",
+      min:[  0.0, 0.0, 0.0 ],
+      max: [ 1.0, 1.0, 1.0 ],
+      step: [ 0.01, 0.01, 0.01 ],
+      defaultValue:[ 0.625, 0.25, 0.125 ],
+      numType: "vec3"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id: "CLOUDS_detailWeights",
+      label: "Cloud Detail Noise Weight",
+      min:[ 0.0, 0.0, 0.0 ],
+      max: [ 1.0, 1.0, 1.0 ],
+      step: [ 0.01, 0.01, 0.01 ],
+      defaultValue: [ 0.625, 0.25, 0.125 ],
+      numType: "vec3"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id:"CLOUDS_densityFalloffIntensity",
+      label: "Cloud Density Falloff Intensity",
+      min: 0.1,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id:"CLOUDS_distanceFalloffIntensity",
+      label: "Cloud Distance Falloff Intensity",
+      min: 0.1,
+      max: 5.0,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "CLOUDS_lightAbsorption",
       label: "Cloud Light Absorption",
       min: 0,
@@ -491,6 +527,10 @@ export class CloudsPass extends RenderPass {
       "CLOUDS_absorption",
       "CLOUDS_baseNoiseFrequency",
       "CLOUDS_detailNoiseFrequency",
+      "CLOUDS_noiseWeights", 
+      "CLOUDS_detailWeights",
+      "CLOUDS_densityFalloffIntensity",
+      "CLOUDS_distanceFalloffIntensity",
       "CLOUDS_globalCoverage",
       "CLOUDS_globalDensity",
       "CLOUDS_lightAbsorption",
@@ -859,10 +899,10 @@ export class NoiseGenerator {
     return low2 + ((value - low1) * (high2 - low2)) / (high1 - low1);
   }
   generateCloudNoiseTex(size: number): WebGLTexture {
-    this.dataR = this.simplexWorleyNoise3D(size, size, size, 1, 8, 2);
-    this.dataG = this.worleyNoise3D(size, size, size, 16, 2);
-    this.dataB = this.worleyNoise3D(size, size, size, 32, 3);
-    this.dataA = this.worleyNoise3D(size, size, size, 64, 4);
+    this.dataR = this.simplexWorleyNoise3D(size, size, size, 1, 16, 2);
+    this.dataG = this.worleyNoise3D(size, size, size, 8, 2);
+    this.dataB = this.worleyNoise3D(size, size, size, 6, 3);
+    this.dataA = this.worleyNoise3D(size, size, size, 4, 4);
 
     const data = new Uint8Array(size * size * size * 4);
     for (let i = 0; i < size * size * size; i++) {
@@ -889,14 +929,14 @@ export class NoiseGenerator {
     return texture!;
   }
   generateDetailedCloudNoiseTex(size: number): WebGLTexture {
-    this.detailR = this.worleyNoise3D(size, size, size, 32, 2);
-    this.detailG = this.worleyNoise3D(size, size, size, 16, 2);
-    this.detailB = this.worleyNoise3D(size, size, size, 8, 2);
-    const data = new Uint8Array(size * size * size * 4);
+    this.detailR = this.worleyNoise3D(size, size, size, 8, 2);
+    this.detailG = this.worleyNoise3D(size, size, size, 4, 2);
+    this.detailB = this.worleyNoise3D(size, size, size, 2, 2);
+    const data = new Uint8Array(size * size * size * 3);
     for (let i = 0; i < size * size * size; i++) {
-      data[i * 4 + 0] = 255 - this.detailR[i];
-      data[i * 4 + 1] = 255 - this.detailG[i];
-      data[i * 4 + 2] = 255 - this.detailB[i];
+      data[i * 3 + 0] = 255 - this.detailR[i];
+      data[i * 3 + 1] = 255 - this.detailG[i];
+      data[i * 3 + 2] = 255 - this.detailB[i];
     }
     const texture = TextureUtils.createTexture3D(
       this.gl,

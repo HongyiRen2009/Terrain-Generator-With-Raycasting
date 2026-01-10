@@ -35,20 +35,31 @@ uniform float CLOUDS_weatherMapOffsetX;
 uniform float CLOUDS_weatherMapOffsetY;
 uniform int CLOUDS_MAX_STEPS;
 uniform int CLOUDS_MAX_STEPS_LIGHT;
-
+uniform float CLOUDS_densityFalloffIntensity; 
+uniform float CLOUDS_distanceFalloffIntensity;
 // density settings
 uniform float CLOUDS_globalCoverage;
 uniform float CLOUDS_globalDensity;
 uniform float CLOUDS_baseNoiseFrequency;
 uniform float CLOUDS_detailNoiseFrequency;
 uniform float CLOUDS_weatherMapFrequency;
-
+uniform vec3 CLOUDS_noiseWeights;
+uniform vec3 CLOUDS_detailWeights;
 uniform float time;
 uniform float CLOUDS_windDirectionX;
 uniform float CLOUDS_windDirectionZ;
 uniform float CLOUDS_windSpeed;
 out vec4 fragColor;
 uniform int pathtracerOn;
+
+// Reprojection uniforms
+uniform sampler2D previousCloudTexture;
+uniform sampler2D previousDepthTexture;
+uniform mat4 prevViewProj;
+uniform mat4 currentViewProj;
+uniform vec3 prevCameraPosition;
+uniform bool CLOUDS_useReprojection;
+uniform float CLOUDS_reprojectionBlend; // 0.0 = full recompute, 0.9 = aggressive reuse
 
 // Add early exit constants
 const float DENSITY_THRESHOLD_SKIP = 0.01f;
@@ -121,40 +132,61 @@ float sampleDensity(vec3 pos) {
     float shapeAlter = shapeAlteringFactor(heightPercent, weatherSample);
     float densityAlter = densityAlteringFactor(heightPercent, weatherSample);
     float coverageFactor = coverage(weatherSample);
-    float baseNosie = Remap(noiseSample.r,(noiseSample.g*0.625+noiseSample.b*0.25+noiseSample.a*0.125)-1.0,1.0,0.0,1.0);
+    
+    float baseNosie = Remap(noiseSample.r,(dot(noiseSample.gba, (CLOUDS_noiseWeights)))-1.0,1.0,0.0,1.0);
 
     float alteredNoise = SATRemap(baseNosie*shapeAlter,1.0-CLOUDS_globalCoverage*coverageFactor,1.0,0.0,1.0);
+    if(alteredNoise <= 0.0f) {
+        return 0.0f;
+    }
     vec4 detailNoise = texture(detailNoiseTexture, localPos*CLOUDS_detailNoiseFrequency);
-    float detailFBM = detailNoise.r*0.625+detailNoise.g*0.25+detailNoise.b*0.125;
+    float detailFBM = dot(detailNoise.rgb, (CLOUDS_detailWeights));
     float detailNoiseMod = 0.35*pow(e,-CLOUDS_globalCoverage*0.75)*lerp(detailFBM,1.0-detailFBM,SAT(heightPercent*5.0));
     float density = SATRemap(alteredNoise,detailNoiseMod,1.0,0.0,1.0  ) * densityAlter;
     return density;
     
 }
-
+float calculateStepLength(float baseStep, float density, float distanceFromCamera) {
+    // Smoothstep gives a natural S-curve transition
+    float densityNorm = SAT(density * 2.0);
+    float densityFactor = mix(2.5, 0.5, smoothstep(0.0, 1.0, pow(densityNorm, CLOUDS_densityFalloffIntensity)));
+    
+    float distNorm = SAT(distanceFromCamera / 1000.0);
+    float distanceFactor = mix(1.0, 3.0, smoothstep(0.0, 1.0, pow(distNorm, CLOUDS_distanceFalloffIntensity)));
+    
+    return baseStep * densityFactor * distanceFactor;
+}
 float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
     float distInsideBox = rayBoxDst(cubeMin, cubeMax, pos, 1.0f / lightDir).y;
 
     int lightSteps = rayDensity > 0.5f ? CLOUDS_MAX_STEPS_LIGHT : CLOUDS_MAX_STEPS_LIGHT / 2;
 
     float lightTransmittance = 1.0f;
-    float tStep = distInsideBox / float(lightSteps);
+    float tStepBase = distInsideBox / float(lightSteps);
 
-    for(int i = 0; i < lightSteps; i++) {
+    float t = 0.0f;
+    for(int i = 0; i < lightSteps && t < distInsideBox; i++) {
         if(lightTransmittance < 0.01f) {
             return CLOUDS_darknessThreshold;
         }
 
-        float t = tStep * (float(i) + 0.5f);
-        vec3 samplePos = pos + lightDir * t;
+        float tMid = t + tStepBase * 0.5f;
+        vec3 samplePos = pos + lightDir * tMid;
         float rawDensity = sampleDensity(samplePos);
         float density = rawDensity;
+
+        // Adaptive step length for lightmarching
+        float distanceFromCamera = length(samplePos - cameraPosition);
+        float tStep = calculateStepLength(tStepBase, density, distanceFromCamera);
+
         lightTransmittance *= exp(-density * tStep * CLOUDS_lightAbsorption);
+        t += tStep;
     }
     lightTransmittance = pow(lightTransmittance, CLOUDS_lightDarkSharpness);
 
     return CLOUDS_darknessThreshold + (1.0f - CLOUDS_darknessThreshold) * lightTransmittance;
 }
+
 float PhaseFunction(float cosTheta, float g) {
     float g2 = g * g;
     float denom = pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f);
@@ -169,6 +201,56 @@ vec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {
     viewSpacePos /= viewSpacePos.w;
     vec4 worldPos = viewInverse * viewSpacePos;
     return worldPos.xyz;
+}
+
+
+
+// Add reprojection function
+vec4 reprojectPreviousFrame(vec3 worldPos, out bool valid) {
+    valid = false;
+    
+    // Transform world position to previous frame's clip space
+    vec4 prevClipPos = prevViewProj * vec4(worldPos, 1.0);
+    
+    // Check if position is outside clip space
+    if(abs(prevClipPos.x) > prevClipPos.w || 
+       abs(prevClipPos.y) > prevClipPos.w || 
+       prevClipPos.z < 0.0 || 
+       prevClipPos.z > prevClipPos.w) {
+        return vec4(0.0);
+    }
+    
+    // Convert to NDC and then to UV
+    vec3 prevNDC = prevClipPos.xyz / prevClipPos.w;
+    vec2 prevUV = prevNDC.xy * 0.5 + 0.5;
+    
+    // Check if UV is in valid range
+    if(prevUV.x < 0.0 || prevUV.x > 1.0 || prevUV.y < 0.0 || prevUV.y > 1.0) {
+        return vec4(0.0);
+    }
+    
+    // Sample previous cloud data
+    vec4 prevCloud = texture(previousCloudTexture, prevUV);
+    float prevDepth = texture(previousDepthTexture, prevUV).r;
+    
+    // Reconstruct previous world position for validation
+    vec3 prevWorldPos = getWorldPositionFromDepth(prevUV, prevDepth);
+    
+    // Disocclusion check: if depth changed significantly, reject reprojection
+    float depthDiff = abs(length(worldPos - prevCameraPosition) - length(prevWorldPos - prevCameraPosition));
+    if(depthDiff > 10.0) { // Threshold for depth difference
+        return vec4(0.0);
+    }
+    
+    valid = true;
+    return prevCloud;
+}
+
+// Checkerboard pattern for interleaved sampling
+bool isCheckerboardPixel(vec2 fragCoord, int frameCount) {
+    int x = int(fragCoord.x);
+    int y = int(fragCoord.y);
+    return ((x + y + frameCount) % 2) == 0;
 }
 
 void main() {
@@ -213,7 +295,7 @@ void main() {
     }
 
     float tNear = dsts.x;
-    float tFar = min(dsts.x + dsts.y, distanceToTerrain); // Clip at terrain depth
+    float tFar = min(dsts.x + dsts.y, distanceToTerrain);
 
     // If terrain is in front of cloud box, don't render clouds
     if(tNear >= distanceToTerrain) {
@@ -225,14 +307,35 @@ void main() {
         return;
     }
 
-    float tStep = (tFar - tNear) / float(CLOUDS_MAX_STEPS);
-
+    // Try reprojection first
     vec4 accumulatedColor = vec4(0.0f);
+    bool useReprojectedData = false;
+    
+    if(CLOUDS_useReprojection) {
+        vec3 samplePos = rayOriginWorld + rayDirWorld * (tNear + (tFar - tNear) * 0.5);
+        bool reprojValid = false;
+        vec4 reprojectedCloud = reprojectPreviousFrame(samplePos, reprojValid);
+        
+        if(reprojValid && reprojectedCloud.a > 0.01) {
+            accumulatedColor = reprojectedCloud;
+            useReprojectedData = true;
+        }
+    }
 
-    // Blue noise offset to reduce banding
-    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy + time * 0.1f, vec2(12.9898f, 78.233f))) * 43758.5453f) * 0.5f;
-    for(int i = 0; i < CLOUDS_MAX_STEPS; i++) {
-        float t = tNear + tStep * (float(i) + blueNoiseOffset * CLOUDS_blueNoiseAmplitude); // Reduced from 1.0 to 0.25
+    // Full raymarch if no valid reprojection or blending with new samples
+    float blendFactor = useReprojectedData ? CLOUDS_reprojectionBlend : 0.0;
+    
+    // Reduce sample count when using reprojection
+    int effectiveSteps = useReprojectedData ? CLOUDS_MAX_STEPS / 4 : CLOUDS_MAX_STEPS;
+    
+    vec4 newColor = vec4(0.0f);
+    float tStepBase = (tFar - tNear) / float(effectiveSteps);
+
+    // Blue noise offset for raymarch start
+    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy + time * 0.1f, vec2(12.9898f, 78.233f))) * 43758.5453f) * CLOUDS_blueNoiseAmplitude;
+    float t = tNear + blueNoiseOffset * tStepBase;
+
+    for(int i = 0; i < effectiveSteps && t < tFar && newColor.a <= ALPHA_THRESHOLD; i++) {
         // Stop raymarching if we've reached the terrain
         if(t >= distanceToTerrain) {
             break;
@@ -243,12 +346,11 @@ void main() {
         // Sample density
         float rawDensity = sampleDensity(samplePos);
         if(rawDensity < DENSITY_THRESHOLD_SKIP) {
-            i += 1; // Skip next sample
+            t += tStepBase * 2.0;
             continue;
         }
         float density = rawDensity;
-/*         fragColor = vec4(vec3(density),1.0f);
-        return; */
+
         // Calculate lighting with adaptive quality
         vec3 lightDir = normalize(sunPos - samplePos);
         float lightTransmittance = sampleLight(samplePos, lightDir, density);
@@ -274,15 +376,29 @@ void main() {
         //Final light color
         vec3 lightColor = sunLight + ambientLight + bounceLight;
 
-        float stepOpacity = 1.0f - exp(-density * tStep * CLOUDS_absorption);
+        float stepOpacity = 1.0f - exp(-density * tStepBase * CLOUDS_absorption);
 
         // Accumulate color using front-to-back compositing and premultiplied alpha
         vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
-        accumulatedColor += color * (1.0f - accumulatedColor.a);
+        newColor += color * (1.0f - newColor.a);
 
-        if(accumulatedColor.a > ALPHA_THRESHOLD)
+        if(newColor.a > ALPHA_THRESHOLD)
             break;
+
+        // Adaptive step length
+        float distanceFromCamera = length(samplePos - cameraPosition);
+        float tStep = calculateStepLength(tStepBase, density, distanceFromCamera);
+
+        t += tStep;
     }
+    
+    // Blend reprojected and new data
+    if(useReprojectedData) {
+        accumulatedColor = mix(newColor, accumulatedColor, blendFactor);
+    } else {
+        accumulatedColor = newColor;
+    }
+    
     // When pathtracer is on, output premultiplied alpha for GL blending
     // When pathtracer is off, manually blend with lit scene
     if(pathtracerOn == 1) {

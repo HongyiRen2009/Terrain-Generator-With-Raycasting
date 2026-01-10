@@ -126,7 +126,7 @@ export class WorldMap {
       grid: vec3;
       seed: number;
     }[] = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 0; i++) {
       for (let j = 0; j < 6; j++) {
         for (let k = 0; k < 1; k++) {
           const chunkPos = vec3.fromValues(

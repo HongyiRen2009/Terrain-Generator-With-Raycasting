@@ -13,7 +13,7 @@ interface SliderSetting extends Omit<Setting<number | number[]>, "onChange"> {
   min: number | number[]; // Single value or array of values per index
   max: number | number[]; // Single value or array of values per index
   step: number | number[]; // Single value or array of values per index
-  numType?: "int" | "float";
+  numType?: "int" | "float" | "vec2" | "vec3" | "vec4";
   isArray?: boolean;
   arrayLength?: number;
   arrayIndex?: number;
@@ -88,9 +88,25 @@ export class SettingsManager {
         return;
       }
       if (setting.type === "slider") {
-        if (setting.isArray) {
+        // Check if it's a vector type
+        const isVector = setting.numType === "vec2" || setting.numType === "vec3" || setting.numType === "vec4";
+        
+        if (setting.isArray || isVector) {
           const arrayValue = Array.isArray(setting.value) ? setting.value : [];
-          gl.uniform1fv(loc, new Float32Array(arrayValue));
+          
+          if (isVector) {
+            // Handle vector uniforms
+            if (setting.numType === "vec2") {
+              gl.uniform2fv(loc, new Float32Array(arrayValue.slice(0, 2)));
+            } else if (setting.numType === "vec3") {
+              gl.uniform3fv(loc, new Float32Array(arrayValue.slice(0, 3)));
+            } else if (setting.numType === "vec4") {
+              gl.uniform4fv(loc, new Float32Array(arrayValue.slice(0, 4)));
+            }
+          } else {
+            // Handle regular array uniforms
+            gl.uniform1fv(loc, new Float32Array(arrayValue));
+          }
         } else {
           const numValue =
             typeof setting.value === "number" ? setting.value : 0;
@@ -176,8 +192,13 @@ export class SettingsSection {
    * Add a slider setting
    */
   addSlider(config: Omit<SliderSetting, "type" | "value">): void {
-    const isArray = config.isArray ?? false;
-    const arrayLength = config.arrayLength ?? 1;
+    // Check if it's a vector type
+    const isVector = config.numType === "vec2" || config.numType === "vec3" || config.numType === "vec4";
+    const vecLength = config.numType === "vec2" ? 2 : config.numType === "vec3" ? 3 : config.numType === "vec4" ? 4 : 0;
+    
+    // Treat vectors as arrays with fixed length
+    const isArray = config.isArray ?? isVector;
+    const arrayLength = isVector ? vecLength : (config.arrayLength ?? 1);
 
     // Handle defaultValue: if single value, fill array; if array, use it; otherwise default to 0
     let defaultValue: number | number[];
@@ -198,7 +219,7 @@ export class SettingsSection {
       defaultValue = config.defaultValue ?? 0;
     }
 
-    // For array sliders, create an array of values
+    // For array sliders or vector sliders, create an array of values
     const initialValue = isArray
       ? Array.isArray(defaultValue)
         ? defaultValue
@@ -378,6 +399,10 @@ export class SettingsSection {
     const label = document.createElement("label");
     label.htmlFor = `${setting.id}-slider`;
 
+    // Check if this is a vector type
+    const isVector = setting.numType === "vec2" || setting.numType === "vec3" || setting.numType === "vec4";
+    const componentLabels = ["x", "y", "z", "w"];
+
     const valueSpan = document.createElement("span");
     valueSpan.id = `${setting.id}-value`;
 
@@ -400,14 +425,18 @@ export class SettingsSection {
       : typeof setting.value === "number"
         ? setting.value
         : getCurrentDefault();
-    valueSpan.textContent = currentValue.toString();
+    
+    // Don't show value span for vectors (each component shows its own)
+    if (!isVector) {
+      valueSpan.textContent = currentValue.toString();
+    }
 
-    // For array sliders, add index display and navigation
+    // For array sliders (but not vectors), add index display and navigation
     let indexSpan: HTMLElement | null = null;
     let prevButton: HTMLButtonElement | null = null;
     let nextButton: HTMLButtonElement | null = null;
 
-    if (setting.isArray && setting.arrayLength) {
+    if (setting.isArray && !isVector && setting.arrayLength) {
       indexSpan = document.createElement("span");
       indexSpan.id = `${setting.id}-index`;
       indexSpan.style.marginLeft = "8px";
@@ -510,42 +539,97 @@ export class SettingsSection {
     }
 
     label.innerHTML = `${setting.label}: `;
-    label.appendChild(valueSpan);
-    if (indexSpan) label.appendChild(indexSpan);
-    if (prevButton) label.appendChild(prevButton);
-    if (nextButton) label.appendChild(nextButton);
-
-    const slider = document.createElement("input");
-    slider.type = "range";
-    slider.id = `${setting.id}-slider`;
-    slider.min = getCurrentMin().toString();
-    slider.max = getCurrentMax().toString();
-    slider.step = getCurrentStep().toString();
-    slider.value = currentValue.toString();
-
-    slider.addEventListener("input", () => {
-      const value = parseFloat(slider.value);
-      if (setting.isArray) {
-        const arrayValue = Array.isArray(setting.value) ? setting.value : [];
-        const idx = setting.arrayIndex ?? 0;
-        arrayValue[idx] = value;
-        setting.value = arrayValue;
-        valueSpan.textContent = slider.value;
-        if (setting.onChange) {
-          setting.onChange(value as any);
-        }
-      } else {
-        setting.value = value;
-        valueSpan.textContent = slider.value;
-        if (setting.onChange) {
-          setting.onChange(value);
-        }
-      }
-    });
+    if (!isVector) {
+      label.appendChild(valueSpan);
+      if (indexSpan) label.appendChild(indexSpan);
+      if (prevButton) label.appendChild(prevButton);
+      if (nextButton) label.appendChild(nextButton);
+    }
 
     wrapper.appendChild(label);
     wrapper.appendChild(document.createElement("br"));
-    wrapper.appendChild(slider);
+
+    // Render sliders: multiple for vectors, single for others
+    if (isVector) {
+      // Render multiple sliders for vector components
+      const vecValue = Array.isArray(setting.value) ? setting.value : [];
+      for (let i = 0; i < setting.arrayLength!; i++) {
+        const componentWrapper = document.createElement("div");
+        componentWrapper.style.marginBottom = "8px";
+        componentWrapper.style.display = "flex";
+        componentWrapper.style.alignItems = "center";
+
+        const componentLabel = document.createElement("label");
+        componentLabel.textContent = `${componentLabels[i]}: `;
+        componentLabel.style.display = "inline-block";
+        componentLabel.style.width = "20px";
+        componentLabel.style.marginRight = "8px";
+
+        const slider = document.createElement("input");
+        slider.type = "range";
+        slider.id = `${setting.id}-slider-${i}`;
+        slider.min = this.getValueAtIndex(setting.min, i, 0).toString();
+        slider.max = this.getValueAtIndex(setting.max, i, 1).toString();
+        slider.step = this.getValueAtIndex(setting.step, i, 0.01).toString();
+        slider.value = (vecValue[i] ?? 0).toString();
+        slider.style.flex = "1";
+        slider.style.marginRight = "8px";
+
+        const componentValue = document.createElement("span");
+        componentValue.id = `${setting.id}-value-${i}`;
+        componentValue.textContent = (vecValue[i] ?? 0).toFixed(2);
+        componentValue.style.display = "inline-block";
+        componentValue.style.width = "50px";
+        componentValue.style.textAlign = "right";
+
+        slider.addEventListener("input", () => {
+          const value = parseFloat(slider.value);
+          const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+          arrayValue[i] = value;
+          setting.value = arrayValue;
+          componentValue.textContent = value.toFixed(2);
+          if (setting.onChange) {
+            setting.onChange(value as any);
+          }
+        });
+
+        componentWrapper.appendChild(componentLabel);
+        componentWrapper.appendChild(slider);
+        componentWrapper.appendChild(componentValue);
+        wrapper.appendChild(componentWrapper);
+      }
+    } else {
+      // Render single slider for non-vector types
+      const slider = document.createElement("input");
+      slider.type = "range";
+      slider.id = `${setting.id}-slider`;
+      slider.min = getCurrentMin().toString();
+      slider.max = getCurrentMax().toString();
+      slider.step = getCurrentStep().toString();
+      slider.value = currentValue.toString();
+
+      slider.addEventListener("input", () => {
+        const value = parseFloat(slider.value);
+        if (setting.isArray) {
+          const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+          const idx = setting.arrayIndex ?? 0;
+          arrayValue[idx] = value;
+          setting.value = arrayValue;
+          valueSpan.textContent = slider.value;
+          if (setting.onChange) {
+            setting.onChange(value as any);
+          }
+        } else {
+          setting.value = value;
+          valueSpan.textContent = slider.value;
+          if (setting.onChange) {
+            setting.onChange(value);
+          }
+        }
+      });
+
+      wrapper.appendChild(slider);
+    }
 
     this.container.appendChild(wrapper);
   }
