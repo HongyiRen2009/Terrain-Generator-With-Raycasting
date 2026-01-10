@@ -48,6 +48,7 @@ export class PathTracer {
   private world: WorldMap;
   private camera: Camera;
   private debug: DebugMenu;
+  private noiseGenerator: NoiseGenerator;
 
   //textures
   private vertexTex?: WebGLTexture;
@@ -57,6 +58,8 @@ export class PathTracer {
   private leafsTex?: WebGLTexture;
   private terrainTypeTex?: WebGLTexture;
   private vertexNormalsTex?: WebGLTexture;
+  private noiseTexture?: WebGLTexture;
+  private weatherMapTexture?: WebGLTexture;
 
   private uniforms = {
     vertices: null as WebGLUniformLocation | null,
@@ -87,6 +90,7 @@ export class PathTracer {
     this.world = world;
     this.camera = camera;
     this.debug = debug;
+    this.noiseGenerator=new NoiseGenerator(this.gl);
     this.gl.enable(this.gl.BLEND);
 
     //Enable float texture writing extention
@@ -289,6 +293,10 @@ export class PathTracer {
     this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
     this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
     this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+
+    //clouds
+    this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
+    this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
   }
 
   private setupFrame() {

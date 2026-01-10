@@ -52,15 +52,6 @@ uniform float CLOUDS_windSpeed;
 out vec4 fragColor;
 uniform int pathtracerOn;
 
-// Reprojection uniforms
-uniform sampler2D previousCloudTexture;
-uniform sampler2D previousDepthTexture;
-uniform mat4 prevViewProj;
-uniform mat4 currentViewProj;
-uniform vec3 prevCameraPosition;
-uniform bool CLOUDS_useReprojection;
-uniform float CLOUDS_reprojectionBlend; // 0.0 = full recompute, 0.9 = aggressive reuse
-
 // Add early exit constants
 const float DENSITY_THRESHOLD_SKIP = 0.01f;
 const float ALPHA_THRESHOLD = 0.99f;
@@ -186,7 +177,6 @@ float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
 
     return CLOUDS_darknessThreshold + (1.0f - CLOUDS_darknessThreshold) * lightTransmittance;
 }
-
 float PhaseFunction(float cosTheta, float g) {
     float g2 = g * g;
     float denom = pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f);
@@ -203,54 +193,65 @@ vec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {
     return worldPos.xyz;
 }
 
+vec4 calculateCloudColor(
+    vec3 rayOriginWorld,
+    vec3 rayDirWorld,
+    float tNear,
+    float tFar,
+    float distanceToTerrain,
+    float tStepBase
+) {
+    vec4 accumulatedColor = vec4(0.0f);
 
+    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy + time * 0.1f, vec2(12.9898f, 78.233f))) * 43758.5453f) * CLOUDS_blueNoiseAmplitude;
 
-// Add reprojection function
-vec4 reprojectPreviousFrame(vec3 worldPos, out bool valid) {
-    valid = false;
-    
-    // Transform world position to previous frame's clip space
-    vec4 prevClipPos = prevViewProj * vec4(worldPos, 1.0);
-    
-    // Check if position is outside clip space
-    if(abs(prevClipPos.x) > prevClipPos.w || 
-       abs(prevClipPos.y) > prevClipPos.w || 
-       prevClipPos.z < 0.0 || 
-       prevClipPos.z > prevClipPos.w) {
-        return vec4(0.0);
-    }
-    
-    // Convert to NDC and then to UV
-    vec3 prevNDC = prevClipPos.xyz / prevClipPos.w;
-    vec2 prevUV = prevNDC.xy * 0.5 + 0.5;
-    
-    // Check if UV is in valid range
-    if(prevUV.x < 0.0 || prevUV.x > 1.0 || prevUV.y < 0.0 || prevUV.y > 1.0) {
-        return vec4(0.0);
-    }
-    
-    // Sample previous cloud data
-    vec4 prevCloud = texture(previousCloudTexture, prevUV);
-    float prevDepth = texture(previousDepthTexture, prevUV).r;
-    
-    // Reconstruct previous world position for validation
-    vec3 prevWorldPos = getWorldPositionFromDepth(prevUV, prevDepth);
-    
-    // Disocclusion check: if depth changed significantly, reject reprojection
-    float depthDiff = abs(length(worldPos - prevCameraPosition) - length(prevWorldPos - prevCameraPosition));
-    if(depthDiff > 10.0) { // Threshold for depth difference
-        return vec4(0.0);
-    }
-    
-    valid = true;
-    return prevCloud;
-}
+    float t = tNear+blueNoiseOffset * tStepBase;
+    for(int i = 0; i < CLOUDS_MAX_STEPS; i++) {
+        if(t >= tFar || t >= distanceToTerrain) {
+            break;
+        }
+        vec3 samplePos = rayOriginWorld + rayDirWorld * t;
 
-// Checkerboard pattern for interleaved sampling
-bool isCheckerboardPixel(vec2 fragCoord, int frameCount) {
-    int x = int(fragCoord.x);
-    int y = int(fragCoord.y);
-    return ((x + y + frameCount) % 2) == 0;
+        float rawDensity = sampleDensity(samplePos);
+        if(rawDensity < DENSITY_THRESHOLD_SKIP) {
+            t += tStepBase * 2.0f; // Skip next sample adaptively
+            continue;
+        }
+        float density = rawDensity;
+
+        float distanceFromCamera = length(samplePos - cameraPosition);
+        float tStep = calculateStepLength(tStepBase, density, distanceFromCamera);
+
+        vec3 lightDir = normalize(sunPos - samplePos);
+        float lightTransmittance = sampleLight(samplePos, lightDir, density);
+
+        float cosTheta = dot(rayDirWorld, lightDir);
+        float phaseVal = PhaseFunction(cosTheta, CLOUDS_phaseG);
+        phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);
+
+        vec3 sunLight = sunColor * lightTransmittance * CLOUDS_lightIntensity * phaseVal;
+
+        float powderEffect = 1.0f - exp(-density * 2.0f);
+        sunLight *= mix(1.0f, powderEffect, 0.5f);
+
+        float height = (samplePos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
+        float groundFactor = 1.0f - height;
+        vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;
+        vec3 ambientLight = mix(CLOUDS_baseCloudColor, skyColor, CLOUDS_skyContribution) * CLOUDS_ambientIntensity;
+
+        vec3 lightColor = sunLight + ambientLight + bounceLight;
+
+        float stepOpacity = 1.0f - exp(-density * tStep * CLOUDS_absorption);
+
+        vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
+        accumulatedColor += color * (1.0f - accumulatedColor.a);
+
+        if(accumulatedColor.a > ALPHA_THRESHOLD)
+            break;
+
+        t += tStep;
+    }
+    return accumulatedColor;
 }
 
 void main() {
@@ -270,19 +271,14 @@ void main() {
     vec3 rayDirWorld = normalize((viewInverse * rayEye).xyz);
     vec3 rayOriginWorld = cameraPosition;
 
-    // Read scene depth
     float sceneDepth = texture(depthTexture, fragUV).r;
-
-    // Calculate world position of terrain from depth buffer
     vec3 terrainWorldPos = getWorldPositionFromDepth(fragUV, sceneDepth);
     float distanceToTerrain = length(terrainWorldPos - rayOriginWorld);
 
-    // If depth is at far plane (sky), set to very large distance
     if(sceneDepth >= 1.0f) {
         distanceToTerrain = 1000000.0f;
     }
 
-    // Ray-box intersection
     vec2 dsts = rayBoxDst(cubeMin, cubeMax, rayOriginWorld, 1.0f / rayDirWorld);
 
     if(dsts.y <= 0.0f) {
@@ -297,7 +293,6 @@ void main() {
     float tNear = dsts.x;
     float tFar = min(dsts.x + dsts.y, distanceToTerrain);
 
-    // If terrain is in front of cloud box, don't render clouds
     if(tNear >= distanceToTerrain) {
         if(pathtracerOn == 1) {
             discard;
@@ -307,100 +302,17 @@ void main() {
         return;
     }
 
-    // Try reprojection first
-    vec4 accumulatedColor = vec4(0.0f);
-    bool useReprojectedData = false;
-    
-    if(CLOUDS_useReprojection) {
-        vec3 samplePos = rayOriginWorld + rayDirWorld * (tNear + (tFar - tNear) * 0.5);
-        bool reprojValid = false;
-        vec4 reprojectedCloud = reprojectPreviousFrame(samplePos, reprojValid);
-        
-        if(reprojValid && reprojectedCloud.a > 0.01) {
-            accumulatedColor = reprojectedCloud;
-            useReprojectedData = true;
-        }
-    }
+    float tStepBase = (tFar - tNear) / float(CLOUDS_MAX_STEPS);
 
-    // Full raymarch if no valid reprojection or blending with new samples
-    float blendFactor = useReprojectedData ? CLOUDS_reprojectionBlend : 0.0;
-    
-    // Reduce sample count when using reprojection
-    int effectiveSteps = useReprojectedData ? CLOUDS_MAX_STEPS / 4 : CLOUDS_MAX_STEPS;
-    
-    vec4 newColor = vec4(0.0f);
-    float tStepBase = (tFar - tNear) / float(effectiveSteps);
+    vec4 accumulatedColor = calculateCloudColor(
+        rayOriginWorld,
+        rayDirWorld,
+        tNear,
+        tFar,
+        distanceToTerrain,
+        tStepBase
+    );
 
-    // Blue noise offset for raymarch start
-    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy + time * 0.1f, vec2(12.9898f, 78.233f))) * 43758.5453f) * CLOUDS_blueNoiseAmplitude;
-    float t = tNear + blueNoiseOffset * tStepBase;
-
-    for(int i = 0; i < effectiveSteps && t < tFar && newColor.a <= ALPHA_THRESHOLD; i++) {
-        // Stop raymarching if we've reached the terrain
-        if(t >= distanceToTerrain) {
-            break;
-        }
-
-        vec3 samplePos = rayOriginWorld + rayDirWorld * t;
-
-        // Sample density
-        float rawDensity = sampleDensity(samplePos);
-        if(rawDensity < DENSITY_THRESHOLD_SKIP) {
-            t += tStepBase * 2.0;
-            continue;
-        }
-        float density = rawDensity;
-
-        // Calculate lighting with adaptive quality
-        vec3 lightDir = normalize(sunPos - samplePos);
-        float lightTransmittance = sampleLight(samplePos, lightDir, density);
-
-        // Phase function for silver lining
-        float cosTheta = dot(rayDirWorld, lightDir);
-        float phaseVal = PhaseFunction(cosTheta, CLOUDS_phaseG);
-        phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);
-
-        // Final light color
-        vec3 sunLight = sunColor * lightTransmittance * CLOUDS_lightIntensity * phaseVal;
-
-        // Powder effect
-        float powderEffect = 1.0f - exp(-density * 2.0f);
-        sunLight *= mix(1.0f, powderEffect, 0.5f);
-
-        // Ambient and bounce light
-        float height = (samplePos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
-        float groundFactor = 1.0f - height;
-        vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;
-        vec3 ambientLight = mix(CLOUDS_baseCloudColor, skyColor, CLOUDS_skyContribution) * CLOUDS_ambientIntensity;
-
-        //Final light color
-        vec3 lightColor = sunLight + ambientLight + bounceLight;
-
-        float stepOpacity = 1.0f - exp(-density * tStepBase * CLOUDS_absorption);
-
-        // Accumulate color using front-to-back compositing and premultiplied alpha
-        vec4 color = vec4(lightColor * stepOpacity, stepOpacity);
-        newColor += color * (1.0f - newColor.a);
-
-        if(newColor.a > ALPHA_THRESHOLD)
-            break;
-
-        // Adaptive step length
-        float distanceFromCamera = length(samplePos - cameraPosition);
-        float tStep = calculateStepLength(tStepBase, density, distanceFromCamera);
-
-        t += tStep;
-    }
-    
-    // Blend reprojected and new data
-    if(useReprojectedData) {
-        accumulatedColor = mix(newColor, accumulatedColor, blendFactor);
-    } else {
-        accumulatedColor = newColor;
-    }
-    
-    // When pathtracer is on, output premultiplied alpha for GL blending
-    // When pathtracer is off, manually blend with lit scene
     if(pathtracerOn == 1) {
         fragColor = accumulatedColor;
     } else {

@@ -118,7 +118,7 @@ export class FinalPass extends RenderPass {
     SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "useACES",
       label: "Use ACES Tone Mapping",
-      defaultValue: false
+      defaultValue: true
     });
     SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "exposure",

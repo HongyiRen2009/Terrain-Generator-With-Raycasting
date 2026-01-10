@@ -121,13 +121,14 @@ export class CloudsPass extends RenderPass {
       ?.value as number;
     const boxHeight = SettingsManager.instance.getSetting("CLOUDS_boxHeight")
       ?.value as number;
+    const cloudBaseHeight = SettingsManager.instance.getSetting("CLOUDS_height")?.value as number;
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMin"),
-      vec3.fromValues(-boxWidth / 2, 100, -boxWidth / 2)
+      vec3.fromValues(-boxWidth / 2+cameraPosition[0], cloudBaseHeight, -boxWidth / 2+cameraPosition[2])
     );
     this.gl.uniform3fv(
       this.gl.getUniformLocation(this.program!, "cubeMax"),
-      vec3.fromValues(boxWidth / 2, 100 + boxHeight, boxWidth / 2)
+      vec3.fromValues(boxWidth / 2+cameraPosition[0], cloudBaseHeight + boxHeight, boxWidth / 2+cameraPosition[2])
     );
     // Bind noise texture
     TextureUtils.bindTex(
@@ -458,6 +459,14 @@ export class CloudsPass extends RenderPass {
       max: 2000,
       step: 10,
       defaultValue: 500
+    });
+    SettingsManager.instance.addSliderToSection("Clouds Settings", {
+      id:"CLOUDS_height",
+      label: "Cloud Base Height",
+      min: 50,
+      max: 500,
+      step: 5,
+      defaultValue: 100
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "CLOUDS_weatherMapOffsetX",

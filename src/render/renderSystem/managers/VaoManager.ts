@@ -184,7 +184,7 @@ export class VAOManager {
     triangleIndices: number[],
     grassProgram: WebGLProgram
   ): void {
-    const numBlades = 0;
+    const numBlades = 500000;
     const grassThickness = 0.1;
     const numTriangles = triangleIndices.length / 3;
     const instanceData = new Float32Array(numBlades * 5); // basePos(3) + randomLean(1) + rotAngle(1)
