@@ -302,7 +302,7 @@ export class CloudsPass extends RenderPass {
       min: 0.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.6,
+      defaultValue: 1,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
@@ -490,9 +490,9 @@ export class CloudsPass extends RenderPass {
     SettingsManager.instance.addSliderToSection("Clouds Settings", {
       id: "CLOUDS_weatherMapFrequency",
       label: "Cloud Weather Map Frequency",
-      min: 0.01,
-      max: 5.0,
-      step: 0.01,
+      min: 0.001,
+      max: 0.1,
+      step: 0.001,
       defaultValue: 0.08,
       numType: "float"
     });
@@ -577,7 +577,6 @@ export class CloudsPass extends RenderPass {
 }
 export class NoiseGenerator {
   gl: WebGL2RenderingContext;
-  simplex: NoiseFunction3D = createNoise3D();
   dataR: Uint8Array = new Uint8Array();
   dataG: Uint8Array = new Uint8Array();
   dataB: Uint8Array = new Uint8Array();
@@ -680,34 +679,18 @@ export class NoiseGenerator {
     }
     return data;
   }
-  simplexWorelyNoise2D(
-    width: number,
-    height: number,
-    frequency: number,
-    gridSize: number,
-    pointsPerCell: number = 1
-  ): Uint8Array {
-    const simplexData = this.fbmSimplexNoise2D(width, height, frequency);
-    const worleyData = this.fbmWorleyNoise2D(
-      width,
-      height,
-      gridSize,
-      pointsPerCell
-    );
+  private fbmPerlinWorely3d(width: number, height: number, depth: number, frequency: number,worelyGridSize:number, octaves: number): Uint8Array {
+    const data = new Uint8Array(width * height * depth);
+    for(let o = 0; o < octaves; o++) {
+      const perlinData = this.perlinNoise3D(width, height, depth, frequency * Math.pow(2, o));
+      const worleyData = this.worleyNoise3D(width, height, depth, worelyGridSize * Math.pow(2, -o), 2);
+      for(let i = 0; i < width * height * depth; i++) {
+        const perlinValue = perlinData[i] / 255;
+        const worleyValue = 1.0 - worleyData[i] / 255;
+        const combinedValue = this.remap(perlinValue+worleyValue, 0, 2, 0, 1);
+        data[i] += Math.floor((combinedValue * 255) / octaves);
 
-    const data = new Uint8Array(width * height);
-    for (let i = 0; i < width * height; i++) {
-      // Normalize to 0-1 range
-      const simplex = simplexData[i] / 255.0;
-      const worley = worleyData[i] / 255.0;
-      // Invert Worley (cloud interiors)
-      let value = simplex * (1.0 - worley);
-      // Smoothstep remap
-      value = this.smoothstep(0.2, 0.8, value);
-      // Optional contrast boost
-      value = Math.pow(value, 1.2);
-      // Back to 0-255 range
-      data[i] = Math.max(0, Math.min(255, Math.floor(value * 255)));
+      }
     }
     return data;
   }
@@ -715,188 +698,6 @@ export class NoiseGenerator {
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
   }
-  // Tileable FBM Simplex Noise 2D
-  fbmSimplexNoise2D(
-    width: number,
-    height: number,
-    frequency: number,
-    octaves: number = 4,
-    lacunarity: number = 2,
-    gain: number = 0.5
-  ): Uint8Array {
-    const data = new Uint8Array(width * height);
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        let amp = 1.0;
-        let freq = frequency;
-        let sum = 0.0;
-        let norm = 0.0;
-        for (let o = 0; o < octaves; o++) {
-          // Tileable coordinates
-          const u = (x / width) * Math.PI * 2;
-          const v = (y / height) * Math.PI * 2;
-          const nx = Math.cos(u) * freq;
-          const ny = Math.sin(u) * freq;
-          const nz = Math.cos(v) * freq;
-          const nw = Math.sin(v) * freq;
-          const value1 = this.simplex(nx, ny, 0);
-          const value2 = this.simplex(nz, nw, 0);
-          const value = (value1 + value2) / 2;
-          sum += value * amp;
-          norm += amp;
-          amp *= gain;
-          freq *= lacunarity;
-        }
-        const normalized = Math.floor(((sum / norm + 1) / 2) * 255);
-        data[x + y * width] = normalized;
-      }
-    }
-    return data;
-  }
-
-  // Tileable FBM Simplex Noise 3D
-  fbmSimplexNoise3D(
-    width: number,
-    height: number,
-    depth: number,
-    frequency: number,
-    octaves: number = 4,
-    lacunarity: number = 2,
-    gain: number = 0.5
-  ): Uint8Array {
-    const data = new Uint8Array(width * height * depth);
-    for (let z = 0; z < depth; z++) {
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          let amp = 1.0;
-          let freq = frequency;
-          let sum = 0.0;
-          let norm = 0.0;
-          for (let o = 0; o < octaves; o++) {
-            const u = (x / width) * Math.PI * 2;
-            const v = (y / height) * Math.PI * 2;
-            const w = (z / depth) * Math.PI * 2;
-            const nx = Math.cos(u) * freq;
-            const ny = Math.sin(u) * freq;
-            const nz = Math.cos(v) * freq;
-            const nw = Math.sin(v) * freq;
-            const value1 = this.simplex(nx, nz, Math.cos(w) * freq);
-            const value2 = this.simplex(ny, nw, Math.sin(w) * freq);
-            const value = (value1 + value2) / 2;
-            sum += value * amp;
-            norm += amp;
-            amp *= gain;
-            freq *= lacunarity;
-          }
-          const normalized = Math.floor(((sum / norm + 1) / 2) * 255);
-          data[x + y * width + z * width * height] = normalized;
-        }
-      }
-    }
-    return data;
-  }
-
-  // Tileable FBM Worley Noise 2D
-  fbmWorleyNoise2D(
-    width: number,
-    height: number,
-    gridSize: number,
-    octaves: number = 4,
-    pointsPerCell: number = 1,
-    lacunarity: number = 2,
-    gain: number = 0.5
-  ): Uint8Array {
-    const data = new Float32Array(width * height);
-    let amp = 1.0;
-    let norm = 0.0;
-    for (let o = 0; o < octaves; o++) {
-      const octaveData = this.worleyNoise2D(
-        width,
-        height,
-        gridSize,
-        pointsPerCell
-      );
-      for (let i = 0; i < width * height; i++) {
-        data[i] += (octaveData[i] / 255.0) * amp;
-      }
-      norm += amp;
-      amp *= gain;
-      gridSize = Math.max(1, Math.floor(gridSize / lacunarity));
-    }
-    // Normalize and convert to Uint8
-    const out = new Uint8Array(width * height);
-    for (let i = 0; i < width * height; i++) {
-      out[i] = Math.floor(Math.max(0, Math.min(1, data[i] / norm)) * 255);
-    }
-    return out;
-  }
-
-  // Tileable FBM Worley Noise 3D
-  fbmWorleyNoise3D(
-    width: number,
-    height: number,
-    depth: number,
-    gridSize: number,
-    pointsPerCell: number = 1,
-    octaves: number = 4,
-    lacunarity: number = 2,
-    gain: number = 0.5
-  ): Uint8Array {
-    const data = new Float32Array(width * height * depth);
-    let amp = 1.0;
-    let norm = 0.0;
-    for (let o = 0; o < octaves; o++) {
-      const octaveData = this.worleyNoise3D(
-        width,
-        height,
-        depth,
-        gridSize,
-        pointsPerCell
-      );
-      for (let i = 0; i < width * height * depth; i++) {
-        data[i] += (octaveData[i] / 255.0) * amp;
-      }
-      norm += amp;
-      amp *= gain;
-      gridSize = Math.max(1, Math.floor(gridSize / lacunarity));
-    }
-    // Normalize and convert to Uint8
-    const out = new Uint8Array(width * height * depth);
-    for (let i = 0; i < width * height * depth; i++) {
-      out[i] = Math.floor(Math.max(0, Math.min(1, data[i] / norm)) * 255);
-    }
-    return out;
-  }
-  simplexWorleyNoise3D(
-    width: number,
-    height: number,
-    depth: number,
-    frequency: number,
-    gridSize: number,
-    pointsPerCell: number = 1
-  ): Uint8Array {
-    const simplexData = this.fbmSimplexNoise3D(width, height, depth, frequency);
-    const worleyData = this.fbmWorleyNoise3D(
-      width,
-      height,
-      depth,
-      gridSize,
-      pointsPerCell
-    );
-
-    const data = new Uint8Array(width * height * depth);
-    for (let i = 0; i < width * height * depth; i++) {
-      // Normalize to 0-1 range
-      const simplex = simplexData[i] / 255.0;
-      const worley = worleyData[i] / 255.0;
-
-      // Remap simplex using worley for cloud-like appearance
-      let remapped = this.remap(simplex, worley - 1.0, 1.0, 0.0, 1.0);
-      data[i] = Math.floor(Math.max(0, Math.min(1, remapped)) * 255);
-    }
-    return data;
-  }
-
   // Helper remap function
   private remap(
     value: number,
@@ -907,8 +708,9 @@ export class NoiseGenerator {
   ): number {
     return low2 + ((value - low1) * (high2 - low2)) / (high1 - low1);
   }
+  
   generateCloudNoiseTex(size: number): WebGLTexture {
-    this.dataR = this.simplexWorleyNoise3D(size, size, size, 1, 16, 2);
+    this.dataR = this.fbmPerlinWorely3d(size, size, size, 0.1,64,4);
     this.dataG = this.worleyNoise3D(size, size, size, 8, 2);
     this.dataB = this.worleyNoise3D(size, size, size, 6, 3);
     this.dataA = this.worleyNoise3D(size, size, size, 4, 4);
@@ -935,6 +737,7 @@ export class NoiseGenerator {
       this.gl.REPEAT,
       this.gl.REPEAT
     );
+    this.visualizeSlice(1,document.getElementById("noisePreview") as HTMLCanvasElement  ,"R",false,2);
     return texture!;
   }
   generateDetailedCloudNoiseTex(size: number): WebGLTexture {
@@ -1035,79 +838,6 @@ export class NoiseGenerator {
     return data;
   }
 
-  simplexNoise2D(width: number, height: number, frequency: number): Uint8Array {
-    const data = new Uint8Array(width * height);
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        // Create tileable coordinates using sine/cosine remapping
-        const u = (x / width) * Math.PI * 2;
-        const v = (y / height) * Math.PI * 2;
-
-        const nx = Math.cos(u) * frequency;
-        const ny = Math.sin(u) * frequency;
-        const nz = Math.cos(v) * frequency;
-        const nw = Math.sin(v) * frequency;
-
-        // Sample 4D noise at these coordinates
-        const value1 = this.simplex(nx, ny, 0);
-        const value2 = this.simplex(nz, nw, 0);
-        const value = (value1 + value2) / 2;
-
-        const normalized = Math.floor(((value + 1) / 2) * 255);
-        data[x + y * width] = normalized;
-      }
-    }
-    return data;
-  }
-
-  simplexNoise3D(
-    width: number,
-    height: number,
-    depth: number,
-    frequency: number
-  ): Uint8Array {
-    const data = new Uint8Array(width * height * depth);
-    for (let z = 0; z < depth; z++) {
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          // Create tileable coordinates using sine/cosine remapping
-          const u = (x / width) * Math.PI * 2;
-          const v = (y / height) * Math.PI * 2;
-          const w = (z / depth) * Math.PI * 2;
-
-          const nx = Math.cos(u) * frequency;
-          const ny = Math.sin(u) * frequency;
-          const nz = Math.cos(v) * frequency;
-          const nw = Math.sin(v) * frequency;
-
-          // Sample noise - blend two 3D samples for better tiling
-          const value1 = this.simplex(nx, nz, Math.cos(w) * frequency);
-          const value2 = this.simplex(ny, nw, Math.sin(w) * frequency);
-          const value = (value1 + value2) / 2;
-
-          const normalized = Math.floor(((value + 1) / 2) * 255);
-          data[x + y * width + z * width * height] = normalized;
-        }
-      }
-    }
-    return data;
-  }
-  private parseCoverageMap(str: string, size: number): Uint8Array {
-    // Remove whitespace and split by comma, space, or newline
-    const numbers = str
-      .replace(/[\r\n]+/g, " ") // replace newlines with spaces
-      .split(/[\s,]+/) // split by spaces or commas
-      .filter(Boolean) // remove empty strings
-      .map(Number) // convert to numbers
-      .map((n) => Math.max(0, Math.min(255, n))); // clamp to 0-255
-
-    // Ensure the array is exactly size*size
-    const arr = new Uint8Array(size * size);
-    for (let i = 0; i < arr.length; i++) {
-      arr[i] = numbers[i] ?? 0; // fill with 0 if not enough numbers
-    }
-    return arr;
-  }
   async loadCoverageFromPNG(path: string, size: number): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -1135,11 +865,8 @@ export class NoiseGenerator {
     });
   }
   async generateWeatherMap(size: number): Promise<WebGLTexture> {
-    // Load PNG coverage data
     this.coverageData = await this.loadCoverageFromPNG(coveragePNG, size);
-
-    // ...rest of your code unchanged...
-    this.highCoverageData = this.simplexWorelyNoise2D(size, size, 0.2, 32, 4);
+    this.highCoverageData = this.perlinNoise2D(size,size,0.5)
     this.heightData = new Uint8Array(size * size);
     this.densityData = new Uint8Array(size * size);
     for (let i = 0; i < size * size; i++) {
@@ -1256,20 +983,21 @@ export class NoiseGenerator {
     }
     ctx.putImageData(imageData, 0, 0);
   }
-  visualizeSlice(
+visualizeSlice(
     sliceZ: number,
     canvas: HTMLCanvasElement,
     channel: "R" | "G" | "B" | "A",
-    detail = false
+    detail = false,
+    tileCount = 1 // NEW: how many times to tile in X/Y
   ) {
     const size = Math.cbrt(this.dataR.length);
     const ctx = canvas.getContext("2d");
-    const scale = canvas.width / size;
+    const scale = canvas.width / size / tileCount;
     if (!ctx) return;
     const imageData = ctx.createImageData(canvas.width, canvas.height);
     for (let y = 0; y < canvas.height; y++) {
       for (let x = 0; x < canvas.width; x++) {
-        // Wrap and tile based on scale
+        // Tile the slice tileCount times in X and Y
         const scaledX = ((Math.floor(x / scale) % size) + size) % size;
         const scaledY = ((Math.floor(y / scale) % size) + size) % size;
         const wrappedZ = ((sliceZ % size) + size) % size;
@@ -1315,6 +1043,164 @@ export class NoiseGenerator {
       }
     }
     ctx.putImageData(imageData, 0, 0);
-    debugger;
   }
+
+  //Temporary, will be replaced with a compute shader
+  // --- Perlin Noise Helpers ---
+private perlinPerm: number[] = [];
+private perlinSeeded = false;
+
+// Initialize permutation table for a given period (tile size)
+private initPerlinPerm(period: number) {
+  if (this.perlinSeeded && this.perlinPerm.length === period * 2) return;
+  this.perlinPerm = [];
+  for (let i = 0; i < period; i++) this.perlinPerm[i] = i;
+  // Fisher-Yates shuffle
+  for (let i = period - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [this.perlinPerm[i], this.perlinPerm[j]] = [this.perlinPerm[j], this.perlinPerm[i]];
+  }
+  // Repeat for overflow
+  for (let i = 0; i < period; i++) this.perlinPerm[period + i] = this.perlinPerm[i];
+  this.perlinSeeded = true;
+}
+
+// Fade function for Perlin interpolation
+private perlinFade(t: number): number {
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+// Linear interpolation
+private perlinLerp(a: number, b: number, t: number): number {
+  return a + t * (b - a);
+}
+
+// Gradient function for 2D
+private perlinGrad2(hash: number, x: number, y: number): number {
+  // 8 directions
+  const h = hash & 7;
+  const u = h < 4 ? x : y;
+  const v = h < 4 ? y : x;
+  return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+}
+
+// Gradient function for 3D
+private perlinGrad3(hash: number, x: number, y: number, z: number): number {
+  const h = hash & 15;
+  const u = h < 8 ? x : y;
+  const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+  return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+}
+
+// --- Tileable Perlin Noise 2D ---
+perlinNoise2D(width: number, height: number, frequency: number): Uint8Array {
+  const basePeriod = Math.min(width, height);
+  const period = Math.max(1, Math.round(basePeriod * frequency)); // integer lattice period
+  this.initPerlinPerm(period);
+  const data = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Map (x, y) to [0, period)
+      const fx = (x / width) * period;
+      const fy = (y / height) * period;
+
+      const X0 = Math.floor(fx) % period;
+      const Y0 = Math.floor(fy) % period;
+      const X1 = (X0 + 1) % period;
+      const Y1 = (Y0 + 1) % period;
+
+      const dx = fx - Math.floor(fx);
+      const dy = fy - Math.floor(fy);
+
+      const perm = this.perlinPerm;
+      const aa = perm[perm[X0] + Y0];
+      const ab = perm[perm[X0] + Y1];
+      const ba = perm[perm[X1] + Y0];
+      const bb = perm[perm[X1] + Y1];
+
+      const g_aa = this.perlinGrad2(aa, dx, dy);
+      const g_ba = this.perlinGrad2(ba, dx - 1, dy);
+      const g_ab = this.perlinGrad2(ab, dx, dy - 1);
+      const g_bb = this.perlinGrad2(bb, dx - 1, dy - 1);
+
+      const u = this.perlinFade(dx);
+      const v = this.perlinFade(dy);
+
+      const lerpX1 = this.perlinLerp(g_aa, g_ba, u);
+      const lerpX2 = this.perlinLerp(g_ab, g_bb, u);
+      const value = this.perlinLerp(lerpX1, lerpX2, v);
+
+      const normalized = Math.floor(((value + 1) / 2) * 255);
+      data[x + y * width] = normalized;
+    }
+  }
+  return data;
+}
+
+// --- Tileable Perlin Noise 3D ---
+perlinNoise3D(width: number, height: number, depth: number, frequency: number): Uint8Array {
+  const basePeriod = Math.min(width, height, depth);
+  const period = Math.max(1, Math.round(basePeriod * frequency)); // integer lattice period
+  this.initPerlinPerm(period);
+  const data = new Uint8Array(width * height * depth);
+
+  for (let z = 0; z < depth; z++) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // Map to [0, period) so it wraps cleanly
+        const fx = (x / width) * period;
+        const fy = (y / height) * period;
+        const fz = (z / depth) * period;
+
+        const X0 = Math.floor(fx) % period;
+        const Y0 = Math.floor(fy) % period;
+        const Z0 = Math.floor(fz) % period;
+        const X1 = (X0 + 1) % period;
+        const Y1 = (Y0 + 1) % period;
+        const Z1 = (Z0 + 1) % period;
+
+        const dx = fx - Math.floor(fx);
+        const dy = fy - Math.floor(fy);
+        const dz = fz - Math.floor(fz);
+
+        const perm = this.perlinPerm;
+        const aaa = perm[perm[perm[X0] + Y0] + Z0];
+        const aba = perm[perm[perm[X0] + Y1] + Z0];
+        const aab = perm[perm[perm[X0] + Y0] + Z1];
+        const abb = perm[perm[perm[X0] + Y1] + Z1];
+        const baa = perm[perm[perm[X1] + Y0] + Z0];
+        const bba = perm[perm[perm[X1] + Y1] + Z0];
+        const bab = perm[perm[perm[X1] + Y0] + Z1];
+        const bbb = perm[perm[perm[X1] + Y1] + Z1];
+
+        const g_aaa = this.perlinGrad3(aaa, dx, dy, dz);
+        const g_baa = this.perlinGrad3(baa, dx - 1, dy, dz);
+        const g_aba = this.perlinGrad3(aba, dx, dy - 1, dz);
+        const g_bba = this.perlinGrad3(bba, dx - 1, dy - 1, dz);
+        const g_aab = this.perlinGrad3(aab, dx, dy, dz - 1);
+        const g_bab = this.perlinGrad3(bab, dx - 1, dy, dz - 1);
+        const g_abb = this.perlinGrad3(abb, dx, dy - 1, dz - 1);
+        const g_bbb = this.perlinGrad3(bbb, dx - 1, dy - 1, dz - 1);
+
+        const u = this.perlinFade(dx);
+        const v = this.perlinFade(dy);
+        const w = this.perlinFade(dz);
+
+        const lerpX1 = this.perlinLerp(g_aaa, g_baa, u);
+        const lerpX2 = this.perlinLerp(g_aba, g_bba, u);
+        const lerpY1 = this.perlinLerp(lerpX1, lerpX2, v);
+
+        const lerpX3 = this.perlinLerp(g_aab, g_bab, u);
+        const lerpX4 = this.perlinLerp(g_abb, g_bbb, u);
+        const lerpY2 = this.perlinLerp(lerpX3, lerpX4, v);
+
+        const value = this.perlinLerp(lerpY1, lerpY2, w);
+
+        const normalized = Math.floor(((value + 1) / 2) * 255);
+        data[x + y * width + z * width * height] = normalized;
+      }
+    }
+  }
+  return data;
+}
 }

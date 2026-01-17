@@ -124,9 +124,8 @@ float sampleDensity(vec3 pos) {
     float densityAlter = densityAlteringFactor(heightPercent, weatherSample);
     float coverageFactor = coverage(weatherSample);
     
-    float baseNosie = Remap(noiseSample.r,(dot(noiseSample.gba, (CLOUDS_noiseWeights)))-1.0,1.0,0.0,1.0);
-
-    float alteredNoise = SATRemap(baseNosie*shapeAlter,1.0-CLOUDS_globalCoverage*coverageFactor,1.0,0.0,1.0);
+    float baseNoise = Remap(noiseSample.r,(dot(noiseSample.gba, (CLOUDS_noiseWeights)))-1.0,1.0,0.0,1.0);
+    float alteredNoise = SATRemap(baseNoise*shapeAlter,1.0-CLOUDS_globalCoverage*coverageFactor,1.0,0.0,1.0);
     if(alteredNoise <= 0.0f) {
         return 0.0f;
     }
@@ -138,9 +137,7 @@ float sampleDensity(vec3 pos) {
     
 }
 float calculateStepLength(float baseStep, float density, float distanceFromCamera) {
-    float densityFactor = pow(1.0f / (density + 0.1f), CLOUDS_densityFalloffIntensity);
-    float distanceFactor = pow(distanceFromCamera / 1000.0f, CLOUDS_distanceFalloffIntensity);
-    return baseStep * densityFactor * distanceFactor;
+    return baseStep+distanceFromCamera/100.0*CLOUDS_distanceFalloffIntensity;
 }
 float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
     float distInsideBox = rayBoxDst(cubeMin, cubeMax, pos, 1.0f / lightDir).y;
