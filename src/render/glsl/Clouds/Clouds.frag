@@ -10,11 +10,11 @@ uniform vec3 cubeMin;
 uniform vec3 cubeMax;
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
+uniform mat4 matViewProj;
 uniform sampler3D noiseTexture;
 uniform sampler3D detailNoiseTexture;
 uniform sampler2D weatherMap;
 uniform sampler2D depthTexture;
-uniform sampler2D litSceneTexture;
 uniform vec3 sunPos;
 uniform vec3 sunColor;
 
@@ -35,7 +35,7 @@ uniform float CLOUDS_weatherMapOffsetX;
 uniform float CLOUDS_weatherMapOffsetY;
 uniform int CLOUDS_MAX_STEPS;
 uniform int CLOUDS_MAX_STEPS_LIGHT;
-uniform float CLOUDS_densityFalloffIntensity; 
+uniform float CLOUDS_densityFalloffIntensity;
 uniform float CLOUDS_distanceFalloffIntensity;
 // density settings
 uniform float CLOUDS_globalCoverage;
@@ -49,13 +49,31 @@ uniform float time;
 uniform float CLOUDS_windDirectionX;
 uniform float CLOUDS_windDirectionZ;
 uniform float CLOUDS_windSpeed;
+
+uniform bool CLOUDS_enableReprojection;
+uniform mat4 previousView;
+uniform vec2 tanFovBy2;
+uniform sampler2D previousCloudTexture;
+
 out vec4 fragColor;
-uniform int pathtracerOn;
 
 // Add early exit constants
 const float DENSITY_THRESHOLD_SKIP = 0.01f;
 const float ALPHA_THRESHOLD = 0.99f;
 vec3 skyColor = vec3(0.5f, 0.7f, 0.9f);
+int crossPatternIndex(ivec2 p) {
+    int x = p.x & 3;
+    int y = p.y & 3;
+
+    // row-major index
+    int i = y * 4 + x;
+
+    // remapped order (0–15)
+    const int pattern[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
+
+    return pattern[i];
+}
+
 // Stolen from Sebastian Lague
 vec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {
 // Adapted from: http://jcgt.org/published/0007/03/04/
@@ -79,7 +97,37 @@ vec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {
     float dstInsideBox = max(0.0f, dstB - dstToBox);
     return vec2(dstToBox, dstInsideBox);
 }
-float SAT(float value){
+vec4 reprojectPrevFrame(vec3 intersectionPoint, vec2 uv, out bool valid) {
+    // Transform world-space point to previous camera's view space
+    vec3 viewSpacePos = (previousView * vec4(intersectionPoint, 1.0f)).xyz;
+
+    // Reject points behind or too close to the previous camera plane
+    if(viewSpacePos.z >= -1e-3f) {
+        valid = false;
+        return vec4(0.0f);
+    }
+
+    // Project to previous frame's UV coordinates (perspective division)
+    // Don't normalize - use the actual view-space position for projection
+    float old_u = (viewSpacePos.x / (-viewSpacePos.z * tanFovBy2.x)) * 0.5 + 0.5;
+    float old_v = (viewSpacePos.y / (-viewSpacePos.z * tanFovBy2.y)) * 0.5 + 0.5;
+    
+    vec2 old_uv = vec2(old_u, old_v);
+    if(old_uv.x < 0.0f || old_uv.x > 1.0f || old_uv.y < 0.0f || old_uv.y > 1.0f) {
+        valid = false;
+        return vec4(0.0f);
+    }
+    
+    vec4 prevColor = texture(previousCloudTexture, old_uv);
+    if(prevColor.a <= 0.0f) {
+        valid = false;
+        return vec4(0.0f);
+    }
+    
+    valid = true;
+    return prevColor;
+}
+float SAT(float value) {
     return clamp(value, 0.0f, 1.0f);
 }
 float Remap(float value, float minA, float maxA, float minB, float maxB) {
@@ -94,50 +142,50 @@ float lerp(float a, float b, float t) {
 float shapeAlteringFactor(float heightPercent, vec4 weatherMapValue) {
     float peakHeight = weatherMapValue.b;
     float bottomRound = SAT(Remap(heightPercent, 0.0f, 0.07f, 0.0f, 1.0f));
-    float topRound = SAT(Remap(heightPercent, peakHeight*0.2,peakHeight, 1.0f, 0.0f));
+    float topRound = SAT(Remap(heightPercent, peakHeight * 0.2f, peakHeight, 1.0f, 0.0f));
     float shapeAlter = topRound * bottomRound;
     return shapeAlter;
 }
 float densityAlteringFactor(float heightPercent, vec4 weatherMapValue) {
-    float bottomAlter = heightPercent*SAT(Remap(heightPercent,0.0,0.15,0.0,1.0));
-    float topAlter = SAT(Remap(heightPercent,0.9,1.0,1.0,0.0));
-    float densityAlter = CLOUDS_globalDensity*bottomAlter*topAlter*weatherMapValue.a*2.0f;
+    float bottomAlter = heightPercent * SAT(Remap(heightPercent, 0.0f, 0.15f, 0.0f, 1.0f));
+    float topAlter = SAT(Remap(heightPercent, 0.9f, 1.0f, 1.0f, 0.0f));
+    float densityAlter = CLOUDS_globalDensity * bottomAlter * topAlter * weatherMapValue.a * 2.0f;
     return densityAlter;
 }
 float coverage(vec4 weatherMapValue) {
     float lowCoverage = weatherMapValue.r;
     float highCoverage = weatherMapValue.g;
-    float coverage = max(lowCoverage,SAT(CLOUDS_globalCoverage-0.5f)*2.0f*highCoverage);
+    float coverage = max(lowCoverage, SAT(CLOUDS_globalCoverage - 0.5f) * 2.0f * highCoverage);
     return coverage;
-    }
+}
 float sampleDensity(vec3 pos) {
     vec3 windDirection = normalize(vec3(CLOUDS_windDirectionX, 0.0f, CLOUDS_windDirectionZ));
     vec3 windOffset = windDirection * CLOUDS_windSpeed * time;
     vec3 animatedPos = pos + windOffset + vec3(cameraPosition.x, 0.0f, cameraPosition.z);
 
     vec3 localPos = animatedPos * 0.001f; // Scale down for noise sampling
-    vec2 weatherUV = vec2(localPos.x + CLOUDS_weatherMapOffsetX, localPos.z + CLOUDS_weatherMapOffsetY)* CLOUDS_weatherMapFrequency;
+    vec2 weatherUV = vec2(localPos.x + CLOUDS_weatherMapOffsetX, localPos.z + CLOUDS_weatherMapOffsetY) * CLOUDS_weatherMapFrequency;
     vec4 weatherSample = texture(weatherMap, weatherUV);
     float heightPercent = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);
-    vec4 noiseSample = texture(noiseTexture, localPos*CLOUDS_baseNoiseFrequency);
+    vec4 noiseSample = texture(noiseTexture, localPos * CLOUDS_baseNoiseFrequency);
     float shapeAlter = shapeAlteringFactor(heightPercent, weatherSample);
     float densityAlter = densityAlteringFactor(heightPercent, weatherSample);
     float coverageFactor = coverage(weatherSample);
-    
-    float baseNoise = Remap(noiseSample.r,(dot(noiseSample.gba, (CLOUDS_noiseWeights)))-1.0,1.0,0.0,1.0);
-    float alteredNoise = SATRemap(baseNoise*shapeAlter,1.0-CLOUDS_globalCoverage*coverageFactor,1.0,0.0,1.0);
+
+    float baseNoise = Remap(noiseSample.r, (dot(noiseSample.gba, (CLOUDS_noiseWeights))) - 1.0f, 1.0f, 0.0f, 1.0f);
+    float alteredNoise = SATRemap(baseNoise * shapeAlter, 1.0f - CLOUDS_globalCoverage * coverageFactor, 1.0f, 0.0f, 1.0f);
     if(alteredNoise <= 0.0f) {
         return 0.0f;
     }
-    vec4 detailNoise = texture(detailNoiseTexture, localPos*CLOUDS_detailNoiseFrequency);
+    vec4 detailNoise = texture(detailNoiseTexture, localPos * CLOUDS_detailNoiseFrequency);
     float detailFBM = dot(detailNoise.rgb, (CLOUDS_detailWeights));
-    float detailNoiseMod = 0.35*pow(e,-CLOUDS_globalCoverage*0.75)*lerp(detailFBM,1.0-detailFBM,SAT(heightPercent*5.0));
-    float density = SATRemap(alteredNoise,detailNoiseMod,1.0,0.0,1.0  ) * densityAlter;
+    float detailNoiseMod = 0.35f * pow(e, -CLOUDS_globalCoverage * 0.75f) * lerp(detailFBM, 1.0f - detailFBM, SAT(heightPercent * 5.0f));
+    float density = SATRemap(alteredNoise, detailNoiseMod, 1.0f, 0.0f, 1.0f) * densityAlter;
     return density;
-    
+
 }
 float calculateStepLength(float baseStep, float density, float distanceFromCamera) {
-    return baseStep+distanceFromCamera/100.0*CLOUDS_distanceFalloffIntensity;
+    return baseStep + distanceFromCamera / 100.0f * CLOUDS_distanceFalloffIntensity + density * CLOUDS_densityFalloffIntensity;
 }
 float sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {
     float distInsideBox = rayBoxDst(cubeMin, cubeMax, pos, 1.0f / lightDir).y;
@@ -195,9 +243,9 @@ vec4 calculateCloudColor(
 ) {
     vec4 accumulatedColor = vec4(0.0f);
 
-    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy + time * 0.1f, vec2(12.9898f, 78.233f))) * 43758.5453f) * CLOUDS_blueNoiseAmplitude;
+    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f) * CLOUDS_blueNoiseAmplitude;
 
-    float t = tNear+blueNoiseOffset * tStepBase;
+    float t = tNear + blueNoiseOffset * tStepBase;
     for(int i = 0; i < CLOUDS_MAX_STEPS; i++) {
         if(t >= tFar || t >= distanceToTerrain) {
             break;
@@ -245,19 +293,12 @@ vec4 calculateCloudColor(
     }
     return accumulatedColor;
 }
-
 void main() {
-    vec4 lit = texture(litSceneTexture, fragUV);
     if(!CLOUDS_enableClouds) {
-        if(pathtracerOn == 1) {
-            discard;
-        } else {
-            fragColor = lit;
-        }
-        return;
+        discard;
     }
-    vec2 uv = fragUV * 2.0f - 1.0f;
-    vec4 rayClip = vec4(uv, -1.0f, 1.0f);
+    vec2 ndc = fragUV * 2.0f - 1.0f;
+    vec4 rayClip = vec4(ndc, -1.0f, 1.0f);
     vec4 rayEye = projInverse * rayClip;
     rayEye = vec4(rayEye.xy, -1.0f, 0.0f);
     vec3 rayDirWorld = normalize((viewInverse * rayEye).xyz);
@@ -274,40 +315,32 @@ void main() {
     vec2 dsts = rayBoxDst(cubeMin, cubeMax, rayOriginWorld, 1.0f / rayDirWorld);
 
     if(dsts.y <= 0.0f) {
-        if(pathtracerOn == 1) {
-            discard;
-        } else {
-            fragColor = lit;
-        }
-        return;
+        discard;
     }
 
     float tNear = dsts.x;
     float tFar = min(dsts.x + dsts.y, distanceToTerrain);
 
     if(tNear >= distanceToTerrain) {
-        if(pathtracerOn == 1) {
-            discard;
-        } else {
-            fragColor = lit;
-        }
-        return;
+        discard;
     }
 
     float tStepBase = (tFar - tNear) / float(CLOUDS_MAX_STEPS);
 
-    vec4 accumulatedColor = calculateCloudColor(
-        rayOriginWorld,
-        rayDirWorld,
-        tNear,
-        tFar,
-        distanceToTerrain,
-        tStepBase
-    );
-
-    if(pathtracerOn == 1) {
-        fragColor = accumulatedColor;
-    } else {
-        fragColor = vec4(accumulatedColor.rgb + lit.rgb * (1.0f - accumulatedColor.a), 1.0f);
+    vec4 accumulatedColor = vec4(0.0f);
+    int rayIndex = crossPatternIndex(ivec2(gl_FragCoord.xy));
+    if(CLOUDS_enableReprojection&&rayIndex>1) {
+        float reprojT = max(tNear,tStepBase);
+        vec3 firstIntersectionPoint = rayOriginWorld + rayDirWorld * reprojT;
+        bool validReproj;
+        vec4 prevColor = reprojectPrevFrame(firstIntersectionPoint,fragUV, validReproj);
+        if(validReproj) {
+            accumulatedColor = prevColor;
+            fragColor = accumulatedColor;
+            return;
+        }
     }
+    accumulatedColor = calculateCloudColor(rayOriginWorld, rayDirWorld, tNear, tFar, distanceToTerrain, tStepBase);
+    fragColor = accumulatedColor;
+
 }

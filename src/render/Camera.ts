@@ -15,6 +15,7 @@ export class Camera {
   farPlane: number;
   speed: number;
   nearPlane: number = 0.1;
+  fovy: number = 90; // Field of view in degrees
   constructor(position: vec3) {
     this.position = position;
 
@@ -58,7 +59,7 @@ export class Camera {
     const matViewProj = mat4.create();
     mat4.perspective(
       matProj,
-      /* fovy= */ glMatrix.toRadian(90),
+      /* fovy= */ glMatrix.toRadian(this.fovy),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ this.nearPlane,
       this.farPlane
@@ -72,7 +73,7 @@ export class Camera {
     const matProj = mat4.create();
     mat4.perspective(
       matProj,
-      /* fovy= */ glMatrix.toRadian(90),
+      /* fovy= */ glMatrix.toRadian(this.fovy),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ this.nearPlane,
       this.farPlane

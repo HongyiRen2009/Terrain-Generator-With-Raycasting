@@ -191,10 +191,11 @@ export class FinalPass extends RenderPass {
     return { fbo: null, textures: {} };
   }
 
-  public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
+public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const textures = this.renderGraph!.getOutputs(this);
-    const colorTexture = textures["finalTexture"];
+    const sceneTexture = textures["sceneTexture"];
+    const cloudsTexture = textures["cloudsTexture"]; // <-- Add this line
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.program);
@@ -206,13 +207,19 @@ export class FinalPass extends RenderPass {
       this.canvas.width,
       this.canvas.height
     );
-
     TextureUtils.bindTex(
       this.gl,
       this.program!,
-      colorTexture!,
+      sceneTexture!,
       "sceneTexture",
       0
+    );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      cloudsTexture!,
+      "cloudsTexture",
+      1
     );
 
     this.gl.bindVertexArray(vao.vao);
@@ -221,5 +228,5 @@ export class FinalPass extends RenderPass {
     }
     this.gl.bindVertexArray(null);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-  }
+}
 }

@@ -12,7 +12,7 @@ import { NoiseFunction3D, createNoise3D } from "simplex-noise";
 import { RenderGraph } from "../renderSystem/RenderGraph";
 import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
-import { vec3 } from "gl-matrix";
+import { mat4, vec2, vec3 } from "gl-matrix";
 import { DirectionalLight } from "../../map/Light";
 import coveragePNG from "../../../assets/coverage map.png";
 export class CloudsPass extends RenderPass {
@@ -21,7 +21,16 @@ export class CloudsPass extends RenderPass {
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
   private noiseGenerator: NoiseGenerator;
-  noiseDetailTexture: WebGLTexture;
+  private noiseDetailTexture: WebGLTexture;
+  
+  private previousView: mat4 = mat4.create();
+  private previousCloudTexture: WebGLTexture | null = null;
+  private cloudTextures: WebGLTexture[] = [];
+  private pingPongIndex: number = 0;
+  private frameCounter: number = 0;
+  private previousCameraPosition: vec3 = vec3.create();
+private lastQuery: WebGLQuery | null = null;
+private lastExt: any = null;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -44,11 +53,20 @@ export class CloudsPass extends RenderPass {
     });
     this.noiseDetailTexture =
       this.noiseGenerator.generateDetailedCloudNoiseTex(32);
-    this.uniforms = getUniformLocations(gl, this.program!, [
-      "viewInverse",
-      "projInverse",
-      "cameraPosition"
-    ]);
+this.uniforms = getUniformLocations(gl, this.program!, [
+  "viewInverse",
+  "projInverse",
+  "matViewProj",
+  "cameraPosition",
+  "cubeMin",
+  "cubeMax",
+  "sunPos",
+  "sunColor",
+  "time",
+  "previousView",
+  "tanFovBy2",
+  "previousCloudTexture"
+]);
   }
   protected initRenderTarget(): RenderTarget {
     const fbo = this.gl.createFramebuffer();
@@ -66,6 +84,22 @@ export class CloudsPass extends RenderPass {
       this.gl.CLAMP_TO_EDGE,
       this.gl.CLAMP_TO_EDGE
     );
+    const colorTexture1 = TextureUtils.createTexture2D(
+      this.gl,
+      this.canvas.width,
+      this.canvas.height,
+      this.gl.RGBA16F,
+      this.gl.RGBA,
+      this.gl.FLOAT,
+      null,
+      this.gl.LINEAR,
+      this.gl.LINEAR,
+      this.gl.CLAMP_TO_EDGE,
+      this.gl.CLAMP_TO_EDGE
+    );
+
+    this.cloudTextures=[colorTexture, colorTexture1];
+    this.previousCloudTexture=colorTexture1;
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
@@ -74,170 +108,153 @@ export class CloudsPass extends RenderPass {
       colorTexture,
       0
     );
+
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     return {
       fbo: fbo,
       textures: {
-        finalTexture: colorTexture!
+        cloudsTexture: colorTexture!,
       }
     };
   }
-  public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
-    const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
+  const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
 
-    // Bind framebuffer or render to screen based on pathtracer state
-    if (pathtracerOn) {
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    } else {
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
-    }
+  // --- Ping-pong logic ---
+  const writeIndex = this.pingPongIndex;
+  const readIndex = 1 - this.pingPongIndex;
+  const currentTexture = this.cloudTextures[writeIndex];
+  const previousTexture = this.cloudTextures[readIndex];
 
-    // Configure blending based on pathtracer state
-    if (pathtracerOn) {
-      this.gl.enable(this.gl.BLEND);
-      this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
-    } else {
-      this.gl.disable(this.gl.BLEND);
-    }
+  // Update render target textures
+  if (this.renderTarget) {
+    this.renderTarget.textures = {
+      cloudsTexture: currentTexture,
+    };
+  }
 
-    if (!pathtracerOn) {
-      this.gl.clearColor(0, 0, 0, 1.0);
-      this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-    }
-    this.gl.depthMask(false);
-    this.gl.disable(this.gl.DEPTH_TEST);
-    this.gl.useProgram(this.program);
-    this.gl.bindVertexArray(vao.vao);
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    const gBuffer = this.renderGraph!.getOutputs(this);
-    const depthTexture = gBuffer["depth"];
-    const litSceneTexture = gBuffer["litSceneTexture"];
-    let cameraPosition = this.resourceCache.getData("cameraPosition");
-    if (!cameraPosition) {
-      cameraPosition = vec3.fromValues(0, 0, 0);
-    }
-    const boxWidth = SettingsManager.instance.getSetting("CLOUDS_boxWidth")
-      ?.value as number;
-    const boxHeight = SettingsManager.instance.getSetting("CLOUDS_boxHeight")
-      ?.value as number;
-    const cloudBaseHeight = SettingsManager.instance.getSetting("CLOUDS_height")?.value as number;
-    this.gl.uniform3fv(
-      this.gl.getUniformLocation(this.program!, "cubeMin"),
-      vec3.fromValues(-boxWidth / 2+cameraPosition[0], cloudBaseHeight, -boxWidth / 2+cameraPosition[2])
-    );
-    this.gl.uniform3fv(
-      this.gl.getUniformLocation(this.program!, "cubeMax"),
-      vec3.fromValues(boxWidth / 2+cameraPosition[0], cloudBaseHeight + boxHeight, boxWidth / 2+cameraPosition[2])
-    );
-    // Bind noise texture
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      this.noiseTexture!,
-      "noiseTexture",
-      0,
-      this.gl.TEXTURE_3D
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      this.noiseDetailTexture!,
-      "detailNoiseTexture",
-      1,
-      this.gl.TEXTURE_3D
-    );
-    // Bind weather map texture
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      this.weatherMapTexture!,
-      "weatherMap",
-      2
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      depthTexture,
-      "depthTexture",
-      3
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      litSceneTexture,
-      "litSceneTexture",
-      4
-    );
-    const sunLight = this.resourceCache.getData(
-      "sunLight"
-    ) as DirectionalLight | null;
+  // --- Attach the correct texture to the framebuffer for writing ---
+  this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
+  this.gl.framebufferTexture2D(
+    this.gl.FRAMEBUFFER,
+    this.gl.COLOR_ATTACHMENT0,
+    this.gl.TEXTURE_2D,
+    currentTexture,
+    0
+  );
+  // --- State setup ---
+  this.gl.disable(this.gl.BLEND);
+  this.gl.clearColor(0, 0, 0, 0.0);
+  this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+  this.gl.depthMask(false);
+  this.gl.disable(this.gl.DEPTH_TEST);
 
-    // Use sunLight for sun position
-    let sunPos: vec3;
-    let sunColor: vec3;
+  // --- Shader & VAO ---
+  this.gl.useProgram(this.program);
+  this.gl.bindVertexArray(vao.vao);
+  this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
 
-    if (
-      sunLight instanceof DirectionalLight &&
-      !this.resourceCache.getData("disableSun")
-    ) {
-      // For directional light, use direction to determine sun position in sky
-      // Scale the direction to represent sun position far away
-      sunPos = vec3.create();
-      vec3.scale(sunPos, sunLight.direction, -1000.0); // Negative because light direction points toward light
-      sunColor = sunLight.color.createVec3();
-    } else {
-      // Fallback - default sun position
-      sunPos = vec3.fromValues(0, 1000, 0);
-      sunColor = vec3.fromValues(1, 1, 1);
-    }
+// --- Uniforms & Textures ---
+const gBuffer = this.renderGraph!.getOutputs(this);
+const depthTexture = gBuffer["depth"];
+const cameraPosition = this.resourceCache.getData("cameraPosition") ?? vec3.fromValues(0, 0, 0);
 
-    this.gl.uniform3fv(
-      this.gl.getUniformLocation(this.program!, "sunPos"),
-      sunPos
-    );
-    this.gl.uniform3fv(
-      this.gl.getUniformLocation(this.program!, "sunColor"),
-      sunColor
-    );
-    const cameraInfo = this.resourceCache.getData("CameraInfo");
-    this.gl.uniformMatrix4fv(
-      this.uniforms["viewInverse"],
-      false,
-      cameraInfo.matViewInverse
-    );
-    this.gl.uniformMatrix4fv(
-      this.uniforms["projInverse"],
-      false,
-      cameraInfo.matProjInverse
-    );
-    this.gl.uniform3fv(
-      this.uniforms["cameraPosition"],
-      this.resourceCache.getData("cameraPosition")
-    );
-    this.gl.uniform3fv(this.uniforms["cameraPosition"], cameraPosition);
-    this.gl.uniform1f(
-      this.gl.getUniformLocation(this.program!, "time"),
-      performance.now() * 0.001 // Convert to seconds
-    );
+const boxWidth = SettingsManager.instance.getSetting("CLOUDS_boxWidth")?.value as number;
+const boxHeight = SettingsManager.instance.getSetting("CLOUDS_boxHeight")?.value as number;
+const cloudBaseHeight = SettingsManager.instance.getSetting("CLOUDS_height")?.value as number;
 
-    // Pass pathtracer state to shader
-    this.gl.uniform1i(
-      this.gl.getUniformLocation(this.program!, "pathtracerOn"),
-      pathtracerOn ? 1 : 0
-    );
+this.gl.uniform3fv(this.uniforms["cubeMin"], vec3.fromValues(-boxWidth / 2 + cameraPosition[0], cloudBaseHeight, -boxWidth / 2 + cameraPosition[2]));
+this.gl.uniform3fv(this.uniforms["cubeMax"], vec3.fromValues(boxWidth / 2 + cameraPosition[0], cloudBaseHeight + boxHeight, boxWidth / 2 + cameraPosition[2]));
 
-    SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
+TextureUtils.bindTex(this.gl, this.program!, this.noiseTexture!, "noiseTexture", 0, this.gl.TEXTURE_3D);
+TextureUtils.bindTex(this.gl, this.program!, this.noiseDetailTexture!, "detailNoiseTexture", 1, this.gl.TEXTURE_3D);
+TextureUtils.bindTex(this.gl, this.program!, this.weatherMapTexture!, "weatherMap", 2);
+TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 3);
+TextureUtils.bindTex(this.gl, this.program!, previousTexture, "previousCloudTexture", 4);
+
+this.gl.uniform3fv(this.uniforms["cameraPosition"], cameraPosition);
+
+const sunLight = this.resourceCache.getData("sunLight") as DirectionalLight | null;
+let sunPos: vec3, sunColor: vec3;
+if (sunLight instanceof DirectionalLight && !this.resourceCache.getData("disableSun")) {
+  sunPos = vec3.create();
+  vec3.scale(sunPos, sunLight.direction, -1000.0);
+  sunColor = sunLight.color.createVec3();
+} else {
+  sunPos = vec3.fromValues(0, 1000, 0);
+  sunColor = vec3.fromValues(1, 1, 1);
+}
+this.gl.uniform3fv(this.uniforms["sunPos"], sunPos);
+this.gl.uniform3fv(this.uniforms["sunColor"], sunColor);
+
+const cameraInfo = this.resourceCache.getData("CameraInfo");
+this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
+this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
+this.gl.uniformMatrix4fv(this.uniforms["matViewProj"], false, cameraInfo.matViewProj);
+this.gl.uniformMatrix4fv(this.uniforms["previousView"], false, this.previousView);
+
+this.gl.uniform2fv(this.uniforms["tanFovBy2"], vec2.fromValues(
+  Math.tan(this.resourceCache.getData("fovY") * 0.5) * this.resourceCache.getData("aspectRatio"),
+  Math.tan(this.resourceCache.getData("fovY") * 0.5)
+));
+
+this.gl.uniform1f(this.uniforms["time"], performance.now() * 0.001);
+
+// Update all settings uniforms
+SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
+
+// Update previous camera position and previousViewProj for reprojection
+vec3.copy(this.previousCameraPosition, cameraPosition);
+this.previousView = mat4.clone(cameraInfo.matView);
+
+  // Update all settings uniforms
+  SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
+
+  // --- GPU Timer Query ---
+  const ext = this.gl.getExtension("EXT_disjoint_timer_query_webgl2");
+  if (ext) {
+    const query = this.gl.createQuery();
+    this.gl.beginQuery(ext.TIME_ELAPSED_EXT, query);
+
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
-    this.gl.bindVertexArray(null);
-    this.gl.useProgram(null);
 
-    this.gl.disable(this.gl.BLEND);
-    this.gl.depthMask(true);
-    this.gl.enable(this.gl.DEPTH_TEST);
+    this.gl.endQuery(ext.TIME_ELAPSED_EXT);
+
+    // Check previous query result (from last frame)
+    if (this.lastQuery && this.lastExt) {
+      const available = this.gl.getQueryParameter(this.lastQuery, this.gl.QUERY_RESULT_AVAILABLE);
+      const disjoint = this.gl.getParameter(this.lastExt.GPU_DISJOINT_EXT);
+      if (available && !disjoint) {
+        const timeElapsed = this.gl.getQueryParameter(this.lastQuery, this.gl.QUERY_RESULT);
+        console.log("Clouds Pass GPU Time: " + (timeElapsed / 1e6) + " ms");
+        this.gl.deleteQuery(this.lastQuery);
+        this.lastQuery = null;
+      }
+    }
+    // Save current query for next frame
+    this.lastQuery = query;
+    this.lastExt = ext;
+  } else {
+    // Fallback: just draw if extension not available
+    if (!pathtracerOn || this.pathtracerRender) {
+      this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+    }
   }
+
+  // Unbind
+  this.gl.bindVertexArray(null);
+  this.gl.useProgram(null);
+
+  this.gl.disable(this.gl.BLEND);
+  this.gl.depthMask(true);
+  this.gl.enable(this.gl.DEPTH_TEST);
+
+  // Advance ping-pong index for next frame
+  this.pingPongIndex = readIndex;
+}
 
   private InitSettings() {
     SettingsManager.instance.createSection(
@@ -525,6 +542,14 @@ export class CloudsPass extends RenderPass {
       defaultValue: 1.0,
       numType: "float"
     });
+        SettingsManager.instance.addCheckboxToSection("Clouds Settings", {
+      id: "CLOUDS_enableReprojection",
+      label: "Enable Cloud Reprojection",
+      defaultValue: false
+    });
+
+
+
 
     // Attach program uniforms for all settings
     SettingsManager.instance.attatchProgram(this.program!, [
@@ -555,7 +580,8 @@ export class CloudsPass extends RenderPass {
       "CLOUDS_windSpeed",
       "CLOUDS_windDirectionX",
       "CLOUDS_windDirectionZ",
-      "CLOUDS_blueNoiseAmplitude"
+      "CLOUDS_blueNoiseAmplitude",
+      "CLOUDS_enableReprojection",
     ]);
   }
   public resize(): void {
@@ -570,7 +596,7 @@ export class CloudsPass extends RenderPass {
         }
       }
     }
-
+    this.cloudTextures.forEach((texture) => this.gl.deleteTexture(texture));
     // Recreate render target with new dimensions
     this.renderTarget = this.initRenderTarget();
   }

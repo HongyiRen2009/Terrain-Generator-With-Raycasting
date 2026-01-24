@@ -79,7 +79,7 @@ export class LightingPass extends RenderPass {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
 
     // Use RGBA16F for HDR support (bloom, emissive materials)
-    const litSceneTexture = TextureUtils.createTexture2D(
+    const sceneTexture = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
       this.canvas.height,
@@ -96,14 +96,14 @@ export class LightingPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
       this.gl.TEXTURE_2D,
-      litSceneTexture,
+      sceneTexture,
       0
     );
 
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
 
-    return { fbo, textures: { litSceneTexture } };
+    return { fbo, textures: { sceneTexture } };
   }
 
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
