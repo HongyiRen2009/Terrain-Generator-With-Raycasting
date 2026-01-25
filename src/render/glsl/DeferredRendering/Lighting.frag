@@ -235,7 +235,9 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
     float baseBias = csmShadowBias[cascadeIndex];
     float cascadeBias = baseBias * (1.0f + slopeFactor);
     if(usingPCF) {
-        cascadeBias += baseBias * (pcfRadius * 0.05f);
+        // Add bias to account for PCF kernel size: kernel radius * texel size
+        float texelSize = 1.0f / float(csmShadowMapSize);
+        cascadeBias += pcfRadius * texelSize;
     }
 
     //World Space to Light Space

@@ -233,11 +233,11 @@ export class CSMPass extends RenderPass {
 
   /**
    * Returns hardcoded shadow bias values tuned for each cascade.
-   * Values: 0.005, 0.0035, 0.0005 for cascades 0, 1, 2
+   * Values: 0.0004, 0.0003, 0.00015 for cascades 0, 1, 2
    */
   private calculateCascadeBias(cascadeIndex: number): number {
     // Hardcoded tuned bias values
-    const hardcodedBias = [0.005, 0.0035, 0.0005, 0.0001, 0.00005, 0.00001, 0.000005, 0.000001];
+    const hardcodedBias = [0.0004, 0.0003, 0.00015, 0.0001, 0.00005, 0.00001, 0.000005, 0.000001];
     if (cascadeIndex < hardcodedBias.length) {
       return hardcodedBias[cascadeIndex];
     }
@@ -411,7 +411,7 @@ export class CSMPass extends RenderPass {
       label: "CSM Shadow Bias",
       min: 0.0, // Same min for all cascades
       max: 0.01, // Same max for all cascades
-      step: 0.0001, // Same step for all cascades
+      step: 0.000001, // Same step for all cascades
       defaultValue: defaultBiasArray, // Array of default values - each cascade gets its own default
       numType: "float",
       isArray: true,
