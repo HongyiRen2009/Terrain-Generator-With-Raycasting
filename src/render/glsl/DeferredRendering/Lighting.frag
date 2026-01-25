@@ -135,8 +135,13 @@ float computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex) {
     float currentDist = length(toFrag);
     float shadowMapRange = pointLights[lightIndex].range;
     vec3 lightDir = normalize(-toFrag);
-    float angleFactor = clamp(1.0f - max(dot(worldNormal, lightDir), 0.0f), 0.0f, 1.0f);
-    float biasScalar = pointShadowBias * (1.5f + angleFactor * 3.0f);
+    // Calculate slope-scaled bias using tan(angle) instead of cos
+    float ndotl = max(dot(worldNormal, lightDir), 0.0f);
+    float cosAngle = ndotl;
+    float sinAngle = sqrt(max(1.0f - cosAngle * cosAngle, 0.0f));
+    float tanAngle = (cosAngle > 0.001f) ? sinAngle / cosAngle : 1000.0f; // Avoid division by zero
+    float slopeFactor = clamp(tanAngle, 0.0f, 10.0f); // Clamp to reasonable range
+    float biasScalar = pointShadowBias * (1.0f + slopeFactor);
     float depthBias = biasScalar * shadowMapRange;
     if(currentDist > shadowMapRange) {
         return 1.0f;
@@ -221,9 +226,14 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
 
     vec3 lightDir = normalize(-SunLight.direction);
     float ndotl = max(dot(worldNormal, lightDir), 0.0f);
-    float angleFactor = clamp(1.0f - ndotl, 0.0f, 1.0f);
+    // Calculate slope-scaled bias using tan(angle) instead of cos
+    // tan(angle) = sin(angle) / cos(angle) = sqrt(1 - cos²(angle)) / cos(angle)
+    float cosAngle = ndotl;
+    float sinAngle = sqrt(max(1.0f - cosAngle * cosAngle, 0.0f));
+    float tanAngle = (cosAngle > 0.001f) ? sinAngle / cosAngle : 1000.0f; // Avoid division by zero
+    float slopeFactor = clamp(tanAngle, 0.0f, 10.0f); // Clamp to reasonable range
     float baseBias = csmShadowBias[cascadeIndex];
-    float cascadeBias = baseBias * (2.5f + angleFactor * 3.5f);
+    float cascadeBias = baseBias * (1.0f + slopeFactor);
     if(usingPCF) {
         cascadeBias += baseBias * (pcfRadius * 0.05f);
     }

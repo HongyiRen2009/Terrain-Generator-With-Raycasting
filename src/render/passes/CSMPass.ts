@@ -231,36 +231,18 @@ export class CSMPass extends RenderPass {
     this.gl.colorMask(true, true, true, true);
   }
 
-  // Base bias value that gets scaled by cascade far plane
-  private static readonly BASE_SHADOW_BIAS = 0.05;
-
   /**
-   * Calculates shadow bias for a cascade based on its far plane distance.
-   * Formula: bias = baseBias * (2 / cascadeFarPlane)
-   * Empirical values: 0.001, 0.0005, 0.0001 for cascades 1, 2, 3
+   * Returns hardcoded shadow bias values tuned for each cascade.
+   * Values: 0.005, 0.0035, 0.0005 for cascades 0, 1, 2
    */
   private calculateCascadeBias(cascadeIndex: number): number {
-    const lambda = (SettingsManager.instance.getSetting("lambda")?.value as number) || 0.8;
-    
-    // Try to get cascade splits if available
-    const nearFarPlanes = this.resourceCache.getData("pausedNearFarPlanes");
-    if (!nearFarPlanes) {
-      // Fallback: use old formula if cascade data isn't available yet
-      // This happens during initialization before camera info is set
-      return CSMPass.BASE_SHADOW_BIAS * (2.0 / (1000 * Math.pow(2.5, cascadeIndex)));
+    // Hardcoded tuned bias values
+    const hardcodedBias = [0.005, 0.0035, 0.0005, 0.0001, 0.00005, 0.00001, 0.000005, 0.000001];
+    if (cascadeIndex < hardcodedBias.length) {
+      return hardcodedBias[cascadeIndex];
     }
-    
-    const cascadeSplits = getCascadeSplits(this.resourceCache, lambda);
-    if (cascadeIndex >= cascadeSplits.length) {
-      // Fallback if index is out of bounds
-      return CSMPass.BASE_SHADOW_BIAS * (2.0 / nearFarPlanes.far);
-    }
-    
-    const cascadeFarPlane = cascadeSplits[cascadeIndex];
-    
-    // Formula: baseBias * (2 / cascadeFarPlane)
-    // Further cascades have larger far planes, so they get smaller bias values
-    return CSMPass.BASE_SHADOW_BIAS * (2.0 / cascadeFarPlane);
+    // Fallback for additional cascades: use very small value
+    return 0.000001;
   }
 
   private InitSettings() {
@@ -418,8 +400,7 @@ export class CSMPass extends RenderPass {
       defaultValue: true
     });
     const numCascades = this.resourceCache.getData("numCascades") ?? 3;
-    // Initialize csmShadowBias array with values calculated from cascade far planes
-    // Bias is automatically calculated as 2 / cascadeFarPlane to match empirical values
+    // Initialize csmShadowBias array with hardcoded tuned values
     const defaultBiasArray = Array.from({ length: numCascades }, (_, i) => {
       return this.calculateCascadeBias(i);
     });
