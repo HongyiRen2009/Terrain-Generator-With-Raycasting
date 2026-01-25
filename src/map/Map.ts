@@ -97,29 +97,78 @@ export class WorldMap {
       id: "u_redScatter",
       label: "Red Scattering in the Sky",
       min: 0,
-      max: 100,
-      step: 0.1,
-      defaultValue: 5.5,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.005,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings",{
       id: "u_greenScatter",
       label: "Green Scattering in the Sky",
       min: 0,
-      max: 100,
-      step: 0.1,
-      defaultValue: 13.0,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.011,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings",{
       id: "u_blueScatter",
       label: "Blue Scattering in the Sky",
       min: 0,
-      max: 100,
-      step: 0.1,
-      defaultValue: 33.1,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.022,
       numType: "float"
     });
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_MIE",
+      label: "Mie (whiteness at sea level)",
+      min: 0,
+      max: 0.5,
+      step: 0.001,
+      defaultValue: 0.021,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_haloSize",
+      label: "Mie Anisotropy (Lower = larger halo)",
+      min: 0,
+      max: 5,
+      step: 0.01,
+      defaultValue: 0.76,
+      numType: "float"
+    });
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_skyGradientQuality",
+      label: "Sky Gradient Quality",
+      min: 1,
+      max: 50,
+      step: 1,
+      defaultValue: 12,
+      numType: "int"
+    });
+
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_sunsetQuality",
+      label: "Sunset Quality",
+      min: 1,
+      max: 50,
+      step: 1,
+      defaultValue: 4,
+      numType: "int"
+    });
+
+    SettingsManager.instance.addSliderToSection("Sky Settings",{
+      id: "u_skyBrightnessBoost",
+      label: "Sky Brighness Coefficient",
+      min: 0,
+      max: 10,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+
+
   }
 
   /**

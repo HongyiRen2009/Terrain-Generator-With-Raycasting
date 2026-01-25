@@ -61,6 +61,7 @@ export class GLRenderer {
     this.resourceCache = new ResourceCache(gl);
     this.renderGraph = new RenderGraph();
     this._vaoManager = new VAOManager(gl);
+    this.pathtracer.glRendererVaoManager = this._vaoManager;
     this.init();
   }
 

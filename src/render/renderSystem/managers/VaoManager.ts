@@ -1,12 +1,12 @@
 import { mat4, vec3 } from "gl-matrix";
-import { Mesh } from "../../../map/Mesh";
+import { BVHTriangle, Mesh } from "../../../map/Mesh";
 import { WorldObject } from "../../../map/WorldObject";
 import { RenderUtils } from "../../../utils/RenderUtils";
 import { meshToNonInterleavedVerticesAndIndices } from "../../../map/cubes_utils";
 import GeometryVertexShaderSource from "../../glsl/DeferredRendering/Geometry.vert";
 import GeometryFragmentShaderSource from "../../glsl/DeferredRendering/Geometry.frag";
 import e from "express";
-import { Color } from "../../../map/terrains";
+import { Color, Terrains } from "../../../map/terrains";
 import { PointLight } from "../../../map/Light";
 export interface VaoInfo {
   vao: WebGLVertexArrayObject;
@@ -397,6 +397,68 @@ export class VAOManager {
     return { vertices, indices };
   }
 
+  public getGrassBVHTriangle() {
+    if (!this.grassVAOInfo || !this.instanceVBO) return {triangles: [], primitives: new Float32Array(0)};
+
+    const numInstances = this.grassVAOInfo.numInstances;
+    const instanceData = new Float32Array(numInstances * 5);
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceVBO);
+    this.gl.getBufferSubData(this.gl.ARRAY_BUFFER, 0, instanceData);
+
+    const triangles: BVHTriangle[] = [];
+    const primitives = new Float32Array(numInstances * 8); //minX,miny,minz,maxX,maxy,maxz,lean, angle
+    const height = 1.0; 
+    const width = 0.1;
+
+    for (let i = 0; i < numInstances; i++) {
+        const offset = i * 5;
+        const x = instanceData[offset + 0];
+        const y = instanceData[offset + 1];
+        const z = instanceData[offset + 2];
+        const lean = instanceData[offset + 3];
+        const angle = instanceData[offset + 4];
+
+        // 1. Calculate the tip displacement
+        // The tip is offset by the 'lean' factor in the direction of the rotation
+        const tipOffsetX = Math.cos(angle) * (lean * height);
+        const tipOffsetZ = Math.sin(angle) * (lean * height);
+
+        // 2. Define the Min and Max bounds of this specific blade
+        // We include a small buffer for the 'width' of the blade
+        const minX = Math.min(x, x + tipOffsetX) - width;
+        const maxX = Math.max(x, x + tipOffsetX) + width;
+        const minY = y;
+        const maxY = y + height;
+        const minZ = Math.min(z, z + tipOffsetZ) - width;
+        const maxZ = Math.max(z, z + tipOffsetZ) + width;
+
+        // 3. The "Center" used for BVH sorting (Surface Area Heuristic)
+        const centerX = (minX + maxX) * 0.5;
+        const centerY = (minY + maxY) * 0.5;
+        const centerZ = (minZ + maxZ) * 0.5;
+
+        const newOff = i * 8;
+        primitives[newOff + 0] = minX;
+        primitives[newOff + 1] = minY;
+        primitives[newOff + 2] = minZ;
+        primitives[newOff + 3] = maxX;
+        primitives[newOff + 4] = maxY;
+        primitives[newOff + 5] = maxZ;
+        primitives[newOff + 6] = lean;
+        primitives[newOff + 7] = angle;
+
+        triangles.push({
+            boundingBox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
+            triangle:[vec3.fromValues(minX,minY,minY),vec3.fromValues(maxX,maxY,maxZ),vec3.fromValues(minX,minY,minZ+0.01)], //Thisis shouldn't matter in the pathtracer this terrain type should do something
+            index: -2-i, //Tell that it's grass
+            vertexNormals: [vec3.fromValues(0,0,0),vec3.fromValues(1,1,1),vec3.fromValues(0,1,0)], //Thisis shouldn't matter in the pathtracer this terrain type should do something
+            center: [centerX, centerY, centerZ],
+        });
+    }
+
+    return {triangles: triangles,primitives: primitives};
+}
+
   createSphericalMesh(radius: number, showColor: Color): Mesh {
     const mesh = new Mesh();
     const subdivisions = 2; // Reduced to 2 (320 tris) for stability
@@ -509,6 +571,7 @@ export class VAOManager {
 
     return mesh;
   }
+  
 
   createPointLightVAOs(pointLights: PointLight[]): void {
     // Clear any existing light VAOs from cache
