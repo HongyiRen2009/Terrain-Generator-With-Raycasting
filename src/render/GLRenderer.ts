@@ -213,6 +213,10 @@ export class GLRenderer {
       this.canvas.width,
       this.canvas.height
     );
+    this.resourceCache.setData("viewportSize", {
+      width: this.canvas.width,
+      height: this.canvas.height
+    });
     const cameraInfo: Matrices = {
       matView: matViewAndProj.matView,
       matProj: matViewAndProj.matProj,
@@ -239,6 +243,10 @@ export class GLRenderer {
         this.camera.getNearFarPlanes()
       );
       this.resourceCache.setData("pausedCameraPosition", this.camera.position);
+      this.resourceCache.setData("pausedViewportSize", {
+        width: this.canvas.width,
+        height: this.canvas.height
+      });
     }
   }
   public resizeGBuffer(width: number, height: number): void {

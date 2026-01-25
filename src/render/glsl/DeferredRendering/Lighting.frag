@@ -23,6 +23,7 @@ uniform mat4 lightSpaceMatrices[8]; // Support up to 8 cascades
 uniform float cascadeSplits[8]; // Support up to 8 cascades
 uniform bool usingPCF;
 uniform float csmShadowBias[8]; // One bias per cascade for CSM
+uniform float csmPcfBiasScale[8]; // Per-cascade scale for PCF-only bias term
 uniform int csmShadowMapSize;
 uniform int numCascades;
 uniform bool csmEnabled;
@@ -240,7 +241,16 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
         // Use diagonal distance (sqrt(2) * radius) to account for corner samples
         float texelSize = 1.0f / float(csmShadowMapSize);
         float maxOffsetDistance = pcfRadius * 1.414213562f; // sqrt(2) for diagonal
-        float pcfBias = maxOffsetDistance * texelSize * (1.0f + slopeFactor * 0.5f);
+        // Cascade-relative scaling (same idea as scaledPcfRadius below): larger cascades get smaller contribution.
+        float cascadeScale = 1.0f;
+        if(cascadeIndex > 0 && cascadeSplits[0] > 0.0f) {
+            float firstCascadeRange = cascadeSplits[0];
+            float currentCascadeNear = cascadeSplits[cascadeIndex - 1];
+            float currentCascadeRange = cascadeSplits[cascadeIndex] - currentCascadeNear;
+            cascadeScale = firstCascadeRange / max(currentCascadeRange, 0.001f);
+        }
+        // PCF-only bias contribution: per-cascade tunable scale (keeps base + slope-scaled bias as-is).
+        float pcfBias = maxOffsetDistance * texelSize * (1.0f + slopeFactor * 0.5f) * csmPcfBiasScale[cascadeIndex] * cascadeScale;
         cascadeBias += pcfBias;
     }
 

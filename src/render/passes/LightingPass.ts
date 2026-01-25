@@ -496,6 +496,7 @@ export class LightingPass extends RenderPass {
       "pcfRadius",
       "usingPCF",
       "csmShadowBias",
+      "csmPcfBiasScale",
       "cascadeDebug",
       "ambientLightIntensity",
       "showCameraDepth",
