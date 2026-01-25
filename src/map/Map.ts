@@ -175,7 +175,10 @@ export class WorldMap {
       allTimings.push(timings);
       vertexCount += mesh.mesh.length;
     }
-
+    for(const chunkKey in this.chunks){
+      this.chunks[chunkKey].generateEdgeTriangles();
+    
+    }
     // Average timings
     if (allTimings.length > 0) {
       const avg = (key: keyof (typeof allTimings)[0]) =>
@@ -432,52 +435,7 @@ export class Chunk {
     return this.worldMap.getFieldValue(worldX, worldY, worldZ);
   }
 
-  // Generate edge triangles in main thread
-  generateEdgeTriangles(): void {
-    const edgeMesh = new Mesh();
 
-    // Process X-axis edges (x = 0 and x = GridSize[0] - 1)
-    for (let x of [0, this.GridSize[0] - 1]) {
-      for (let y = 0; y < this.GridSize[1]; y++) {
-        for (let z = 0; z < this.GridSize[2]; z++) {
-          let c = vec3.fromValues(x, y, z);
-          const cubeCase = this.GenerateCase(c);
-          const newMesh = this.caseToMesh(c, cubeCase);
-          edgeMesh.merge(newMesh);
-        }
-      }
-    }
-
-    // Process Y-axis edges (y = 0 and y = GridSize[1] - 1)
-    for (let y of [0, this.GridSize[1] - 1]) {
-      for (let x = 1; x < this.GridSize[0] - 1; x++) {
-        for (let z = 0; z < this.GridSize[2]; z++) {
-          let c = vec3.fromValues(x, y, z);
-          const cubeCase = this.GenerateCase(c);
-          const newMesh = this.caseToMesh(c, cubeCase);
-          edgeMesh.merge(newMesh);
-        }
-      }
-    }
-
-    // Process Z-axis edges (z = 0 and z = GridSize[2] - 1)
-    for (let z of [0, this.GridSize[2] - 1]) {
-      for (let x = 1; x < this.GridSize[0] - 1; x++) {
-        for (let y = 1; y < this.GridSize[1] - 1; y++) {
-          let c = vec3.fromValues(x, y, z);
-          const cubeCase = this.GenerateCase(c);
-          const newMesh = this.caseToMesh(c, cubeCase);
-          edgeMesh.merge(newMesh);
-        }
-      }
-    }
-
-    if (!this.Mesh) {
-      this.Mesh = edgeMesh;
-    } else {
-      this.Mesh.merge(edgeMesh);
-    }
-  }
 
   private GenerateCase(cubeCoordinates: vec3): number {
     let caseIndex = 0;
@@ -656,6 +614,52 @@ export class Chunk {
       indices: newIndices
     };
   }
+    // Generate edge triangles in main thread
+  generateEdgeTriangles(): void {
+    const edgeMesh = new Mesh();
+
+    // Process X-axis edges (x = 0 and x = GridSize[0] - 1)
+    for (let x of [0, this.GridSize[0] - 1]) {
+      for (let y = 0; y < this.GridSize[1]; y++) {
+        for (let z = 0; z < this.GridSize[2]; z++) {
+          let c = vec3.fromValues(x, y, z);
+          const cubeCase = this.GenerateCase(c);
+          const newMesh = this.caseToMesh(c, cubeCase);
+          edgeMesh.merge(newMesh);
+        }
+      }
+    }
+
+    // Process Y-axis edges (y = 0 and y = GridSize[1] - 1)
+    for (let y of [0, this.GridSize[1] - 1]) {
+      for (let x = 1; x < this.GridSize[0] - 1; x++) {
+        for (let z = 0; z < this.GridSize[2]; z++) {
+          let c = vec3.fromValues(x, y, z);
+          const cubeCase = this.GenerateCase(c);
+          const newMesh = this.caseToMesh(c, cubeCase);
+          edgeMesh.merge(newMesh);
+        }
+      }
+    }
+
+    // Process Z-axis edges (z = 0 and z = GridSize[2] - 1)
+    for (let z of [0, this.GridSize[2] - 1]) {
+      for (let x = 1; x < this.GridSize[0] - 1; x++) {
+        for (let y = 1; y < this.GridSize[1] - 1; y++) {
+          let c = vec3.fromValues(x, y, z);
+          const cubeCase = this.GenerateCase(c);
+          const newMesh = this.caseToMesh(c, cubeCase);
+          edgeMesh.merge(newMesh);
+        }
+      }
+    }
+
+    if (!this.Mesh) {
+      this.Mesh = edgeMesh;
+    } else {
+      this.Mesh.merge(edgeMesh);
+    }
+  }
   /**
    *
    * Generates the chunk's mesh using the compute shader, must be called sequentially to avoid two chunks using the same shader at once
@@ -684,9 +688,9 @@ export class Chunk {
     // Generate field using compute shader
     let startTime = performance.now();
     const computeShader = this.worldMap.computeShader;
-    const width = this.GridSize[0] + 1;
-    const height = this.GridSize[1] + 1;
-    const depth = this.GridSize[2] + 1;
+    const width = this.GridSize[0] +1;
+    const height = this.GridSize[1]+1;
+    const depth = this.GridSize[2] +1;
     const fieldBuffer = await computeShader.createSimplexNoise3D(
       width,
       height,
@@ -760,12 +764,13 @@ export class Chunk {
 
     // Reconstruct mesh from compute shader results
     this.Mesh = new Mesh();
-
+    debugger
     // Group vertices by triangle (3 vertices per triangle)
     for (let i = 0; i < dedupedIndices.length; i += 3) {
       const idx0 = dedupedIndices[i];
       const idx1 = dedupedIndices[i + 1];
       const idx2 = dedupedIndices[i + 2];
+      // Reject all triangles on edge of chunk to avoid seams
 
       const tri: Triangle = [
         vec3.fromValues(
@@ -784,7 +789,23 @@ export class Chunk {
           dedupedVertices[idx2 * 4 + 2]
         )
       ];
-
+      let rejectTriangle = false;
+      for(let j=0;j<3;j++){
+        if(
+          tri[j][0] <= 0 ||
+          tri[j][0] >= width-1 ||
+          tri[j][1] <= 0 ||
+          tri[j][1] >= height-1 ||
+          tri[j][2] <= 0 ||
+          tri[j][2] >= depth-1
+        ){
+          rejectTriangle = true;
+          break;
+        }
+      }
+      if(rejectTriangle){
+        continue;
+      }
       const norm: Triangle = [
         vec3.fromValues(
           dedupedNormals[idx0 * 4],
@@ -815,7 +836,7 @@ export class Chunk {
 
     startTime = performance.now();
     // Generate edge triangles on CPU
-    this.generateEdgeTriangles();
+    //this.generateEdgeTriangles();
     timings.edgeTriangles = performance.now() - startTime;
 
     timings.total = performance.now() - totalStart;

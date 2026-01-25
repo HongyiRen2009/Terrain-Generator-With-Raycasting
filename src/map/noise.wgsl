@@ -152,7 +152,6 @@ fn terrainHeight(x:f32, z:f32, seed:u32) -> f32 {
 
 // ---------------- Density Function ----------------
 fn densityAt(x:f32, y:f32, z:f32, seed:u32) -> f32 {
-    // Convert to global/world coordinates
     let globalX = x + f32(params.baseX);
     let globalY = y + f32(params.baseY);
     let globalZ = z + f32(params.baseZ);
@@ -160,7 +159,7 @@ fn densityAt(x:f32, y:f32, z:f32, seed:u32) -> f32 {
     var terrain = terrainHeight(globalX, globalZ, seed);
     let waterLevel:f32 = params.waterLevel;
 
-    // Simple island falloff controlled by islandAmount (0.0 = none, 1.0 = full)
+    // Island falloff
     let centerX = f32(params.baseX) + f32(params.width) * 0.5;
     let centerZ = f32(params.baseZ) + f32(params.depth) * 0.5;
     let dx = globalX - centerX;
@@ -170,15 +169,37 @@ fn densityAt(x:f32, y:f32, z:f32, seed:u32) -> f32 {
     let islandFactor = 1.0 - clamp(dist / maxDist, 0.0, 1.0) * params.islandAmount;
     terrain = terrain * islandFactor;
 
-    if (globalY < waterLevel) { return 1.0; }
-    if (globalY < terrain) {
-        let cave = fractalNoise3D(globalX * 0.03, globalY * 0.04, globalZ * 0.03, seed + 500u, 4u, params.persistence, params.lacunarity);
-        if (cave > params.caveThreshold) { return 0.0; }
-        let ov = fractalNoise3D(globalX * 0.02, globalY * 0.02, globalZ * 0.02, seed + 600u, 4u, params.persistence, params.lacunarity);
-        if (ov > 0.25 && globalY > terrain - (params.heightScale * 0.56)) { return 0.0; }
-        return 1.0;
+    // Base density: smooth transition around terrain surface
+    let surfaceDistance = globalY - terrain;
+    let transitionRange = 2.0; // Adjust this to control surface smoothness
+    var density = 1.0 - clamp((surfaceDistance + transitionRange) / (2.0 * transitionRange), 0.0, 1.0);
+
+    // Add caves (reduce density)
+    let cave = fractalNoise3D(globalX * 0.03, globalY * 0.04, globalZ * 0.03, seed + 500u, 4u, params.persistence, params.lacunarity);
+    if (cave > params.caveThreshold && globalY < terrain) {
+        let caveStrength = (cave - params.caveThreshold) / (1.0 - params.caveThreshold);
+        density = density * (1.0 - caveStrength * 0.8); // Carve out caves
     }
-    return 0.0;
+
+    // Overhangs (add density above terrain in certain areas)
+    let ov = fractalNoise3D(globalX * 0.02, globalY * 0.02, globalZ * 0.02, seed + 600u, 4u, params.persistence, params.lacunarity);
+    if (ov > 0.25 && globalY > terrain && globalY < terrain + params.heightScale * 0.3) {
+        let overhangStrength = (ov - 0.25) / 0.75;
+        density = max(density, overhangStrength * 0.6);
+    }
+
+    // Water surface: add density below water level
+    if (globalY < waterLevel) {
+        let waterDensity = 1.0 - clamp((globalY - (waterLevel - transitionRange)) / transitionRange, 0.0, 1.0);
+        density = max(density, waterDensity);
+        return density;
+    }
+
+    // Add some noise variation to make surfaces more interesting
+    let detailNoise = fractalNoise3D(globalX * 0.1, globalY * 0.1, globalZ * 0.1, seed + 100u, 3u, 0.5, 2.0);
+    density = density + detailNoise * 0.1;
+
+    return clamp(density, 0.0, 1.0);
 }
 
 // ---------------- Compute Entry ----------------
