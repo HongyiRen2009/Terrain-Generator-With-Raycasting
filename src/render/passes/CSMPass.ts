@@ -440,12 +440,18 @@ export class CSMPass extends RenderPass {
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "cascadeDebug",
       label: "Cascade Debug",
-      defaultValue: false
+      defaultValue: false,
+      onChange: (value: boolean) => {
+        this.resourceCache.setData("cascadeDebug", value);
+      }
     });
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "debugPauseMode",
       label: "Debug Pause Mode",
-      defaultValue: false
+      defaultValue: false,
+      onChange: (value: boolean) => {
+        this.resourceCache.setData("debugPauseMode", value);
+      }
     });
   }
 
@@ -638,6 +644,21 @@ function getLightSpaceMatrices(
       minZ = Math.min(minZ, trf[2]);
       maxZ = Math.max(maxZ, trf[2]);
     }
+    
+    // Stabilize the CSM frustum by snapping to texel grid
+    const shadowMapResolution = resourceCache.getData("csmShadowMapSize") ?? 4096;
+    const texelSizeLS = (maxX - minX) / shadowMapResolution;
+    const cx = (minX + maxX) * 0.5;
+    const cy = (minY + maxY) * 0.5;
+    const snappedCx = Math.floor(cx / texelSizeLS) * texelSizeLS;
+    const snappedCy = Math.floor(cy / texelSizeLS) * texelSizeLS;
+    const offsetX = snappedCx - cx;
+    const offsetY = snappedCy - cy;
+    minX += offsetX;
+    maxX += offsetX;
+    minY += offsetY;
+    maxY += offsetY;
+    
     if (minZ < 0) {
       minZ *= zMultiplier;
     } else {
