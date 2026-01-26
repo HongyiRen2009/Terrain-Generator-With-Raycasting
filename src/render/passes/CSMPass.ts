@@ -414,7 +414,7 @@ export class CSMPass extends RenderPass {
       min: 0.0,
       max: 15.0,
       step: 0.1,
-      defaultValue: 7.0,
+      defaultValue: 3.0,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("CSM Settings", {

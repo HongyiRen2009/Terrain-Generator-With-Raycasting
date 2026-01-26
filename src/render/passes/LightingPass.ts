@@ -521,22 +521,37 @@ function createJitterTexture(
   filterSize: number
 ): WebGLTexture {
   const data = new Float32Array(size * size * filterSize * filterSize * 2);
+  const totalSamples = filterSize * filterSize;
+
   let index = 0;
   for (let texY = 0; texY < size; texY++) {
     for (let texX = 0; texX < size; texX++) {
-      for (let filterY = filterSize - 1; filterY >= 0; filterY--) {
-        for (let filterX = 0; filterX < filterSize; filterX++) {
-          const x = (filterX + Math.random()) / filterSize;
-          const y = (filterY + Math.random()) / filterSize;
+      // First 8 samples: explicitly generate at 8 evenly-spaced angles on outer ring
+      // This ensures proper early-out coverage regardless of filterSize
+      for (let i = 0; i < 8; i++) {
+        const angle = (i + Math.random()) / 8; // 8 evenly-spaced sectors with jitter
+        const radius = 1.0 - Math.random() * (1.0 / filterSize); // Outer ring
+        data[index] = Math.sqrt(radius) * Math.cos(angle * 2 * Math.PI);
+        data[index + 1] = Math.sqrt(radius) * Math.sin(angle * 2 * Math.PI);
+        index += 2;
+      }
 
-          data[index] = Math.sqrt(y) * Math.cos(x * 2 * Math.PI);
-          data[index + 1] = Math.sqrt(y) * Math.sin(x * 2 * Math.PI);
-
-          index += 2;
-        }
+      // Remaining samples: stratified grid for the rest of the disk
+      const remainingSamples = totalSamples - 8;
+      for (let i = 0; i < remainingSamples; i++) {
+        // Map remaining samples across the disk (inner rings)
+        const sampleIdx = i + 8;
+        const filterX = sampleIdx % filterSize;
+        const filterY = filterSize - 1 - Math.floor(sampleIdx / filterSize);
+        const angle = (filterX + Math.random()) / filterSize;
+        const radius = (filterY + Math.random()) / filterSize;
+        data[index] = Math.sqrt(radius) * Math.cos(angle * 2 * Math.PI);
+        data[index + 1] = Math.sqrt(radius) * Math.sin(angle * 2 * Math.PI);
+        index += 2;
       }
     }
   }
+
   const texture = gl.createTexture();
   const layers = (filterSize * filterSize) / 2;
   gl.bindTexture(gl.TEXTURE_3D, texture);
@@ -555,5 +570,5 @@ function createJitterTexture(
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.bindTexture(gl.TEXTURE_3D, null);
-  return texture;
+  return texture!;
 }
