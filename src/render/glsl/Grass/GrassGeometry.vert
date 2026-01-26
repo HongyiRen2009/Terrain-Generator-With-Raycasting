@@ -7,6 +7,7 @@ layout(location = 2) in float randomLean;
 layout(location = 3) in float rotAngle;
 uniform mat4 viewMatrix;
 uniform mat4 projMatrix;
+uniform mat4 modelMatrix;
 uniform sampler2D windStrengthNoiseTex;
 uniform sampler2D windDirectionNoiseTex;
 uniform float time;
@@ -66,6 +67,6 @@ void main() {
 
     vCurveAngle = curveAngle;
 
-    gl_Position = projMatrix * viewMatrix * vec4(worldPosition, 1.0f);
+    gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(worldPosition, 1.0f);
 
 }

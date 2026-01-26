@@ -3,6 +3,7 @@ import { GameEngine } from "../GameEngine";
 
 export class Camera {
   position: vec3;
+  lastPosition:vec3;
   sensitivity = 0.1;
   yaw = 0; // Left right rotation in degrees
   pitch = 0; // Up down rotation in degrees
@@ -18,6 +19,7 @@ export class Camera {
   fovy: number = 90; // Field of view in degrees
   constructor(position: vec3) {
     this.position = position;
+    this.lastPosition = vec3.clone(position);
 
     this.UpdateCameraVectors();
     this.speed = 0.02;

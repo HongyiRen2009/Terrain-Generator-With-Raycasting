@@ -215,4 +215,14 @@ export class WorldUtils {
       }
     }
   }
+  static chunkKeyFromPosition(position: vec3, world: WorldMap): string {
+    const chunkX = Math.floor(position[0] / world.resolution) * world.resolution;
+    const chunkY = Math.floor(position[1] / world.height) * world.height;
+    const chunkZ = Math.floor(position[2] / world.resolution) * world.resolution;
+    return `${chunkX},${chunkY},${chunkZ}`;
+  }
+  static chunkKeyToPosition(chunkKey: string): vec3 {
+    const [chunkX, chunkY, chunkZ] = chunkKey.split(",").map(Number);
+    return vec3.fromValues(chunkX, chunkY, chunkZ);
+  }
 }

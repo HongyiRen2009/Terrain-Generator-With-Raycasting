@@ -13,6 +13,7 @@ import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
 import { threemfToMesh } from "./modelLoader/3fmreader";
 import { Color, Terrains } from "./map/terrains";
 import { WorldObject } from "./map/WorldObject";
+import { SettingsSection } from "./Settings";
 
 /**
  * Our holding class for all game mechanics
@@ -40,6 +41,7 @@ export class GameEngine {
   private currentFPS: number = 0;
 
   private worldInitialized = false;
+  private renderDistance = 3; // In chunks
   private updatePathracing: () => void;
   // Stored bound event handlers for cleanup
   private boundMouseDown: ((e?: any) => void) | null = null;
@@ -76,7 +78,7 @@ export class GameEngine {
     //Initialize controls
     this.addKeys();
 
-    this.updatePathracing = () => {};
+    this.updatePathracing = () => { };
 
     //Initialize world
     // Increase world height to allow taller mountains (was 64)
@@ -89,7 +91,7 @@ export class GameEngine {
     );
 
     //Initialize Camera
-    this.mainCamera = new Camera(vec3.fromValues(-22, 20, 33));
+    this.mainCamera = new Camera(vec3.fromValues(500, 50, 500));
 
     //Initial pathTracer
     this.pathTracer = new PathTracer(
@@ -108,7 +110,7 @@ export class GameEngine {
       this.world,
       this.pathTracer
     );
-  
+
     this.updatePathracing = () => {
       this.pathTracer.initBVH(this.world.combinedMesh());
       this.pathTracer.init(false);
@@ -207,17 +209,17 @@ export class GameEngine {
     // Dispose subsystems
     try {
       this.renderer.dispose();
-    } catch (e) {}
+    } catch (e) { }
     try {
       this.pathTracer.dispose();
-    } catch (e) {}
+    } catch (e) { }
   }
   public async initialize() {
-    await this.world.generate();
 
-    this.renderer.vaoManager.createTerrainVAO(
-      WorldUtils.genTerrainVertices(this.world)
+    this.generateChunksAroundCamera(
+      this.world.getChunkCoordsFromPosition(this.mainCamera.position)
     );
+
     this.world.onObjectAdded = (obj: WorldObject) => {
       this.world.objectUI.setupObjectUI(
         obj,
@@ -248,12 +250,35 @@ export class GameEngine {
 
     WorldUtils.addChunkGears(this.world, gearMesh);
 
-    this.pathTracer.initBVH(this.world.combinedMesh());
-    this.pathTracer.init(false);
+    //this.pathTracer.initBVH(this.world.combinedMesh());
+    //this.pathTracer.init(false);
     this.worldInitialized = true;
     this.canvas.style.display = "block";
     document.getElementById("loadingBox")!.style.display = "none";
+    this.initWorldSettings();
   }
+  private initWorldSettings() {
+    const s = new SettingsSection(
+          document.getElementById("settings-section")!,
+          "World Settings"
+        );
+    s.addSlider({
+      id: "Render Distance",
+      label: "Render Distance",
+      defaultValue: this.renderDistance,
+      min: 1,
+      max: 20,
+      step: 1,
+      numType: "int",
+      onChange: (v: number) => {
+        this.renderDistance = v;
+        this.generateChunksAroundCamera(
+          this.world.getChunkCoordsFromPosition(this.mainCamera.position)
+        );
+      }
+    });
+  }
+
   /**
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
@@ -271,7 +296,7 @@ export class GameEngine {
       if (this.mode == 0) {
         this.renderer.render(timestamp);
       } else {
-        this.renderer.render(timestamp,true);
+        this.renderer.render(timestamp, true);
         //this.pathTracer.render(timestamp);
         //this.mode=-1;
       }
@@ -285,15 +310,54 @@ export class GameEngine {
     }
     this.debug.update();
   }
-
+  generateChunksAroundCamera(cameraChunk: vec3) {
+    for (const chunkKey in this.world.chunks) {
+      const chunkPos = WorldUtils.chunkKeyToPosition(chunkKey);
+      const distance = Math.max(
+        Math.abs(chunkPos[0] - cameraChunk[0]) / this.world.resolution,
+        Math.abs(chunkPos[1] - cameraChunk[1]) / this.world.height,
+        Math.abs(chunkPos[2] - cameraChunk[2]) / this.world.resolution
+      );
+      if (distance > this.renderDistance) {
+        this.world.unloadChunk(chunkPos);
+        this.renderer.vaoManager.deleteTerrainVao(chunkKey);
+      }
+    }
+    for (let j = -this.renderDistance; j < this.renderDistance; j++) {
+      for (let i = -this.renderDistance; i < this.renderDistance; i++) {
+        const chunkPos = vec3.fromValues(cameraChunk[0] + (i) * this.world.resolution, 0, cameraChunk[2] + (j) * this.world.resolution);
+        this.world.loadChunk(chunkPos, () => {
+          if(!this.world.chunks[WorldUtils.chunkKeyFromPosition(chunkPos, this.world)]){
+            return;
+          }
+          this.renderer.vaoManager.createTerrainVAO(
+            this.world.chunks[WorldUtils.chunkKeyFromPosition(chunkPos, this.world)]!,
+            WorldUtils.chunkKeyFromPosition(chunkPos, this.world)
+          );
+        });
+      }
+    }
+    this.world.processChunkQueue();
+  }
+  updateChunksForCamera() {
+    const cameraChunk = this.world.getChunkCoordsFromPosition(
+      this.mainCamera.position
+    );
+    const lastCameraChunk = this.world.getChunkCoordsFromPosition(
+      this.mainCamera.lastPosition
+    );
+    if (vec3.equals(cameraChunk, lastCameraChunk)) {
+      return;
+    }
+    this.generateChunksAroundCamera(cameraChunk);
+  }
   /**
    * Controls to move the camera!
    */
   updateCamera(time: number) {
     let velocity = this.mainCamera.speed * time;
     let movement = vec3.create();
-    let oldCamPos: vec3 = vec3.create();
-    vec3.copy(oldCamPos, this.mainCamera.position);
+    this.mainCamera.lastPosition = vec3.clone(this.mainCamera.position);
 
     //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
     if (this.keys["KeyF"]) velocity *= 4;
@@ -312,9 +376,10 @@ export class GameEngine {
 
     vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
 
-    if (!vec3.equals(this.mainCamera.position, oldCamPos)) {
+    if (!vec3.equals(this.mainCamera.position, this.mainCamera.lastPosition)) {
       this.pathTracer.resetAccumulation();
     }
+    this.updateChunksForCamera();
   }
 
   addKeys() {

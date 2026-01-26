@@ -316,7 +316,7 @@ export class GrassGeometryPass extends RenderPass {
   }
 
   public render(
-    vao_info: VaoInfo | VaoInfo[] | GrassVAOInfo,
+    vao_info: VaoInfo | VaoInfo[] | GrassVAOInfo | GrassVAOInfo[],
     pathtracerOn: boolean
   ): void {
     if (!this.program) return;
@@ -358,7 +358,6 @@ export class GrassGeometryPass extends RenderPass {
         cameraInfo.matProj
       );
     }
-
     gl.uniform1f(
       gl.getUniformLocation(this.program!, "time"),
       performance.now() / 1000
@@ -387,22 +386,24 @@ export class GrassGeometryPass extends RenderPass {
     );
     SettingsManager.instance.updateProgramUniforms(gl, this.program!);
 
-    const grassVAO = vao_info as GrassVAOInfo;
-    for (let i = 0; i < grassVAO.lodLevels.length; i++) {
-      const lod = grassVAO.lodLevels[i];
-      const patchCenter = vec3.fromValues(0, 20, 33);
-      const distance = vec3.distance(cameraPos, patchCenter);
-      if (distance <= lod.maxDistance) {
-        gl.bindVertexArray(lod.vao);
-        gl.drawElementsInstanced(
-          gl.TRIANGLES,
-          lod.indexCount,
-          gl.UNSIGNED_SHORT,
-          0,
-          grassVAO.numInstances
-        );
-        break;
-      }
+    const grassVAO = vao_info as GrassVAOInfo[];
+    for (let i = 0; i < grassVAO.length; i++) {
+      
+      const vao = grassVAO[i];
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.program!, "modelMatrix"),
+        false,
+        vao.modelMatrix
+      );
+      gl.bindVertexArray(vao.vao);
+      gl.drawElementsInstanced(
+        gl.TRIANGLES,
+        vao.indexCount,
+        gl.UNSIGNED_SHORT,
+        0,
+        vao.numInstances
+      );
+
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindVertexArray(null);

@@ -229,7 +229,7 @@ this.previousView = mat4.clone(cameraInfo.matView);
       const disjoint = this.gl.getParameter(this.lastExt.GPU_DISJOINT_EXT);
       if (available && !disjoint) {
         const timeElapsed = this.gl.getQueryParameter(this.lastQuery, this.gl.QUERY_RESULT);
-        console.log("Clouds Pass GPU Time: " + (timeElapsed / 1e6) + " ms");
+        //console.log("Clouds Pass GPU Time: " + (timeElapsed / 1e6) + " ms");
         this.gl.deleteQuery(this.lastQuery);
         this.lastQuery = null;
       }
