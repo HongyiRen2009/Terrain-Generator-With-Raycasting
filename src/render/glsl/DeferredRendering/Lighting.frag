@@ -21,6 +21,7 @@ uniform float ambientLightIntensity;
 //Shadow Uniforms
 uniform mat4 lightSpaceMatrices[8]; // Support up to 8 cascades
 uniform float cascadeSplits[8]; // Support up to 8 cascades
+uniform float cascadeBlendWidth; // Width of blend region (0.0-1.0, fraction of cascade depth range)
 uniform bool usingPCF;
 uniform float csmShadowBias[8]; // One bias per cascade for CSM
 uniform float csmPcfBiasScale[8]; // Per-cascade scale for PCF-only bias term
@@ -91,8 +92,46 @@ vec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {
     return worldPos.xyz;
 }
 
+// Cascade blend info structure
+struct CascadeBlendInfo {
+    int primaryCascade;   // Main cascade to sample
+    int secondaryCascade; // Cascade to blend with (for smooth transitions)
+    float blendFactor;    // 0.0 = use primary only, 1.0 = use secondary only
+};
+
+// Choose cascade based on view depth with blending near split boundaries
+CascadeBlendInfo chooseCascadeWithBlend(float viewDepth) {
+    CascadeBlendInfo info;
+    float depth = abs(viewDepth);
+
+    info.primaryCascade = numCascades - 1;
+    info.secondaryCascade = numCascades - 1;
+    info.blendFactor = 0.0f;
+
+    for(int i = 0; i < 8; i++) {
+        if(i >= numCascades)
+            break;
+        if(depth < cascadeSplits[i]) {
+            info.primaryCascade = i;
+            info.secondaryCascade = min(i + 1, numCascades - 1);
+
+            // Calculate blend region near the split boundary
+            float splitDist = cascadeSplits[i];
+            float prevSplit = (i > 0) ? cascadeSplits[i - 1] : 0.0f;
+            float cascadeRange = splitDist - prevSplit;
+            float blendStart = splitDist - cascadeRange * cascadeBlendWidth;
+
+            if(depth > blendStart && i < numCascades - 1) {
+                info.blendFactor = smoothstep(blendStart, splitDist, depth);
+            }
+            return info;
+        }
+    }
+    return info;
+}
+
+// Simple cascade selection without blending (for reference)
 int chooseCascade(float viewDepth) {
-    // View depth is negative (camera looks down -Z), cascade splits are positive distances
     float depth = abs(viewDepth);
     for(int i = 0; i < 8; i++) {
         if(i >= numCascades)
@@ -100,7 +139,7 @@ int chooseCascade(float viewDepth) {
         if(depth < cascadeSplits[i])
             return i;
     }
-    return numCascades - 1; // Return last cascade if beyond all splits
+    return numCascades - 1;
 }
 
 float pointShadowSample(int lightIndex, vec3 vector) {
@@ -627,22 +666,48 @@ void main() {
     float materialId = texture(albedoTexture, fragUV).a;
     bool isGrass = abs(materialId - 0.5f) < 0.01f;
 
-    int cascadeIndex = chooseCascade(cascadeViewDepth);
-    float sunShadow = computeSunShadow(fragWorldPos, worldNormal, cascadeIndex);
+    // Use depth-based cascade selection with blending near split boundaries
+    CascadeBlendInfo cascadeInfo = chooseCascadeWithBlend(cascadeViewDepth);
+    int cascadeIndex = cascadeInfo.primaryCascade;
+
+    // Compute sun shadow with optional blending between cascades
+    float sunShadow;
+    if(cascadeInfo.blendFactor > 0.0f && cascadeInfo.secondaryCascade != cascadeInfo.primaryCascade) {
+        // Blend shadows between two cascades for smooth transitions
+        float shadowPrimary = computeSunShadow(fragWorldPos, worldNormal, cascadeInfo.primaryCascade);
+        float shadowSecondary = computeSunShadow(fragWorldPos, worldNormal, cascadeInfo.secondaryCascade);
+        sunShadow = mix(shadowPrimary, shadowSecondary, cascadeInfo.blendFactor);
+    } else {
+        sunShadow = computeSunShadow(fragWorldPos, worldNormal, cascadeIndex);
+    }
 
     // Replace albedo with debug colors when cascade debug is enabled
     if(cascadeDebug && csmEnabled) {
-        // Cycle through colors for different cascades
-        vec3 cascadeColors[8] = vec3[](vec3(1.0f, 0.0f, 1.0f), // Magenta
-        vec3(0.0f, 1.0f, 1.0f), // Cyan
-        vec3(1.0f, 1.0f, 0.0f), // Yellow
-        vec3(1.0f, 0.0f, 0.0f), // Red
-        vec3(0.0f, 1.0f, 0.0f), // Green
-        vec3(0.0f, 0.0f, 1.0f), // Blue
-        vec3(1.0f, 0.5f, 0.0f), // Orange
-        vec3(0.5f, 0.0f, 1.0f)  // Purple
+        // Cascade colors - distinct colors for each cascade
+        vec3 cascadeColors[8] = vec3[](
+            vec3(1.0f, 0.2f, 0.2f), // Red - Cascade 0 (smallest/closest)
+            vec3(0.2f, 1.0f, 0.2f), // Green - Cascade 1
+            vec3(0.2f, 0.2f, 1.0f), // Blue - Cascade 2
+            vec3(1.0f, 1.0f, 0.2f), // Yellow - Cascade 3
+            vec3(1.0f, 0.2f, 1.0f), // Magenta - Cascade 4
+            vec3(0.2f, 1.0f, 1.0f), // Cyan - Cascade 5
+            vec3(1.0f, 0.6f, 0.2f), // Orange - Cascade 6
+            vec3(0.6f, 0.2f, 1.0f)  // Purple - Cascade 7
         );
-        albedo = cascadeColors[cascadeIndex % 8];
+
+        // Get primary and secondary cascade colors
+        vec3 primaryColor = cascadeColors[cascadeInfo.primaryCascade % 8];
+        vec3 secondaryColor = cascadeColors[cascadeInfo.secondaryCascade % 8];
+
+        // Blend colors in the transition region
+        if(cascadeInfo.blendFactor > 0.0f) {
+            // Mix between cascade colors and add white tint to indicate blend region
+            vec3 blendedColor = mix(primaryColor, secondaryColor, cascadeInfo.blendFactor);
+            // Add a subtle white overlay to make blend regions more visible
+            albedo = mix(blendedColor, vec3(1.0f), cascadeInfo.blendFactor * 0.3f);
+        } else {
+            albedo = primaryColor;
+        }
     }
 
     vec3 lighting;

@@ -41,6 +41,7 @@ export class LightingPass extends RenderPass {
       "ambientLightIntensity",
       "lightSpaceMatrices[0]",
       "cascadeSplits",
+      "cascadeBlendWidth",
       "usingPCF",
       "csmShadowBias",
       "csmEnabled",
@@ -256,6 +257,10 @@ export class LightingPass extends RenderPass {
     ) {
       this.gl.uniform1fv(this.uniforms["cascadeSplits"], cascadeSplits);
     }
+
+    // Pass cascade blend width for smooth transitions between cascades
+    const cascadeBlendWidth = this.resourceCache.getData("cascadeBlendWidth") ?? 0.3;
+    this.gl.uniform1f(this.uniforms["cascadeBlendWidth"], cascadeBlendWidth);
 
     const csmEnabled = this.resourceCache.getData("csmEnabled") ?? true;
     const csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize");
@@ -498,6 +503,7 @@ export class LightingPass extends RenderPass {
       "csmShadowBias",
       "csmPcfBiasScale",
       "cascadeDebug",
+      "cascadeBlendWidth",
       "ambientLightIntensity",
       "showCameraDepth",
       "pointShadowBias",

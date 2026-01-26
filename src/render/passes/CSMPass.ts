@@ -488,6 +488,20 @@ export class CSMPass extends RenderPass {
       arrayLength: numCascades,
       arrayIndex: 0,
     });
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
+      id: "cascadeBlendWidth",
+      label: "Cascade Blend Width",
+      min: 0.0,
+      max: 0.5,
+      step: 0.01,
+      defaultValue: 0.3,
+      numType: "float",
+      onChange: (value: number) => {
+        this.resourceCache.setData("cascadeBlendWidth", value);
+      }
+    });
+    // Initialize default blend width
+    this.resourceCache.setData("cascadeBlendWidth", 0.3);
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "cascadeDebug",
       label: "Cascade Debug",
