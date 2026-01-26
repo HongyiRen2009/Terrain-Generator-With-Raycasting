@@ -70,6 +70,16 @@ export class SettingsManager {
     }
     this.IdInSection.set(config.id, sectionTitle);
   }
+  public addButtonToSection(
+    sectionTitle: string,
+    label: string,
+    onClick: () => void
+  ): void {
+    const section = this.sections.get(sectionTitle);
+    if (section) {
+      section.addButton(label, onClick);
+    }
+  }
   public attatchProgram(program: WebGLProgram, uniformNames: string[]): void {
     this.attachedProgramUniforms.set(program, uniformNames);
   }
@@ -146,11 +156,10 @@ export class SettingsManager {
     return [r / 255, g / 255, b / 255];
   }
 }
-export class SettingsSection {
+class SettingsSection {
   private settings: Map<string, AnySetting> = new Map();
   private container: HTMLElement;
   private sectionElement: HTMLElement;
-  private program: WebGLProgram | null = null;
 
   constructor(
     parentContainer: HTMLElement,
@@ -172,9 +181,26 @@ export class SettingsSection {
     this.sectionElement.appendChild(this.container);
 
     parentContainer.appendChild(this.sectionElement);
-    this.program = program || null;
   }
 
+  /**
+   * Add a button to the section
+   */
+  addButton(label: string, onClick: () => void): void {
+    const wrapper = document.createElement("div");
+    wrapper.style.margin = "16px 0";
+
+    const button = document.createElement("button");
+    button.textContent = label;
+    button.style.padding = "8px 16px";
+    button.style.cursor = "pointer";
+    button.style.fontSize = "14px";
+
+    button.addEventListener("click", onClick);
+
+    wrapper.appendChild(button);
+    this.container.appendChild(wrapper);
+  }
   /**
    * Helper to get value at index (or single value if not array)
    */

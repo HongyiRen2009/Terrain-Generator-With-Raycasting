@@ -4,7 +4,7 @@ import prefixSumChunkCode from "./prefix_sum_chunk.wgsl";
 import prefixSumScanBlocksCode from "./prefix_sum_scan_blocks.wgsl";
 import prefixSumUniformAddCode from "./prefix_sum_uniform_add.wgsl";
 import calcVertexCountCode from "./calc_vertex_count.wgsl";
-import { SettingsSection } from "../Settings";
+import { SettingsManager } from "../Settings";
 
 interface TerrainOptions {
   frequency: number;
@@ -46,11 +46,11 @@ export class ComputeShader {
     // TODO: actually refresh terrain on change
     // please also change/add settings when neccessary
 
-    const s = new SettingsSection(
+    SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
-      "Terrain"
+      "Terrain Settings"
     );
-    s.addSlider({
+    SettingsManager.instance.addSliderToSection("Terrain Settings", {
       id: "frequency",
       label: "Noise Frequency",
       defaultValue: this.terrainOptions.frequency,
@@ -63,7 +63,7 @@ export class ComputeShader {
         onChange("frequency", v);
       }
     });
-    s.addSlider({
+    SettingsManager.instance.addSliderToSection("Terrain Settings", {
       id: "heightScale",
       label: "Height Scale",
       defaultValue: this.terrainOptions.heightScale,
@@ -76,7 +76,7 @@ export class ComputeShader {
         onChange("heightScale", v);
       }
     });
-    s.addSlider({
+    SettingsManager.instance.addSliderToSection("Terrain Settings", {
       id: "octaves",
       label: "Octaves",
       defaultValue: this.terrainOptions.octaves,
@@ -89,7 +89,7 @@ export class ComputeShader {
         onChange("octaves", v);
       }
     });
-    s.addSlider({
+    SettingsManager.instance.addSliderToSection("Terrain Settings", {
       id: "persistence",
       label: "Persistence",
       defaultValue: this.terrainOptions.persistence,
@@ -102,7 +102,7 @@ export class ComputeShader {
         onChange("persistence", v);
       }
     });
-    s.addSlider({
+    SettingsManager.instance.addSliderToSection("Terrain Settings", {
       id: "lacunarity",
       label: "Lacunarity",
       defaultValue: this.terrainOptions.lacunarity,
@@ -115,7 +115,7 @@ export class ComputeShader {
         onChange("lacunarity", v);
       }
     });
-    s.addSlider({
+    SettingsManager.instance.addSliderToSection("Terrain Settings", {
       id: "islandAmount",
       label: "Island Amount",
       defaultValue: this.terrainOptions.islandAmount,
@@ -128,7 +128,7 @@ export class ComputeShader {
         onChange("islandAmount", v);
       }
     });
-    s.addSlider({
+    SettingsManager.instance.addSliderToSection("Terrain Settings", {
       id: "waterLevel",
       label: "Water Level",
       defaultValue: this.terrainOptions.waterLevel,
@@ -141,7 +141,7 @@ export class ComputeShader {
         onChange("waterLevel", v);
       }
     });
-    s.addSlider({
+    SettingsManager.instance.addSliderToSection("Terrain Settings", {
       id: "caveThreshold",
       label: "Cave Threshold",
       defaultValue: this.terrainOptions.caveThreshold,
@@ -154,6 +154,7 @@ export class ComputeShader {
         onChange("caveThreshold", v);
       }
     });
+
   }
 
   async init() {
@@ -289,8 +290,8 @@ export class ComputeShader {
     baseX: number = 0,
     baseY: number = 0,
     baseZ: number = 0,
-    options?: TerrainOptions
   ) {
+    const options = this.terrainOptions;
     if (!this.device) {
       await this.init();
     }

@@ -140,7 +140,7 @@ export class WorldMap {
   private chunkQueueHasKey(key: string): boolean {
     return this.chunkLoadQueue.some(item => item.key === key);
   }
-  public async processChunkQueue() {
+  public async processChunkQueue(allChunksLoadedCallback: (() => void) | null = null) {
     if (this.isGeneratingChunk || this.chunkLoadQueue.length === 0) {
       return;
     }
@@ -160,14 +160,17 @@ export class WorldMap {
       
       // Await the generation
       const { mesh, timings } = await chunk.generate(false);
-      console.log(`Chunk ${key} generated`);
     } catch (e) {
       console.error(`Failed to generate chunk ${key}:`, e);
       delete this.chunks[key];
     } finally {
       this.isGeneratingChunk = false;
-      this.processChunkQueue(); // Process next chunk in the queue
+      if(this.chunkLoadQueue.length == 0 && allChunksLoadedCallback){
+        allChunksLoadedCallback();
+      }
+      this.processChunkQueue(allChunksLoadedCallback); // Process next chunk in the queue
       callback?.();
+
     }
   }
 
@@ -205,9 +208,39 @@ export class WorldMap {
       totalTriangles += obj.mesh.mesh.length;
     }
 
-    // Merge chunks (these are already independent)
-    for (let i = 0; i < Object.keys(this.chunks).length; i++) {
-      CombinedMesh.merge(Object.values(this.chunks)[i].getMesh());
+    // Merge chunks with transformation applied
+    for (const chunk of Object.values(this.chunks)) {
+      const chunkMesh = chunk.getMesh();
+      const transformedChunkMesh = new Mesh();
+      
+      // Transform each triangle by the chunk position
+      for (let i = 0; i < chunkMesh.mesh.length; i++) {
+        const tri = chunkMesh.mesh[i];
+        const norm = chunkMesh.normals[i];
+        
+        const newTri: Triangle = [
+          vec3.create(),
+          vec3.create(),
+          vec3.create()
+        ];
+        const newNorm: Triangle = [
+          vec3.create(),
+          vec3.create(),
+          vec3.create()
+        ];
+        
+        // Apply chunk position offset to vertices
+        for (let j = 0; j < 3; j++) {
+          vec3.add(newTri[j], tri[j], chunk.ChunkPosition);
+          vec3.copy(newNorm[j], norm[j]); // Normals don't need translation
+        }
+        
+        transformedChunkMesh.mesh.push(newTri);
+        transformedChunkMesh.normals.push(newNorm);
+        transformedChunkMesh.type.push(chunkMesh.type[i]);
+      }
+      
+      CombinedMesh.merge(transformedChunkMesh);
     }
 
     // Merge worldObjects with transformation applied
@@ -284,7 +317,6 @@ export class WorldMap {
       }
     }
     console.timeEnd("combinedMesh generation");
-
     return CombinedMesh;
   }
   public onLightsChanged?: () => void;

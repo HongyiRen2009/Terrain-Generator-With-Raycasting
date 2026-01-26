@@ -13,7 +13,7 @@ import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
 import { threemfToMesh } from "./modelLoader/3fmreader";
 import { Color, Terrains } from "./map/terrains";
 import { WorldObject } from "./map/WorldObject";
-import { SettingsSection } from "./Settings";
+import { SettingsManager } from "./Settings";
 
 /**
  * Our holding class for all game mechanics
@@ -42,7 +42,9 @@ export class GameEngine {
 
   private worldInitialized = false;
   private renderDistance = 3; // In chunks
+  private lastCameraChunk: vec3 = vec3.fromValues(-1, -1, -1);
   private updatePathracing: () => void;
+  private pathtracerUpdated: boolean = false;
   // Stored bound event handlers for cleanup
   private boundMouseDown: ((e?: any) => void) | null = null;
   private boundMouseMove: ((e: MouseEvent) => void) | null = null;
@@ -65,6 +67,7 @@ export class GameEngine {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.canvas.style.display = "none";
+    this.initWorldSettings();
 
     //GL Context
     this.gl = this.canvas.getContext("webgl2", {
@@ -92,7 +95,9 @@ export class GameEngine {
 
     //Initialize Camera
     this.mainCamera = new Camera(vec3.fromValues(500, 50, 500));
-
+    this.lastCameraChunk = this.world.getChunkCoordsFromPosition(
+      this.mainCamera.position
+    );
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,
@@ -112,7 +117,10 @@ export class GameEngine {
     );
 
     this.updatePathracing = () => {
-      this.pathTracer.initBVH(this.world.combinedMesh());
+      if (!this.pathtracerUpdated) {
+        this.pathtracerUpdated = true;
+        this.pathTracer.initBVH(this.world.combinedMesh());
+      }
       this.pathTracer.init(false);
     };
 
@@ -146,6 +154,7 @@ export class GameEngine {
       pathBtn.classList.add("active");
       rayBtn.classList.remove("active");
       this.mode = 1; // Set to pathtracing
+      this.pathTracer.initBVH(this.world.combinedMesh());
       this.pathTracer.init();
     };
     pathBtn.addEventListener("click", this.boundPathClick);
@@ -216,9 +225,7 @@ export class GameEngine {
   }
   public async initialize() {
 
-    this.generateChunksAroundCamera(
-      this.world.getChunkCoordsFromPosition(this.mainCamera.position)
-    );
+    this.generateChunksAroundCamera();
 
     this.world.onObjectAdded = (obj: WorldObject) => {
       this.world.objectUI.setupObjectUI(
@@ -255,14 +262,13 @@ export class GameEngine {
     this.worldInitialized = true;
     this.canvas.style.display = "block";
     document.getElementById("loadingBox")!.style.display = "none";
-    this.initWorldSettings();
   }
   private initWorldSettings() {
-    const s = new SettingsSection(
-          document.getElementById("settings-section")!,
-          "World Settings"
-        );
-    s.addSlider({
+    SettingsManager.instance.createSection(
+      document.getElementById("settings-section")!,
+      "World Settings"
+    );
+    SettingsManager.instance.addSliderToSection("World Settings", {
       id: "Render Distance",
       label: "Render Distance",
       defaultValue: this.renderDistance,
@@ -272,10 +278,13 @@ export class GameEngine {
       numType: "int",
       onChange: (v: number) => {
         this.renderDistance = v;
-        this.generateChunksAroundCamera(
-          this.world.getChunkCoordsFromPosition(this.mainCamera.position)
+        this.generateChunksAroundCamera(true
         );
       }
+    });
+    SettingsManager.instance.addButtonToSection("World Settings", "Regenerate Terrain", () => {
+      this.generateChunksAroundCamera(true
+      );
     });
   }
 
@@ -310,7 +319,11 @@ export class GameEngine {
     }
     this.debug.update();
   }
-  generateChunksAroundCamera(cameraChunk: vec3) {
+
+  generateChunksAroundCamera(deleteAllChunks: boolean = false) {
+    const cameraChunk = this.world.getChunkCoordsFromPosition(
+      this.mainCamera.position
+    );
     for (const chunkKey in this.world.chunks) {
       const chunkPos = WorldUtils.chunkKeyToPosition(chunkKey);
       const distance = Math.max(
@@ -318,7 +331,7 @@ export class GameEngine {
         Math.abs(chunkPos[1] - cameraChunk[1]) / this.world.height,
         Math.abs(chunkPos[2] - cameraChunk[2]) / this.world.resolution
       );
-      if (distance > this.renderDistance) {
+      if (distance > this.renderDistance || deleteAllChunks) {
         this.world.unloadChunk(chunkPos);
         this.renderer.vaoManager.deleteTerrainVao(chunkKey);
       }
@@ -327,7 +340,7 @@ export class GameEngine {
       for (let i = -this.renderDistance; i < this.renderDistance; i++) {
         const chunkPos = vec3.fromValues(cameraChunk[0] + (i) * this.world.resolution, 0, cameraChunk[2] + (j) * this.world.resolution);
         this.world.loadChunk(chunkPos, () => {
-          if(!this.world.chunks[WorldUtils.chunkKeyFromPosition(chunkPos, this.world)]){
+          if (!this.world.chunks[WorldUtils.chunkKeyFromPosition(chunkPos, this.world)]) {
             return;
           }
           this.renderer.vaoManager.createTerrainVAO(
@@ -343,13 +356,12 @@ export class GameEngine {
     const cameraChunk = this.world.getChunkCoordsFromPosition(
       this.mainCamera.position
     );
-    const lastCameraChunk = this.world.getChunkCoordsFromPosition(
-      this.mainCamera.lastPosition
-    );
-    if (vec3.equals(cameraChunk, lastCameraChunk)) {
+
+    if (vec3.equals(cameraChunk, this.lastCameraChunk) || this.mode != 0) {
       return;
     }
-    this.generateChunksAroundCamera(cameraChunk);
+    this.lastCameraChunk = cameraChunk;
+    this.generateChunksAroundCamera();
   }
   /**
    * Controls to move the camera!
