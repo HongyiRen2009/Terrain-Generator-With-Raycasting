@@ -275,24 +275,13 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
     float baseBias = csmShadowBias[cascadeIndex];
     float cascadeBias = baseBias * (1.0f + slopeFactor);
     if(usingPCF) {
-        // Add bias to account for PCF kernel size
-        // Scale with slope factor since steep surfaces need more bias for PCF samples
-        // Use diagonal distance (sqrt(2) * radius) to account for corner samples
+       
         float texelSize = 1.0f / float(csmShadowMapSize);
-        float maxOffsetDistance = pcfRadius * 1.414213562f; // sqrt(2) for diagonal
-        // Cascade-relative scaling (same idea as scaledPcfRadius below): larger cascades get smaller contribution.
-        float cascadeScale = 1.0f;
-        if(cascadeIndex > 0 && cascadeSplits[0] > 0.0f) {
-            float firstCascadeRange = cascadeSplits[0];
-            float currentCascadeNear = cascadeSplits[cascadeIndex - 1];
-            float currentCascadeRange = cascadeSplits[cascadeIndex] - currentCascadeNear;
-            cascadeScale = firstCascadeRange / max(currentCascadeRange, 0.001f);
-        }
-        // PCF-only bias contribution: per-cascade tunable scale (keeps base + slope-scaled bias as-is).
-        float pcfBias = maxOffsetDistance * texelSize * (1.0f + slopeFactor * 0.5f) * csmPcfBiasScale[cascadeIndex] * cascadeScale;
+        float maxOffsetDistance = pcfRadius * 1.414213562f; 
+        float pcfBias = maxOffsetDistance * texelSize * (1.0f + slopeFactor * 0.5f) * csmPcfBiasScale[cascadeIndex];
         cascadeBias += pcfBias;
     }
-
+    
     //World Space to Light Space
     vec4 lp = lightSpaceMatrices[cascadeIndex] * vec4(worldPos, 1.0f);
     vec3 projCoords = lp.xyz / lp.w; // NDC

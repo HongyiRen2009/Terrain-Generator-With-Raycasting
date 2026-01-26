@@ -63,7 +63,7 @@ export class LightingPass extends RenderPass {
     this.InitSettings();
     this.jitterTexture = createJitterTexture(
       gl,
-      this.resourceCache.getData("jitterSize") ?? 8,
+      this.resourceCache.getData("jitterSize") ?? 16,
       this.resourceCache.getData("filterSize") ?? 8
     );
     this.resourceCache.setData(
@@ -177,7 +177,7 @@ export class LightingPass extends RenderPass {
       14,
       this.gl.TEXTURE_2D_ARRAY
     );
-    const jitterSize = this.resourceCache.getData("jitterSize") ?? 8;
+    const jitterSize = this.resourceCache.getData("jitterSize") ?? 16;
     const filterSize = this.resourceCache.getData("filterSize") ?? 8;
     TextureUtils.bindTex(
       this.gl,
@@ -259,7 +259,7 @@ export class LightingPass extends RenderPass {
     }
 
     // Pass cascade blend width for smooth transitions between cascades
-    const cascadeBlendWidth = this.resourceCache.getData("cascadeBlendWidth") ?? 0.3;
+    const cascadeBlendWidth = this.resourceCache.getData("cascadeBlendWidth") ?? 0.5;
     this.gl.uniform1f(this.uniforms["cascadeBlendWidth"], cascadeBlendWidth);
 
     const csmEnabled = this.resourceCache.getData("csmEnabled") ?? true;

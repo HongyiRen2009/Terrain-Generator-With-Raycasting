@@ -245,8 +245,8 @@ export class CSMPass extends RenderPass {
   private calculateCascadeBias(cascadeIndex: number): number {
     // Hardcoded tuned bias values
     const hardcodedBias = [
-      0.0004,
-      0.0003,
+      0.00015,
+      0.000087,
       0.000043,
       0.0001,
       0.00005,
@@ -266,7 +266,7 @@ export class CSMPass extends RenderPass {
    * Used as a multiplier on the additional bias applied only when PCF is enabled.
    */
   private calculateCascadePcfBiasScale(cascadeIndex: number): number {
-    const hardcodedScale = [0.1, 0.009, 0.009, 0.009, 0.009, 0.009, 0.009, 0.009];
+    const hardcodedScale = [0.2, 0.15, 0.009, 0.009, 0.009, 0.009, 0.009, 0.009];
     if (cascadeIndex < hardcodedScale.length) {
       return hardcodedScale[cascadeIndex];
     }
@@ -423,14 +423,14 @@ export class CSMPass extends RenderPass {
       min: 5,
       max: 128,
       step: 1,
-      defaultValue: 8,
+      defaultValue: 16,
       numType: "int",
       onChange: (value: number) => {
         this.resourceCache.setData("jitterSize", value);
         this.requestJitterTextureUpdate();
       }
     });
-    this.resourceCache.setData("jitterSize", 8);
+    this.resourceCache.setData("jitterSize", 16);
     SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "filterSize",
       label: "Filter Size",
@@ -494,14 +494,14 @@ export class CSMPass extends RenderPass {
       min: 0.0,
       max: 0.5,
       step: 0.01,
-      defaultValue: 0.3,
+      defaultValue: 0.5,
       numType: "float",
       onChange: (value: number) => {
         this.resourceCache.setData("cascadeBlendWidth", value);
       }
     });
     // Initialize default blend width
-    this.resourceCache.setData("cascadeBlendWidth", 0.3);
+    this.resourceCache.setData("cascadeBlendWidth", 0.5);
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "cascadeDebug",
       label: "Cascade Debug",
@@ -533,7 +533,7 @@ export class CSMPass extends RenderPass {
     const jitterSize =
       (jitterSetting?.value as number) ??
       this.resourceCache.getData("jitterSize") ??
-      8;
+      64;
     const filterSize =
       (filterSetting?.value as number) ??
       this.resourceCache.getData("filterSize") ??
