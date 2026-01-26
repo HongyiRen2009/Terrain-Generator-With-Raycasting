@@ -1,6 +1,6 @@
 import { mat3, mat4, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
-import { WorldMap } from "./map/Map";
+import { Chunk, WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
@@ -321,6 +321,7 @@ export class GameEngine {
   }
 
   generateChunksAroundCamera(deleteAllChunks: boolean = false) {
+    if(this.world.isGeneratingChunk) return;
     const cameraChunk = this.world.getChunkCoordsFromPosition(
       this.mainCamera.position
     );
@@ -336,17 +337,12 @@ export class GameEngine {
         this.renderer.vaoManager.deleteTerrainVao(chunkKey);
       }
     }
-    for (let j = -this.renderDistance; j < this.renderDistance; j++) {
-      for (let i = -this.renderDistance; i < this.renderDistance; i++) {
+    for (let j = -this.renderDistance; j <= this.renderDistance; j++) {
+      for (let i = -this.renderDistance; i <= this.renderDistance; i++) {
         const chunkPos = vec3.fromValues(cameraChunk[0] + (i) * this.world.resolution, 0, cameraChunk[2] + (j) * this.world.resolution);
-        this.world.loadChunk(chunkPos, () => {
-          if (!this.world.chunks[WorldUtils.chunkKeyFromPosition(chunkPos, this.world)]) {
-            return;
-          }
-          this.renderer.vaoManager.createTerrainVAO(
-            this.world.chunks[WorldUtils.chunkKeyFromPosition(chunkPos, this.world)]!,
-            WorldUtils.chunkKeyFromPosition(chunkPos, this.world)
-          );
+        this.world.loadChunk(chunkPos, (chunk: Chunk) => {
+          if(!chunk) return;
+          this.renderer.vaoManager.createTerrainVAO(chunk,WorldUtils.chunkKeyFromPosition(chunkPos, this.world));
         });
       }
     }

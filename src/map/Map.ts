@@ -69,7 +69,7 @@ export class WorldMap {
   public objectUI: ObjectUI;
   public computeShader: ComputeShader;
   public lightUI: LightUI;
-  private chunkLoadQueue: { pos: vec3, key: string, then: (() => void) | null }[] = [];
+  private chunkLoadQueue: { pos: vec3, key: string, then: ((chunk: Chunk) => void) | null }[] = [];
   public isGeneratingChunk: boolean = false;
   /**
    * Constructs a world
@@ -144,7 +144,7 @@ export class WorldMap {
       numType: "float"
     });
   }
-  public loadChunk(pos: vec3, then: (() => void) | null = null) {
+  public loadChunk(pos: vec3, then: ((chunk: Chunk) => void) | null = null) {
     if (this.chunkQueueHasKey(`${pos[0]},${pos[1]},${pos[2]}`)) {
       return;
     }
@@ -173,8 +173,8 @@ export class WorldMap {
         pos,
         vec3.fromValues(this.resolution, this.height, this.resolution),
         this.seed,
-        this,
-        callback
+        this
+        
       );
       this.chunks[key] = chunk;
 
@@ -198,10 +198,142 @@ export class WorldMap {
 
       }
       this.processChunkQueue(allChunksLoadedCallback); // Process next chunk in the queue
-      callback?.();
+      callback?.(this.chunks[key]);
 
     }
   }
+
+/**
+ * Generates a strip of chunks by creating a single large mesh and partitioning it.
+ * @param chunkStartPos Starting position in chunk coordinates (vec3) of the strip
+ * @param lengthInChunks Number of chunks along Z
+ * @param widthInChunks Number of chunks along X
+ * @param then Optional callback after all chunks are generated
+ */
+public async generateChunkStrip(
+  chunkStartPos: vec3,
+  lengthInChunks: number,
+  widthInChunks: number,
+  then: ((chunk: Chunk) => void) | null = null
+) {
+  // Calculate total grid size for the strip
+  const totalWidth = widthInChunks * this.resolution;
+  const totalDepth = lengthInChunks * this.resolution;
+  const gridSize = vec3.fromValues(totalWidth, this.height, totalDepth);
+
+  // Call compute shader ONCE for the whole strip
+  const computeShader = this.computeShader;
+  const width = gridSize[0] + 3;
+  const height = gridSize[1] + 3;
+  const depth = gridSize[2] + 3;
+  debugger;
+  // Generate field and mesh for the entire strip
+  const fieldBuffer = await computeShader.createSimplexNoise3D(
+    width, height, depth, this.seed,
+    chunkStartPos[0], chunkStartPos[1], chunkStartPos[2]
+  );
+  const interleavedResult = await computeShader.createMarchingCubes(
+    fieldBuffer, width, height, depth
+  );
+  const interleavedData = await computeShader.readInterleavedBuffer(
+    interleavedResult.interleavedBuffer, interleavedResult.vertexCount
+  );
+  const indices = await computeShader.readUintBuffer(
+    interleavedResult.indexBuffer, interleavedResult.indexCount
+  );
+
+  // Partition triangles into chunks
+  const chunkMeshes: { [key: string]: Mesh } = {};
+  for (let x = 0; x < widthInChunks; x++) {
+    for (let z = 0; z < lengthInChunks; z++) {
+      const chunkPos = vec3.fromValues(
+        chunkStartPos[0] + x * this.resolution,
+        chunkStartPos[1],
+        chunkStartPos[2] + z * this.resolution
+      );
+      const key = `${chunkPos[0]},${chunkPos[1]},${chunkPos[2]}`;
+      chunkMeshes[key] = new Mesh();
+    }
+  }
+
+  // Assign triangles to the correct chunk mesh
+  for (let i = 0; i < indices.length; i += 3) {
+    const idx0 = indices[i];
+    const idx1 = indices[i + 1];
+    const idx2 = indices[i + 2];
+
+    const offset0 = idx0 * 8;
+    const offset1 = idx1 * 8;
+    const offset2 = idx2 * 8;
+
+    const tri: Triangle = [
+      vec3.fromValues(interleavedData[offset0], interleavedData[offset0 + 1], interleavedData[offset0 + 2]),
+      vec3.fromValues(interleavedData[offset1], interleavedData[offset1 + 1], interleavedData[offset1 + 2]),
+      vec3.fromValues(interleavedData[offset2], interleavedData[offset2 + 1], interleavedData[offset2 + 2])
+    ];
+
+    // Find which chunk this triangle belongs to (by first vertex)
+    const chunkX = Math.floor((tri[0][0] - chunkStartPos[0]) / this.resolution) * this.resolution + chunkStartPos[0];
+    const chunkZ = Math.floor((tri[0][2] - chunkStartPos[2]) / this.resolution) * this.resolution + chunkStartPos[2];
+    const chunkY = chunkStartPos[1];
+    const key = `${chunkX},${chunkY},${chunkZ}`;
+    const mesh = chunkMeshes[key];
+    if (!mesh) continue;
+
+    const norm: Triangle = [
+      vec3.fromValues(interleavedData[offset0 + 4], interleavedData[offset0 + 5], interleavedData[offset0 + 6]),
+      vec3.fromValues(interleavedData[offset1 + 4], interleavedData[offset1 + 5], interleavedData[offset1 + 6]),
+      vec3.fromValues(interleavedData[offset2 + 4], interleavedData[offset2 + 5], interleavedData[offset2 + 6])
+    ];
+
+    const types: [number, number, number] = [
+      new Uint32Array(new Float32Array([interleavedData[offset0 + 3]]).buffer)[0],
+      new Uint32Array(new Float32Array([interleavedData[offset1 + 3]]).buffer)[0],
+      new Uint32Array(new Float32Array([interleavedData[offset2 + 3]]).buffer)[0]
+    ];
+
+    mesh.addTriangle(tri, norm, types);
+  }
+
+  // Create Chunk objects and assign meshes
+  for (let x = 0; x < widthInChunks; x++) {
+    for (let z = 0; z < lengthInChunks; z++) {
+      const chunkPos = vec3.fromValues(
+        chunkStartPos[0] + x * this.resolution,
+        chunkStartPos[1],
+        chunkStartPos[2] + z * this.resolution
+      );
+      const key = `${chunkPos[0]},${chunkPos[1]},${chunkPos[2]}`;
+      const chunk = new Chunk(
+        chunkPos,
+        vec3.fromValues(this.resolution, this.height, this.resolution),
+        this.seed,
+        this
+        
+      );
+      chunk.Mesh = chunkMeshes[key];
+      this.chunks[key] = chunk;
+    }
+  }
+  if (then) {
+    for (let x = 0; x < widthInChunks; x++) {
+      for (let z = 0; z < lengthInChunks; z++) {
+        const chunkPos = vec3.fromValues(
+          chunkStartPos[0] + x * this.resolution,
+          chunkStartPos[1],
+          chunkStartPos[2] + z * this.resolution
+        );
+        const key = `${chunkPos[0]},${chunkPos[1]},${chunkPos[2]}`;
+        const chunk = this.chunks[key];
+        if (then) {
+          then(chunk);
+        }
+      }
+    }
+  }
+
+}
+
   private logTiming(average = false) {
     const timings = average ? this.averageTimings() : this.TotalTimings;
     if (average) {
@@ -457,20 +589,17 @@ export class Chunk {
   Mesh: Mesh = null!;
   gearObjects: vec3[];
   worldMap: WorldMap;
-  public callback: (() => void) | null = null;
   constructor(
     ChunkPosition: vec3,
     GridSize: vec3,
     seed: number,
     worldMap: WorldMap,
-    callback: (() => void) | null = null
   ) {
     this.GridSize = GridSize;
     this.ChunkPosition = ChunkPosition;
     this.seed = seed;
     this.gearObjects = [];
     this.worldMap = worldMap;
-    this.callback = callback;
   }
 
   chunkCoordinateToIndex(c: vec3): number {
