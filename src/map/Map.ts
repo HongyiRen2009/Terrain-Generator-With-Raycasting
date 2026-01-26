@@ -160,7 +160,7 @@ export class WorldMap {
 
     SettingsManager.instance.addSliderToSection("Sky Settings",{
       id: "u_skyBrightnessBoost",
-      label: "Sky Brighness Coefficient",
+      label: "Sky Brightness Coefficient",
       min: 0,
       max: 10,
       step: 0.01,

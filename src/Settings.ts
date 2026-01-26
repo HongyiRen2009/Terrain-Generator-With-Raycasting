@@ -8,7 +8,8 @@ interface Setting<T> {
   onChange?: (value: T) => void;
 }
 
-export interface SliderSetting extends Omit<Setting<number | number[]>, "onChange"> {
+export interface SliderSetting
+  extends Omit<Setting<number | number[]>, "onChange"> {
   type: "slider";
   min: number | number[]; // Single value or array of values per index
   max: number | number[]; // Single value or array of values per index
@@ -658,26 +659,33 @@ export class SettingsSection {
    */
   private renderCheckbox(setting: CheckboxSetting): void {
     const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center"; // vertically center
     wrapper.style.margin = "8px 0";
-
-    const label = document.createElement("label");
-    label.htmlFor = `${setting.id}-checkbox`;
+    wrapper.style.gap = "8px"; // spacing between checkbox and text
 
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.id = `${setting.id}-checkbox`;
     checkbox.checked = setting.value;
+    checkbox.style.width = "18px"; // consistent size
+    checkbox.style.height = "18px";
+    checkbox.style.cursor = "pointer";
+
+    const label = document.createElement("label");
+    label.htmlFor = checkbox.id;
+    label.textContent = setting.label;
+    label.style.userSelect = "none"; // prevents accidental text selection
+    label.style.fontSize = "0.875rem";
+    label.style.color = "var(--text)";
 
     checkbox.addEventListener("change", () => {
       setting.value = checkbox.checked;
-      if (setting.onChange) {
-        setting.onChange(checkbox.checked);
-      }
+      if (setting.onChange) setting.onChange(checkbox.checked);
     });
 
-    label.appendChild(checkbox);
-    label.appendChild(document.createTextNode(` ${setting.label}`));
     wrapper.appendChild(label);
+    wrapper.appendChild(checkbox);
 
     this.container.appendChild(wrapper);
   }
@@ -687,18 +695,22 @@ export class SettingsSection {
    */
   private renderColorPicker(setting: ColorSetting): void {
     const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.alignItems = "center";
     wrapper.style.margin = "16px 0";
+    wrapper.style.gap = "8px";
 
     const label = document.createElement("label");
     label.htmlFor = `${setting.id}-color`;
-    label.textContent = `${setting.label}: `;
+    label.textContent = `${setting.label}:`;
 
     const colorInput = document.createElement("input");
     colorInput.type = "color";
     colorInput.id = `${setting.id}-color`;
     colorInput.value = setting.value;
-    colorInput.style.marginLeft = "8px";
     colorInput.style.cursor = "pointer";
+    colorInput.style.height = "32px";
+    colorInput.style.width = "40px";
 
     colorInput.addEventListener("input", () => {
       setting.value = colorInput.value;

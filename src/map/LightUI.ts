@@ -59,6 +59,10 @@ export class LightUI {
 
     sidebar.appendChild(section);
 
+    const spacer = document.createElement("div");
+    spacer.style.height = "40px";
+    sidebar.appendChild(spacer);
+
     return { container, addButton };
   }
 
