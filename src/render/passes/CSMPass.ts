@@ -527,12 +527,15 @@ export class CSMPass extends RenderPass {
     if (typeof updateJitterTexture !== "function") {
       return;
     }
+    const jitterSetting = SettingsManager.instance.getSetting("jitterSize");
+    const filterSetting = SettingsManager.instance.getSetting("filterSize");
+    
     const jitterSize =
-      SettingsManager.instance.getSetting("jitterSize") ??
+      (jitterSetting?.value as number) ??
       this.resourceCache.getData("jitterSize") ??
       8;
     const filterSize =
-      SettingsManager.instance.getSetting("filterSize") ??
+      (filterSetting?.value as number) ??
       this.resourceCache.getData("filterSize") ??
       4;
     updateJitterTexture(jitterSize, filterSize);
