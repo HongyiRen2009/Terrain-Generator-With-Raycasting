@@ -26,6 +26,15 @@ const directions = [
  * The object holding the map of the world
  * Center chunk starts at 0,0 (probably)
  */
+type Timing = {
+  noise: number;
+  fieldReadback: number;
+  marchingCubes: number;
+  vertexBufferReadback: number;
+  indexBufferReadback: number;
+  meshConstruction: number;
+  total: number;
+};
 export class WorldMap {
 
   public onObjectAdded?: (obj: WorldObject) => void;
@@ -47,7 +56,7 @@ export class WorldMap {
   public height: number;
   public resolution = 32; //#of vertices square size of chunk
   public chunks: { [key: string]: Chunk } = {};
-  public seed: number = Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
+  public seed: number = 42; // Random seed for noise generation
 
   public worldObjects: WorldObject[] = [];
   gl: WebGL2RenderingContext;
@@ -55,12 +64,13 @@ export class WorldMap {
   private nextWorldObjectId: number = 0;
 
   private tracerUpdateSupplier: () => () => void;
-
+  private TotalTimings: Timing;
+  private chunksGenerated: number = 0;
   public objectUI: ObjectUI;
   public computeShader: ComputeShader;
   public lightUI: LightUI;
-  private chunkLoadQueue : { pos: vec3, key: string, then: (() => void) | null }[] = [];
-  public isGeneratingChunk : boolean = false;
+  private chunkLoadQueue: { pos: vec3, key: string, then: (() => void) | null }[] = [];
+  public isGeneratingChunk: boolean = false;
   /**
    * Constructs a world
    * @param width Width in # of chunks
@@ -87,6 +97,16 @@ export class WorldMap {
     this.computeShader.init();
     this.lightUI = new LightUI(this, this.tracerUpdateSupplier);
     this.initSettings();
+    this.TotalTimings = {
+      noise: 0,
+      fieldReadback: 0,
+      marchingCubes: 0,
+      vertexBufferReadback: 0,
+      indexBufferReadback: 0,
+      meshConstruction: 0,
+      total: 0
+    };
+    this.chunksGenerated = 0;
   }
 
   public initSettings() {
@@ -125,15 +145,15 @@ export class WorldMap {
     });
   }
   public loadChunk(pos: vec3, then: (() => void) | null = null) {
-      if(this.chunkQueueHasKey(`${pos[0]},${pos[1]},${pos[2]}`)){
+    if (this.chunkQueueHasKey(`${pos[0]},${pos[1]},${pos[2]}`)) {
       return;
     }
     const key = `${pos[0]},${pos[1]},${pos[2]}`;
-    
+
     // Skip if already loaded or queued
     if (this.chunks[key]) return;
     if (this.chunkLoadQueue.some(item => item.key === key)) return;
-    
+
     // Add to queue
     this.chunkLoadQueue.push({ pos, key, then });
   }
@@ -157,27 +177,71 @@ export class WorldMap {
         callback
       );
       this.chunks[key] = chunk;
-      
+
       // Await the generation
       const { mesh, timings } = await chunk.generate(false);
+      this.addTimings(timings);
+      this.chunksGenerated++;
     } catch (e) {
       console.error(`Failed to generate chunk ${key}:`, e);
       delete this.chunks[key];
     } finally {
       this.isGeneratingChunk = false;
-      if(this.chunkLoadQueue.length == 0 && allChunksLoadedCallback){
-        allChunksLoadedCallback();
+      if (this.chunkLoadQueue.length == 0) {
+        this.logTiming();
+        this.logTiming(true);
+        if (allChunksLoadedCallback) {
+          allChunksLoadedCallback();
+        }
+
+
+
       }
       this.processChunkQueue(allChunksLoadedCallback); // Process next chunk in the queue
       callback?.();
 
     }
   }
-
+  private logTiming(average = false) {
+    const timings = average ? this.averageTimings() : this.TotalTimings;
+    if (average) {
+      console.log("Average Chunk Generation Timings (ms):");
+    } else {
+      console.log("Total Chunk Generation Timings (ms):");
+    }
+    console.log(`  Noise Generation: ${timings.noise.toFixed(2)}`);
+    console.log(`  Field Readback: ${timings.fieldReadback.toFixed(2)}`);
+    console.log(`  Marching Cubes: ${timings.marchingCubes.toFixed(2)}`);
+    console.log(`  Vertex Buffer Readback: ${timings.vertexBufferReadback.toFixed(2)}`);
+    console.log(`  Index Buffer Readback: ${timings.indexBufferReadback.toFixed(2)}`);
+    console.log(`  Mesh Construction: ${timings.meshConstruction.toFixed(2)}`);
+    console.log(`  Total Time: ${timings.total.toFixed(2)}`);
+  }
+  private addTimings(timings: Timing) {
+    this.TotalTimings.noise += timings.noise;
+    this.TotalTimings.fieldReadback += timings.fieldReadback;
+    this.TotalTimings.marchingCubes += timings.marchingCubes;
+    this.TotalTimings.vertexBufferReadback += timings.vertexBufferReadback;
+    this.TotalTimings.indexBufferReadback += timings.indexBufferReadback;
+    this.TotalTimings.meshConstruction += timings.meshConstruction;
+    this.TotalTimings.total += timings.total;
+  }
+  private averageTimings(): Timing {
+    const count = this.chunksGenerated || 1;
+    return {
+      noise: this.TotalTimings.noise / count,
+      fieldReadback: this.TotalTimings.fieldReadback / count,
+      marchingCubes: this.TotalTimings.marchingCubes / count,
+      vertexBufferReadback: this.TotalTimings.vertexBufferReadback / count,
+      indexBufferReadback: this.TotalTimings.indexBufferReadback / count,
+      meshConstruction: this.TotalTimings.meshConstruction / count,
+      total: this.TotalTimings.total / count
+    };
+  }
   public async unloadChunk(pos: vec3) {
     const key = `${pos[0]},${pos[1]},${pos[2]}`;
     delete this.chunks[key];
-    
+
     // Remove from queue if it hasn't started generating yet
     this.chunkLoadQueue = this.chunkLoadQueue.filter(item => item.key !== key);
   }
@@ -212,12 +276,12 @@ export class WorldMap {
     for (const chunk of Object.values(this.chunks)) {
       const chunkMesh = chunk.getMesh();
       const transformedChunkMesh = new Mesh();
-      
+
       // Transform each triangle by the chunk position
       for (let i = 0; i < chunkMesh.mesh.length; i++) {
         const tri = chunkMesh.mesh[i];
         const norm = chunkMesh.normals[i];
-        
+
         const newTri: Triangle = [
           vec3.create(),
           vec3.create(),
@@ -228,18 +292,18 @@ export class WorldMap {
           vec3.create(),
           vec3.create()
         ];
-        
+
         // Apply chunk position offset to vertices
         for (let j = 0; j < 3; j++) {
           vec3.add(newTri[j], tri[j], chunk.ChunkPosition);
           vec3.copy(newNorm[j], norm[j]); // Normals don't need translation
         }
-        
+
         transformedChunkMesh.mesh.push(newTri);
         transformedChunkMesh.normals.push(newNorm);
         transformedChunkMesh.type.push(chunkMesh.type[i]);
       }
-      
+
       CombinedMesh.merge(transformedChunkMesh);
     }
 
@@ -580,31 +644,27 @@ export class Chunk {
    * @param logPerformance Whether to log performance metrics
    * @returns The generated mesh and timing information
    */
-  async generate(logPerformance = true): Promise<{
+async generate(logPerformance = true): Promise<{
     mesh: Mesh;
-    timings: {
-      noise: number;
-      fieldReadback: number;
-      marchingCubes: number;
-      vertexBufferReadback: number;
-      indexBufferReadback: number;
-      normalsBufferReadback: number;
-      terrainTypeBufferReadback: number;
-      dedupe: number;
-      meshConstruction: number;
-      edgeTriangles: number;
-      total: number;
-    };
+    timings: Timing;
   }> {
-    const timings: any = {};
+    const timings: Timing = {
+      noise: 0,
+      fieldReadback: 0,
+      marchingCubes: 0,
+      vertexBufferReadback: 0,
+      indexBufferReadback: 0,
+      meshConstruction: 0,
+      total: 0
+    };
     let totalStart = performance.now();
 
     // Generate field using compute shader
     let startTime = performance.now();
     const computeShader = this.worldMap.computeShader;
-    const width = this.GridSize[0] +3;
-    const height = this.GridSize[1]+3;
-    const depth = this.GridSize[2] +3;
+    const width = this.GridSize[0] + 3;
+    const height = this.GridSize[1] + 3;
+    const depth = this.GridSize[2] + 3;
     const fieldBuffer = await computeShader.createSimplexNoise3D(
       width,
       height,
@@ -627,10 +687,8 @@ export class Chunk {
 
     startTime = performance.now();
     const {
-      vertexBuffer,
+      interleavedBuffer,
       indexBuffer,
-      normalsBuffer,
-      terrainTypeBuffer,
       vertexCount,
       indexCount
     } = await computeShader.createMarchingCubes(
@@ -642,9 +700,9 @@ export class Chunk {
     timings.marchingCubes = performance.now() - startTime;
 
     startTime = performance.now();
-    const vertices = await computeShader.readVectorBuffer(
-      vertexBuffer,
-      vertexCount * 4 // 4 floats per vec3 (due to padding)
+    const interleavedData = await computeShader.readInterleavedBuffer(
+      interleavedBuffer,
+      vertexCount
     );
     timings.vertexBufferReadback = performance.now() - startTime;
 
@@ -652,99 +710,89 @@ export class Chunk {
     const indices = await computeShader.readUintBuffer(indexBuffer, indexCount);
     timings.indexBufferReadback = performance.now() - startTime;
 
-    startTime = performance.now();
-    const normals = await computeShader.readVectorBuffer(
-      normalsBuffer,
-      vertexCount * 4 // 4 floats per vec3 (due to padding)
-    );
-    timings.normalsBufferReadback = performance.now() - startTime;
-
-    startTime = performance.now();
-    const terrainTypes = await computeShader.readUintBuffer(
-      terrainTypeBuffer,
-      vertexCount
-    );
-    timings.terrainTypeBufferReadback = performance.now() - startTime;
-    startTime = performance.now();
-    timings.dedupe = performance.now() - startTime;
-    startTime = performance.now();
-
     // Reconstruct mesh from compute shader results
+    startTime = performance.now();
     this.Mesh = new Mesh();
-    
-    // Group vertices by triangle (3 vertices per triangle)
+
     for (let i = 0; i < indices.length; i += 3) {
       const idx0 = indices[i];
       const idx1 = indices[i + 1];
       const idx2 = indices[i + 2];
-      // Reject all triangles on edge of chunk to avoid seams
+
+      // Calculate offsets in the interleaved buffer (8 floats per vertex)
+      const offset0 = idx0 * 8;
+      const offset1 = idx1 * 8;
+      const offset2 = idx2 * 8;
 
       const tri: Triangle = [
         vec3.fromValues(
-          vertices[idx0 * 4], // x
-          vertices[idx0 * 4 + 1], // y
-          vertices[idx0 * 4 + 2] // z (skip idx0*4+3 which is padding)
+          interleavedData[offset0],     // position.x
+          interleavedData[offset0 + 1], // position.y
+          interleavedData[offset0 + 2]  // position.z
         ),
         vec3.fromValues(
-          vertices[idx1 * 4],
-          vertices[idx1 * 4 + 1],
-          vertices[idx1 * 4 + 2]
+          interleavedData[offset1],
+          interleavedData[offset1 + 1],
+          interleavedData[offset1 + 2]
         ),
         vec3.fromValues(
-          vertices[idx2 * 4],
-          vertices[idx2 * 4 + 1],
-          vertices[idx2 * 4 + 2]
+          interleavedData[offset2],
+          interleavedData[offset2 + 1],
+          interleavedData[offset2 + 2]
         )
       ];
+
+      // Reject all triangles on edge of chunk to avoid seams
       let rejectTriangle = false;
-      for(let j=0;j<3;j++){
-        if(
+      for (let j = 0; j < 3; j++) {
+        if (
           tri[j][0] <= 0 ||
-          tri[j][0] >= width-1 ||
+          tri[j][0] >= width - 1 ||
           tri[j][1] <= 0 ||
-          tri[j][1] >= height-1 ||
+          tri[j][1] >= height - 1 ||
           tri[j][2] <= 0 ||
-          tri[j][2] >= depth-1
-        ){
+          tri[j][2] >= depth - 1
+        ) {
           rejectTriangle = true;
           break;
         }
       }
-      if(rejectTriangle){
+      if (rejectTriangle) {
         continue;
       }
+
       const norm: Triangle = [
         vec3.fromValues(
-          normals[idx0 * 4],
-          normals[idx0 * 4 + 1],
-          normals[idx0 * 4 + 2]
+          interleavedData[offset0 + 4], // normal.x
+          interleavedData[offset0 + 5], // normal.y
+          interleavedData[offset0 + 6]  // normal.z
         ),
         vec3.fromValues(
-          normals[idx1 * 4],
-          normals[idx1 * 4 + 1],
-          normals[idx1 * 4 + 2]
+          interleavedData[offset1 + 4],
+          interleavedData[offset1 + 5],
+          interleavedData[offset1 + 6]
         ),
         vec3.fromValues(
-          normals[idx2 * 4],
-          normals[idx2 * 4 + 1],
-          normals[idx2 * 4 + 2]
+          interleavedData[offset2 + 4],
+          interleavedData[offset2 + 5],
+          interleavedData[offset2 + 6]
         )
       ];
 
+      // Extract terrain types (stored as float, convert back to uint)
+      const terrainTypeFloat0 = interleavedData[offset0 + 3];
+      const terrainTypeFloat1 = interleavedData[offset1 + 3];
+      const terrainTypeFloat2 = interleavedData[offset2 + 3];
+
       const types: [number, number, number] = [
-        terrainTypes[idx0],
-        terrainTypes[idx1],
-        terrainTypes[idx2]
+        new Uint32Array(new Float32Array([terrainTypeFloat0]).buffer)[0],
+        new Uint32Array(new Float32Array([terrainTypeFloat1]).buffer)[0],
+        new Uint32Array(new Float32Array([terrainTypeFloat2]).buffer)[0]
       ];
 
       this.Mesh.addTriangle(tri, norm, types);
     }
     timings.meshConstruction = performance.now() - startTime;
-
-    startTime = performance.now();
-    // Generate edge triangles on CPU
-    timings.edgeTriangles = performance.now() - startTime;
-
     timings.total = performance.now() - totalStart;
 
     if (logPerformance) {

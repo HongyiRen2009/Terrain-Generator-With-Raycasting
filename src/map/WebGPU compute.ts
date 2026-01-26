@@ -402,7 +402,7 @@ export class ComputeShader {
   }
 
   // Update createMarchingCubes to use this encoder
-  async createMarchingCubes(
+async createMarchingCubes(
     fieldBuffer: GPUBuffer,
     width: number,
     height: number,
@@ -418,30 +418,20 @@ export class ComputeShader {
       height,
       depth
     );
-    const counts = await this.readUintBuffer(
-      vertexCountsBuffer,
-      (width - 1) * (height - 1) * (depth - 1)
-    );
-    const testArray = new Float32Array(163840);
-    for (let i = 0; i < testArray.length; i++) {
-      testArray[i] = Math.random() < 0.7 ? 0 : Math.floor(Math.random() * 10);
-    }
+
     const vertexOffsetsBuffer = await this.computePrefixSum(
       vertexCountsBuffer,
       (width - 1) * (height - 1) * (depth - 1)
     );
-    const offsets = await this.readUintBuffer(
-      vertexOffsetsBuffer,
-      (width - 1) * (height - 1) * (depth - 1)
-    );
-    // Create params buffer
+
     const paramsBuffer = this.device.createBuffer({
-      size: 12, // 3 u32s
+      size: 12,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       mappedAtCreation: true
     });
     new Uint32Array(paramsBuffer.getMappedRange()).set([width, height, depth]);
     paramsBuffer.unmap();
+
     const vertexCountData = await this.getMarchingCubesCounts(
       vertexOffsetsBuffer,
       vertexCountsBuffer,
@@ -452,43 +442,27 @@ export class ComputeShader {
     const maxVertices = vertexCountData.vertexCount;
     const maxIndices = vertexCountData.indexCount;
 
-    // Create vertex data buffer
-    const vertexBuffer = this.device.createBuffer({
-      size: maxVertices * 16, // vec3<f32> = 12 bytes
+    // Create interleaved buffer: 2 vec4s per vertex (position+type, normal+padding)
+    const interleavedBuffer = this.device.createBuffer({
+      size: maxVertices * 2 * 16, // 2 vec4s * 16 bytes
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
       mappedAtCreation: true
     });
-    new Float32Array(vertexBuffer.getMappedRange()).fill(0);
-    vertexBuffer.unmap();
+    new Float32Array(interleavedBuffer.getMappedRange()).fill(0);
+    interleavedBuffer.unmap();
 
-    // Create index data buffer
     const indexBuffer = this.device.createBuffer({
-      size: maxIndices * 4, // u32 = 4 bytes
+      size: maxIndices * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
       mappedAtCreation: true
     });
     new Uint32Array(indexBuffer.getMappedRange()).fill(0);
     indexBuffer.unmap();
-    const normalsBuffer = this.device.createBuffer({
-      size: maxVertices * 16, // vec3<f32> = 12 bytes
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-      mappedAtCreation: true
-    });
-    new Float32Array(normalsBuffer.getMappedRange()).fill(0);
-    normalsBuffer.unmap();
-    const terrainTypeBuffer = this.device.createBuffer({
-      size: maxVertices * 4, // u32 = 4 bytes
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-      mappedAtCreation: true
-    });
-    new Uint32Array(terrainTypeBuffer.getMappedRange()).fill(0);
-    terrainTypeBuffer.unmap();
-    // Create shader module
+
     const shaderModule = this.device.createShaderModule({
       code: marchingCubesCode
     });
 
-    // Create bind group layout
     const bindGroupLayout = this.device.createBindGroupLayout({
       entries: [
         {
@@ -515,35 +489,21 @@ export class ComputeShader {
           binding: 4,
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "read-only-storage" }
-        },
-        {
-          binding: 5,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "storage" }
-        },
-        {
-          binding: 6,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "storage" }
         }
       ]
     });
 
-    // Create bind group
     const bindGroup = this.device.createBindGroup({
       layout: bindGroupLayout,
       entries: [
-        { binding: 0, resource: { buffer: vertexBuffer } },
+        { binding: 0, resource: { buffer: interleavedBuffer } },
         { binding: 1, resource: { buffer: indexBuffer } },
         { binding: 2, resource: { buffer: fieldBuffer } },
         { binding: 3, resource: { buffer: paramsBuffer } },
-        { binding: 4, resource: { buffer: vertexOffsetsBuffer } },
-        { binding: 5, resource: { buffer: normalsBuffer } },
-        { binding: 6, resource: { buffer: terrainTypeBuffer } }
+        { binding: 4, resource: { buffer: vertexOffsetsBuffer } }
       ]
     });
 
-    // Create and run compute pipeline
     const pipeline = this.device.createComputePipeline({
       layout: this.device.createPipelineLayout({
         bindGroupLayouts: [bindGroupLayout]
@@ -563,14 +523,36 @@ export class ComputeShader {
     passEncoder.end();
 
     this.device.queue.submit([commandEncoder.finish()]);
+
     return {
-      vertexBuffer,
+      interleavedBuffer,
       indexBuffer,
-      normalsBuffer,
-      terrainTypeBuffer,
       vertexCount: vertexCountData.vertexCount,
       indexCount: vertexCountData.indexCount
     };
+  }
+
+  // Add helper method to read interleaved data
+async readInterleavedBuffer(
+    interleavedBuffer: GPUBuffer,
+    vertexCount: number
+  ): Promise<Float32Array> {
+    const size = vertexCount * 2 * 16; // 2 vec4s per vertex
+    const readBuffer = this.device.createBuffer({
+      size,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+    });
+
+    const commandEncoder = this.device.createCommandEncoder();
+    commandEncoder.copyBufferToBuffer(interleavedBuffer, 0, readBuffer, 0, size);
+    this.device.queue.submit([commandEncoder.finish()]);
+
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+    const floatArray = new Float32Array(arrayBuffer.slice(0));
+    readBuffer.unmap();
+
+    return floatArray;
   }
   async computeVertexCount(
     fieldBuffer: GPUBuffer,

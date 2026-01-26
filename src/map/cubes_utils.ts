@@ -49,13 +49,23 @@ export const meshToInterleavedVerticesAndIndices = (
     indices: new Uint32Array(indices)
   };
 };
-
+function packEmissivityToUint8(emissivity:vec3): number {
+  const r = Math.min(3, Math.floor(emissivity[0] * 3)); // 2 bits
+  const g = Math.min(3, Math.floor(emissivity[1] * 3)); // 2 bits
+  const b = Math.min(3, Math.floor(emissivity[2] * 3)); // 2 bits
+  return (b << 4) | (g << 2) | r;
+}
 export const meshToNonInterleavedVerticesAndIndices = (
   mesh: Mesh
 ): {
   positions: Float32Array;
   normals: Float32Array;
   colors: Float32Array;
+  reflectiveness: Float32Array;
+  roughness: Float32Array;
+  metallicity: Float32Array;
+  emissivity: Float32Array;
+  terrainId: Uint8Array;
   indices: Uint32Array;
 } => {
   const vertexMap = new Map<string, number>();
@@ -63,6 +73,11 @@ export const meshToNonInterleavedVerticesAndIndices = (
   const normals: number[] = [];
   const colors: number[] = [];
   const indices: number[] = [];
+  const reflectiveness: number[] = [];
+  const roughness: number[] = [];
+  const metallicity: number[] = [];
+  const emissivity: number[] = [];
+  const terrainId: number[] = [];
   let vertexIndex = 0;
 
   for (let i = 0; i < mesh.mesh.length; i++) {
@@ -80,7 +95,11 @@ export const meshToNonInterleavedVerticesAndIndices = (
         positions.push(vertex[0], vertex[1], vertex[2]);
         normals.push(normal[0], normal[1], normal[2]);
         colors.push(color.r / 255, color.g / 255, color.b / 255);
-
+        reflectiveness.push(type.reflectiveness);
+        roughness.push(type.roughness);
+        metallicity.push(type.metallicity);
+        emissivity.push(packEmissivityToUint8(type.emissivity) / 63.0);
+        terrainId.push(types[j]);
         vertexMap.set(key, vertexIndex++);
       }
 
@@ -92,6 +111,11 @@ export const meshToNonInterleavedVerticesAndIndices = (
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
     colors: new Float32Array(colors),
-    indices: new Uint32Array(indices)
+    indices: new Uint32Array(indices),
+    reflectiveness: new Float32Array(reflectiveness),
+    roughness: new Float32Array(roughness),
+    metallicity: new Float32Array(metallicity),
+    emissivity: new Float32Array(emissivity),
+    terrainId: new Uint8Array(terrainId),
   };
 };

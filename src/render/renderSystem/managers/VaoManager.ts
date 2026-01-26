@@ -29,7 +29,7 @@ function packEmissivityToUint8(emissivity: [number, number, number]): number {
 export class VAOManager {
   private gl: WebGL2RenderingContext;
   private vaoCache: Map<number, VaoInfo>;
-  private terrainVAOInfos: {[key: string]: VaoInfo}= {};
+  private terrainVAOInfos: { [key: string]: VaoInfo } = {};
   private screenQuadVAOInfo: VaoInfo | null = null;
   // Keep references to buffers so we can delete them later
   private terrainBuffers: {
@@ -43,7 +43,7 @@ export class VAOManager {
     ebo: WebGLBuffer | null;
   } | null = null;
   private geometryProgram: WebGLProgram | null = null;
-    private grassVAOInfos: { [key: string]: GrassVAOInfo } = {};
+  private grassVAOInfos: { [key: string]: GrassVAOInfo } = {};
   private instanceVBO: WebGLBuffer | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
@@ -57,102 +57,92 @@ export class VAOManager {
     this.initializeScreenQuad();
   }
 
-  createTerrainVAO(chunk: Chunk,chunkKey: string): void {
-      const triangleMesh = chunk.Mesh;
-      const vertexData = meshToNonInterleavedVerticesAndIndices(triangleMesh);
-      //Current placeholders for reflectiveness, metalicity, roughness, add them in the terrain branch
-      const reflectivenessPlaceholder = new Array(
-        (vertexData.positions.length / 3) * 3
-      ).fill(0.04); // Low reflectivity for dielectric/non-metallic surfaces
-      const metalicityPlaceholder = new Array(
-        (vertexData.positions.length / 3) * 3
-      ).fill(0.0);
-      const roughnessPlaceholder = new Array(
-        (vertexData.positions.length / 3) * 3
-      ).fill(0.7); // Medium-high roughness for terrain
-      const emissivityPlaceholder = new Array(
-        (vertexData.positions.length / 3) * 3
-      ).fill(packEmissivityToUint8([0.0, 0.0, 0.0]) / 63.0); // Normalized for RGBA8 texture
-      const TerrainTriangleBuffer = {
-        vertex: {
-          position: RenderUtils.CreateAttributeBuffer(
-            this.gl,
-            new Float32Array(vertexData.positions)
-          ),
-          normal: RenderUtils.CreateAttributeBuffer(
-            this.gl,
-            new Float32Array(vertexData.normals)
-          ),
-          color: RenderUtils.CreateAttributeBuffer(
-            this.gl,
-            new Float32Array(vertexData.colors)
-          ),
-          reflectiveness: RenderUtils.CreateAttributeBuffer(
-            this.gl,
-            new Float32Array(reflectivenessPlaceholder)
-          ),
-          metalicity: RenderUtils.CreateAttributeBuffer(
-            this.gl,
+  createTerrainVAO(chunk: Chunk, chunkKey: string): void {
+    const triangleMesh = chunk.Mesh;
+    const vertexData = meshToNonInterleavedVerticesAndIndices(triangleMesh);
 
-            new Float32Array(metalicityPlaceholder)
-          ),
-          roughness: RenderUtils.CreateAttributeBuffer(
-            this.gl,
-            new Float32Array(roughnessPlaceholder)
-          ),
-          emissivity: RenderUtils.CreateAttributeBuffer(
-            this.gl,
-            new Float32Array(emissivityPlaceholder)
-          )
+    const TerrainTriangleBuffer = {
+      vertex: {
+        position: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          vertexData.positions
+        ),
+        normal: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          vertexData.normals
+        ),
+        color: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          vertexData.colors
+        ),
+        reflectiveness: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          vertexData.reflectiveness
+        ),
+        metalicity: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+
+          vertexData.metallicity
+        ),
+        roughness: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          vertexData.roughness
+        ),
+        emissivity: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          vertexData.emissivity
+        )
+      },
+      indices: RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices))
+    };
+    const terrainVAO = RenderUtils.createNonInterleavedVao(
+      this.gl,
+      {
+        position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
+        normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
+        color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 },
+        reflectiveness: {
+          buffer: TerrainTriangleBuffer.vertex.reflectiveness,
+          size: 1
         },
-        indices: RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices))
-      };
-      const terrainVAO = RenderUtils.createNonInterleavedVao(
-        this.gl,
-        {
-          position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
-          normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
-          color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 },
-          reflectiveness: {
-            buffer: TerrainTriangleBuffer.vertex.reflectiveness,
-            size: 1
-          },
-          metalicity: {
-            buffer: TerrainTriangleBuffer.vertex.metalicity,
-            size: 1
-          },
-          roughness: { buffer: TerrainTriangleBuffer.vertex.roughness, size: 1 },
-          emissivity: { buffer: TerrainTriangleBuffer.vertex.emissivity, size: 1 }
+        metalicity: {
+          buffer: TerrainTriangleBuffer.vertex.metalicity,
+          size: 1
         },
-        TerrainTriangleBuffer.indices,
-        this.geometryProgram!
-      );
-      const modelMatrix=RenderUtils.CreateTransformations(vec3.fromValues(
-        chunk.ChunkPosition[0],
-        chunk.ChunkPosition[1],
-        chunk.ChunkPosition[2]
-      ),vec3.fromValues(0,0,0),vec3.fromValues(1,1,1));
-      this.terrainVAOInfos[chunkKey]= {
-        vao: terrainVAO,
-        indexCount: vertexData.indices.length,
-        modelMatrix
-      };
-      this.grassVAOInfos[chunkKey] = this.createGrassVAO(
-        vertexData.positions,
-        vertexData.normals,
-        Array.from(vertexData.indices),
-        modelMatrix
-      );
-    
+        roughness: { buffer: TerrainTriangleBuffer.vertex.roughness, size: 1 },
+        emissivity: { buffer: TerrainTriangleBuffer.vertex.emissivity, size: 1 }
+      },
+      TerrainTriangleBuffer.indices,
+      this.geometryProgram!
+    );
+    const modelMatrix = RenderUtils.CreateTransformations(vec3.fromValues(
+      chunk.ChunkPosition[0],
+      chunk.ChunkPosition[1],
+      chunk.ChunkPosition[2]
+    ), vec3.fromValues(0, 0, 0), vec3.fromValues(1, 1, 1));
+    this.terrainVAOInfos[chunkKey] = {
+      vao: terrainVAO,
+      indexCount: vertexData.indices.length,
+      modelMatrix
+    };
+    this.grassVAOInfos[chunkKey] = this.createGrassVAO(
+      vertexData.positions,
+      vertexData.normals,
+      vertexData.terrainId,
+      Array.from(vertexData.indices),
+      modelMatrix
+    );
+
   }
 
   createGrassVAO(
     terrainVertices: Float32Array,
     terrainNormals: Float32Array,
+    terrainId: Uint8Array,
     triangleIndices: number[],
     modelMatrix: mat4
   ): GrassVAOInfo {
-    const numBlades = 0;
+    const numBlades = 20000;
     const grassThickness = 0.1;
     const numTriangles = triangleIndices.length / 3;
     const instanceData = new Float32Array(numBlades * 5); // basePos(3) + randomLean(1) + rotAngle(1)
@@ -173,7 +163,14 @@ export class VAOManager {
         v = 1 - v;
       }
       const w = 1 - u - v;
-
+      // Check terrain type at this triangle (all three vertices should have the same type)
+      
+      const type0 = terrainId[triangleIndices[triIdx + 0]];
+      if (type0 !== 0) continue; // Only place grass on terrain type 0 (grass)
+      const type1 = terrainId[triangleIndices[triIdx + 1]];
+      if (type1 !== 0) continue;
+      const type2 = terrainId[triangleIndices[triIdx + 2]];
+      if (type2 !== 0) continue;
       // Interpolate position
       const x =
         terrainVertices[i0] * u +
@@ -644,7 +641,7 @@ export class VAOManager {
 
   getVaosToRender(): VaoInfo[] {
     const vaosToRender: VaoInfo[] = [];
-    if(this.terrainVAOInfos){
+    if (this.terrainVAOInfos) {
       for (const key in this.terrainVAOInfos) {
         vaosToRender.push(this.terrainVAOInfos[key]);
       }
@@ -675,7 +672,7 @@ export class VAOManager {
   }
 
   dispose(): void {
-      if(this.terrainVAOInfos){
+    if (this.terrainVAOInfos) {
       for (const key in this.terrainVAOInfos) {
         const vaoInfo = this.terrainVAOInfos[key];
         this.gl.deleteVertexArray(vaoInfo.vao);

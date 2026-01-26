@@ -1,5 +1,5 @@
 @group(0) @binding(0)
-var<storage, read_write> vertexData: array<vec3<f32>>;
+var<storage, read_write> interleavedData: array<vec4<f32>>; // vec4: xyz + terrain_type
 @group(0) @binding(1)
 var<storage, read_write> indexData: array<u32>;
 @group(0) @binding(2)
@@ -8,11 +8,6 @@ var<storage, read> fieldData: array<f32>;
 var<storage, read> params: Params;
 @group(0) @binding(4)
 var<storage, read> vertexOffsets: array<u32>;
-// --- Add these bindings ---
-@group(0) @binding(5)
-var<storage, read_write> normalData: array<vec3<f32>>;
-@group(0) @binding(6)
-var<storage, read_write> terrainTypeData: array<u32>;
 
 struct Params {
     width: u32,
@@ -142,35 +137,30 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let v1 = interpolate_edge(cube_pos, edges.y, cube_values);
         let v2 = interpolate_edge(cube_pos, edges.z, cube_values);
 
-        // --- Compute normals ---
         let n0 = get_normal(v0);
         let n1 = get_normal(v1);
         let n2 = get_normal(v2);
 
-        // --- Compute terrain types ---
         let t0 = get_terrain_type(v0, n0);
         let t1 = get_terrain_type(v1, n1);
         let t2 = get_terrain_type(v2, n2);
 
         let vtx_idx = base_vertex + written;
-        vertexData[vtx_idx] = v0;
-        vertexData[vtx_idx + 1u] = v2; 
-        vertexData[vtx_idx + 2u] = v1; 
-        // --- Write normals ---
-        normalData[vtx_idx] = n0;
-        normalData[vtx_idx + 1u] = n2; 
-        normalData[vtx_idx + 2u] = n1; 
+        
+        // Interleaved layout: position.xyz, normal.xyz, terrain_type, padding
+        // Index 0: position
+        interleavedData[vtx_idx * 2u] = vec4<f32>(v0, bitcast<f32>(t0));
+        interleavedData[vtx_idx * 2u + 1u] = vec4<f32>(n0, 0.0);
+        
+        interleavedData[(vtx_idx + 1u) * 2u] = vec4<f32>(v2, bitcast<f32>(t2));
+        interleavedData[(vtx_idx + 1u) * 2u + 1u] = vec4<f32>(n2, 0.0);
+        
+        interleavedData[(vtx_idx + 2u) * 2u] = vec4<f32>(v1, bitcast<f32>(t1));
+        interleavedData[(vtx_idx + 2u) * 2u + 1u] = vec4<f32>(n1, 0.0);
 
-        // --- Write terrain types ---
-        terrainTypeData[vtx_idx] = t0;
-        terrainTypeData[vtx_idx + 1u] = t2; 
-        terrainTypeData[vtx_idx + 2u] = t1; 
-
-        // Write indices
-        let idx_idx = vtx_idx;
-        indexData[idx_idx] = vtx_idx;
-        indexData[idx_idx + 1u] = vtx_idx + 1u;
-        indexData[idx_idx + 2u] = vtx_idx + 2u;
+        indexData[vtx_idx] = vtx_idx;
+        indexData[vtx_idx + 1u] = vtx_idx + 1u;
+        indexData[vtx_idx + 2u] = vtx_idx + 2u;
 
         written = written + 3u;
     }
