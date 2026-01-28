@@ -170,7 +170,7 @@ export class GameEngine {
         const dx = x - e.clientX;
         const newWidth = width + dx;
 
-        const clampedWidth = Math.min(600, Math.max(200, newWidth));
+        const clampedWidth = Math.min(400, Math.max(200, newWidth));
 
         sidebar.style.width = `${clampedWidth}px`;
         topBar.style.right = `${clampedWidth + 10}px`;

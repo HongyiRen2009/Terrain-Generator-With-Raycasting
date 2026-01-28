@@ -59,15 +59,25 @@ export class ObjectUI {
 
     closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
 
+    const createLabelFragment = (text: string, input: HTMLElement) => {
+      const span = document.createElement("span");
+      span.classList.add("map-entry-field");
+      span.append(text, input);
+      return span;
+    };
+
     // Add mapping UI
     addMapEntryBtn.addEventListener("click", () => {
       const wrapper = document.createElement("div");
-      wrapper.className = "map-entry";
+      wrapper.classList.add("map-entry");
 
       const colorInput = document.createElement("input");
       colorInput.type = "color";
+      colorInput.classList.add("map-color-input");
 
       const terrainSelect = document.createElement("select");
+      terrainSelect.classList.add("map-terrain-select");
+
       const terrainTypes = [
         { value: 1, label: "Diffuse (Matte)" },
         { value: 2, label: "Specular (Mirror)" },
@@ -90,6 +100,7 @@ export class ObjectUI {
       reflectInput.max = "1";
       reflectInput.value = "0.5";
       reflectInput.placeholder = "Metallic";
+      reflectInput.classList.add("map-number-input");
 
       const roughInput = document.createElement("input");
       roughInput.type = "number";
@@ -98,24 +109,21 @@ export class ObjectUI {
       roughInput.max = "1";
       roughInput.value = "0.5";
       roughInput.placeholder = "Roughness";
+      roughInput.classList.add("map-number-input");
 
       const deleteBtn = document.createElement("button");
       deleteBtn.textContent = "Remove";
-      deleteBtn.style.marginLeft = "10px";
+      deleteBtn.classList.add("map-entry-delete");
 
       deleteBtn.addEventListener("click", () => {
         wrapper.remove();
       });
 
       wrapper.append(
-        "Color: ",
-        colorInput,
-        " Terrain: ",
-        terrainSelect,
-        " Metallic: ",
-        reflectInput,
-        " Rough: ",
-        roughInput,
+        createLabelFragment("Color: ", colorInput),
+        createLabelFragment("Terrain: ", terrainSelect),
+        createLabelFragment("Metallic: ", reflectInput),
+        createLabelFragment("Rough: ", roughInput),
         deleteBtn
       );
 
@@ -296,83 +304,67 @@ export class ObjectUI {
    */
   private addPositionControls() {
     const popup = document.getElementById("popup");
-    if (!popup) {
-      console.error("Could not find popup element");
-      return;
-    }
+    if (!popup) return;
 
-    // Check if position controls already exist
-    if (document.getElementById("spawn-position-section")) {
-      return; // Already added
-    }
+    if (document.getElementById("spawn-position-section")) return;
 
-    // Create position control section
     const positionSection = document.createElement("div");
     positionSection.id = "spawn-position-section";
-    positionSection.style.cssText =
-      "margin: 15px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5;";
+    positionSection.classList.add("popup-section");
 
     const positionTitle = document.createElement("h3");
     positionTitle.textContent = "Spawn Position";
-    positionTitle.style.margin = "0 0 10px 0";
     positionSection.appendChild(positionTitle);
 
-    // X, Y, Z position inputs
     const axes = ["X", "Y", "Z"];
     axes.forEach((axis, index) => {
       const label = document.createElement("label");
-      label.style.display = "block";
-      label.style.marginBottom = "8px";
-      label.innerHTML = `${axis}: `;
+      label.classList.add("vector-label");
+      label.textContent = `${axis}: `;
 
       const input = document.createElement("input");
       input.type = "number";
       input.id = `spawn-${axis.toLowerCase()}`;
       input.value = this.nextSpawnPosition[index].toString();
       input.step = "1";
-      input.style.width = "100px";
-      input.style.marginLeft = "10px";
+      input.classList.add("vector-input");
 
       label.appendChild(input);
       positionSection.appendChild(label);
     });
 
-    // Add "Use Camera Position" button
     const useCameraBtn = document.createElement("button");
-    useCameraBtn.textContent = "📷 Use Camera Position";
     useCameraBtn.type = "button";
-    useCameraBtn.style.cssText =
-      "margin-top: 10px; width: 100%; padding: 5px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;";
+    useCameraBtn.textContent = "Use Camera Position";
+    useCameraBtn.classList.add("popup-button", "primary");
     useCameraBtn.addEventListener("click", () => {
-      if (this.camera && this.camera.position) {
-        (document.getElementById("spawn-x") as HTMLInputElement).value =
-          this.camera.position[0].toFixed(1);
-        (document.getElementById("spawn-y") as HTMLInputElement).value =
-          this.camera.position[1].toFixed(1);
-        (document.getElementById("spawn-z") as HTMLInputElement).value =
-          this.camera.position[2].toFixed(1);
+      if (this.camera?.position) {
+        ["x", "y", "z"].forEach((axis, i) => {
+          (document.getElementById(`spawn-${axis}`) as HTMLInputElement).value =
+            this.camera!.position[i].toFixed(1);
+        });
       } else {
         alert(
           "Camera position not available. Please enter coordinates manually."
         );
       }
     });
-    positionSection.appendChild(useCameraBtn);
 
-    // Add "Reset to Default" button
     const resetBtn = document.createElement("button");
-    resetBtn.textContent = "↺ Reset to Default";
     resetBtn.type = "button";
-    resetBtn.style.cssText =
-      "margin-top: 5px; width: 100%; padding: 5px; background: #666; color: white; border: none; border-radius: 3px; cursor: pointer;";
+    resetBtn.textContent = "Reset to Default";
+    resetBtn.classList.add("popup-button", "destructive");
     resetBtn.addEventListener("click", () => {
-      (document.getElementById("spawn-x") as HTMLInputElement).value = "0";
-      (document.getElementById("spawn-y") as HTMLInputElement).value = "50";
-      (document.getElementById("spawn-z") as HTMLInputElement).value = "0";
+      ["x", "y", "z"].forEach((axis, i) => {
+        const defaultVals = [0, 50, 0];
+        (document.getElementById(`spawn-${axis}`) as HTMLInputElement).value =
+          defaultVals[i].toString();
+      });
     });
+
+    positionSection.appendChild(useCameraBtn);
     positionSection.appendChild(resetBtn);
 
-    // Append to popup at the end (will appear before submit button if that's the last element)
     popup.appendChild(positionSection);
   }
 
