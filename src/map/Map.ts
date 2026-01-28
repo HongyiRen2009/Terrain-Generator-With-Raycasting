@@ -14,14 +14,6 @@ interface ImportMapEntry {
   color: string;
   terrain: Terrain;
 }
-const directions = [
-  vec3.fromValues(1, 0, 0),
-  vec3.fromValues(-1, 0, 0),
-  vec3.fromValues(0, 1, 0),
-  vec3.fromValues(0, -1, 0),
-  vec3.fromValues(0, 0, 1),
-  vec3.fromValues(0, 0, -1)
-];
 /**
  * The object holding the map of the world
  * Center chunk starts at 0,0 (probably)
@@ -35,6 +27,9 @@ type Timing = {
   meshConstruction: number;
   total: number;
 };
+const MAX_CHUNKS_PER_STRIP_TOTAL = 16; // e.g., 4x4, but flexible
+
+
 export class WorldMap {
 
   public onObjectAdded?: (obj: WorldObject) => void;
@@ -70,6 +65,13 @@ export class WorldMap {
   public computeShader: ComputeShader;
   public lightUI: LightUI;
   private chunkLoadQueue: { pos: vec3, key: string, then: ((chunk: Chunk) => void) | null }[] = [];
+  private chunkStripQueue: { 
+    startPos: vec3, 
+    lengthInChunks: number, 
+    widthInChunks: number, 
+    then: ((chunk: Chunk) => void) | null,
+    allChunksLoadedCallback: (() => void) | null 
+  }[] = [];
   public isGeneratingChunk: boolean = false;
   /**
    * Constructs a world
@@ -94,6 +96,7 @@ export class WorldMap {
     this.chunks = {};
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
     this.computeShader = new ComputeShader();
+    this.computeShader.init();
     this.lightUI = new LightUI(this, this.tracerUpdateSupplier);
     this.initSettings();
     this.TotalTimings = {
@@ -159,11 +162,133 @@ export class WorldMap {
   private chunkQueueHasKey(key: string): boolean {
     return this.chunkLoadQueue.some(item => item.key === key);
   }
-  public async processChunkQueue(allChunksLoadedCallback: (() => void) | null = null) {
-    if (this.isGeneratingChunk || this.chunkLoadQueue.length === 0) {
-      return;
-    }
 
+
+private computeOptimalSubStripSize(
+  lengthInChunks: number,
+  widthInChunks: number,
+  maxArea: number
+): { tileX: number; tileZ: number } {
+  let bestTileX = 1;
+  let bestTileZ = Math.max(1, Math.min(widthInChunks, maxArea));
+  let bestCalls = Number.POSITIVE_INFINITY;
+  let bestArea = bestTileX * bestTileZ;
+
+  const maxX = Math.min(lengthInChunks, maxArea);
+  for (let tx = 1; tx <= maxX; tx++) {
+    const tzCandidate = Math.floor(maxArea / tx);
+    if (tzCandidate < 1) continue;
+
+    const tz = Math.min(widthInChunks, tzCandidate);
+    const calls = Math.ceil(lengthInChunks / tx) * Math.ceil(widthInChunks / tz);
+    const area = tx * tz;
+
+    // Prefer fewer calls; break ties by larger area
+    if (calls < bestCalls || (calls === bestCalls && area > bestArea)) {
+      bestCalls = calls;
+      bestArea = area;
+      bestTileX = tx;
+      bestTileZ = tz;
+    }
+  }
+
+  return { tileX: bestTileX, tileZ: bestTileZ };
+}
+
+// ...existing code...
+
+public loadChunkStrip(
+  startPos: vec3, 
+  lengthInChunks: number, 
+  widthInChunks: number, 
+  then: ((chunk: Chunk) => void) | null = null,
+  allChunksLoadedCallback: (() => void) | null = null
+) {
+  // Pick optimal tile size to minimize number of calls for this region
+  const { tileX, tileZ } = this.computeOptimalSubStripSize(
+    lengthInChunks,
+    widthInChunks,
+    MAX_CHUNKS_PER_STRIP_TOTAL
+  );
+
+  for (let baseX = 0; baseX < lengthInChunks; baseX += tileX) {
+    for (let baseZ = 0; baseZ < widthInChunks; baseZ += tileZ) {
+      const subStripX = Math.min(tileX, lengthInChunks - baseX);
+      const subStripZ = Math.min(tileZ, widthInChunks - baseZ);
+
+      const subStripStart = vec3.fromValues(
+        startPos[0] + baseX * this.resolution,
+        startPos[1],
+        startPos[2] + baseZ * this.resolution
+      );
+
+      // Overlap check
+      let hasOverlap = false;
+      for (let cx = 0; cx < subStripX && !hasOverlap; cx++) {
+        for (let cz = 0; cz < subStripZ; cz++) {
+          const chunkWorldX = subStripStart[0] + cx * this.resolution;
+          const chunkWorldZ = subStripStart[2] + cz * this.resolution;
+          const key = `${chunkWorldX},${subStripStart[1]},${chunkWorldZ}`;
+          if (this.chunks[key] || this.chunkQueueHasKey(key)) {
+            hasOverlap = true;
+            break;
+          }
+        }
+      }
+
+      if (hasOverlap) {
+        // Fallback to individual chunk loading for overlapping region
+        for (let cx = 0; cx < subStripX; cx++) {
+          for (let cz = 0; cz < subStripZ; cz++) {
+            const chunkPos = vec3.fromValues(
+              subStripStart[0] + cx * this.resolution,
+              subStripStart[1],
+              subStripStart[2] + cz * this.resolution
+            );
+            this.loadChunk(chunkPos, then);
+          }
+        }
+      } else {
+        // Queue the sub-strip
+        this.chunkStripQueue.push({
+          startPos: subStripStart,
+          lengthInChunks: subStripX,
+          widthInChunks: subStripZ,
+          then,
+          allChunksLoadedCallback
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Processes both the chunk strip queue and the individual chunk queue asynchronously.
+ * Prioritizes strip queue for efficiency.
+ */
+public async processChunkQueue(allChunksLoadedCallback: (() => void) | null = null) {
+  if (this.isGeneratingChunk) return;
+
+  // Process strip queue first (more efficient)
+  if (this.chunkStripQueue.length > 0) {
+    this.isGeneratingChunk = true;
+    const { startPos, lengthInChunks, widthInChunks, then, allChunksLoadedCallback: stripCallback } = this.chunkStripQueue.shift()!;
+
+    try {
+      await this.generateChunkStrip(startPos, lengthInChunks, widthInChunks, then);
+      if (stripCallback) stripCallback();
+    } catch (e) {
+      console.error(`Failed to generate chunk strip at ${startPos}:`, e);
+    } finally {
+      this.isGeneratingChunk = false;
+      // Continue processing queues
+      this.processChunkQueue();
+    }
+    return;
+  }
+
+  // Fall back to individual chunk processing
+  if (this.chunkLoadQueue.length > 0) {
     this.isGeneratingChunk = true;
     const { pos, key, then: callback } = this.chunkLoadQueue.shift()!;
 
@@ -173,7 +298,6 @@ export class WorldMap {
         vec3.fromValues(this.resolution, this.height, this.resolution),
         this.seed,
         this
-        
       );
       this.chunks[key] = chunk;
 
@@ -181,6 +305,7 @@ export class WorldMap {
       const { mesh, timings } = await chunk.generate();
       this.addTimings(timings);
       this.chunksGenerated++;
+      if (callback) callback(this.chunks[key]);
     } catch (e) {
       console.error(`Failed to generate chunk ${key}:`, e);
       delete this.chunks[key];
@@ -192,32 +317,29 @@ export class WorldMap {
         if (allChunksLoadedCallback) {
           allChunksLoadedCallback();
         }
-
-
-
       }
-      this.processChunkQueue(allChunksLoadedCallback); // Process next chunk in the queue
-      callback?.(this.chunks[key]);
-
+      this.processChunkQueue(allChunksLoadedCallback); // Process next in the queue
     }
+    return;
   }
+}
 
 /**
  * Generates a strip of chunks by creating a single large mesh and partitioning it.
  * @param chunkStartPos Starting position in chunk coordinates (vec3) of the strip
- * @param lengthInChunks Number of chunks along Z
- * @param widthInChunks Number of chunks along X
+ * @param numberOfChunksX Number of chunks along X
+ * @param widthInChunks Number of chunks along Z
  * @param then Optional callback after all chunks are generated
  */
-public async  generateChunkStrip(
+private async generateChunkStrip(
   chunkStartPos: vec3,
-  lengthInChunks: number,
-  widthInChunks: number,
+  numberOfChunksX: number,
+  numberOfChunksZ: number,
   then: ((chunk: Chunk) => void) | null = null
 ) {
   // Calculate total grid size for the strip
-  const totalWidth = widthInChunks * this.resolution;
-  const totalDepth = lengthInChunks * this.resolution;
+  const totalWidth = numberOfChunksX * this.resolution;
+  const totalDepth = numberOfChunksZ * this.resolution;
   const gridSize = vec3.fromValues(totalWidth, this.height, totalDepth);
 
   // Call compute shader ONCE for the whole strip
@@ -225,6 +347,7 @@ public async  generateChunkStrip(
   const width = gridSize[0] + 3;
   const height = gridSize[1] + 3;
   const depth = gridSize[2] + 3;
+  
   // Generate field and mesh for the entire strip
   const fieldBuffer = await computeShader.createSimplexNoise3D(
     width, height, depth, this.seed,
@@ -242,14 +365,14 @@ public async  generateChunkStrip(
 
   // Partition triangles into chunks
   const chunkMeshes: { [key: string]: Mesh } = {};
-  for (let x = 0; x < widthInChunks; x++) {
-    for (let z = 0; z < lengthInChunks; z++) {
-      const chunkPos = vec3.fromValues(
-        chunkStartPos[0] + x * this.resolution,
-        chunkStartPos[1],
-        chunkStartPos[2] + z * this.resolution
-      );
-      const key = `${chunkPos[0]},${chunkPos[1]},${chunkPos[2]}`;
+  
+  // Create chunk meshes using chunk indices (0,1,2...) not world positions
+  for (let cx = 0; cx < numberOfChunksX; cx++) {
+    for (let cz = 0; cz < numberOfChunksZ; cz++) {
+      const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+      const chunkWorldY = chunkStartPos[1];
+      const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+      const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
       chunkMeshes[key] = new Mesh();
     }
   }
@@ -264,19 +387,63 @@ public async  generateChunkStrip(
     const offset1 = idx1 * 8;
     const offset2 = idx2 * 8;
 
+    // Get positions in strip-local space (0 to totalWidth/totalDepth)
     const tri: Triangle = [
       vec3.fromValues(interleavedData[offset0], interleavedData[offset0 + 1], interleavedData[offset0 + 2]),
       vec3.fromValues(interleavedData[offset1], interleavedData[offset1 + 1], interleavedData[offset1 + 2]),
       vec3.fromValues(interleavedData[offset2], interleavedData[offset2 + 1], interleavedData[offset2 + 2])
     ];
 
-    // Find which chunk this triangle belongs to (by first vertex)
-    const chunkX = Math.floor((tri[0][0] - chunkStartPos[0]) / this.resolution) * this.resolution + chunkStartPos[0];
-    const chunkZ = Math.floor((tri[0][2] - chunkStartPos[2]) / this.resolution) * this.resolution + chunkStartPos[2];
-    const chunkY = chunkStartPos[1];
-    const key = `${chunkX},${chunkY},${chunkZ}`;
+    // Skip edge triangles to avoid seams (same logic as single chunk generation)
+    let rejectTriangle = false;
+    for (let j = 0; j < 3; j++) {
+      if (
+        tri[j][0] <= 0 ||
+        tri[j][0] >= width - 1 ||
+        tri[j][1] <= 0 ||
+        tri[j][1] >= height - 1 ||
+        tri[j][2] <= 0 ||
+        tri[j][2] >= depth - 1
+      ) {
+        rejectTriangle = true;
+        break;
+      }
+    }
+    if (rejectTriangle) {
+      continue;
+    }
+
+    // Determine which chunk this triangle belongs to based on first vertex
+    // The vertex position is in strip-local space, so divide by resolution to get chunk index
+    const localX = tri[0][0];
+    const localZ = tri[0][2];
+    
+    // Calculate chunk indices within the strip (0, 1, 2, ...)
+    const chunkIdxX = Math.floor(localX / this.resolution);
+    const chunkIdxZ = Math.floor(localZ / this.resolution);
+    
+    // Clamp to valid chunk indices
+    const clampedChunkIdxX = Math.max(0, Math.min(numberOfChunksX - 1, chunkIdxX));
+    const clampedChunkIdxZ = Math.max(0, Math.min(numberOfChunksZ - 1, chunkIdxZ));
+    
+    // Calculate world chunk position
+    const chunkWorldX = chunkStartPos[0] + clampedChunkIdxX * this.resolution;
+    const chunkWorldY = chunkStartPos[1];
+    const chunkWorldZ = chunkStartPos[2] + clampedChunkIdxZ * this.resolution;
+    
+    const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
     const mesh = chunkMeshes[key];
     if (!mesh) continue;
+
+    // Convert to chunk-local coordinates by subtracting the chunk's offset within the strip
+    const chunkOffsetX = clampedChunkIdxX * this.resolution;
+    const chunkOffsetZ = clampedChunkIdxZ * this.resolution;
+    
+    const localTri: Triangle = [
+      vec3.fromValues(tri[0][0] - chunkOffsetX, tri[0][1], tri[0][2] - chunkOffsetZ),
+      vec3.fromValues(tri[1][0] - chunkOffsetX, tri[1][1], tri[1][2] - chunkOffsetZ),
+      vec3.fromValues(tri[2][0] - chunkOffsetX, tri[2][1], tri[2][2] - chunkOffsetZ)
+    ];
 
     const norm: Triangle = [
       vec3.fromValues(interleavedData[offset0 + 4], interleavedData[offset0 + 5], interleavedData[offset0 + 6]),
@@ -290,46 +457,32 @@ public async  generateChunkStrip(
       new Uint32Array(new Float32Array([interleavedData[offset2 + 3]]).buffer)[0]
     ];
 
-    mesh.addTriangle(tri, norm, types);
+    mesh.addTriangle(localTri, norm, types);
   }
 
   // Create Chunk objects and assign meshes
-  for (let x = 0; x < widthInChunks; x++) {
-    for (let z = 0; z < lengthInChunks; z++) {
-      const chunkPos = vec3.fromValues(
-        chunkStartPos[0] + x * this.resolution,
-        chunkStartPos[1],
-        chunkStartPos[2] + z * this.resolution
-      );
-      const key = `${chunkPos[0]},${chunkPos[1]},${chunkPos[2]}`;
+  for (let cx = 0; cx < numberOfChunksX; cx++) {
+    for (let cz = 0; cz < numberOfChunksZ; cz++) {
+      const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+      const chunkWorldY = chunkStartPos[1];
+      const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+      const chunkPos = vec3.fromValues(chunkWorldX, chunkWorldY, chunkWorldZ);
+      const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
+      
       const chunk = new Chunk(
         chunkPos,
         vec3.fromValues(this.resolution, this.height, this.resolution),
         this.seed,
         this
-        
       );
       chunk.Mesh = chunkMeshes[key];
       this.chunks[key] = chunk;
-    }
-  }
-  if (then) {
-    for (let x = 0; x < widthInChunks; x++) {
-      for (let z = 0; z < lengthInChunks; z++) {
-        const chunkPos = vec3.fromValues(
-          chunkStartPos[0] + x * this.resolution,
-          chunkStartPos[1],
-          chunkStartPos[2] + z * this.resolution
-        );
-        const key = `${chunkPos[0]},${chunkPos[1]},${chunkPos[2]}`;
-        const chunk = this.chunks[key];
-        if (then) {
-          then(chunk);
-        }
+      
+      if (then) {
+        then(chunk);
       }
     }
   }
-
 }
 
   private logTiming(average = false) {

@@ -169,18 +169,18 @@ export class ComputeShader {
     if (!this.device) {
       throw new Error("WebGPU is not supported on this browser.");
     }
-    this.testPrefixSum();
+    //this.testPrefixSum();
   }
   async testPrefixSum() {
     if (!this.device) {
       await this.init();
     }
-    const inputArray = Array.from({ length: 1024 }, (_, i) => i + 1);
+    const inputArray = Array.from({ length: 400000 }, (_, i) => Math.floor(Math.random() * 10));
     const inputBuffer = this.createGPUBuffer(
       new Uint32Array(inputArray),
       GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
     );
-    debugger
+    
     const outputBuffer = await this.computePrefixSum(
       inputBuffer,
       inputArray.length
@@ -662,11 +662,17 @@ async computePrefixSum(
   if (!this.device) {
     await this.init();
   }
+
+  const CHUNK_SIZE = 512;
+  const MAX_SINGLE_PASS_ELEMENTS = 512; // Max elements pass2 can handle in one workgroup
+
+  // Base case: small enough for single workgroup scan
+  if (elementCount <= CHUNK_SIZE) {
+    return this.computePrefixSumSmall(inputBuffer, elementCount);
+  }
+
   const pass1ShaderModule = this.device.createShaderModule({
     code: prefixSumChunkCode
-  });
-  const pass2ShaderModule = this.device.createShaderModule({
-    code: prefixSumScanBlocksCode
   });
   const pass3ShaderModule = this.device.createShaderModule({
     code: prefixSumUniformAddCode
@@ -674,79 +680,150 @@ async computePrefixSum(
 
   const pass1UniformBindGroupLayout = this.device.createBindGroupLayout({
     entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "read-only-storage" }
-        },
-        {
-          binding: 1,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "storage" }
-        },
-        {
-          binding: 2,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "storage" }
-        }
-    ]
-  });
-
-  const pass2UniformBindGroupLayout = this.device.createBindGroupLayout({
-    entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "read-only-storage" }
-        },
-        {
-          binding: 1,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "storage" }
-        },
-        {
-          binding: 2,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: {}
-        }
+      {
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "read-only-storage" }
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "storage" }
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "storage" }
+      }
     ]
   });
 
   const pass3UniformBindGroupLayout = this.device.createBindGroupLayout({
     entries: [
-        {
-          binding: 0,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "storage" }
-        },
-        {
-          binding: 1,
-          visibility: GPUShaderStage.COMPUTE,
-          buffer: { type: "read-only-storage" }
-        }
+      {
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "storage" }
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "read-only-storage" }
+      }
     ]
   });
 
-  const chunkCount = Math.ceil(elementCount / 512);
+  const chunkCount = Math.ceil(elementCount / CHUNK_SIZE);
 
-  // get nearest power of 2 for chunkCount
+  // Round up to power of 2 for the sums array
   let powerOf2 = 1;
   while (powerOf2 < chunkCount) {
     powerOf2 *= 2;
   }
 
-  const inputArrayBuffer = inputBuffer;
   const outputArrayBuffer = this.copyGPUBuffer(
     inputBuffer,
     GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   );
   const sumArrayBuffer = this.createGPUBuffer(
     new Uint32Array(powerOf2),
-    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   );
-  const outputSumArrayBuffer = this.createGPUBuffer(
+
+  // Pass 1: Scan each chunk and extract block sums
+  const pass1UniformBindGroup = this.device.createBindGroup({
+    layout: pass1UniformBindGroupLayout,
+    entries: [
+      { binding: 0, resource: { buffer: inputBuffer } },
+      { binding: 1, resource: { buffer: outputArrayBuffer } },
+      { binding: 2, resource: { buffer: sumArrayBuffer } }
+    ]
+  });
+
+  const pass1Pipeline = this.device.createComputePipeline({
+    layout: this.device.createPipelineLayout({
+      bindGroupLayouts: [pass1UniformBindGroupLayout]
+    }),
+    compute: {
+      module: pass1ShaderModule,
+      entryPoint: "main"
+    }
+  });
+  const commandEncoder1 = this.device.createCommandEncoder();
+  const passEncoder1 = commandEncoder1.beginComputePass();
+  passEncoder1.setPipeline(pass1Pipeline);
+  passEncoder1.setBindGroup(0, pass1UniformBindGroup);
+  passEncoder1.dispatchWorkgroups(chunkCount);
+  passEncoder1.end();
+  this.device.queue.submit([commandEncoder1.finish()]);
+  // Pass 2: Recursively scan the block sums
+  const scannedSumsBuffer = await this.computePrefixSum(sumArrayBuffer, chunkCount);
+  // Pass 3: Add scanned block sums back to each chunk
+  const pass3UniformBindGroup = this.device.createBindGroup({
+    layout: pass3UniformBindGroupLayout,
+    entries: [
+      { binding: 0, resource: { buffer: outputArrayBuffer } },
+      { binding: 1, resource: { buffer: scannedSumsBuffer } }
+    ]
+  });
+
+  const pass3Pipeline = this.device.createComputePipeline({
+    layout: this.device.createPipelineLayout({
+      bindGroupLayouts: [pass3UniformBindGroupLayout]
+    }),
+    compute: {
+      module: pass3ShaderModule,
+      entryPoint: "main"
+    }
+  });
+
+  const commandEncoder3 = this.device.createCommandEncoder();
+  const passEncoder3 = commandEncoder3.beginComputePass();
+  passEncoder3.setPipeline(pass3Pipeline);
+  passEncoder3.setBindGroup(0, pass3UniformBindGroup);
+  passEncoder3.dispatchWorkgroups(chunkCount);
+  passEncoder3.end();
+  this.device.queue.submit([commandEncoder3.finish()]);
+
+  return outputArrayBuffer;
+}
+// Helper for small arrays that fit in a single workgroup
+private async computePrefixSumSmall(
+  inputBuffer: GPUBuffer,
+  elementCount: number
+): Promise<GPUBuffer> {
+  const pass2ShaderModule = this.device.createShaderModule({
+    code: prefixSumScanBlocksCode
+  });
+
+  let powerOf2 = 1;
+  while (powerOf2 < elementCount) {
+    powerOf2 *= 2;
+  }
+
+  const pass2UniformBindGroupLayout = this.device.createBindGroupLayout({
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "read-only-storage" }
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: { type: "storage" }
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {}
+      }
+    ]
+  });
+
+  const outputBuffer = this.createGPUBuffer(
     new Uint32Array(powerOf2),
-    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
   );
 
   const sumSizeBuffer = this.createGPUBuffer(
@@ -754,126 +831,34 @@ async computePrefixSum(
     GPUBufferUsage.UNIFORM
   );
 
-  const pass1UniformBindGroup = this.device.createBindGroup({
-    layout: pass1UniformBindGroupLayout,
+  const pass2UniformBindGroup = this.device.createBindGroup({
+    layout: pass2UniformBindGroupLayout,
     entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: inputArrayBuffer
-          }
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: outputArrayBuffer
-          }
-        },
-        {
-          binding: 2,
-          resource: {
-            buffer: sumArrayBuffer
-          }
-        }
+      { binding: 0, resource: { buffer: inputBuffer } },
+      { binding: 1, resource: { buffer: outputBuffer } },
+      { binding: 2, resource: { buffer: sumSizeBuffer } }
     ]
   });
 
-    const pass2UniformBindGroup = this.device.createBindGroup({
-      layout: pass2UniformBindGroupLayout,
-      entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: sumArrayBuffer
-          }
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: outputSumArrayBuffer
-          }
-        },
-        {
-          binding: 2,
-          resource: {
-            buffer: sumSizeBuffer
-          }
-        }
-      ]
-    });
+  const pass2Pipeline = this.device.createComputePipeline({
+    layout: this.device.createPipelineLayout({
+      bindGroupLayouts: [pass2UniformBindGroupLayout]
+    }),
+    compute: {
+      module: pass2ShaderModule,
+      entryPoint: "main"
+    }
+  });
 
-    const pass3UniformBindGroup = this.device.createBindGroup({
-      layout: pass3UniformBindGroupLayout,
-        entries: [
-        {
-          binding: 0,
-          resource: {
-            buffer: outputArrayBuffer
-          }
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: outputSumArrayBuffer
-          }
-        }
-      ]
-    });
+  const commandEncoder = this.device.createCommandEncoder();
+  const passEncoder = commandEncoder.beginComputePass();
+  passEncoder.setPipeline(pass2Pipeline);
+  passEncoder.setBindGroup(0, pass2UniformBindGroup);
+  passEncoder.dispatchWorkgroups(1);
+  passEncoder.end();
+  this.device.queue.submit([commandEncoder.finish()]);
 
-    const pass1Pipeline = this.device.createComputePipeline({
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: [pass1UniformBindGroupLayout]
-      }),
-      compute: {
-        module: pass1ShaderModule,
-        entryPoint: "main"
-      }
-      });
-
-      const pass2Pipeline = this.device.createComputePipeline({
-        layout: this.device.createPipelineLayout({
-          bindGroupLayouts: [pass2UniformBindGroupLayout]
-        }),
-      compute: {
-        module: pass2ShaderModule,
-        entryPoint: "main"
-      }
-    });
-
-    const pass3Pipeline = this.device.createComputePipeline({
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: [pass3UniformBindGroupLayout]
-      }),
-      compute: {
-        module: pass3ShaderModule,
-        entryPoint: "main"
-      }
-    });
-
-    const computePassDescriptor = {};
-
-    const commandEncoder = this.device.createCommandEncoder();
-
-    const passEncoder1 = commandEncoder.beginComputePass(computePassDescriptor);
-    passEncoder1.setPipeline(pass1Pipeline);
-    passEncoder1.setBindGroup(0, pass1UniformBindGroup);
-    passEncoder1.dispatchWorkgroups(chunkCount);
-    passEncoder1.end();
-
-    const passEncoder2 = commandEncoder.beginComputePass(computePassDescriptor);
-    passEncoder2.setPipeline(pass2Pipeline);
-    passEncoder2.setBindGroup(0, pass2UniformBindGroup);
-    passEncoder2.dispatchWorkgroups(1);
-    passEncoder2.end();
-
-    const passEncoder3 = commandEncoder.beginComputePass(computePassDescriptor);
-    passEncoder3.setPipeline(pass3Pipeline);
-    passEncoder3.setBindGroup(0, pass3UniformBindGroup);
-    passEncoder3.dispatchWorkgroups(chunkCount);
-    passEncoder3.end();
-
-    this.device.queue.submit([commandEncoder.finish()]);
-  return outputArrayBuffer;
+  return outputBuffer;
 }
   copyGPUBuffer(
     source: GPUBuffer,

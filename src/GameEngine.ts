@@ -278,8 +278,6 @@ export class GameEngine {
       numType: "int",
       onChange: (v: number) => {
         this.renderDistance = v;
-        this.generateChunksAroundCamera(true
-        );
       }
     });
     SettingsManager.instance.addButtonToSection("World Settings", "Regenerate Terrain", () => {
@@ -320,34 +318,74 @@ export class GameEngine {
     this.debug.update();
   }
 
-  generateChunksAroundCamera(deleteAllChunks: boolean = false) {
-    if(this.world.isGeneratingChunk) return;
-    const cameraChunk = this.world.getChunkCoordsFromPosition(
-      this.mainCamera.position
+generateChunksAroundCamera(deleteAllChunks: boolean = false) {
+  if (this.world.isGeneratingChunk) return;
+  
+  const cameraChunk = this.world.getChunkCoordsFromPosition(
+    this.mainCamera.position
+  );
+  
+  // Unload distant chunks
+  for (const chunkKey in this.world.chunks) {
+    const chunkPos = WorldUtils.chunkKeyToPosition(chunkKey);
+    const distance = Math.max(
+      Math.abs(chunkPos[0] - cameraChunk[0]) / this.world.resolution,
+      Math.abs(chunkPos[1] - cameraChunk[1]) / this.world.height,
+      Math.abs(chunkPos[2] - cameraChunk[2]) / this.world.resolution
     );
-    for (const chunkKey in this.world.chunks) {
-      const chunkPos = WorldUtils.chunkKeyToPosition(chunkKey);
-      const distance = Math.max(
-        Math.abs(chunkPos[0] - cameraChunk[0]) / this.world.resolution,
-        Math.abs(chunkPos[1] - cameraChunk[1]) / this.world.height,
-        Math.abs(chunkPos[2] - cameraChunk[2]) / this.world.resolution
-      );
-      if (distance > this.renderDistance || deleteAllChunks) {
-        this.world.unloadChunk(chunkPos);
-        this.renderer.vaoManager.deleteTerrainVao(chunkKey);
-      }
+    if (distance > this.renderDistance || deleteAllChunks) {
+      this.world.unloadChunk(chunkPos);
+      this.renderer.vaoManager.deleteTerrainVao(chunkKey);
     }
-    for (let j = -this.renderDistance; j <= this.renderDistance; j++) {
-      for (let i = -this.renderDistance; i <= this.renderDistance; i++) {
-        const chunkPos = vec3.fromValues(cameraChunk[0] + (i) * this.world.resolution, 0, cameraChunk[2] + (j) * this.world.resolution);
-        this.world.loadChunk(chunkPos, (chunk: Chunk) => {
-          if(!chunk) return;
-          this.renderer.vaoManager.createTerrainVAO(chunk,WorldUtils.chunkKeyFromPosition(chunkPos, this.world));
-        });
-      }
-    }
-    this.world.processChunkQueue();
   }
+
+  // Find which chunks need to be generated
+  const chunksToGenerate: vec3[] = [];
+  for (let j = -this.renderDistance; j <= this.renderDistance; j++) {
+    for (let i = -this.renderDistance; i <= this.renderDistance; i++) {
+      const chunkPos = vec3.fromValues(
+        cameraChunk[0] + i * this.world.resolution,
+        0,
+        cameraChunk[2] + j * this.world.resolution
+      );
+      if (!this.world.hasChunkAt(chunkPos)) {
+        chunksToGenerate.push(chunkPos);
+      }
+    }
+  }
+
+  if (chunksToGenerate.length === 0) return;
+
+  // Find bounding box of chunks to generate
+  let minX = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxZ = -Infinity;
+  
+  for (const pos of chunksToGenerate) {
+    minX = Math.min(minX, pos[0]);
+    minZ = Math.min(minZ, pos[2]);
+    maxX = Math.max(maxX, pos[0]);
+    maxZ = Math.max(maxZ, pos[2]);
+  }
+
+  // Calculate strip dimensions in chunks
+  const lengthInChunks = Math.round((maxX - minX) / this.world.resolution) + 1;
+  const widthInChunks = Math.round((maxZ - minZ) / this.world.resolution) + 1;
+  const startPos = vec3.fromValues(minX, 0, minZ);
+
+  // Generate all chunks in one strip
+  this.world.loadChunkStrip(
+    startPos,
+    lengthInChunks,
+    widthInChunks,
+    (chunk: Chunk) => {
+      this.renderer.vaoManager.createTerrainVAO(
+        chunk,
+        WorldUtils.chunkKeyFromPosition(chunk.ChunkPosition, this.world)
+      );
+    }
+  );
+  this.world.processChunkQueue();
+}
   updateChunksForCamera() {
     const cameraChunk = this.world.getChunkCoordsFromPosition(
       this.mainCamera.position
