@@ -2,6 +2,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import webpack from "webpack";
 import "webpack-dev-server";
+import "dotenv/config";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +19,9 @@ const config: webpack.Configuration = {
   devServer: {
     static: path.resolve(__dirname, "public"),
     hot: true,
-    open: true,
+    open: {
+      app: process.env.BROWSER || "msedge"
+    },
     port: 3000
   },
   resolve: {
