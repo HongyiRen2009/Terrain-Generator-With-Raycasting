@@ -15,6 +15,7 @@ export interface VaoInfo {
   modelMatrix: mat4;
   isLight?: boolean;
   lightIndex?: number;
+  boundingBox?: { min: vec3; max: vec3 };
 }
 
 export interface GrassVAOInfo extends VaoInfo {
@@ -123,14 +124,15 @@ export class VAOManager {
     this.terrainVAOInfos[chunkKey] = {
       vao: terrainVAO,
       indexCount: vertexData.indices.length,
-      modelMatrix
+      modelMatrix,
+      boundingBox: this.computeBoundingBox(vertexData.positions)
     };
     this.grassVAOInfos[chunkKey] = this.createGrassVAO(
       vertexData.positions,
       vertexData.normals,
       vertexData.terrainId,
       Array.from(vertexData.indices),
-      modelMatrix
+      modelMatrix,
     );
 
   }
@@ -258,7 +260,8 @@ export class VAOManager {
       vao: vao,
       indexCount: indices.length,
       modelMatrix,
-      numInstances: bladesPlaced
+      numInstances: bladesPlaced,
+      boundingBox: this.computeBoundingBox(terrainVertices)
     };
   }
   deleteTerrainVao(chunkKey: string): void {
@@ -274,7 +277,19 @@ export class VAOManager {
     }
   }
 
-
+  private computeBoundingBox(positions: Float32Array): { min: vec3; max: vec3 } {
+  const min = vec3.fromValues(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+  const max = vec3.fromValues(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+  for (let i = 0; i < positions.length; i += 3) {
+    min[0] = Math.min(min[0], positions[i]);
+    min[1] = Math.min(min[1], positions[i + 1]);
+    min[2] = Math.min(min[2], positions[i + 2]);
+    max[0] = Math.max(max[0], positions[i]);
+    max[1] = Math.max(max[1], positions[i + 1]);
+    max[2] = Math.max(max[2], positions[i + 2]);
+  }
+  return { min, max };
+}
 
   private generateGrassBladeMesh(
     segments: number,

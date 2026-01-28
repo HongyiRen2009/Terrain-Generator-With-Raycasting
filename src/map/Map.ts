@@ -94,7 +94,6 @@ export class WorldMap {
     this.chunks = {};
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
     this.computeShader = new ComputeShader();
-    this.computeShader.init();
     this.lightUI = new LightUI(this, this.tracerUpdateSupplier);
     this.initSettings();
     this.TotalTimings = {
@@ -179,7 +178,7 @@ export class WorldMap {
       this.chunks[key] = chunk;
 
       // Await the generation
-      const { mesh, timings } = await chunk.generate(false);
+      const { mesh, timings } = await chunk.generate();
       this.addTimings(timings);
       this.chunksGenerated++;
     } catch (e) {
@@ -210,7 +209,7 @@ export class WorldMap {
  * @param widthInChunks Number of chunks along X
  * @param then Optional callback after all chunks are generated
  */
-public async generateChunkStrip(
+public async  generateChunkStrip(
   chunkStartPos: vec3,
   lengthInChunks: number,
   widthInChunks: number,
@@ -226,7 +225,6 @@ public async generateChunkStrip(
   const width = gridSize[0] + 3;
   const height = gridSize[1] + 3;
   const depth = gridSize[2] + 3;
-  debugger;
   // Generate field and mesh for the entire strip
   const fieldBuffer = await computeShader.createSimplexNoise3D(
     width, height, depth, this.seed,
@@ -767,13 +765,7 @@ export class Chunk {
     vec3.normalize(normal, normal);
     return normal;
   }
-  /**
-   *
-   * Generates the chunk's mesh using the compute shader, must be called sequentially to avoid two chunks using the same shader at once
-   * @param logPerformance Whether to log performance metrics
-   * @returns The generated mesh and timing information
-   */
-async generate(logPerformance = true): Promise<{
+async generate(): Promise<{
     mesh: Mesh;
     timings: Timing;
   }> {
@@ -813,7 +805,6 @@ async generate(logPerformance = true): Promise<{
       depth
     );
     timings.fieldReadback = performance.now() - startTime;
-
     startTime = performance.now();
     const {
       interleavedBuffer,
@@ -924,9 +915,6 @@ async generate(logPerformance = true): Promise<{
     timings.meshConstruction = performance.now() - startTime;
     timings.total = performance.now() - totalStart;
 
-    if (logPerformance) {
-      // Logging is now handled outside, after averaging
-    }
 
     return { mesh: this.Mesh, timings };
   }

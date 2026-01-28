@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo, GrassVAOInfo } from "../renderSystem/managers/VaoManager";
 import { RenderPass, VAOInputType } from "../renderSystem/RenderPass";
@@ -10,6 +10,7 @@ import { RenderUtils } from "../../utils/RenderUtils";
 import { ResourceCache } from "../renderSystem/managers/ResourceCache";
 import { RenderGraph } from "../renderSystem/RenderGraph";
 import { createNoise2D } from "simplex-noise";
+import { WorldUtils } from "../../utils/WorldUtils";
 
 export class GrassGeometryPass extends RenderPass {
   public pathtracerRender: boolean = false;
@@ -386,10 +387,18 @@ export class GrassGeometryPass extends RenderPass {
     );
     SettingsManager.instance.updateProgramUniforms(gl, this.program!);
 
+    // Compute frustum planes
+    const viewProj = mat4.create();
+    mat4.multiply(viewProj, cameraInfo.matProj, cameraInfo.matView);
+    const frustum = WorldUtils.extractFrustumPlanes(viewProj);
+
     const grassVAO = vao_info as GrassVAOInfo[];
     for (let i = 0; i < grassVAO.length; i++) {
-      
       const vao = grassVAO[i];
+      // Frustum culling
+      if (vao.boundingBox && !WorldUtils.aabbInFrustum(vao.boundingBox, frustum, vao.modelMatrix)) {
+        continue;
+      }
       gl.uniformMatrix4fv(
         gl.getUniformLocation(this.program!, "modelMatrix"),
         false,
@@ -403,7 +412,6 @@ export class GrassGeometryPass extends RenderPass {
         0,
         vao.numInstances
       );
-
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindVertexArray(null);

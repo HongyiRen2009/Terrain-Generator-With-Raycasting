@@ -9,6 +9,7 @@ import geometryVertexShaderSource from "../glsl/DeferredRendering/Geometry.vert"
 import geometryFragmentShaderSource from "../glsl/DeferredRendering/Geometry.frag";
 import { mat4 } from "gl-matrix";
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
+import { WorldUtils } from "../../utils/WorldUtils";
 
 export class GeometryPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.SCENE;
@@ -170,7 +171,16 @@ export class GeometryPass extends RenderPass {
     this.gl.uniformMatrix4fv(this.uniforms["view"], false, cameraInfo.matView);
     this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
 
+    // Compute frustum planes
+    const viewProj = mat4.create();
+    mat4.multiply(viewProj, cameraInfo.matProj, cameraInfo.matView);
+    const frustum = WorldUtils.extractFrustumPlanes(viewProj);
+    
     for (const vaoInfo of vaosToRender) {
+      // Frustum culling
+      if (vaoInfo.boundingBox && !WorldUtils.aabbInFrustum(vaoInfo.boundingBox, frustum, vaoInfo.modelMatrix)) {
+        continue;
+      }
       this.gl.bindVertexArray(vaoInfo.vao);
       this.gl.uniformMatrix4fv(
         this.uniforms["model"],

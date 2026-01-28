@@ -32,7 +32,6 @@ export class ComputeShader {
   };
 
   constructor() {
-    this.init();
 
     // FIXME: actually update terrain on change
     this.initSettings((id, value) => console.log(`changed ${id} to ${value}`));
@@ -170,6 +169,27 @@ export class ComputeShader {
     if (!this.device) {
       throw new Error("WebGPU is not supported on this browser.");
     }
+    this.testPrefixSum();
+  }
+  async testPrefixSum() {
+    if (!this.device) {
+      await this.init();
+    }
+    const inputArray = Array.from({ length: 1024 }, (_, i) => i + 1);
+    const inputBuffer = this.createGPUBuffer(
+      new Uint32Array(inputArray),
+      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+    );
+    debugger
+    const outputBuffer = await this.computePrefixSum(
+      inputBuffer,
+      inputArray.length
+    );
+    const result = await this.readUintBuffer(
+      outputBuffer,
+      inputArray.length
+    );
+    console.log("Prefix sum result:", result);
   }
   async readFieldBuffer(
     fieldBuffer: GPUBuffer,
@@ -411,7 +431,7 @@ async createMarchingCubes(
     if (!this.device) {
       await this.init();
     }
-
+    
     const vertexCountsBuffer = await this.computeVertexCount(
       fieldBuffer,
       width,
@@ -635,25 +655,25 @@ async readInterleavedBuffer(
     this.device.queue.submit([commandEncoder.finish()]);
     return vertexCountBuffer;
   }
-  async computePrefixSum(
-    inputBuffer: GPUBuffer,
-    elementCount: number
-  ): Promise<GPUBuffer> {
-    if (!this.device) {
-      await this.init();
-    }
-    const pass1ShaderModule = this.device.createShaderModule({
-      code: prefixSumChunkCode
-    });
-    const pass2ShaderModule = this.device.createShaderModule({
-      code: prefixSumScanBlocksCode
-    });
-    const pass3ShaderModule = this.device.createShaderModule({
-      code: prefixSumUniformAddCode
-    });
+async computePrefixSum(
+  inputBuffer: GPUBuffer,
+  elementCount: number
+): Promise<GPUBuffer> {
+  if (!this.device) {
+    await this.init();
+  }
+  const pass1ShaderModule = this.device.createShaderModule({
+    code: prefixSumChunkCode
+  });
+  const pass2ShaderModule = this.device.createShaderModule({
+    code: prefixSumScanBlocksCode
+  });
+  const pass3ShaderModule = this.device.createShaderModule({
+    code: prefixSumUniformAddCode
+  });
 
-    const pass1UniformBindGroupLayout = this.device.createBindGroupLayout({
-      entries: [
+  const pass1UniformBindGroupLayout = this.device.createBindGroupLayout({
+    entries: [
         {
           binding: 0,
           visibility: GPUShaderStage.COMPUTE,
@@ -669,11 +689,11 @@ async readInterleavedBuffer(
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "storage" }
         }
-      ]
-    });
+    ]
+  });
 
-    const pass2UniformBindGroupLayout = this.device.createBindGroupLayout({
-      entries: [
+  const pass2UniformBindGroupLayout = this.device.createBindGroupLayout({
+    entries: [
         {
           binding: 0,
           visibility: GPUShaderStage.COMPUTE,
@@ -689,11 +709,11 @@ async readInterleavedBuffer(
           visibility: GPUShaderStage.COMPUTE,
           buffer: {}
         }
-      ]
-    });
+    ]
+  });
 
-    const pass3UniformBindGroupLayout = this.device.createBindGroupLayout({
-      entries: [
+  const pass3UniformBindGroupLayout = this.device.createBindGroupLayout({
+    entries: [
         {
           binding: 0,
           visibility: GPUShaderStage.COMPUTE,
@@ -704,51 +724,39 @@ async readInterleavedBuffer(
           visibility: GPUShaderStage.COMPUTE,
           buffer: { type: "read-only-storage" }
         }
-      ]
-    });
+    ]
+  });
 
-    const chunkCount = Math.ceil(elementCount / 512);
+  const chunkCount = Math.ceil(elementCount / 512);
 
-    // get nearest power of 2 for chunkCount
-    let powerOf2 = 1;
-    while (powerOf2 < chunkCount) {
-      powerOf2 *= 2;
-    }
+  // get nearest power of 2 for chunkCount
+  let powerOf2 = 1;
+  while (powerOf2 < chunkCount) {
+    powerOf2 *= 2;
+  }
 
-    /*     const inputArrayBuffer = this.createGPUBuffer(
-      new Float32Array(input),
-      GPUBufferUsage.STORAGE
-    );
-    const outputArrayBuffer = this.createGPUBuffer(
-      new Float32Array(input),
-      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
-    );
-    const readOutputArrayBuffer = this.createGPUBuffer(
-      new Float32Array(input),
-      GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
-    ); */
-    const inputArrayBuffer = inputBuffer;
-    const outputArrayBuffer = this.copyGPUBuffer(
-      inputBuffer,
-      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
-    );
-    const sumArrayBuffer = this.createGPUBuffer(
-      new Uint32Array(powerOf2),
-      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
-    );
-    const outputSumArrayBuffer = this.createGPUBuffer(
-      new Uint32Array(powerOf2),
-      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
-    );
+  const inputArrayBuffer = inputBuffer;
+  const outputArrayBuffer = this.copyGPUBuffer(
+    inputBuffer,
+    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+  );
+  const sumArrayBuffer = this.createGPUBuffer(
+    new Uint32Array(powerOf2),
+    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+  );
+  const outputSumArrayBuffer = this.createGPUBuffer(
+    new Uint32Array(powerOf2),
+    GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+  );
 
-    const sumSizeBuffer = this.createGPUBuffer(
-      new Uint32Array([powerOf2]),
-      GPUBufferUsage.UNIFORM
-    );
+  const sumSizeBuffer = this.createGPUBuffer(
+    new Uint32Array([powerOf2]),
+    GPUBufferUsage.UNIFORM
+  );
 
-    const pass1UniformBindGroup = this.device.createBindGroup({
-      layout: pass1UniformBindGroupLayout,
-      entries: [
+  const pass1UniformBindGroup = this.device.createBindGroup({
+    layout: pass1UniformBindGroupLayout,
+    entries: [
         {
           binding: 0,
           resource: {
@@ -767,8 +775,8 @@ async readInterleavedBuffer(
             buffer: sumArrayBuffer
           }
         }
-      ]
-    });
+    ]
+  });
 
     const pass2UniformBindGroup = this.device.createBindGroup({
       layout: pass2UniformBindGroupLayout,
@@ -796,7 +804,7 @@ async readInterleavedBuffer(
 
     const pass3UniformBindGroup = this.device.createBindGroup({
       layout: pass3UniformBindGroupLayout,
-      entries: [
+        entries: [
         {
           binding: 0,
           resource: {
@@ -820,12 +828,12 @@ async readInterleavedBuffer(
         module: pass1ShaderModule,
         entryPoint: "main"
       }
-    });
+      });
 
-    const pass2Pipeline = this.device.createComputePipeline({
-      layout: this.device.createPipelineLayout({
-        bindGroupLayouts: [pass2UniformBindGroupLayout]
-      }),
+      const pass2Pipeline = this.device.createComputePipeline({
+        layout: this.device.createPipelineLayout({
+          bindGroupLayouts: [pass2UniformBindGroupLayout]
+        }),
       compute: {
         module: pass2ShaderModule,
         entryPoint: "main"
@@ -865,8 +873,8 @@ async readInterleavedBuffer(
     passEncoder3.end();
 
     this.device.queue.submit([commandEncoder.finish()]);
-    return outputArrayBuffer;
-  }
+  return outputArrayBuffer;
+}
   copyGPUBuffer(
     source: GPUBuffer,
     usage: GPUBufferUsageFlags = GPUBufferUsage.COPY_SRC |
