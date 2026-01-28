@@ -35,7 +35,7 @@ export class LightUI {
       existingSection.remove();
     }
 
-    const sidebar = document.getElementById("sidebar");
+    const sidebar = document.getElementById("sidebar-content");
     if (!sidebar) {
       throw new Error("Sidebar element not found for LightUI");
     }

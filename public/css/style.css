@@ -7,9 +7,15 @@
   --border: rgba(216, 222, 233, 0.12);
   --text: #eceff4;
   --muted: #d8dee9;
-  --accent: #2F86D1;
+  --accent: #2f86d1;
   --danger: #bf616a;
   --radius: 8px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 html,
@@ -17,8 +23,6 @@ body,
 canvas {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
-  display: block;
   overflow: hidden;
   font-family: "Inter", system-ui, sans-serif;
   background: var(--bg);
@@ -29,15 +33,14 @@ canvas {
   padding: 30px 60px;
   font-size: 24px;
   text-align: center;
-  color: var(--text);
 }
 
 #debugMenu {
-  position: absolute;
+  position: fixed;
   left: 10px;
   top: 10px;
   z-index: 9999;
-  background-color: rgba(59, 66, 82, 0.85);
+  background: rgba(59, 66, 82, 0.85);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 8px 12px;
@@ -47,22 +50,50 @@ canvas {
 .sidebar {
   position: fixed;
   top: 0;
-  right: 0;
-  width: 300px;
+  right: -300px;
   height: 100vh;
+  width: 300px;
+  min-width: 200px;
+  max-width: 600px;
   background: var(--panel);
-  color: var(--text);
-  padding: 20px;
   border-left: 1px solid var(--border);
-  transform: translateX(100%);
-  transition: transform 0.3s ease;
   z-index: 1000;
-  overflow-y: auto;
-  padding-bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  transition: right 0.3s ease;
+  overflow: visible;
 }
 
 .sidebar.open {
-  transform: translateX(0);
+  right: 0;
+}
+
+#drag-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 5;
+}
+
+#drag-handle::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 40px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+#sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
 }
 
 .top-bar-wrapper {
@@ -92,18 +123,16 @@ button {
   padding: 0 14px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
-  background-color: var(--panel);
+  background: var(--panel);
   color: var(--text);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition:
-    background-color 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 button:hover {
-  background-color: var(--panel-alt);
+  background: var(--panel-alt);
 }
 
 button:focus-visible {
@@ -112,24 +141,18 @@ button:focus-visible {
 }
 
 button.primary {
-  background-color: var(--accent);
+  background: var(--accent);
   color: #2e3440;
   border-color: transparent;
 }
 
 button.destructive {
-  background-color: transparent;
+  background: transparent;
   color: var(--danger);
 }
 
 button.destructive:hover {
-  background-color: rgba(191, 97, 106, 0.15);
-}
-
-.toggle-button.active {
-  background-color: var(--accent);
-  color: #2e3440;
-  border-color: transparent;
+  background: rgba(191, 97, 106, 0.15);
 }
 
 input[type="range"] {
@@ -159,43 +182,10 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
-.range-value {
-  font-weight: 600;
-  color: var(--accent);
-  margin-left: 10px;
-}
-
-.popup-label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 12px;
-  font-size: 0.875rem;
-}
-
-.popup-label input {
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background-color: var(--panel);
-  color: var(--text);
-}
-
-.popup-label input:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(136, 192, 208, 0.35);
-}
-
-.popup-note {
-  font-size: 0.75rem;
-  color: #888;
-}
-
 .world-object-list,
 .world-object,
 .point-light {
-  background-color: var(--panel);
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
@@ -206,31 +196,6 @@ input[type="range"]::-moz-range-thumb {
   padding: 0;
   border: none;
   margin-bottom: 0;
-  min-height: 0;
-}
-
-.vector-input,
-.point-light__label input {
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background-color: var(--panel);
-  color: var(--text);
-}
-
-.point-light__delete {
-  margin-top: 8px;
-  height: 32px;
-  border-radius: 6px;
-  border: none;
-  background-color: rgba(191, 97, 106, 0.15);
-  color: var(--danger);
-  cursor: pointer;
-}
-
-.point-light__delete:hover {
-  background-color: rgba(191, 97, 106, 0.25);
 }
 
 .popup {
@@ -258,110 +223,11 @@ input[type="range"]::-moz-range-thumb {
   position: relative;
 }
 
-.close {
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  cursor: pointer;
-}
-
-.tooltip-container {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.tooltip-box {
-  display: none;
-  position: absolute;
-  top: -215px;
-  width: 350px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 8px 12px;
-  border-radius: 6px;
-  z-index: 10;
-}
-
-.tooltip-container:hover .tooltip-box {
-  display: block;
-}
-
-.help-tooltip {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #2e3440;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
-  cursor: pointer;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background-color: var(--panel);
-  transition:
-    background-color 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-input[type="checkbox"]:hover {
-  background-color: var(--panel-alt);
-}
-
-input[type="checkbox"]:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(136, 192, 208, 0.35);
-}
-
-input[type="color"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  background-color: var(--panel);
-  padding: 0;
-}
-
-input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 0;
-  border-radius: 6px;
-}
-
-input[type="color"]::-webkit-color-swatch {
-  border: none;
-  border-radius: 4px;
-}
-
-input[type="color"]::-moz-color-swatch {
-  border-radius: 4px;
-  border: none;
-}
-
-input[type="color"]::-ms-color-swatch {
-  border-radius: 4px;
-  border: none;
-}
-
 .settings-section::before {
   content: "";
   display: block;
   height: 1px;
-  background-color: var(--border);
+  background: var(--border);
   margin-bottom: 8px;
-  width: max;
   border-radius: 2px;
 }
