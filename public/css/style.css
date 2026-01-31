@@ -514,3 +514,136 @@ button.destructive {
 button.destructive:hover {
   opacity: 0.85;
 }
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+}
+
+.loading-box-ui {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+
+  padding: 24px 36px;
+
+  max-width: 300px;
+
+  text-align: center;
+
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text);
+
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.loading-box-ui::after {
+  content: "";
+  display: block;
+
+  width: 24px;
+  height: 24px;
+  margin: 12px auto 0;
+
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.object-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.object-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 10px 14px;
+
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--border);
+}
+
+.object-card__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.object-card__delete {
+  border-radius: 6px;
+  border: none;
+  background: rgba(191, 97, 106, 0.15);
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.object-card__delete:hover {
+  background: rgba(191, 97, 106, 0.3);
+}
+
+.object-card__content {
+  padding: 12px 14px;
+}
+
+.object-card__info {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.object-card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+
+.object-card__label {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.object-card__value {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.object-card__mono {
+  font-family: monospace;
+}
+
+#add-light-btn,
+#open-popup-btn {
+  margin-bottom: 10px;
+}

@@ -159,10 +159,15 @@ export class ObjectUI {
 
       // Show loading indicator
       const loadingMsg = document.createElement("div");
-      loadingMsg.textContent = "Loading model...";
-      loadingMsg.style.cssText =
-        "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 10000; font-family: monospace;";
+      loadingMsg.className = "loading-overlay";
+
+      const box = document.createElement("div");
+      box.className = "loading-box-ui";
+      box.textContent = "Loading model...";
+
+      loadingMsg.appendChild(box);
       document.body.appendChild(loadingMsg);
+
 
       try {
         // Collect import map entries
@@ -290,7 +295,7 @@ export class ObjectUI {
           `Successfully loaded ${file.name} at position [${spawnPos[0].toFixed(1)}, ${spawnPos[1].toFixed(1)}, ${spawnPos[2].toFixed(1)}]!`
         );
       } catch (error) {
-        console.error("❌ Error loading model:", error);
+        console.error("Error loading model:", error);
         const errorMsg = error instanceof Error ? error.message : String(error);
         alert(`Error loading model: ${errorMsg}\n\nCheck console for details.`);
       } finally {
@@ -410,34 +415,22 @@ export class ObjectUI {
     UI: ObjectUI
   ) {
     const wrapper = document.createElement("div");
-    wrapper.className = "world-object";
-    wrapper.style.cssText =
-      "margin-bottom: 15px; padding: 0; border: 1px solid #444; border-radius: 8px; background: rgba(50, 50, 50, 0.8); overflow: hidden;";
+    wrapper.className = "object-card";
 
     // Header section with name and delete button
     const header = document.createElement("div");
-    header.style.cssText =
-      "padding: 12px 15px; background: rgba(60, 60, 60, 0.9); border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;";
+    header.className = "object-card__header";
 
     const nameEl = document.createElement("h3");
+    nameEl.className = "object-card__title";
     nameEl.textContent = obj.name;
-    nameEl.style.cssText =
-      "margin: 0; font-size: 1.1em; font-weight: 600; color: #fff;";
     header.appendChild(nameEl);
 
     const deleteBtn = document.createElement("button");
-    deleteBtn.textContent = "🗑️";
-    deleteBtn.title = "Delete Object";
-    deleteBtn.style.cssText =
-      "background-color: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s;";
-    deleteBtn.addEventListener(
-      "mouseenter",
-      () => (deleteBtn.style.backgroundColor = "#c82333")
-    );
-    deleteBtn.addEventListener(
-      "mouseleave",
-      () => (deleteBtn.style.backgroundColor = "#dc3545")
-    );
+    deleteBtn.className = "object-card__delete";
+    deleteBtn.textContent = "Delete Object";
+
+    // Delete handler
     deleteBtn.addEventListener("click", () => {
       if (!confirm(`Delete "${obj.name}"?`)) return;
 
@@ -468,25 +461,23 @@ export class ObjectUI {
 
     // Content section
     const content = document.createElement("div");
-    content.style.cssText = "padding: 15px;";
+    content.className = "object-card__content";
 
     // Info section
     const infoSection = document.createElement("div");
-    infoSection.style.cssText =
-      "margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #555;";
+    infoSection.className = "object-card__info";
 
     const infoRow = (label: string, value: string) => {
       const row = document.createElement("div");
-      row.style.cssText =
-        "display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em;";
+      row.className = "object-card__row";
 
       const labelSpan = document.createElement("span");
+      labelSpan.className = "object-card__label";
       labelSpan.textContent = label + ":";
-      labelSpan.style.cssText = "color: #aaa; font-weight: 500;";
 
       const valueSpan = document.createElement("span");
+      valueSpan.className = "object-card__value object-card__mono";
       valueSpan.textContent = value;
-      valueSpan.style.cssText = "color: #fff; font-family: monospace;";
 
       row.appendChild(labelSpan);
       row.appendChild(valueSpan);
@@ -500,19 +491,24 @@ export class ObjectUI {
       infoRow("Triangles", triangleCount.toLocaleString())
     );
 
-    const posEl = document.createElement("div");
-    posEl.style.cssText =
-      "display: flex; justify-content: space-between; font-size: 0.9em;";
-    const posLabel = document.createElement("span");
-    posLabel.textContent = "Position:";
-    posLabel.style.cssText = "color: #aaa; font-weight: 500;";
-    const posValue = document.createElement("span");
-    posValue.style.cssText = "color: #fff; font-family: monospace;";
-    posEl.appendChild(posLabel);
-    posEl.appendChild(posValue);
-    infoSection.appendChild(posEl);
+    // Position row
+    const posRow = document.createElement("div");
+    posRow.className = "object-card__row";
 
+    const posLabel = document.createElement("span");
+    posLabel.className = "object-card__label";
+    posLabel.textContent = "Position:";
+
+    const posValue = document.createElement("span");
+    posValue.className = "object-card__value object-card__mono";
+
+    posRow.appendChild(posLabel);
+    posRow.appendChild(posValue);
+
+    infoSection.appendChild(posRow);
     content.appendChild(infoSection);
+    wrapper.appendChild(content);
+    container.appendChild(wrapper);
 
     // Calculate and cache mesh center (for rotation/scale pivot)
     // IMPORTANT: Center must be in LOCAL space (from mesh vertices, not world space)
@@ -635,6 +631,7 @@ export class ObjectUI {
       }, 300); // Wait 300ms after last change before rebuilding
     }
 
+    // FIXME: inline
     // Helper to create a transform section
     const createTransformSection = (
       title: string,
