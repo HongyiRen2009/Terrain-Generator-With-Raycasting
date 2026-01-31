@@ -43,6 +43,39 @@ fn get_field_value(wx: u32, wy: u32, wz: u32) -> f32 {
     let idx = wx + wy * params.width + wz * params.width * params.height;
     return fieldData[idx];
 }
+fn get_field_value_interpolated(pos: vec3<f32>) -> f32 {
+    let x0 = u32(floor(pos.x));
+    let y0 = u32(floor(pos.y));
+    let z0 = u32(floor(pos.z));
+    let x1 = min(x0 + 1u, params.width - 1u);
+    let y1 = min(y0 + 1u, params.height - 1u);
+    let z1 = min(z0 + 1u, params.depth - 1u);
+    
+    let fx = fract(pos.x);
+    let fy = fract(pos.y);
+    let fz = fract(pos.z);
+    
+    // Sample 8 corners of the cube
+    let v000 = get_field_value(x0, y0, z0);
+    let v100 = get_field_value(x1, y0, z0);
+    let v010 = get_field_value(x0, y1, z0);
+    let v110 = get_field_value(x1, y1, z0);
+    let v001 = get_field_value(x0, y0, z1);
+    let v101 = get_field_value(x1, y0, z1);
+    let v011 = get_field_value(x0, y1, z1);
+    let v111 = get_field_value(x1, y1, z1);
+    
+    // Trilinear interpolation
+    let v00 = mix(v000, v100, fx);
+    let v01 = mix(v001, v101, fx);
+    let v10 = mix(v010, v110, fx);
+    let v11 = mix(v011, v111, fx);
+    
+    let v0 = mix(v00, v10, fy);
+    let v1 = mix(v01, v11, fy);
+    
+    return mix(v0, v1, fz);
+}
 
 // --- Compute normal by central differences ---
 fn get_normal(pos: vec3<f32>) -> vec3<f32> {
@@ -50,12 +83,12 @@ fn get_normal(pos: vec3<f32>) -> vec3<f32> {
     let px = clamp(pos.x, 1.0, f32(params.width - 2u));
     let py = clamp(pos.y, 1.0, f32(params.height - 2u));
     let pz = clamp(pos.z, 1.0, f32(params.depth - 2u));
-    let fxp = get_field_value(u32(px + d), u32(py), u32(pz));
-    let fxm = get_field_value(u32(px - d), u32(py), u32(pz));
-    let fyp = get_field_value(u32(px), u32(py + d), u32(pz));
-    let fym = get_field_value(u32(px), u32(py - d), u32(pz));
-    let fzp = get_field_value(u32(px), u32(py), u32(pz + d));
-    let fzm = get_field_value(u32(px), u32(py), u32(pz - d));
+    let fxp = get_field_value_interpolated(vec3<f32>(px + d, py, pz));
+    let fxm = get_field_value_interpolated(vec3<f32>(px - d, py, pz));
+    let fyp = get_field_value_interpolated(vec3<f32>(px, py + d, pz));
+    let fym = get_field_value_interpolated(vec3<f32>(px, py - d, pz));
+    let fzp = get_field_value_interpolated(vec3<f32>(px, py, pz + d));
+    let fzm = get_field_value_interpolated(vec3<f32>(px, py, pz - d));
     let n = vec3<f32>(fxp - fxm, fyp - fym, fzp - fzm);
     return normalize(- n);
 }
