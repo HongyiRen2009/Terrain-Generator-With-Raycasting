@@ -2,7 +2,7 @@
 
 import { mat4, vec2, vec3 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
-import { Mesh } from "../map/Mesh";
+import { BVHTriangle, Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { RenderUtils } from "../utils/RenderUtils";
 import { TextureUtils } from "../utils/TextureUtils";
@@ -16,6 +16,7 @@ import copyVertexShader from "./glsl/copyShader/copy.vert";
 import { NoiseGenerator } from "../render/passes/CloudsPass";
 import { Terrains } from "../map/terrains";
 import { SettingsManager } from "../Settings";
+import { VAOManager } from "../render/renderSystem/managers/VaoManager";
 
 export class PathTracer {
   //Rendering
@@ -43,12 +44,14 @@ export class PathTracer {
   // Terrain Info
   private terrainTypes: Float32Array = null!;
   private vertexNormals: Float32Array = null!;
+  private grassBB: Float32Array = null!;
 
   //Classes
   private world: WorldMap;
   private camera: Camera;
   private debug: DebugMenu;
   private noiseGenerator: NoiseGenerator;
+  public glRendererVaoManager: VAOManager | null = null;
 
   //textures
   private vertexTex?: WebGLTexture;
@@ -58,6 +61,7 @@ export class PathTracer {
   private leafsTex?: WebGLTexture;
   private terrainTypeTex?: WebGLTexture;
   private vertexNormalsTex?: WebGLTexture;
+  private grassTexture?: WebGLTexture;
   private noiseTexture?: WebGLTexture;
   private weatherMapTexture?: WebGLTexture;
 
@@ -76,6 +80,7 @@ export class PathTracer {
     lastFrame: null as WebGLUniformLocation | null,
     frameNum: null as WebGLUniformLocation | null,
     COPYPROGRAM_sourceTex: null as WebGLUniformLocation | null,
+    grassBB: null as WebGLUniformLocation | null,
   };
 
   public constructor(
@@ -120,6 +125,16 @@ export class PathTracer {
     ////////////////////// build flat BVH structure
     //Obtain bvh from mesh.
     const BVHtriangles = mainMesh.exportBVHTriangles();
+    if(this.glRendererVaoManager){
+      const grassInfo = this.glRendererVaoManager.getGrassBVHTriangle();
+      let grassTriangles = grassInfo.triangles;
+      for(let i = 0; i < grassTriangles.length; i++){
+        BVHtriangles.push(grassTriangles[i]);
+      }
+      if(grassTriangles.length != 0){
+        this.grassBB = grassInfo.primitives;
+      }
+    }
     const BVHtree = Mesh.exportBVH(BVHtriangles);
     const flatBVHtree = Mesh.flattenBVH(BVHtree);
 
@@ -257,7 +272,6 @@ export class PathTracer {
       this.debug.addElement("Accumulation Frame", () => this.frameNumber);
       this.camera.farPlane = this.camera.pathtracingFarPlane;
     }
-
     this.uniforms.vertices = this.gl.getUniformLocation(this.meshProgram, "u_vertices");
     this.uniforms.terrains = this.gl.getUniformLocation(this.meshProgram, "u_terrains");
     this.uniforms.boundindingBoxes = this.gl.getUniformLocation(this.meshProgram, "u_boundingBox");
@@ -269,12 +283,11 @@ export class PathTracer {
     this.uniforms.camera = this.gl.getUniformLocation(this.meshProgram, "u_cameraPos");
     this.uniforms.inverseViewProj = this.gl.getUniformLocation(this.meshProgram, "u_invViewProjMatrix");
     this.uniforms.resolution = this.gl.getUniformLocation(this.meshProgram, "u_resolution");
-    this.uniforms.lastFrame = this.gl.getUniformLocation(
-      this.meshProgram,
-      "u_lastFrame"
-    );
+    this.uniforms.lastFrame = this.gl.getUniformLocation(this.meshProgram, "u_lastFrame");
     this.uniforms.frameNum = this.gl.getUniformLocation(this.meshProgram, "u_frameNumber");
+    this.uniforms.grassBB = this.gl.getUniformLocation(this.meshProgram,"u_grassBB");
     this.uniforms.COPYPROGRAM_sourceTex = this.gl.getUniformLocation(this.copyProgram, "u_sourceTexture");
+
 
     this.initBVHTextures();
     this.setupFrame();
@@ -293,6 +306,7 @@ export class PathTracer {
     this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
     this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
     this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+    this.grassTexture = TextureUtils.packFloatArrayToTexture(this.gl,this.grassBB);
 
     //clouds
     this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
@@ -311,6 +325,7 @@ export class PathTracer {
     TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, this.uniforms.leafs!, 4);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, this.uniforms.terrainTypes!, 5);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, this.uniforms.vertexNormal!, 6);
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture!, this.uniforms.grassBB!, 9);
 
     //NOTE: When we fix natively pathtraced clouds we will put this back.
     /*
@@ -442,13 +457,29 @@ export class PathTracer {
       defaultValue: 5,
       numType: "int"
     });
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
+      id: "u_skips",
+      label: "Skips",
+      min: 1,
+      max: 50,
+      step: 1,
+      defaultValue: 4,
+      numType: "int"
+    });
 
     // Attach program uniforms for all settings
     SettingsManager.instance.attatchProgram(this.meshProgram, [
       "numBounces",
+      "u_skips",
       "u_redScatter",
       "u_greenScatter",
       "u_blueScatter",
+      "u_haloSize",
+      "u_skyGradientQuality",
+      "u_sunsetQuality",
+      "u_MIE",
+      "ambientLightIntensity",
+      "u_skyBrightnessBoost",
       //NOTE: When we fix natively pathtraced clouds we will put this back.
       /*"CLOUDS_enableClouds",
       "CLOUDS_MAX_STEPS",
@@ -469,7 +500,11 @@ export class PathTracer {
       "CLOUDS_baseCloudColor",
       "CLOUDS_skyContribution",
       "CLOUDS_lightDarkSharpness",
-      "CLOUDS_simplexMultiplier"*/
+      "CLOUDS_simplexMultiplier",*/
+      //Grass
+      "grassBaseColor",
+      "grassEnabled",
+      "grassTipColor"
     ]);
   }
 }

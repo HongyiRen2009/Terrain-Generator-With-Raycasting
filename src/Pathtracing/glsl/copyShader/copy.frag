@@ -1,7 +1,7 @@
 #version 300 es
 precision highp float;
 
-uniform sampler2D u_sourceTexture;
+uniform sampler2D u_sourceTexture; // This texture now contains the SUM of samples
 in vec2 v_uv;
 out vec4 fragColor;
 

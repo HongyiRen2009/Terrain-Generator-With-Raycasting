@@ -60,9 +60,11 @@ export class WorldUtils {
 
       // Convert sun (directional light) to a PointLight for pathtracer
       if(sun){
+        /*
         gl.uniform1f(gl.getUniformLocation(program,"sunDirX"),sun.direction[0]);
         gl.uniform1f(gl.getUniformLocation(program,"sunDirY"),sun.direction[1]);
-        gl.uniform1f(gl.getUniformLocation(program,"sunDirZ"),sun.direction[2]);
+        gl.uniform1f(gl.getUniformLocation(program,"sunDirZ"),sun.direction[2]);*/
+        gl.uniform3fv(gl.getUniformLocation(program,"u_sunDirection"),sun.direction);
         gl.uniform1f(gl.getUniformLocation(program,"u_sunIntensity"),sun.intensity);
         gl.uniform1f(gl.getUniformLocation(program,"u_sunAngularRadius"),sun.angularRadius);
         gl.uniform3fv(gl.getUniformLocation(program,"u_sunColor"),sun.color.createVec3())

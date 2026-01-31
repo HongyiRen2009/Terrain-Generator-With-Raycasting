@@ -8,7 +8,7 @@ interface Setting<T> {
   onChange?: (value: T) => void;
 }
 
-interface SliderSetting extends Omit<Setting<number | number[]>, "onChange"> {
+export interface SliderSetting extends Omit<Setting<number | number[]>, "onChange"> {
   type: "slider";
   min: number | number[]; // Single value or array of values per index
   max: number | number[]; // Single value or array of values per index

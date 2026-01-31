@@ -17,7 +17,7 @@ import { DirectionalLight } from "../../map/Light";
 import coveragePNG from "../../../assets/coverage map.png";
 export class CloudsPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
-  public pathtracerRender: boolean = true;
+  public pathtracerRender: boolean = false;
   private noiseTexture: WebGLTexture | null = null;
   private weatherMapTexture: WebGLTexture | null = null;
   private noiseGenerator: NoiseGenerator;
