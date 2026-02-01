@@ -1,17 +1,17 @@
-import { RenderPass, VAOInputType } from "../renderSystem/RenderPass";
+import { RenderPass, VAOInputType } from "../../../renderSystem/RenderPass";
 import {
   ResourceCache,
   getUniformLocations
-} from "../renderSystem/managers/ResourceCache";
-import { RenderGraph } from "../renderSystem/RenderGraph";
-import { RenderUtils } from "../../utils/RenderUtils";
-import { RenderTarget } from "../renderSystem/RenderTarget";
-import { VaoInfo } from "../renderSystem/managers/VaoManager";
-import { PointLight } from "../../map/Light";
+} from "../../../renderSystem/managers/ResourceCache";
+import { RenderGraph } from "../../../renderSystem/RenderGraph";
+import { RenderUtils } from "../../../../utils/RenderUtils";
+import { RenderTarget } from "../../../renderSystem/RenderTarget";
+import { VaoInfo } from "../../../renderSystem/managers/VaoManager";
+import { PointLight } from "../../../../map/Light";
 import { mat4, vec3 } from "gl-matrix";
-import CubeShadowsVertexShaderSource from "../glsl/DeferredRendering/CubeShadows.vert";
-import CubeShadowsFragmentShaderSource from "../glsl/DeferredRendering/CubeShadows.frag";
-import { SettingsManager } from "../../Settings";
+import CubeShadowsVertexShaderSource from "../../../glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.vert";
+import CubeShadowsFragmentShaderSource from "../../../glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.frag";
+import { SettingsManager } from "../../../../Settings";
 
 export class CubeShadowsPass extends RenderPass {
   public pathtracerRender: boolean = false;

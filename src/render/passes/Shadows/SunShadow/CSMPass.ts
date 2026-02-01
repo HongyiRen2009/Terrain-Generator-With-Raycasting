@@ -1,18 +1,18 @@
-import { RenderPass, VAOInputType } from "../renderSystem/RenderPass";
+import { RenderPass, VAOInputType } from "../../../renderSystem/RenderPass";
 import {
   ResourceCache,
   getUniformLocations
-} from "../renderSystem/managers/ResourceCache";
-import { RenderTarget } from "../renderSystem/RenderTarget";
-import { TextureUtils } from "../../utils/TextureUtils";
-import { RenderGraph } from "../renderSystem/RenderGraph";
-import { RenderUtils } from "../../utils/RenderUtils";
-import { VaoInfo } from "../renderSystem/managers/VaoManager";
-import CSMVertexShaderSource from "../glsl/DeferredRendering/CSM.vert";
-import CSMFragmentShaderSource from "../glsl/DeferredRendering/CSM.frag";
-import { SettingsManager } from "../../Settings";
+} from "../../../renderSystem/managers/ResourceCache";
+import { RenderTarget } from "../../../renderSystem/RenderTarget";
+import { TextureUtils } from "../../../../utils/TextureUtils";
+import { RenderGraph } from "../../../renderSystem/RenderGraph";
+import { RenderUtils } from "../../../../utils/RenderUtils";
+import { VaoInfo } from "../../../renderSystem/managers/VaoManager";
+import CSMVertexShaderSource from "../../../glsl/DeferredRendering/Shadows/SunShadow/CSM.vert";
+import CSMFragmentShaderSource from "../../../glsl/DeferredRendering/Shadows/SunShadow/CSM.frag";
+import { SettingsManager } from "../../../../Settings";
 import { mat4, vec4, vec3 } from "gl-matrix";
-import { DirectionalLight } from "../../map/Light";
+import { DirectionalLight } from "../../../../map/Light";
 
 type RadiiCacheEntry = {
   radii: number[];
@@ -43,6 +43,8 @@ export class CSMPass extends RenderPass {
       "model"
     ]);
     this.InitSettings();
+
+    
   }
   public override getInvocationCount(): number {
     const numCascades = this.resourceCache.getData("numCascades") ?? 3;
@@ -237,7 +239,7 @@ export class CSMPass extends RenderPass {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.colorMask(true, true, true, true);
   }
-
+  
   /**
    * Returns hardcoded shadow bias values tuned for each cascade.
    * Values: 0.0004, 0.0003, 0.00015 for cascades 0, 1, 2
@@ -828,3 +830,4 @@ function q(x: number, step: number): number {
   if (!Number.isFinite(x) || step <= 0) return x;
   return Math.round(x / step) * step;
 }
+

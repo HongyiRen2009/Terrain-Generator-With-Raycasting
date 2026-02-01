@@ -17,7 +17,6 @@ export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = false;
   private updateSunDirectionCallback?: (direction: vec3) => void;
-  private jitterTexture: WebGLTexture | null = null;
   constructor(
     gl: WebGL2RenderingContext,
     resourceCache: ResourceCache,
@@ -36,42 +35,12 @@ export class LightingPass extends RenderPass {
     this.uniforms = getUniformLocations(gl, this.program!, [
       "viewInverse",
       "projInverse",
-      "pausedView",
       "cameraPosition",
       "ambientLightIntensity",
-      "lightSpaceMatrices[0]",
-      "cascadeSplits",
-      "cascadeBlendWidth",
-      "usingPCF",
-      "csmShadowBias",
-      "csmEnabled",
-      "cascadeDebug",
-      "debugPauseMode",
-      "csmShadowMapSize",
-      "showCameraDepth",
-      "numCascades",
-      "pointShadowBias",
       "numShadowedLights",
-      "pointLightShowShadowMap",
-      "cubeMapSize",
-      "cubeShadowsOn",
-      "jitterSize",
-      "filterSize",
-      "pcfRadius",
-      "sunDisabled"
     ]);
     this.InitSettings();
-    this.jitterTexture = createJitterTexture(
-      gl,
-      this.resourceCache.getData("jitterSize") ?? 16,
-      this.resourceCache.getData("filterSize") ?? 8
-    );
-    this.resourceCache.setData(
-      "updateJitterTexture",
-      (jitterSize: number, filterSize: number) => {
-        this.updateJitterTexture(jitterSize, filterSize);
-      }
-    );
+    
   }
 
   protected initRenderTarget(): RenderTarget {
@@ -114,11 +83,15 @@ export class LightingPass extends RenderPass {
     const albedoTexture = textures["albedo"];
     const depthTexture = textures["depth"];
     const ssaoTexture = textures["ssaoBlur"];
-    const matieralAttributesTexture = textures["materialAttributes"];
-    const shadowDepthTextureArray = textures["shadowDepthTextureArray"];
-    const pointShadowTextures = textures[
-      "pointShadowTextures"
-    ] as WebGLTexture[];
+    const materialAttributesTexture = textures["materialAttributes"];
+    
+    // Shadow mask textures from dedicated shadow passes
+    const sunShadowMask = textures["sunShadowMask"];
+    const pointShadowMaskA = textures["pointShadowMaskA"];
+    const pointShadowMaskB = textures["pointShadowMaskB"];
+    const pointShadowMaskC = textures["pointShadowMaskC"];
+    const pointShadowMaskD = textures["pointShadowMaskD"];
+    const pointShadowMaskE = textures["pointShadowMaskE"];
 
     // Bind lighting framebuffer
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
@@ -132,181 +105,43 @@ export class LightingPass extends RenderPass {
     this.gl.useProgram(this.program!);
     this.gl.bindVertexArray(vao.vao);
 
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      normalTexture,
-      "normalTexture",
-      9
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      albedoTexture,
-      "albedoTexture",
-      10
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      matieralAttributesTexture,
-      "materialAttributesTexture",
-      11
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      depthTexture,
-      "depthTexture",
-      12
-    );
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      ssaoTexture,
-      "ssaoTexture",
-      13
-    );
+    // Bind G-buffer textures
+    TextureUtils.bindTex(this.gl, this.program!, normalTexture, "normalTexture", 0);
+    TextureUtils.bindTex(this.gl, this.program!, albedoTexture, "albedoTexture", 1);
+    TextureUtils.bindTex(this.gl, this.program!, materialAttributesTexture, "materialAttributesTexture", 2);
+    TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 3);
+    TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 4);
+    
+    // Bind shadow mask textures
+    TextureUtils.bindTex(this.gl, this.program!, sunShadowMask, "sunShadowMask", 5);
+    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskA, "pointShadowMaskA", 6);
+    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskB, "pointShadowMaskB", 7);
+    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskC, "pointShadowMaskC", 8);
+    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskD, "pointShadowMaskD", 9);
+    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskE, "pointShadowMaskE", 10);
 
-    // Bind cascade depth texture array
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      shadowDepthTextureArray,
-      "shadowDepthTextureArray",
-      14,
-      this.gl.TEXTURE_2D_ARRAY
-    );
-    const jitterSize = this.resourceCache.getData("jitterSize") ?? 16;
-    const filterSize = this.resourceCache.getData("filterSize") ?? 8;
-    TextureUtils.bindTex(
-      this.gl,
-      this.program!,
-      this.jitterTexture,
-      "jitterTexture",
-      15,
-      this.gl.TEXTURE_3D
-    );
     SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
-    this.gl.uniform1i(this.uniforms["jitterSize"], jitterSize);
-    this.gl.uniform1i(this.uniforms["filterSize"], filterSize);
-
-    const maxPointShadows = Math.min(5, pointShadowTextures?.length ?? 0);
-    for (let i = 0; i < maxPointShadows; i++) {
-      TextureUtils.bindTex(
-        this.gl,
-        this.program!,
-        pointShadowTextures[i],
-        `pointShadowTexture[${i}]`,
-        i,
-        this.gl.TEXTURE_CUBE_MAP
-      );
-      if (!pointShadowTextures[i]) {
-        console.warn(`Point shadow texture ${i} is missing`);
-      }
-    }
 
     const cameraInfo = this.resourceCache.getData("CameraInfo");
-    const pausedCameraInfo =
-      this.resourceCache.getData("pausedCameraInfo") ?? cameraInfo;
-    this.gl.uniformMatrix4fv(
-      this.uniforms["viewInverse"],
-      false,
-      cameraInfo.matViewInverse
-    );
-    this.gl.uniformMatrix4fv(
-      this.uniforms["projInverse"],
-      false,
-      cameraInfo.matProjInverse
-    );
-    this.gl.uniformMatrix4fv(
-      this.uniforms["pausedView"],
-      false,
-      pausedCameraInfo.matView
-    );
-    this.gl.uniform3fv(
-      this.uniforms["cameraPosition"],
-      this.resourceCache.getData("cameraPosition")
-    );
+    this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
+    this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
+    this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getData("cameraPosition"));
 
-    // Set CSM uniforms
-    const numCascades = this.resourceCache.getData("numCascades") ?? 3;
-    const lightSpaceMatrices = this.resourceCache.getData("lightSpaceMatrices");
-    if (
-      lightSpaceMatrices &&
-      Array.isArray(lightSpaceMatrices) &&
-      lightSpaceMatrices.length === numCascades
-    ) {
-      // Flatten the array of matrices into a single Float32Array (numCascades matrices * 16 floats)
-      const flattened = new Float32Array(numCascades * 16);
-      for (let i = 0; i < numCascades; i++) {
-        flattened.set(lightSpaceMatrices[i], i * 16);
-      }
-      this.gl.uniformMatrix4fv(
-        this.uniforms["lightSpaceMatrices[0]"],
-        false,
-        flattened
-      );
-    }
-
-    const cascadeSplits = this.resourceCache.getData("cascadeSplits");
-    if (
-      cascadeSplits &&
-      Array.isArray(cascadeSplits) &&
-      cascadeSplits.length === numCascades
-    ) {
-      this.gl.uniform1fv(this.uniforms["cascadeSplits"], cascadeSplits);
-    }
-
-    // Pass cascade blend width for smooth transitions between cascades
-    const cascadeBlendWidth = this.resourceCache.getData("cascadeBlendWidth") ?? 0.5;
-    this.gl.uniform1f(this.uniforms["cascadeBlendWidth"], cascadeBlendWidth);
-
-    const csmEnabled = this.resourceCache.getData("csmEnabled") ?? true;
-    const csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize");
-    this.gl.uniform1i(this.uniforms["csmEnabled"], csmEnabled ? 1 : 0);
-    this.gl.uniform1i(this.uniforms["csmShadowMapSize"], csmShadowMapSize);
-    this.gl.uniform1i(this.uniforms["numCascades"], numCascades);
-    this.gl.uniform1i(
-      this.uniforms["numShadowedLights"],
-      this.resourceCache.getData("numShadowedLights") ?? 0
-    );
-    this.gl.uniform1i(
-      this.uniforms["cubeMapSize"],
-      this.resourceCache.getData("CubeShadowsMapSize") ?? 1024
-    );
-    this.gl.uniform1i(
-      this.uniforms["cubeShadowsOn"],
-      this.resourceCache.getData("cubeShadowsOn") ? 1 : 0
-    );
-
-    // Update point light shadow map visualization flags
-    const lights = this.resourceCache.getData("lights") as any[];
-    if (lights) {
-      const showShadowMapArray = lights.map((light: any) =>
-        light.showShadowMap ? 1 : 0
-      );
-      this.gl.uniform1iv(
-        this.uniforms["pointLightShowShadowMap"],
-        showShadowMapArray
-      );
-    }
+    // Shadow uniforms
+    this.gl.uniform1i(this.uniforms["numShadowedLights"], this.resourceCache.getData("numShadowedLights") ?? 0);
 
     const disableSun = this.resourceCache.getData("disableSun") ?? false;
-    this.gl.uniform1i(this.uniforms["sunDisabled"], disableSun ? 1 : 0);
+    this.gl.uniform1i(this.gl.getUniformLocation(this.program!, "sunDisabled"), disableSun ? 1 : 0);
 
     WorldUtils.updateLights(
       this.gl,
       this.program!,
       this.resourceCache.getData("lights"),
       disableSun
-        ? {
-            direction: vec3.fromValues(0, -1, 0),
-            color: new Color(255, 255, 255),
-            intensity: 0
-          }
+        ? { direction: vec3.fromValues(0, -1, 0), color: new Color(255, 255, 255), intensity: 0 }
         : this.resourceCache.getData("sunLight")
     );
+    
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
     }
@@ -392,11 +227,6 @@ export class LightingPass extends RenderPass {
       step: 0.01,
       defaultValue: 0.1,
       numType: "float"
-    });
-    SettingsManager.instance.addCheckboxToSection("Sky Settings", {
-      id: "showCameraDepth",
-      label: "Show Camera Depth",
-      defaultValue: false
     });
 
     // Add sun direction sliders
@@ -498,77 +328,11 @@ export class LightingPass extends RenderPass {
       "grassPointLightDiffuseSoftness",
       "sunShadowStrength",
       "pointLightShadowStrength",
-      "pcfRadius",
-      "usingPCF",
-      "csmShadowBias",
-      "csmPcfBiasScale",
-      "cascadeDebug",
-      "cascadeBlendWidth",
       "ambientLightIntensity",
-      "showCameraDepth",
-      "pointShadowBias",
-      "debugPauseMode"
+      "cascadeDebug"
     ]);
   }
-  public updateJitterTexture(jitterSize: number, filterSize: number): void {
-    this.jitterTexture = createJitterTexture(this.gl, jitterSize, filterSize);
-  }
+  
 }
 
-function createJitterTexture(
-  gl: WebGL2RenderingContext,
-  size: number,
-  filterSize: number
-): WebGLTexture {
-  const data = new Float32Array(size * size * filterSize * filterSize * 2);
-  const totalSamples = filterSize * filterSize;
 
-  let index = 0;
-  for (let texY = 0; texY < size; texY++) {
-    for (let texX = 0; texX < size; texX++) {
-      // First 8 samples: explicitly generate at 8 evenly-spaced angles on outer ring
-      // This ensures proper early-out coverage regardless of filterSize
-      for (let i = 0; i < 8; i++) {
-        const angle = (i + Math.random()) / 8; // 8 evenly-spaced sectors with jitter
-        const radius = 1.0 - Math.random() * (1.0 / filterSize); // Outer ring
-        data[index] = Math.sqrt(radius) * Math.cos(angle * 2 * Math.PI);
-        data[index + 1] = Math.sqrt(radius) * Math.sin(angle * 2 * Math.PI);
-        index += 2;
-      }
-
-      // Remaining samples: stratified grid for the rest of the disk
-      const remainingSamples = totalSamples - 8;
-      for (let i = 0; i < remainingSamples; i++) {
-        // Map remaining samples across the disk (inner rings)
-        const sampleIdx = i + 8;
-        const filterX = sampleIdx % filterSize;
-        const filterY = filterSize - 1 - Math.floor(sampleIdx / filterSize);
-        const angle = (filterX + Math.random()) / filterSize;
-        const radius = (filterY + Math.random()) / filterSize;
-        data[index] = Math.sqrt(radius) * Math.cos(angle * 2 * Math.PI);
-        data[index + 1] = Math.sqrt(radius) * Math.sin(angle * 2 * Math.PI);
-        index += 2;
-      }
-    }
-  }
-
-  const texture = gl.createTexture();
-  const layers = (filterSize * filterSize) / 2;
-  gl.bindTexture(gl.TEXTURE_3D, texture);
-  gl.texImage3D(
-    gl.TEXTURE_3D,
-    0,
-    gl.RGBA32F,
-    layers,
-    size,
-    size,
-    0,
-    gl.RGBA,
-    gl.FLOAT,
-    data
-  );
-  gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.bindTexture(gl.TEXTURE_3D, null);
-  return texture!;
-}

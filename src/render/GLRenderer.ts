@@ -10,10 +10,12 @@ import { SSAOPass } from "./passes/SSAOPass";
 import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
-import { CSMPass } from "./passes/CSMPass";
+import { CSMPass } from "./passes/Shadows/SunShadow/CSMPass";
+import { CSMShadowMaskPass } from "./passes/Shadows/SunShadow/CSMShadowMaskPass";
 import { mat4, vec3 } from "gl-matrix";
 import { DirectionalLight } from "../map/Light";
-import { CubeShadowsPass } from "./passes/CubeShadowsPass";
+import { CubeShadowsPass } from "./passes/Shadows/PointShadow/CubeShadowsPass";
+import { CubeShadowMaskPass } from "./passes/Shadows/PointShadow/CubeShadowMaskPass";
 import { FinalPass } from "./passes/FinalPass";
 import { GrassGeometryPass } from "./passes/GrassGeometryPass";
 import { CombineGeometryPass } from "./passes/CombineGeometryPass";
@@ -121,6 +123,18 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const csmShadowMaskPass = new CSMShadowMaskPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
+    const cubeShadowMaskPass = new CubeShadowMaskPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     const finalPass = new FinalPass(
       this.gl,
       this.resourceCache,
@@ -144,15 +158,25 @@ export class GLRenderer {
     this.renderGraph.addRoot(geometryPass);
     this.renderGraph.addRoot(grassGeometryPass);
     this.renderGraph.add(combineGeometryPass, geometryPass, grassGeometryPass);
+    
+    // Shadow depth passes
     this.renderGraph.add(csmPass, combineGeometryPass);
     this.renderGraph.add(cubeShadowsPass, combineGeometryPass);
+    
+    // Shadow mask passes (compute shadows from depth maps)
+    this.renderGraph.add(csmShadowMaskPass, csmPass, combineGeometryPass);
+    this.renderGraph.add(cubeShadowMaskPass, cubeShadowsPass, combineGeometryPass);
+    
+    // SSAO
     this.renderGraph.add(ssaoPass, combineGeometryPass);
     this.renderGraph.add(ssaoBlurPass, ssaoPass, combineGeometryPass);
+    
+    // Lighting pass depends on shadow masks and SSAO
     this.renderGraph.add(
       lightingPass,
       ssaoBlurPass,
-      csmPass,
-      cubeShadowsPass,
+      csmShadowMaskPass,
+      cubeShadowMaskPass,
       combineGeometryPass
     );
     this.renderGraph.add(cloudsPass, lightingPass, combineGeometryPass);
