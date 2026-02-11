@@ -58,7 +58,7 @@ export class CSMPass extends RenderPass {
     // Use DEPTH_COMPONENT32F for float depth, or DEPTH_COMPONENT24 with UNSIGNED_INT
     // For shadow maps, DEPTH_COMPONENT32F with FLOAT is more reliable
     let csmShadowMapSize =
-      this.resourceCache.getData("csmShadowMapSize") ?? 4096; // Default to 4096 if not set
+      this.resourceCache.getData("csmShadowMapSize") ?? 2048; // Default to 2048 if not set
     // Store the default value if it wasn't set
     if (!this.resourceCache.getData("csmShadowMapSize")) {
       this.resourceCache.setData("csmShadowMapSize", csmShadowMapSize);
@@ -123,10 +123,17 @@ export class CSMPass extends RenderPass {
 
     // Set texture parameters for the array
     this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, shadowDepthTextureArray);
+    this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+    this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
     this.gl.texParameteri(
       this.gl.TEXTURE_2D_ARRAY,
       this.gl.TEXTURE_COMPARE_MODE,
-      this.gl.NONE
+      this.gl.COMPARE_REF_TO_TEXTURE
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D_ARRAY,
+      this.gl.TEXTURE_COMPARE_FUNC,
+      this.gl.LESS
     );
 
     this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, null);
@@ -364,7 +371,7 @@ export class CSMPass extends RenderPass {
       min: 1024,
       max: 6000,
       step: 1,
-      defaultValue: 4096,
+      defaultValue: 2048,
       numType: "int",
       onChange: (value: number) => {
         this.resourceCache.setData("csmShadowMapSize", value);
@@ -373,7 +380,7 @@ export class CSMPass extends RenderPass {
       }
     });
     // Initialize the default value in resource cache since onChange is only called on user interaction
-    this.resourceCache.setData("csmShadowMapSize", 4096);
+    this.resourceCache.setData("csmShadowMapSize", 2048);
     SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "lambda",
       label: "Lambda",
@@ -436,9 +443,9 @@ export class CSMPass extends RenderPass {
     SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "filterSize",
       label: "Filter Size",
-      min: 1,
+      min: 2,
       max: 16,
-      step: 1,
+      step: 2,
       defaultValue: 8,
       numType: "int",
       onChange: (value: number) => {
@@ -447,6 +454,16 @@ export class CSMPass extends RenderPass {
       }
     });
     this.resourceCache.setData("filterSize", 8);
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
+      id: "jitterScale",
+      label: "Jitter Scale",
+      min: 0.1,
+      max: 2.0,
+      step: 0.01,
+      defaultValue: 1.0,
+      numType: "float"
+    });
+    this.resourceCache.setData("jitterScale", 1.0);
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "usingPCF",
       label: "Using PCF",
@@ -673,7 +690,7 @@ function getLightSpaceMatrices(
   const parallelThreshold = 0.99;
   const subFrustumCorners = getSubfrustumCorners(resourceCache, lambda);
   const cascadeRadii = getCascadeRadii(resourceCache, lambda, subFrustumCorners);
-  const shadowMapResolution = resourceCache.getData("csmShadowMapSize") ?? 4096;
+  const shadowMapResolution = resourceCache.getData("csmShadowMapSize") ?? 2048;
 
   // Build a STABLE light view matrix that only depends on light direction.
   // This matches the lookAt convention where zAxis = -viewDirection (back vector).
@@ -784,7 +801,7 @@ function getCascadeRadii(
   const vw = vp?.width ?? 0;
   const vh = vp?.height ?? 0;
 
-  const shadowMapResolution = resourceCache.getData("csmShadowMapSize") ?? 4096;
+  const shadowMapResolution = resourceCache.getData("csmShadowMapSize") ?? 2048;
 
   const key = [
     `nc:${numCascades}`,
