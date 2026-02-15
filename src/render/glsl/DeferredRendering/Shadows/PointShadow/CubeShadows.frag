@@ -6,12 +6,11 @@ uniform float lightRadius;
 uniform float lightRange;
 
 in vec3 fragPosition;
-out float outDepth;
 
 void main(){
-    float distance = length(lightPos-fragPosition);
+    float distance = length(lightPos - fragPosition);
     // Normalize by range to match the shadow map range
     // This ensures shadows work correctly up to where light still has meaningful contribution
-    distance = distance / lightRange;
-    outDepth = distance;
+    // Write to gl_FragDepth for hardware shadow comparison
+    gl_FragDepth = distance / lightRange;
 }

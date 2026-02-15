@@ -68,6 +68,7 @@ export class CSMShadowMaskPass extends RenderPass {
       "jitterSize",
       "filterSize",
       "jitterScale",
+      "slopeFactorClamp",
       "debugPauseMode"
     ]);
   }
@@ -185,67 +186,29 @@ export class CSMShadowMaskPass extends RenderPass {
   }
 }
 
-// R2 sequence constants (plastic constant based low-discrepancy sequence)
-// Has blue noise properties - samples are well-distributed without clumping
-const PLASTIC_CONSTANT = 1.32471795724474602596;
-const R2_A1 = 1.0 / PLASTIC_CONSTANT;
-const R2_A2 = 1.0 / (PLASTIC_CONSTANT * PLASTIC_CONSTANT);
 
-// Generate R2 sequence point (blue noise distribution)
-function r2Sequence(n: number): [number, number] {
-  return [
-    (0.5 + n * R2_A1) % 1.0,
-    (0.5 + n * R2_A2) % 1.0
-  ];
-}
-
-// Hash function for per-pixel variation while maintaining blue noise properties
-function blueNoiseHash(x: number, y: number, seed: number): number {
-  // Interleaved gradient noise - has blue noise frequency spectrum
-  const magic = 52.9829189;
-  const dot = x * 0.06711056 + y * 0.00583715 + seed * 0.00239123;
-  return (magic * (dot % 1.0)) % 1.0;
-}
-
-export function createJitterTexture(
+function createJitterTexture(
   gl: WebGL2RenderingContext,
   size: number,
   filterSize: number
 ): WebGLTexture {
   const data = new Float32Array(size * size * filterSize * filterSize * 2);
-  const totalSamples = filterSize * filterSize;
-
   let index = 0;
   for (let texY = 0; texY < size; texY++) {
     for (let texX = 0; texX < size; texX++) {
-      // Per-pixel rotation angle using blue noise hash
-      const pixelRotation = blueNoiseHash(texX, texY, 0) * Math.PI * 2;
-      const cosRot = Math.cos(pixelRotation);
-      const sinRot = Math.sin(pixelRotation);
-      
-      for (let i = 0; i < totalSamples; i++) {
-        // Use R2 sequence for well-distributed samples in the disk
-        const [u, v] = r2Sequence(i + texX * totalSamples + texY * size * totalSamples);
-        
-        // Convert to polar coordinates for disk sampling
-        const angle = u * Math.PI * 2;
-        const radius = Math.sqrt(v); // sqrt for uniform disk distribution
-        
-        // Generate point in unit disk
-        let px = radius * Math.cos(angle);
-        let py = radius * Math.sin(angle);
-        
-        // Apply per-pixel rotation for spatial variation
-        const rotatedX = px * cosRot - py * sinRot;
-        const rotatedY = px * sinRot + py * cosRot;
-        
-        data[index] = rotatedX;
-        data[index + 1] = rotatedY;
-        index += 2;
+      for (let filterY = filterSize - 1; filterY >= 0; filterY--) {
+        for (let filterX = 0; filterX < filterSize; filterX++) {
+          const x = (filterX + Math.random()) / filterSize;
+          const y = (filterY + Math.random()) / filterSize;
+
+          data[index] = Math.sqrt(y) * Math.cos(x * 2 * Math.PI);
+          data[index + 1] = Math.sqrt(y) * Math.sin(x * 2 * Math.PI);
+
+          index += 2;
+        }
       }
     }
   }
-
   const texture = gl.createTexture();
   const layers = (filterSize * filterSize) / 2;
   gl.bindTexture(gl.TEXTURE_3D, texture);
@@ -264,5 +227,5 @@ export function createJitterTexture(
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.bindTexture(gl.TEXTURE_3D, null);
-  return texture!;
+  return texture;
 }

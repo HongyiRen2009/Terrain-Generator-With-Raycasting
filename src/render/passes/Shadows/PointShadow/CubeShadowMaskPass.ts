@@ -60,6 +60,7 @@ export class CubeShadowMaskPass extends RenderPass {
       "pcfRadius",
       "jitterSize",
       "filterSize",
+      "slopeFactorClamp",
       "debugPauseMode"
     ]);
   }

@@ -24,6 +24,7 @@ uniform int jitterSize;
 uniform int filterSize;
 uniform float pcfRadius;
 uniform float jitterScale;
+uniform float slopeFactorClamp;
 uniform bool debugPauseMode;
 uniform bool sunDisabled;
 
@@ -104,14 +105,14 @@ float computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {
     float cosAngle = ndotl;
     float sinAngle = sqrt(max(1.0f - cosAngle * cosAngle, 0.0f));
     float tanAngle = (cosAngle > 0.001f) ? sinAngle / cosAngle : 1000.0f; // Avoid division by zero
-    float slopeFactor = clamp(tanAngle, 0.0f, 10.0f); // Clamp to reasonable range
+    float slopeFactor = clamp(tanAngle, 0.0f, slopeFactorClamp);
     float baseBias = csmShadowBias[cascadeIndex];
     float cascadeBias = baseBias * (1.0f + slopeFactor);
     if(usingPCF) {
-       
+        // PCF bias only accounts for sampling offset, not slope (base bias already handles slope)
         float texelSize = 1.0f / float(csmShadowMapSize);
         float maxOffsetDistance = pcfRadius * 1.414213562f; 
-        float pcfBias = maxOffsetDistance * texelSize * (1.0f + slopeFactor * 0.5f) * csmPcfBiasScale[cascadeIndex];
+        float pcfBias = maxOffsetDistance * texelSize * csmPcfBiasScale[cascadeIndex];
         cascadeBias += pcfBias;
     }
     

@@ -216,7 +216,7 @@ export class CSMPass extends RenderPass {
     const lightSpaceMatrices = getLightSpaceMatrices(
       this.resourceCache,
       sunLight,
-      (SettingsManager.instance.getSetting("lambda")?.value as number) || 0.8,
+      (SettingsManager.instance.getSetting("lambda")?.value as number) || 0.7,
       (SettingsManager.instance.getSetting("zMultiplier")?.value as number) ||
         10.0
     );
@@ -249,14 +249,14 @@ export class CSMPass extends RenderPass {
   
   /**
    * Returns hardcoded shadow bias values tuned for each cascade.
-   * Values: 0.0004, 0.0003, 0.00015 for cascades 0, 1, 2
+   * Values: 0.00031, 0.000087, 0.000076 for cascades 0, 1, 2
    */
   private calculateCascadeBias(cascadeIndex: number): number {
     // Hardcoded tuned bias values
     const hardcodedBias = [
-      0.00015,
+      0.00031,
       0.000087,
-      0.000043,
+      0.000076,
       0.0001,
       0.00005,
       0.00001,
@@ -387,7 +387,7 @@ export class CSMPass extends RenderPass {
       min: 0.0,
       max: 1.0,
       step: 0.01,
-      defaultValue: 0.8,
+      defaultValue: 0.7,
       numType: "float",
       onChange: (value: number) => {
         this.resourceCache.setData("lambda", value);
@@ -464,6 +464,17 @@ export class CSMPass extends RenderPass {
       numType: "float"
     });
     this.resourceCache.setData("jitterScale", 1.0);
+    SettingsManager.instance.addSliderToSection("CSM Settings", {
+      id: "slopeFactorClamp",
+      label: "Slope Factor Clamp",
+      min: 0.0,
+      max: 20.0,
+      step: 0.1,
+      defaultValue: 3.0,
+      numType: "float",
+      fineTuner: true,
+    });
+    this.resourceCache.setData("slopeFactorClamp", 3.0);
     SettingsManager.instance.addCheckboxToSection("CSM Settings", {
       id: "usingPCF",
       label: "Using PCF",
@@ -481,12 +492,13 @@ export class CSMPass extends RenderPass {
       label: "CSM Shadow Bias",
       min: 0.0, // Same min for all cascades
       max: 0.01, // Same max for all cascades
-      step: 0.000001, // Same step for all cascades
+      step: 0.000001, // Fine step for precise tuning
       defaultValue: defaultBiasArray, // Array of default values - each cascade gets its own default
       numType: "float",
       isArray: true,
       arrayLength: numCascades,
       arrayIndex: 0,
+      fineTuner: true,
     });
 
     // Per-cascade scale for the additional bias applied only when PCF is enabled.
@@ -506,6 +518,7 @@ export class CSMPass extends RenderPass {
       isArray: true,
       arrayLength: numCascades,
       arrayIndex: 0,
+      fineTuner: true,
     });
     SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "cascadeBlendWidth",
