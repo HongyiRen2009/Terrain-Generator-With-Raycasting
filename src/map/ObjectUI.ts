@@ -168,7 +168,6 @@ export class ObjectUI {
       loadingMsg.appendChild(box);
       document.body.appendChild(loadingMsg);
 
-
       try {
         // Collect import map entries
         const importMap: { [id: string]: number } = {};
@@ -631,7 +630,6 @@ export class ObjectUI {
       }, 300); // Wait 300ms after last change before rebuilding
     }
 
-    // FIXME: inline
     // Helper to create a transform section
     const createTransformSection = (
       title: string,
@@ -640,56 +638,46 @@ export class ObjectUI {
       onChange: (axis: number, value: number) => void
     ) => {
       const section = document.createElement("div");
-      section.style.cssText = "margin-bottom: 15px;";
+      section.className = "transform-section";
 
       const sectionTitle = document.createElement("div");
+      sectionTitle.className = "transform-section-title";
       sectionTitle.textContent = title;
-      sectionTitle.style.cssText =
-        "font-size: 0.85em; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;";
       section.appendChild(sectionTitle);
 
       const inputsContainer = document.createElement("div");
-      inputsContainer.style.cssText =
-        "display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;";
+      inputsContainer.className = "transform-inputs";
 
       axes.forEach((axis, i) => {
-        const inputGroup = document.createElement("div");
-        inputGroup.style.cssText = "display: flex; flex-direction: column;";
+        const column = document.createElement("div");
+        column.className = "transform-column";
 
         const label = document.createElement("label");
+        label.className = "transform-label";
         label.textContent = axis;
-        label.style.cssText =
-          "font-size: 0.8em; color: #aaa; margin-bottom: 4px; font-weight: 500;";
 
         const input = document.createElement("input");
+        input.className = "transform-input";
         input.type = "number";
         input.value = values[i].toString();
         input.step = axis === "Rotation" ? "1" : "0.1";
-        input.style.cssText =
-          "padding: 6px 8px; background: #333; border: 1px solid #555; border-radius: 4px; color: #fff; font-size: 0.9em; font-family: monospace; width: 100%; box-sizing: border-box;";
+
         input.addEventListener("input", () => {
           const val = input.value === "" ? 0 : parseFloat(input.value);
           values[i] = val;
           onChange(i, val);
           updatePosDisplay();
         });
-        input.addEventListener(
-          "focus",
-          () => (input.style.borderColor = "#666")
-        );
-        input.addEventListener(
-          "blur",
-          () => (input.style.borderColor = "#555")
-        );
 
-        inputGroup.appendChild(label);
-        inputGroup.appendChild(input);
-        inputsContainer.appendChild(inputGroup);
+        column.append(label, input);
+        inputsContainer.appendChild(column);
       });
 
       section.appendChild(inputsContainer);
+
       return section;
     };
+
 
     // Translation section
     content.appendChild(
