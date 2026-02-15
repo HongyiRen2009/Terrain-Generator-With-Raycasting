@@ -19,6 +19,7 @@ export interface SliderSetting extends Omit<Setting<number | number[]>, "onChang
   arrayIndex?: number;
   defaultValue?: number | number[]; // Single value or array of values per index
   onChange?: (value: number) => void; // For sliders, onChange always receives a number (single value, even for arrays)
+  fineTuner?: boolean; // Add +/- buttons for fine-grained adjustments
 }
 
 interface CheckboxSetting extends Setting<boolean> {
@@ -523,6 +524,43 @@ export class SettingsSection {
     slider.step = getCurrentStep().toString();
     slider.value = currentValue.toString();
 
+    // Helper function to get decimal places from step value
+    const getDecimalPlaces = (step: number): number => {
+      const str = step.toString();
+      if (str.includes('e-')) {
+        return parseInt(str.split('e-')[1]);
+      }
+      const decimalPart = str.split('.')[1];
+      return decimalPart ? decimalPart.length : 0;
+    };
+
+    // Helper function to update value and UI
+    const updateValue = (newValue: number) => {
+      const min = parseFloat(slider.min);
+      const max = parseFloat(slider.max);
+      const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+      
+      // Round to avoid floating point precision issues
+      const decimals = getDecimalPlaces(step);
+      newValue = parseFloat(newValue.toFixed(decimals));
+      newValue = Math.max(min, Math.min(max, newValue));
+      
+      if (setting.isArray) {
+        const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+        const idx = setting.arrayIndex ?? 0;
+        arrayValue[idx] = newValue;
+        setting.value = arrayValue;
+      } else {
+        setting.value = newValue;
+      }
+      
+      slider.value = newValue.toString();
+      valueSpan.textContent = newValue.toString();
+      if (setting.onChange) {
+        setting.onChange(newValue as any);
+      }
+    };
+
     slider.addEventListener("input", () => {
       const value = parseFloat(slider.value);
       if (setting.isArray) {
@@ -545,7 +583,72 @@ export class SettingsSection {
 
     wrapper.appendChild(label);
     wrapper.appendChild(document.createElement("br"));
-    wrapper.appendChild(slider);
+
+    // Only add fine tuner buttons if fineTuner is enabled
+    if (setting.fineTuner) {
+      const smallBtnStyle = "padding: 1px 5px; margin: 0 1px; cursor: pointer; font-size: 11px;";
+      const largeBtnStyle = "padding: 1px 3px; margin: 0 1px; cursor: pointer; font-size: 10px;";
+      
+      // 10x decrement button
+      const decrement10xBtn = document.createElement("button");
+      decrement10xBtn.textContent = "−10";
+      decrement10xBtn.style.cssText = largeBtnStyle;
+      decrement10xBtn.title = `Decrease by ${getCurrentStep() * 10}`;
+      decrement10xBtn.addEventListener("click", () => {
+        const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+        const currentVal = parseFloat(slider.value);
+        updateValue(currentVal - step * 10);
+      });
+
+      // 1x decrement button
+      const decrementBtn = document.createElement("button");
+      decrementBtn.textContent = "−";
+      decrementBtn.style.cssText = smallBtnStyle;
+      decrementBtn.title = `Decrease by ${getCurrentStep()}`;
+      decrementBtn.addEventListener("click", () => {
+        const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+        const currentVal = parseFloat(slider.value);
+        updateValue(currentVal - step);
+      });
+
+      // 1x increment button
+      const incrementBtn = document.createElement("button");
+      incrementBtn.textContent = "+";
+      incrementBtn.style.cssText = smallBtnStyle;
+      incrementBtn.title = `Increase by ${getCurrentStep()}`;
+      incrementBtn.addEventListener("click", () => {
+        const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+        const currentVal = parseFloat(slider.value);
+        updateValue(currentVal + step);
+      });
+
+      // 10x increment button
+      const increment10xBtn = document.createElement("button");
+      increment10xBtn.textContent = "+10";
+      increment10xBtn.style.cssText = largeBtnStyle;
+      increment10xBtn.title = `Increase by ${getCurrentStep() * 10}`;
+      increment10xBtn.addEventListener("click", () => {
+        const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+        const currentVal = parseFloat(slider.value);
+        updateValue(currentVal + step * 10);
+      });
+
+      // Create a container for the slider row with buttons
+      const sliderRow = document.createElement("div");
+      sliderRow.style.display = "flex";
+      sliderRow.style.alignItems = "center";
+      sliderRow.style.gap = "2px";
+      
+      sliderRow.appendChild(decrement10xBtn);
+      sliderRow.appendChild(decrementBtn);
+      sliderRow.appendChild(slider);
+      sliderRow.appendChild(incrementBtn);
+      sliderRow.appendChild(increment10xBtn);
+      
+      wrapper.appendChild(sliderRow);
+    } else {
+      wrapper.appendChild(slider);
+    }
 
     this.container.appendChild(wrapper);
   }

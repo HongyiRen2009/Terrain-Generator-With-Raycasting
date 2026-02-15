@@ -18,16 +18,13 @@ const config: webpack.Configuration = {
   devServer: {
     static: path.resolve(__dirname, "public"),
     hot: true,
-    open: {
-      app: "msedge"
-    },
     port: 3000
   },
   resolve: {
     extensions: [".ts", ".js"]
   },
   module: {
-    rules: [
+    rules: [ 
       {
         test: /\.ts$/,
         use: "ts-loader"
