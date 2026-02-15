@@ -11,12 +11,12 @@ uniform sampler2D materialAttributesTexture;
 uniform sampler2D depthTexture;
 uniform sampler2D ssaoTexture;
 // Shadow mask textures from dedicated shadow passes
-uniform sampler2D sunShadowMask;
-uniform sampler2D pointShadowMaskA;
-uniform sampler2D pointShadowMaskB;
-uniform sampler2D pointShadowMaskC;
-uniform sampler2D pointShadowMaskD;
-uniform sampler2D pointShadowMaskE;
+uniform sampler2D blurredSunShadowMask;
+uniform sampler2D blurredPointShadowMaskA;
+uniform sampler2D blurredPointShadowMaskB;
+uniform sampler2D blurredPointShadowMaskC;
+uniform sampler2D blurredPointShadowMaskD;
+uniform sampler2D blurredPointShadowMaskE;
 
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
@@ -86,11 +86,11 @@ float calculateFresnel(vec3 viewDir, vec3 halfDir, float baseReflectivity) {
 // Sample point light shadow mask from pre-computed shadow mask textures
 float getPointShadowMask(int lightIndex) {
     switch(lightIndex) {
-        case 0: return texture(pointShadowMaskA, fragUV).r;
-        case 1: return texture(pointShadowMaskB, fragUV).r;
-        case 2: return texture(pointShadowMaskC, fragUV).r;
-        case 3: return texture(pointShadowMaskD, fragUV).r;
-        case 4: return texture(pointShadowMaskE, fragUV).r;
+        case 0: return texture(blurredPointShadowMaskA, fragUV).r;
+        case 1: return texture(blurredPointShadowMaskB, fragUV).r;
+        case 2: return texture(blurredPointShadowMaskC, fragUV).r;
+        case 3: return texture(blurredPointShadowMaskD, fragUV).r;
+        case 4: return texture(blurredPointShadowMaskE, fragUV).r;
         default: return 1.0f;
     }
 }
@@ -315,7 +315,7 @@ void main() {
 
     // Sample pre-computed sun shadow mask data
     // R = shadow, G = primary cascade (normalized), B = secondary cascade (normalized), A = blend factor
-    vec4 sunShadowData = texture(sunShadowMask, fragUV);
+    vec4 sunShadowData = texture(blurredSunShadowMask, fragUV);
     float sunShadow = sunShadowData.r;
     int primaryCascade = int(sunShadowData.g * 8.0f + 0.5f);
     int secondaryCascade = int(sunShadowData.b * 8.0f + 0.5f);

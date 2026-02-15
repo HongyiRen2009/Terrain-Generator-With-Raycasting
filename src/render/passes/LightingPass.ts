@@ -86,12 +86,12 @@ export class LightingPass extends RenderPass {
     const materialAttributesTexture = textures["materialAttributes"];
     
     // Shadow mask textures from dedicated shadow passes
-    const sunShadowMask = textures["sunShadowMask"];
-    const pointShadowMaskA = textures["pointShadowMaskA"];
-    const pointShadowMaskB = textures["pointShadowMaskB"];
-    const pointShadowMaskC = textures["pointShadowMaskC"];
-    const pointShadowMaskD = textures["pointShadowMaskD"];
-    const pointShadowMaskE = textures["pointShadowMaskE"];
+    const blurredSunShadowMask = textures["blurredSunShadowMask"];
+    const blurredPointShadowMaskA = textures["blurredPointShadowMaskA"];
+    const blurredPointShadowMaskB = textures["blurredPointShadowMaskB"];
+    const blurredPointShadowMaskC = textures["blurredPointShadowMaskC"];
+    const blurredPointShadowMaskD = textures["blurredPointShadowMaskD"];
+    const blurredPointShadowMaskE = textures["blurredPointShadowMaskE"];
 
     // Bind lighting framebuffer
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
@@ -113,12 +113,12 @@ export class LightingPass extends RenderPass {
     TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 4);
     
     // Bind shadow mask textures
-    TextureUtils.bindTex(this.gl, this.program!, sunShadowMask, "sunShadowMask", 5);
-    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskA, "pointShadowMaskA", 6);
-    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskB, "pointShadowMaskB", 7);
-    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskC, "pointShadowMaskC", 8);
-    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskD, "pointShadowMaskD", 9);
-    TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskE, "pointShadowMaskE", 10);
+    TextureUtils.bindTex(this.gl, this.program!, blurredSunShadowMask, "blurredSunShadowMask", 5);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskA, "blurredPointShadowMaskA", 6);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskB, "blurredPointShadowMaskB", 7);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskC, "blurredPointShadowMaskC", 8);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskD, "blurredPointShadowMaskD", 9);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskE, "blurredPointShadowMaskE", 10);
 
     SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
 

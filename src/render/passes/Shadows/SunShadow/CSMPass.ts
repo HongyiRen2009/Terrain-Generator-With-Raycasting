@@ -446,14 +446,14 @@ export class CSMPass extends RenderPass {
       min: 2,
       max: 16,
       step: 2,
-      defaultValue: 8,
+      defaultValue: 4,
       numType: "int",
       onChange: (value: number) => {
         this.resourceCache.setData("filterSize", value);
         this.requestJitterTextureUpdate();
       }
     });
-    this.resourceCache.setData("filterSize", 8);
+    this.resourceCache.setData("filterSize", 4);
     SettingsManager.instance.addSliderToSection("CSM Settings", {
       id: "jitterScale",
       label: "Jitter Scale",

@@ -19,6 +19,7 @@ import { CubeShadowMaskPass } from "./passes/Shadows/PointShadow/CubeShadowMaskP
 import { FinalPass } from "./passes/FinalPass";
 import { GrassGeometryPass } from "./passes/GrassGeometryPass";
 import { CombineGeometryPass } from "./passes/CombineGeometryPass";
+import { ShadowBlurPass } from "./passes/Shadows/ShadowBlurPass";
 import { PathTracer } from "../Pathtracing/PathTracer";
 interface Matrices {
   matView: mat4;
@@ -153,6 +154,12 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     );
+    const shadowBlurPass = new ShadowBlurPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    )
     // Build render graph tree structure
 
     this.renderGraph.addRoot(geometryPass);
@@ -166,6 +173,9 @@ export class GLRenderer {
     // Shadow mask passes (compute shadows from depth maps)
     this.renderGraph.add(csmShadowMaskPass, csmPass, combineGeometryPass);
     this.renderGraph.add(cubeShadowMaskPass, cubeShadowsPass, combineGeometryPass);
+
+    // Shadow blur pass
+    this.renderGraph.add(shadowBlurPass, cubeShadowMaskPass, csmShadowMaskPass, combineGeometryPass);
     
     // SSAO
     this.renderGraph.add(ssaoPass, combineGeometryPass);
@@ -175,8 +185,7 @@ export class GLRenderer {
     this.renderGraph.add(
       lightingPass,
       ssaoBlurPass,
-      csmShadowMaskPass,
-      cubeShadowMaskPass,
+      shadowBlurPass,
       combineGeometryPass
     );
     this.renderGraph.add(cloudsPass, lightingPass, combineGeometryPass);

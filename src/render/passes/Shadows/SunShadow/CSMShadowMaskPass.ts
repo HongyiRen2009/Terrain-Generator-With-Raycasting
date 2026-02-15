@@ -50,7 +50,7 @@ export class CSMShadowMaskPass extends RenderPass {
     this.jitterTexture = createJitterTexture(
       gl,
       this.resourceCache.getData("jitterSize") ?? 16,
-      this.resourceCache.getData("filterSize") ?? 8
+      this.resourceCache.getData("filterSize") ?? 4
     );
     this.resourceCache.setData(
       "updateJitterTexture",

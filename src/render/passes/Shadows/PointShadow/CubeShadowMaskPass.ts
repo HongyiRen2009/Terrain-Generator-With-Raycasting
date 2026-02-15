@@ -48,7 +48,7 @@ export class CubeShadowMaskPass extends RenderPass {
     if (!this.jitterTexture) {
       // Use the same jitter texture creation logic as CSMShadowMaskPass
       const jitterSize = this.resourceCache.getData("jitterSize") ?? 16;
-      const filterSize = this.resourceCache.getData("filterSize") ?? 8;
+      const filterSize = this.resourceCache.getData("filterSize") ?? 4;
       this.jitterTexture = this.createJitterTexture(jitterSize, filterSize);
       this.resourceCache.setData("jitterTexture", this.jitterTexture);
     }
