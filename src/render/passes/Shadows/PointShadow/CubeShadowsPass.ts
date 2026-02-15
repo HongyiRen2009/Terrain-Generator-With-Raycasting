@@ -1,17 +1,17 @@
-import { RenderPass, VAOInputType } from "../renderSystem/RenderPass";
+import { RenderPass, VAOInputType } from "../../../renderSystem/RenderPass";
 import {
   ResourceCache,
   getUniformLocations
-} from "../renderSystem/managers/ResourceCache";
-import { RenderGraph } from "../renderSystem/RenderGraph";
-import { RenderUtils } from "../../utils/RenderUtils";
-import { RenderTarget } from "../renderSystem/RenderTarget";
-import { VaoInfo } from "../renderSystem/managers/VaoManager";
-import { PointLight } from "../../map/Light";
+} from "../../../renderSystem/managers/ResourceCache";
+import { RenderGraph } from "../../../renderSystem/RenderGraph";
+import { RenderUtils } from "../../../../utils/RenderUtils";
+import { RenderTarget } from "../../../renderSystem/RenderTarget";
+import { VaoInfo } from "../../../renderSystem/managers/VaoManager";
+import { PointLight } from "../../../../map/Light";
 import { mat4, vec3 } from "gl-matrix";
-import CubeShadowsVertexShaderSource from "../glsl/DeferredRendering/CubeShadows.vert";
-import CubeShadowsFragmentShaderSource from "../glsl/DeferredRendering/CubeShadows.frag";
-import { SettingsManager } from "../../Settings";
+import CubeShadowsVertexShaderSource from "../../../glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.vert";
+import CubeShadowsFragmentShaderSource from "../../../glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.frag";
+import { SettingsManager } from "../../../../Settings";
 
 export class CubeShadowsPass extends RenderPass {
   public pathtracerRender: boolean = false;
@@ -67,26 +67,12 @@ export class CubeShadowsPass extends RenderPass {
     const cubeMaps: WebGLTexture[] = [];
 
     const fbo = this.gl.createFramebuffer();
-    const depthRenderbuffer = this.gl.createRenderbuffer();
-    if (!fbo || !depthRenderbuffer) {
+    if (!fbo) {
       throw new Error("Failed to create framebuffer");
     }
-    this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, depthRenderbuffer);
-    this.gl.renderbufferStorage(
-      this.gl.RENDERBUFFER,
-      this.gl.DEPTH_COMPONENT24,
-      size,
-      size
-    );
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
-    this.gl.framebufferRenderbuffer(
-      this.gl.FRAMEBUFFER,
-      this.gl.DEPTH_ATTACHMENT,
-      this.gl.RENDERBUFFER,
-      depthRenderbuffer
-    );
 
-    // Create a cube map texture for each light
+    // Create depth cube map textures for each light with hardware shadow comparison
     for (
       let lightIndex = 0;
       lightIndex < this.resourceCache.getData("numShadowedLights");
@@ -101,24 +87,25 @@ export class CubeShadowsPass extends RenderPass {
         this.gl.texImage2D(
           this.gl.TEXTURE_CUBE_MAP_POSITIVE_X + i,
           0,
-          this.gl.R32F,
+          this.gl.DEPTH_COMPONENT32F,
           size,
           size,
           0,
-          this.gl.RED,
+          this.gl.DEPTH_COMPONENT,
           this.gl.FLOAT,
           null
         );
       }
+      // Use LINEAR filtering for hardware shadow filtering
       this.gl.texParameteri(
         this.gl.TEXTURE_CUBE_MAP,
         this.gl.TEXTURE_MIN_FILTER,
-        this.gl.NEAREST
+        this.gl.LINEAR
       );
       this.gl.texParameteri(
         this.gl.TEXTURE_CUBE_MAP,
         this.gl.TEXTURE_MAG_FILTER,
-        this.gl.NEAREST
+        this.gl.LINEAR
       );
       this.gl.texParameteri(
         this.gl.TEXTURE_CUBE_MAP,
@@ -135,12 +122,22 @@ export class CubeShadowsPass extends RenderPass {
         this.gl.TEXTURE_WRAP_R,
         this.gl.CLAMP_TO_EDGE
       );
+      // Enable hardware shadow comparison
+      this.gl.texParameteri(
+        this.gl.TEXTURE_CUBE_MAP,
+        this.gl.TEXTURE_COMPARE_MODE,
+        this.gl.COMPARE_REF_TO_TEXTURE
+      );
+      this.gl.texParameteri(
+        this.gl.TEXTURE_CUBE_MAP,
+        this.gl.TEXTURE_COMPARE_FUNC,
+        this.gl.LEQUAL
+      );
       cubeMaps.push(cubeMap);
     }
 
     this.gl.bindTexture(this.gl.TEXTURE_CUBE_MAP, null);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    this.gl.bindRenderbuffer(this.gl.RENDERBUFFER, null);
 
     return {
       fbo: fbo,
@@ -158,11 +155,6 @@ export class CubeShadowsPass extends RenderPass {
       .pointShadowTextures as WebGLTexture[];
     const currentCubeMap = cubeMaps[this.currentLightIndex];
 
-    const ext = this.gl.getExtension("EXT_color_buffer_float");
-    if (!ext) {
-      throw new Error("EXT_color_buffer_float not supported");
-    }
-
     const shadowMapSize = this.resourceCache.getData("CubeShadowsMapSize")!;
 
     // Set up render state once
@@ -172,10 +164,13 @@ export class CubeShadowsPass extends RenderPass {
     this.gl.disable(this.gl.SCISSOR_TEST); // Disable scissor test to ensure full rendering
     this.gl.useProgram(this.program);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
+    
+    // No color output - depth-only rendering
+    this.gl.drawBuffers([this.gl.NONE]);
+    this.gl.colorMask(false, false, false, false);
 
     // Set clear values
     this.gl.clearDepth(1.0);
-    this.gl.clearColor(1.0, 1.0, 1.0, 1.0); // White = far plane (max distance normalized)
 
     for (let i = 0; i < 6; i++) {
       if (
@@ -186,15 +181,14 @@ export class CubeShadowsPass extends RenderPass {
       // Set viewport for this face
       this.gl.viewport(0, 0, shadowMapSize, shadowMapSize);
 
-      // Attach the cube map face to the framebuffer
+      // Attach the cube map face to the framebuffer as depth attachment
       this.gl.framebufferTexture2D(
         this.gl.FRAMEBUFFER,
-        this.gl.COLOR_ATTACHMENT0,
+        this.gl.DEPTH_ATTACHMENT,
         this.gl.TEXTURE_CUBE_MAP_POSITIVE_X + i,
         currentCubeMap,
         0
       );
-      this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
 
       // Verify framebuffer is complete before clearing
       const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
@@ -203,8 +197,8 @@ export class CubeShadowsPass extends RenderPass {
         continue;
       }
 
-      // Clear both color and depth for this face
-      this.gl.clear(this.gl.DEPTH_BUFFER_BIT | this.gl.COLOR_BUFFER_BIT);
+      // Clear depth for this face
+      this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
 
       // Set up uniforms for this face
       const lightSpaceMatrix = getLightSpaceMatrix(
@@ -254,6 +248,7 @@ export class CubeShadowsPass extends RenderPass {
       this.gl.bindVertexArray(null);
     }
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    this.gl.colorMask(true, true, true, true);
   }
 
   private InitSettings() {
@@ -293,7 +288,8 @@ export class CubeShadowsPass extends RenderPass {
       max: 0.1,
       step: 0.001,
       defaultValue: 0.05,
-      numType: "float"
+      numType: "float",
+      fineTuner: true,
     });
   }
 }

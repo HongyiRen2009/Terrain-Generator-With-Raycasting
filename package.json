@@ -23,6 +23,7 @@
     "fast-xml-parser": "^5.2.5",
     "gl-matrix": "^3.4.3",
     "jszip": "^3.10.1",
+    "requests": "^0.3.0",
     "three": "^0.182.0"
   },
   "devDependencies": {
