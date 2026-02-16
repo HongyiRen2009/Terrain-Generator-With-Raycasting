@@ -124,7 +124,7 @@ export class WorldMap {
       min: 0,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.005,
+      defaultValue: 0.005*2,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings", {
@@ -133,7 +133,7 @@ export class WorldMap {
       min: 0,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.011,
+      defaultValue: 0.011*2,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings", {
@@ -142,7 +142,7 @@ export class WorldMap {
       min: 0,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.022,
+      defaultValue: 0.022*2,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings",{
