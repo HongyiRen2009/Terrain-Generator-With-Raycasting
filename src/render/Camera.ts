@@ -1,5 +1,6 @@
 import { glMatrix, mat4, vec3 } from "gl-matrix";
 import { GameEngine } from "../GameEngine";
+import { DebugMenu } from "../DebugMenu";
 
 export class Camera {
   position: vec3;
@@ -17,9 +18,12 @@ export class Camera {
   speed: number;
   nearPlane: number = 0.1;
   fovy: number = 90; // Field of view in degrees
-  constructor(position: vec3) {
+  debug: DebugMenu;
+  constructor(position: vec3, debug: DebugMenu) {
     this.position = position;
     this.lastPosition = vec3.clone(position);
+    this.debug=debug;
+    this.debug.addElement("Pos", () => `${Math.round(position[0])}, ${Math.round(position[1])}, ${Math.round(position[2])}`);
 
     this.UpdateCameraVectors();
     this.speed = 0.02;

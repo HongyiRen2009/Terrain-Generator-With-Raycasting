@@ -94,7 +94,7 @@ export class GameEngine {
     );
 
     //Initialize Camera
-    this.mainCamera = new Camera(vec3.fromValues(500, 50, 500));
+    this.mainCamera = new Camera(vec3.fromValues(500, 50, 500), this.debug);
     this.lastCameraChunk = this.world.getChunkCoordsFromPosition(
       this.mainCamera.position
     );
