@@ -4,19 +4,15 @@ import { Chunk } from "./marching_cubes";
 import { mat4, vec2, vec3, vec4 } from "gl-matrix";
 import { PointLight, DirectionalLight } from "./Light";
 
-import { Color, Terrain, Terrains } from "./terrains";
+import { Color } from "./terrains";
 import { Mesh, Triangle } from "./Mesh";
 import { RenderUtils } from "../utils/RenderUtils";
 import { WorldObject } from "./WorldObject";
 import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { ObjectUI } from "./ObjectUI";
 import { LightUI } from "./LightUI";
+import { TerrainUI } from "./TerrainUI";
 import { SettingsManager } from "../Settings";
-
-interface ImportMapEntry {
-  color: string;
-  terrain: Terrain;
-}
 
 /**
  * The object holding the map of the world
@@ -44,7 +40,7 @@ export class WorldMap {
   public chunks: Chunk[];
   public fieldMap: Map<string, number>;
   public Workers: Worker[] = [];
-  public seed: number = 821;//Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
+  public seed: number = 821; //Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
 
   public worldObjects: WorldObject[] = [];
   gl: WebGL2RenderingContext;
@@ -52,9 +48,11 @@ export class WorldMap {
   private nextWorldObjectId: number = 0;
 
   private tracerUpdateSupplier: () => () => void;
+  public onTerrainChanged?: () => void;
 
   public objectUI: ObjectUI;
   public lightUI: LightUI;
+  public terrainUI: TerrainUI;
 
   /**
    * Constructs a world
@@ -82,18 +80,27 @@ export class WorldMap {
     }
     this.generate();
 
+    // FIXME: fix terrain updating
+    this.onTerrainChanged = () => {
+      this.generate();
+    };
+
     this.fieldMap = new Map<string, number>();
 
     this.objectUI = new ObjectUI(this, this.tracerUpdateSupplier);
     this.lightUI = new LightUI(this, this.tracerUpdateSupplier);
+    this.terrainUI = new TerrainUI(this, this.tracerUpdateSupplier);
     this.initSettings();
   }
 
-  public initSettings(){
-    SettingsManager.instance.createSection(document.getElementById("settings-section")!,"Sky Settings");
+  public initSettings() {
+    SettingsManager.instance.createSection(
+      document.getElementById("settings-section")!,
+      "Sky Settings"
+    );
     //Further Sky settings are in the LightingPass Code
 
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_redScatter",
       label: "Red Scattering in the Sky",
       min: 0,
@@ -102,7 +109,7 @@ export class WorldMap {
       defaultValue: 0.005,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_greenScatter",
       label: "Green Scattering in the Sky",
       min: 0,
@@ -111,7 +118,7 @@ export class WorldMap {
       defaultValue: 0.011,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_blueScatter",
       label: "Blue Scattering in the Sky",
       min: 0,
@@ -120,7 +127,7 @@ export class WorldMap {
       defaultValue: 0.022,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_MIE",
       label: "Mie (whiteness at sea level)",
       min: 0,
@@ -129,7 +136,7 @@ export class WorldMap {
       defaultValue: 0.021,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_haloSize",
       label: "Mie Anisotropy (Lower = larger halo)",
       min: 0,
@@ -138,7 +145,7 @@ export class WorldMap {
       defaultValue: 0.76,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_skyGradientQuality",
       label: "Sky Gradient Quality",
       min: 1,
@@ -148,7 +155,7 @@ export class WorldMap {
       numType: "int"
     });
 
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_sunsetQuality",
       label: "Sunset Quality",
       min: 1,
@@ -158,7 +165,7 @@ export class WorldMap {
       numType: "int"
     });
 
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_skyBrightnessBoost",
       label: "Sky Brightness Coefficient",
       min: 0,
@@ -167,8 +174,6 @@ export class WorldMap {
       defaultValue: 1.0,
       numType: "float"
     });
-
-
   }
 
   /**
@@ -242,6 +247,11 @@ export class WorldMap {
     if (this.worldObjects.length > 0) {
       for (let objIdx = 0; objIdx < this.worldObjects.length; objIdx++) {
         const obj = this.worldObjects[objIdx];
+
+        if (!obj || !obj.mesh || !obj.mesh.mesh) {
+          console.warn("Skipping WorldObject with null mesh", obj);
+          continue;
+        }
 
         // Create a simple hash of the transform matrix to detect changes
         const transformHash = obj.position.join(",");
@@ -321,6 +331,11 @@ export class WorldMap {
    * Add an object to the game world
    */
   public addObject(objectData: Mesh, objectLocation: mat4, name: string) {
+    if (!objectData || !objectData.mesh) {
+      console.error("Cannot add object: mesh is null", name);
+      return;
+    }
+
     const { vertices, indices } =
       meshToInterleavedVerticesAndIndices(objectData);
     const meshSize = indices.length;

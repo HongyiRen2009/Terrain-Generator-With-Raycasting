@@ -175,22 +175,24 @@ export class ObjectUI {
           const inputs = entry.querySelectorAll("input, select") as NodeListOf<
             HTMLInputElement | HTMLSelectElement
           >;
-          const color = Color.fromHex((inputs[0] as HTMLInputElement).value);
-          const type = parseInt((inputs[1] as HTMLSelectElement).value) as
+          const name = (inputs[0] as HTMLInputElement).value.trim();
+          const color = Color.fromHex((inputs[1] as HTMLInputElement).value);
+          const type = parseInt((inputs[2] as HTMLSelectElement).value) as
             | 1
             | 2
             | 3
             | 4
             | 5;
           Terrains[Object.keys(Terrains).length] = {
+            name: name || `Terrain ${Object.keys(Terrains).length}`,
             color: color,
             reflectiveness: Math.min(
               1,
-              Math.max(0, parseFloat((inputs[2] as HTMLInputElement).value))
+              Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value))
             ),
             roughness: Math.min(
               1,
-              Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value))
+              Math.max(0, parseFloat((inputs[4] as HTMLInputElement).value))
             ),
             type: type
           };
@@ -677,7 +679,6 @@ export class ObjectUI {
 
       return section;
     };
-
 
     // Translation section
     content.appendChild(

@@ -15,6 +15,7 @@ const calculateNormal = (vertices: vec3[]): vec3 => {
 export const objSourceToMesh = (objSource: string): Mesh => {
   let i = 0;
   const mesh = new Mesh();
+  if (!objSource.trim()) return mesh;
   const vertices: vec3[] = [];
   for (const line of objSource.split(/\r?\n/)) {
     if (line.trim() === "") {
@@ -152,6 +153,7 @@ export function loadPLYToMesh(
             if (!found) {
               //make a new terrain type
               Terrains[Object.keys(Terrains).length] = {
+                name: `Terrain ${Object.keys(Terrains).length}`,
                 color: col,
                 reflectiveness: 0.2,
                 roughness: 0.8,
@@ -178,6 +180,7 @@ export function loadPLYToMesh(
           if (!found) {
             //make a new terrain type
             Terrains[Object.keys(Terrains).length] = {
+              name: `Terrain ${Object.keys(Terrains).length}`,
               color: col,
               reflectiveness: 0.2,
               roughness: 0.8,

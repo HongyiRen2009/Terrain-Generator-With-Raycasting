@@ -742,3 +742,109 @@ button.destructive:hover {
 .transform-input[type="number"] {
   -moz-appearance: textfield;
 }
+
+#terrain-section {
+  margin-top: 10px;
+}
+
+#terrain-section h3 {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+#terrain-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.terrain-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.terrain-card h4 {
+  margin: 0;
+  padding: 10px 14px;
+
+  font-size: 0.9rem;
+  font-weight: 600;
+
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.terrain-card > div {
+  padding: 10px 14px;
+}
+
+.terrain-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+  margin-bottom: 10px;
+
+  font-size: 0.85rem;
+}
+
+.terrain-label span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.terrain-label select,
+.terrain-label input[type="number"] {
+  height: 32px;
+  padding: 0 8px;
+
+  border-radius: 6px;
+  border: 1px solid var(--border);
+
+  background: var(--panel);
+  color: var(--text);
+
+  font-size: 0.85rem;
+}
+
+.terrain-range {
+  margin-bottom: 12px;
+}
+
+.terrain-range span {
+  display: block;
+  margin-bottom: 4px;
+
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.terrain-range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.terrain-range input[type="range"] {
+  flex: 1;
+  margin: 0;
+}
+
+.range-value {
+  min-width: 40px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.terrain-card select {
+  min-width: 120px;
+  cursor: pointer;
+}

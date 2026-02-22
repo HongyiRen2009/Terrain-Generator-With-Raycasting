@@ -64,6 +64,7 @@ export async function threemfToMesh(
           }
           
           Terrains[Object.keys(Terrains).length] = {
+            name: `Terrain ${Object.keys(Terrains).length}`,
             color: col,
             reflectiveness: material.metallic,
             roughness: material.roughness,
