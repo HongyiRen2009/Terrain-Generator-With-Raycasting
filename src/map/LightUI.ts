@@ -7,10 +7,10 @@ export class LightUI {
   private container: HTMLElement;
   private addButton: HTMLButtonElement;
   private world: WorldMap;
-  private tracerUpdateSupplier: () => () => void;
+  private tracerUpdateSupplier: () => (terrainTypesOnly?: boolean) => void;
   private displayOrder: PointLight[] = []; // Maintains stable display order
 
-  constructor(world: WorldMap, updateTracer: () => () => void) {
+  constructor(world: WorldMap, updateTracer: () => (terrainTypesOnly?: boolean) => void) {
     this.world = world;
     this.tracerUpdateSupplier = updateTracer;
 

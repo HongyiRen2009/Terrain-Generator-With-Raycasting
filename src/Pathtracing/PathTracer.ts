@@ -1,8 +1,8 @@
 // Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
 
-import { mat4, vec2, vec3 } from "gl-matrix";
+import { mat4, vec2 } from "gl-matrix";
 import { WorldMap } from "../map/Map";
-import { BVHTriangle, Mesh } from "../map/Mesh";
+import { Mesh } from "../map/Mesh";
 import { Camera } from "../render/Camera";
 import { RenderUtils } from "../utils/RenderUtils";
 import { TextureUtils } from "../utils/TextureUtils";
@@ -148,16 +148,22 @@ export class PathTracer {
     //Pack BVH
     const { boundingBoxes, nodes, leafs } = BVHUtils.packBVH(flatBVHtree);
     //Pack terrain Types
-    const terrainTypes = BVHUtils.packTerrainTypes();
     //save
     this.vertices = vertices;
     this.terrains = terrains;
     this.boundingBoxes = boundingBoxes;
     this.nodes = nodes;
     this.leafs = leafs;
-    this.terrainTypes = terrainTypes;
     this.vertexNormals = normals;
+    this.reloadTerrainData();
   }
+
+  public reloadTerrainData(){
+    const terrainTypes = BVHUtils.packTerrainTypes();
+    this.terrainTypes = terrainTypes;
+    this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+  }
+
   public render(time: number) {
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
     // Clear the color buffer with specified clear color
@@ -299,13 +305,13 @@ export class PathTracer {
     this.debug.removeElement("Accumulation Frame");
     this.camera.farPlane = this.camera.rayTracingFarPlane;
   }
+
   private initBVHTextures() {
     this.vertexTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
     this.terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
     this.boundingBoxesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
     this.nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
     this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
-    this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
     this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
     this.grassTexture = TextureUtils.packFloatArrayToTexture(this.gl,this.grassBB);
 

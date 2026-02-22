@@ -4,11 +4,11 @@ import { Color, Terrain, Terrains } from "./terrains";
 export class TerrainUI {
   private world: WorldMap;
   private container: HTMLElement;
-  private tracerUpdateSupplier?: () => (() => void) | null;
+  private tracerUpdateSupplier?: () => ((terrainTypesOnly?: boolean) => void) | null;
 
   private updateQueued = false;
 
-  constructor(world: WorldMap, updateTracer?: () => () => void | null) {
+  constructor(world: WorldMap, updateTracer?: () => (terrainTypesOnly?: boolean) => void | null) {
     this.world = world;
     this.tracerUpdateSupplier = updateTracer;
 
@@ -239,9 +239,9 @@ export class TerrainUI {
       } catch (e) {
         // ignore
       }
-
+      
       const updater = this.tracerUpdateSupplier?.();
-      if (typeof updater === "function") updater();
+      if (typeof updater === "function") updater(true);
     });
   }
 }

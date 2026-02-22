@@ -7,14 +7,14 @@ import { WorldMap } from "./Map";
 import { WorldObject } from "./WorldObject";
 
 export class ObjectUI {
-  private tracerUpdateSupplier: () => () => void;
+  private tracerUpdateSupplier: () => (terrainTypesOnly?: boolean) => void;
   private nextSpawnPosition: vec3 = vec3.fromValues(0, 50, 0);
   private camera?: { position: vec3 }; // Optional camera reference
   private transformUpdateTimeout: number | null = null; // For debouncing transform updates
 
   constructor(
     map: WorldMap,
-    updateTracer: () => () => void,
+    updateTracer: () => (terrainTypesOnly?: boolean) => void,
     camera?: { position: vec3 }
   ) {
     this.tracerUpdateSupplier = updateTracer;

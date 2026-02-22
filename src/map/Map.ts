@@ -47,7 +47,7 @@ export class WorldMap {
 
   private nextWorldObjectId: number = 0;
 
-  private tracerUpdateSupplier: () => () => void;
+  private tracerUpdateSupplier: () => (terrainTypesOnly?: boolean) => void;
   public onTerrainChanged?: () => void;
 
   public objectUI: ObjectUI;
@@ -65,7 +65,7 @@ export class WorldMap {
     height: number,
     length: number,
     gl: WebGL2RenderingContext,
-    updateTracer: () => () => void
+    updateTracer: () => (terrainTypesOnly?: boolean) => void
   ) {
     this.tracerUpdateSupplier = updateTracer;
     console.log(this.seed);

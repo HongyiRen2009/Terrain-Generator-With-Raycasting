@@ -109,8 +109,12 @@ export class GameEngine {
       this.pathTracer
     );
 
-    this.updatePathracing = () => {
-      this.pathTracer.initBVH(this.world.combinedMesh());
+    this.updatePathracing = (terrainTypesOnly: boolean = false) => {
+      if(terrainTypesOnly){
+        this.pathTracer.reloadTerrainData();
+      }else{
+        this.pathTracer.initBVH(this.world.combinedMesh());
+      }
       this.pathTracer.init(false);
     };
 
