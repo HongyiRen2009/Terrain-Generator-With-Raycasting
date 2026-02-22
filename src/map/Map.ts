@@ -248,7 +248,7 @@ export class WorldMap {
       for (let objIdx = 0; objIdx < this.worldObjects.length; objIdx++) {
         const obj = this.worldObjects[objIdx];
 
-        if (!obj || !obj.mesh || !obj.mesh.mesh) {
+        if (!obj?.mesh?.mesh) {
           console.warn("Skipping WorldObject with null mesh", obj);
           continue;
         }
