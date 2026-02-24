@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES5",
+    "target": "es2020",
     "module": "esnext",
     "outDir": "dist",
     "sourceMap": true,
@@ -8,7 +8,8 @@
     "esModuleInterop": true,
     "moduleResolution": "bundler",
     "strict": true,
-    "lib": ["esnext", "dom", "webworker"]
+    "lib": ["esnext", "dom", "webworker",],
+    "types": ["@webgpu/types"]
   },
   "include": ["src"]
 }

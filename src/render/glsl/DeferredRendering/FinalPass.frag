@@ -5,6 +5,7 @@ in vec2 fragUV;
 out vec4 outputColor;
 
 uniform sampler2D sceneTexture;
+uniform sampler2D cloudsTexture; // <-- Add this line
 uniform vec2 resolution;
 
 // Vignette
@@ -84,6 +85,13 @@ void main() {
     vec2 uv = fragUV;
     vec3 color = vec3(0.0f);
 
+    // Sample clouds and lit scene
+    vec4 clouds = texture(cloudsTexture, uv);
+    vec3 litScene = texture(sceneTexture, uv).rgb;
+
+    // Composite clouds over lit scene
+    color = clouds.rgb + litScene * (1.0 - clouds.a);
+
     // Chromatic Aberration
     if(enableChromaticAberration) {
         vec2 direction = uv - vec2(0.5f);
@@ -94,8 +102,6 @@ void main() {
         float b = texture(sceneTexture, uv - direction * chromaticAberrationStrength * dist).b;
 
         color = vec3(r, g, b);
-    } else {
-        color = texture(sceneTexture, uv).rgb;
     }
 
     // Bloom

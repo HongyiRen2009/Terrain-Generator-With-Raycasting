@@ -1,8 +1,10 @@
 import { glMatrix, mat4, vec3 } from "gl-matrix";
 import { GameEngine } from "../GameEngine";
+import { DebugMenu } from "../DebugMenu";
 
 export class Camera {
   position: vec3;
+  lastPosition:vec3;
   sensitivity = 0.1;
   yaw = 0; // Left right rotation in degrees
   pitch = 0; // Up down rotation in degrees
@@ -15,8 +17,13 @@ export class Camera {
   farPlane: number;
   speed: number;
   nearPlane: number = 0.1;
-  constructor(position: vec3) {
+  fovy: number = 90; // Field of view in degrees
+  debug: DebugMenu;
+  constructor(position: vec3, debug: DebugMenu) {
     this.position = position;
+    this.lastPosition = vec3.clone(position);
+    this.debug=debug;
+    this.debug.addElement("Pos", () => `${Math.round(position[0])}, ${Math.round(position[1])}, ${Math.round(position[2])}`);
 
     this.UpdateCameraVectors();
     this.speed = 0.02;
@@ -58,7 +65,7 @@ export class Camera {
     const matViewProj = mat4.create();
     mat4.perspective(
       matProj,
-      /* fovy= */ glMatrix.toRadian(90),
+      /* fovy= */ glMatrix.toRadian(this.fovy),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ this.nearPlane,
       this.farPlane
@@ -72,7 +79,7 @@ export class Camera {
     const matProj = mat4.create();
     mat4.perspective(
       matProj,
-      /* fovy= */ glMatrix.toRadian(90),
+      /* fovy= */ glMatrix.toRadian(this.fovy),
       /* aspectRatio= */ canvasWidth / canvasHeight,
       /* near, far= */ this.nearPlane,
       this.farPlane

@@ -1,4 +1,4 @@
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo, GrassVAOInfo } from "../renderSystem/managers/VaoManager";
 import { RenderPass, VAOInputType } from "../renderSystem/RenderPass";
@@ -10,6 +10,7 @@ import { RenderUtils } from "../../utils/RenderUtils";
 import { ResourceCache } from "../renderSystem/managers/ResourceCache";
 import { RenderGraph } from "../renderSystem/RenderGraph";
 import { createNoise2D } from "simplex-noise";
+import { WorldUtils } from "../../utils/WorldUtils";
 
 export class GrassGeometryPass extends RenderPass {
   public pathtracerRender: boolean = false;
@@ -316,7 +317,7 @@ export class GrassGeometryPass extends RenderPass {
   }
 
   public render(
-    vao_info: VaoInfo | VaoInfo[] | GrassVAOInfo,
+    vao_info: VaoInfo | VaoInfo[] | GrassVAOInfo | GrassVAOInfo[],
     pathtracerOn: boolean
   ): void {
     if (!this.program) return;
@@ -358,7 +359,6 @@ export class GrassGeometryPass extends RenderPass {
         cameraInfo.matProj
       );
     }
-
     gl.uniform1f(
       gl.getUniformLocation(this.program!, "time"),
       performance.now() / 1000
@@ -387,22 +387,31 @@ export class GrassGeometryPass extends RenderPass {
     );
     SettingsManager.instance.updateProgramUniforms(gl, this.program!);
 
-    const grassVAO = vao_info as GrassVAOInfo;
-    for (let i = 0; i < grassVAO.lodLevels.length; i++) {
-      const lod = grassVAO.lodLevels[i];
-      const patchCenter = vec3.fromValues(0, 20, 33);
-      const distance = vec3.distance(cameraPos, patchCenter);
-      if (distance <= lod.maxDistance) {
-        gl.bindVertexArray(lod.vao);
-        gl.drawElementsInstanced(
-          gl.TRIANGLES,
-          lod.indexCount,
-          gl.UNSIGNED_SHORT,
-          0,
-          grassVAO.numInstances
-        );
-        break;
+    // Compute frustum planes
+    const viewProj = mat4.create();
+    mat4.multiply(viewProj, cameraInfo.matProj, cameraInfo.matView);
+    const frustum = WorldUtils.extractFrustumPlanes(viewProj);
+
+    const grassVAO = vao_info as GrassVAOInfo[];
+    for (let i = 0; i < grassVAO.length; i++) {
+      const vao = grassVAO[i];
+      // Frustum culling
+      if (vao.boundingBox && !WorldUtils.aabbInFrustum(vao.boundingBox, frustum, vao.modelMatrix)) {
+        continue;
       }
+      gl.uniformMatrix4fv(
+        gl.getUniformLocation(this.program!, "modelMatrix"),
+        false,
+        vao.modelMatrix
+      );
+      gl.bindVertexArray(vao.vao);
+      gl.drawElementsInstanced(
+        gl.TRIANGLES,
+        vao.indexCount,
+        gl.UNSIGNED_SHORT,
+        0,
+        vao.numInstances
+      );
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindVertexArray(null);

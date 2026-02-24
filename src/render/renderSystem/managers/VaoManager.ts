@@ -8,23 +8,17 @@ import GeometryFragmentShaderSource from "../../glsl/DeferredRendering/Geometry.
 import e from "express";
 import { Color, Terrains } from "../../../map/terrains";
 import { PointLight } from "../../../map/Light";
+import { Chunk } from "../../../map/Map";
 export interface VaoInfo {
   vao: WebGLVertexArrayObject;
   indexCount: number;
   modelMatrix: mat4;
   isLight?: boolean;
   lightIndex?: number;
+  boundingBox?: { min: vec3; max: vec3 };
 }
 
-interface LODLevel {
-  vao: WebGLVertexArrayObject;
-  indexCount: number;
-  segments: number;
-  maxDistance: number;
-}
-
-export interface GrassVAOInfo {
-  lodLevels: LODLevel[];
+export interface GrassVAOInfo extends VaoInfo {
   numInstances: number;
 }
 function packEmissivityToUint8(emissivity: [number, number, number]): number {
@@ -36,7 +30,7 @@ function packEmissivityToUint8(emissivity: [number, number, number]): number {
 export class VAOManager {
   private gl: WebGL2RenderingContext;
   private vaoCache: Map<number, VaoInfo>;
-  private terrainVAOInfo: VaoInfo | null = null;
+  private terrainVAOInfos: { [key: string]: VaoInfo } = {};
   private screenQuadVAOInfo: VaoInfo | null = null;
   // Keep references to buffers so we can delete them later
   private terrainBuffers: {
@@ -50,8 +44,7 @@ export class VAOManager {
     ebo: WebGLBuffer | null;
   } | null = null;
   private geometryProgram: WebGLProgram | null = null;
-  private grassProgram: WebGLProgram | null = null;
-  private grassVAOInfo: GrassVAOInfo | null = null;
+  private grassVAOInfos: { [key: string]: GrassVAOInfo } = {};
   private instanceVBO: WebGLBuffer | null = null;
 
   constructor(gl: WebGL2RenderingContext) {
@@ -65,84 +58,43 @@ export class VAOManager {
     this.initializeScreenQuad();
   }
 
-  createTerrainVAO(triangleMeshes: Mesh[]): void {
-    let trianglePositions: number[] = [];
-    let triangleNormals: number[] = [];
-    let triangleColors: number[] = [];
-    let triangleIndices: number[] = [];
-    let indexOffset = 0;
+  createTerrainVAO(chunk: Chunk, chunkKey: string): void {
+    const triangleMesh = chunk.Mesh;
+    const vertexData = meshToNonInterleavedVerticesAndIndices(triangleMesh);
 
-    for (let i = 0; i < triangleMeshes.length; i++) {
-      const mesh = triangleMeshes[i];
-      const vertexData = meshToNonInterleavedVerticesAndIndices(mesh);
-
-      trianglePositions = trianglePositions.concat(
-        Array.from(vertexData.positions)
-      );
-      triangleNormals = triangleNormals.concat(Array.from(vertexData.normals));
-      triangleColors = triangleColors.concat(Array.from(vertexData.colors));
-
-      const adjustedIndices = Array.from(vertexData.indices).map(
-        (index) => index + indexOffset
-      );
-      triangleIndices = triangleIndices.concat(adjustedIndices);
-
-      indexOffset += vertexData.positions.length / 3;
-    }
-
-    const TerrainMeshSize = triangleIndices.length;
-    //Current placeholders for reflectiveness, metalicity, roughness, add them in the terrain branch
-    const reflectivenessPlaceholder = new Array(
-      (trianglePositions.length / 3) * 3
-    ).fill(0.04); // Low reflectivity for dielectric/non-metallic surfaces
-    const metalicityPlaceholder = new Array(
-      (trianglePositions.length / 3) * 3
-    ).fill(0.0);
-    const roughnessPlaceholder = new Array(
-      (trianglePositions.length / 3) * 3
-    ).fill(0.7); // Medium-high roughness for terrain
-    const emissivityPlaceholder = new Array(
-      (trianglePositions.length / 3) * 3
-    ).fill(packEmissivityToUint8([0.0, 0.0, 0.0]) / 63.0); // Normalized for RGBA8 texture
     const TerrainTriangleBuffer = {
       vertex: {
         position: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          new Float32Array(trianglePositions)
+          vertexData.positions
         ),
         normal: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          new Float32Array(triangleNormals)
+          vertexData.normals
         ),
         color: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          new Float32Array(triangleColors)
+          vertexData.colors
         ),
         reflectiveness: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          new Float32Array(reflectivenessPlaceholder)
+          vertexData.reflectiveness
         ),
         metalicity: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          new Float32Array(metalicityPlaceholder)
+
+          vertexData.metallicity
         ),
         roughness: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          new Float32Array(roughnessPlaceholder)
+          vertexData.roughness
         ),
         emissivity: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          new Float32Array(emissivityPlaceholder)
+          vertexData.emissivity
         )
       },
-      indices: RenderUtils.CreateIndexBuffer(this.gl, triangleIndices)
-    };
-    // Save buffers so we can delete them later
-    this.terrainBuffers = {
-      vertex: TerrainTriangleBuffer.vertex.position,
-      normal: TerrainTriangleBuffer.vertex.normal,
-      color: TerrainTriangleBuffer.vertex.color,
-      indices: TerrainTriangleBuffer.indices
+      indices: RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices))
     };
     const terrainVAO = RenderUtils.createNonInterleavedVao(
       this.gl,
@@ -164,27 +116,35 @@ export class VAOManager {
       TerrainTriangleBuffer.indices,
       this.geometryProgram!
     );
-    this.terrainVAOInfo = {
+    const modelMatrix = RenderUtils.CreateTransformations(vec3.fromValues(
+      chunk.ChunkPosition[0],
+      chunk.ChunkPosition[1],
+      chunk.ChunkPosition[2]
+    ), vec3.fromValues(0, 0, 0), vec3.fromValues(1, 1, 1));
+    this.terrainVAOInfos[chunkKey] = {
       vao: terrainVAO,
-      indexCount: TerrainMeshSize,
-      modelMatrix: mat4.create()
+      indexCount: vertexData.indices.length,
+      modelMatrix,
+      boundingBox: this.computeBoundingBox(vertexData.positions)
     };
-    //Currently grass can spawn on all terrain, when terrain is implemented, this needs to be changed
-    this.createGrassVAO(
-      new Float32Array(trianglePositions),
-      new Float32Array(triangleNormals),
-      triangleIndices,
-      this.grassProgram!
+    this.grassVAOInfos[chunkKey] = this.createGrassVAO(
+      vertexData.positions,
+      vertexData.normals,
+      vertexData.terrainId,
+      Array.from(vertexData.indices),
+      modelMatrix,
     );
+
   }
 
   createGrassVAO(
     terrainVertices: Float32Array,
     terrainNormals: Float32Array,
+    terrainId: Uint8Array,
     triangleIndices: number[],
-    grassProgram: WebGLProgram
-  ): void {
-    const numBlades = 500000;
+    modelMatrix: mat4
+  ): GrassVAOInfo {
+    const numBlades = 20000;
     const grassThickness = 0.1;
     const numTriangles = triangleIndices.length / 3;
     const instanceData = new Float32Array(numBlades * 5); // basePos(3) + randomLean(1) + rotAngle(1)
@@ -205,7 +165,14 @@ export class VAOManager {
         v = 1 - v;
       }
       const w = 1 - u - v;
-
+      // Check terrain type at this triangle (all three vertices should have the same type)
+      
+      const type0 = terrainId[triangleIndices[triIdx + 0]];
+      if (type0 !== 0) continue; // Only place grass on terrain type 0 (grass)
+      const type1 = terrainId[triangleIndices[triIdx + 1]];
+      if (type1 !== 0) continue;
+      const type2 = terrainId[triangleIndices[triIdx + 2]];
+      if (type2 !== 0) continue;
       // Interpolate position
       const x =
         terrainVertices[i0] * u +
@@ -221,18 +188,10 @@ export class VAOManager {
         terrainVertices[i2 + 2] * w;
 
       // Interpolate normal
-      const nx =
-        terrainNormals[i0] * u +
-        terrainNormals[i1] * v +
-        terrainNormals[i2] * w;
       const ny =
         terrainNormals[i0 + 1] * u +
         terrainNormals[i1 + 1] * v +
         terrainNormals[i2 + 1] * w;
-      const nz =
-        terrainNormals[i0 + 2] * u +
-        terrainNormals[i1 + 2] * v +
-        terrainNormals[i2 + 2] * w;
 
       // Only place grass if normal is not too steep
       if (ny < 0.7) continue;
@@ -253,91 +212,84 @@ export class VAOManager {
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceVBO);
     this.gl.bufferData(this.gl.ARRAY_BUFFER, instanceData, this.gl.STATIC_DRAW);
 
-    // Generate LOD levels
-    const lodLevels = this.generateGrassLODLevels(grassThickness, grassProgram);
+    // Generate grass blade mesh (single level)
+    const { vertices, indices } = this.generateGrassBladeMesh(4, 1, grassThickness, 0.1);
 
-    this.grassVAOInfo = {
-      lodLevels,
-      numInstances: bladesPlaced
+    const vao = this.gl.createVertexArray()!;
+    this.gl.bindVertexArray(vao);
+
+    // Vertex buffer (local positions only)
+    const vbo = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
+    this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.STATIC_DRAW);
+
+    // Local position attribute (location 0)
+    this.gl.enableVertexAttribArray(0);
+    this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 12, 0);
+
+    // Instance buffer
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceVBO);
+
+    // Base position (location 1)
+    this.gl.enableVertexAttribArray(1);
+    this.gl.vertexAttribPointer(1, 3, this.gl.FLOAT, false, 20, 0);
+    this.gl.vertexAttribDivisor(1, 1);
+
+    // Random lean (location 2)
+    this.gl.enableVertexAttribArray(2);
+    this.gl.vertexAttribPointer(2, 1, this.gl.FLOAT, false, 20, 12);
+    this.gl.vertexAttribDivisor(2, 1);
+
+    // Rotation angle (location 3)
+    this.gl.enableVertexAttribArray(3);
+    this.gl.vertexAttribPointer(3, 1, this.gl.FLOAT, false, 20, 16);
+    this.gl.vertexAttribDivisor(3, 1);
+
+    // Index buffer
+    const ebo = this.gl.createBuffer();
+    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
+    this.gl.bufferData(
+      this.gl.ELEMENT_ARRAY_BUFFER,
+      new Uint16Array(indices),
+      this.gl.STATIC_DRAW
+    );
+
+    this.gl.bindVertexArray(null);
+
+    return {
+      vao: vao,
+      indexCount: indices.length,
+      modelMatrix,
+      numInstances: bladesPlaced,
+      boundingBox: this.computeBoundingBox(terrainVertices)
     };
   }
-
-  private generateGrassLODLevels(
-    grassThickness: number,
-    grassProgram: WebGLProgram
-  ): LODLevel[] {
-    const defaultHeight = 1;
-    const defaultWidth = grassThickness;
-    const tipLength = 0.1;
-
-    const lodConfigs = [
-      { segments: 6, maxDistance: 20 },
-      { segments: 4, maxDistance: 40 },
-      { segments: 2, maxDistance: 80 },
-      { segments: 1, maxDistance: Infinity }
-    ];
-
-    const lodLevels: LODLevel[] = [];
-
-    for (const config of lodConfigs) {
-      const { vertices, indices } = this.generateGrassBladeMesh(
-        config.segments,
-        defaultHeight,
-        defaultWidth,
-        tipLength
-      );
-
-      const vao = this.gl.createVertexArray()!;
-      this.gl.bindVertexArray(vao);
-
-      // Vertex buffer (local positions only)
-      const vbo = this.gl.createBuffer();
-      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
-      this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.STATIC_DRAW);
-
-      // Local position attribute (location 0)
-      this.gl.enableVertexAttribArray(0);
-      this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 12, 0);
-
-      // Instance buffer
-      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceVBO);
-
-      // Base position (location 1)
-      this.gl.enableVertexAttribArray(1);
-      this.gl.vertexAttribPointer(1, 3, this.gl.FLOAT, false, 20, 0);
-      this.gl.vertexAttribDivisor(1, 1);
-
-      // Random lean (location 2)
-      this.gl.enableVertexAttribArray(2);
-      this.gl.vertexAttribPointer(2, 1, this.gl.FLOAT, false, 20, 12);
-      this.gl.vertexAttribDivisor(2, 1);
-
-      // Rotation angle (location 3)
-      this.gl.enableVertexAttribArray(3);
-      this.gl.vertexAttribPointer(3, 1, this.gl.FLOAT, false, 20, 16);
-      this.gl.vertexAttribDivisor(3, 1);
-
-      // Index buffer
-      const ebo = this.gl.createBuffer();
-      this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
-      this.gl.bufferData(
-        this.gl.ELEMENT_ARRAY_BUFFER,
-        new Uint16Array(indices),
-        this.gl.STATIC_DRAW
-      );
-
-      this.gl.bindVertexArray(null);
-
-      lodLevels.push({
-        vao,
-        indexCount: indices.length,
-        segments: config.segments,
-        maxDistance: config.maxDistance
-      });
+  deleteTerrainVao(chunkKey: string): void {
+    const vaoInfo = this.terrainVAOInfos[chunkKey];
+    if (vaoInfo) {
+      this.gl.deleteVertexArray(vaoInfo.vao);
+      delete this.terrainVAOInfos[chunkKey];
     }
-
-    return lodLevels;
+    const grassVaoInfo = this.grassVAOInfos[chunkKey];
+    if (grassVaoInfo) {
+      this.gl.deleteVertexArray(grassVaoInfo.vao);
+      delete this.grassVAOInfos[chunkKey];
+    }
   }
+
+  private computeBoundingBox(positions: Float32Array): { min: vec3; max: vec3 } {
+  const min = vec3.fromValues(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+  const max = vec3.fromValues(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+  for (let i = 0; i < positions.length; i += 3) {
+    min[0] = Math.min(min[0], positions[i]);
+    min[1] = Math.min(min[1], positions[i + 1]);
+    min[2] = Math.min(min[2], positions[i + 2]);
+    max[0] = Math.max(max[0], positions[i]);
+    max[1] = Math.max(max[1], positions[i + 1]);
+    max[2] = Math.max(max[2], positions[i + 2]);
+  }
+  return { min, max };
+}
 
   private generateGrassBladeMesh(
     segments: number,
@@ -398,33 +350,64 @@ export class VAOManager {
   }
 
   public getGrassBVHTriangle() {
-    if (!this.grassVAOInfo || !this.instanceVBO) return {triangles: [], primitives: new Float32Array(0)};
-
-    const numInstances = this.grassVAOInfo.numInstances;
-    const instanceData = new Float32Array(numInstances * 5);
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceVBO);
-    this.gl.getBufferSubData(this.gl.ARRAY_BUFFER, 0, instanceData);
-
     const triangles: BVHTriangle[] = [];
-    const primitives = new Float32Array(numInstances * 8); //minX,miny,minz,maxX,maxy,maxz,lean, angle
-    const height = 1.0; 
-    const width = 0.1;
+    
+    // 1. Calculate total instances across all chunks to allocate primitives array
+    let totalInstances = 0;
+    for (const key in this.grassVAOInfos) {
+      totalInstances += this.grassVAOInfos[key].numInstances;
+    }
 
-    for (let i = 0; i < numInstances; i++) {
+    const primitives = new Float32Array(totalInstances * 8); // minX,minY,minZ,maxX,maxY,maxZ,lean,angle
+    const height = 1.0;
+    const width = 0.1;
+    let globalInstanceIndex = 0;
+
+    // 2. Iterate over every chunk
+    for (const key in this.grassVAOInfos) {
+      const info = this.grassVAOInfos[key];
+      if (info.numInstances === 0) continue;
+
+      // We need to retrieve the instance buffer for this specific chunk.
+      // Since we don't store the buffer reference in GrassVAOInfo, we query it from the VAO.
+      // In createGrassVAO, Attribute 1 is bound to the instance buffer.
+      this.gl.bindVertexArray(info.vao);
+      const buffer = this.gl.getVertexAttrib(1, this.gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
+      
+      if (!buffer) {
+        this.gl.bindVertexArray(null);
+        continue;
+      }
+
+      // Read the data back from GPU
+      const instanceData = new Float32Array(info.numInstances * 5);
+      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+      this.gl.getBufferSubData(this.gl.ARRAY_BUFFER, 0, instanceData);
+
+      // Get chunk translation from model matrix (Column-major: indices 12, 13, 14)
+      const chunkX = info.modelMatrix[12];
+      const chunkY = info.modelMatrix[13];
+      const chunkZ = info.modelMatrix[14];
+
+      for (let i = 0; i < info.numInstances; i++) {
         const offset = i * 5;
-        const x = instanceData[offset + 0];
-        const y = instanceData[offset + 1];
-        const z = instanceData[offset + 2];
+        // Local positions
+        const lx = instanceData[offset + 0];
+        const ly = instanceData[offset + 1];
+        const lz = instanceData[offset + 2];
         const lean = instanceData[offset + 3];
         const angle = instanceData[offset + 4];
 
-        // 1. Calculate the tip displacement
-        // The tip is offset by the 'lean' factor in the direction of the rotation
+        // Transform to World Space
+        const x = lx + chunkX;
+        const y = ly + chunkY;
+        const z = lz + chunkZ;
+
+        // Calculate tip displacement
         const tipOffsetX = Math.cos(angle) * (lean * height);
         const tipOffsetZ = Math.sin(angle) * (lean * height);
 
-        // 2. Define the Min and Max bounds of this specific blade
-        // We include a small buffer for the 'width' of the blade
+        // Define Min and Max bounds
         const minX = Math.min(x, x + tipOffsetX) - width;
         const maxX = Math.max(x, x + tipOffsetX) + width;
         const minY = y;
@@ -432,32 +415,48 @@ export class VAOManager {
         const minZ = Math.min(z, z + tipOffsetZ) - width;
         const maxZ = Math.max(z, z + tipOffsetZ) + width;
 
-        // 3. The "Center" used for BVH sorting (Surface Area Heuristic)
+        // Center for BVH sorting
         const centerX = (minX + maxX) * 0.5;
         const centerY = (minY + maxY) * 0.5;
         const centerZ = (minZ + maxZ) * 0.5;
 
-        const newOff = i * 8;
-        primitives[newOff + 0] = minX;
-        primitives[newOff + 1] = minY;
-        primitives[newOff + 2] = minZ;
-        primitives[newOff + 3] = maxX;
-        primitives[newOff + 4] = maxY;
-        primitives[newOff + 5] = maxZ;
-        primitives[newOff + 6] = lean;
-        primitives[newOff + 7] = angle;
+        // Fill primitives array
+        const primOffset = globalInstanceIndex * 8;
+        primitives[primOffset + 0] = minX;
+        primitives[primOffset + 1] = minY;
+        primitives[primOffset + 2] = minZ;
+        primitives[primOffset + 3] = maxX;
+        primitives[primOffset + 4] = maxY;
+        primitives[primOffset + 5] = maxZ;
+        primitives[primOffset + 6] = lean;
+        primitives[primOffset + 7] = angle;
 
         triangles.push({
-            boundingBox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
-            triangle:[vec3.fromValues(minX,minY,minY),vec3.fromValues(maxX,maxY,maxZ),vec3.fromValues(minX,minY,minZ+0.01)], //Thisis shouldn't matter in the pathtracer this terrain type should do something
-            index: -2-i, //Tell that it's grass
-            vertexNormals: [vec3.fromValues(0,0,0),vec3.fromValues(1,1,1),vec3.fromValues(0,1,0)], //Thisis shouldn't matter in the pathtracer this terrain type should do something
-            center: [centerX, centerY, centerZ],
+          boundingBox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
+          triangle: [
+            vec3.fromValues(minX, minY, minY),
+            vec3.fromValues(maxX, maxY, maxZ),
+            vec3.fromValues(minX, minY, minZ + 0.01)
+          ],
+          index: -2 - globalInstanceIndex, // Unique negative ID for each grass blade
+          vertexNormals: [
+            vec3.fromValues(0, 0, 0),
+            vec3.fromValues(1, 1, 1),
+            vec3.fromValues(0, 1, 0)
+          ],
+          center: [centerX, centerY, centerZ],
         });
+
+        globalInstanceIndex++;
+      }
     }
 
-    return {triangles: triangles,primitives: primitives};
-}
+    // Cleanup WebGL state
+    this.gl.bindVertexArray(null);
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+
+    return { triangles: triangles, primitives: primitives };
+  }
 
   createSphericalMesh(radius: number, showColor: Color): Mesh {
     const mesh = new Mesh();
@@ -767,8 +766,10 @@ export class VAOManager {
 
   getVaosToRender(): VaoInfo[] {
     const vaosToRender: VaoInfo[] = [];
-    if (this.terrainVAOInfo) {
-      vaosToRender.push(this.terrainVAOInfo);
+    if (this.terrainVAOInfos) {
+      for (const key in this.terrainVAOInfos) {
+        vaosToRender.push(this.terrainVAOInfos[key]);
+      }
     }
     this.vaoCache.forEach((vao) => {
       vaosToRender.push(vao);
@@ -791,14 +792,17 @@ export class VAOManager {
     }
   }
 
-  getGrassVAO(): GrassVAOInfo | null {
-    return this.grassVAOInfo;
+  getGrassVAO(): GrassVAOInfo[] | null {
+    return Object.values(this.grassVAOInfos);
   }
 
   dispose(): void {
-    if (this.terrainVAOInfo) {
-      this.gl.deleteVertexArray(this.terrainVAOInfo.vao);
-      this.terrainVAOInfo = null;
+    if (this.terrainVAOInfos) {
+      for (const key in this.terrainVAOInfos) {
+        const vaoInfo = this.terrainVAOInfos[key];
+        this.gl.deleteVertexArray(vaoInfo.vao);
+      }
+      this.terrainVAOInfos = {};
     }
     this.vaoCache.forEach((vao) => {
       // vao is VaoInfo
@@ -826,11 +830,12 @@ export class VAOManager {
       this.screenQuadBuffers = null;
     }
 
-    if (this.grassVAOInfo) {
-      for (const lod of this.grassVAOInfo.lodLevels) {
-        this.gl.deleteVertexArray(lod.vao);
+    if (this.grassVAOInfos) {
+      for (const key in this.grassVAOInfos) {
+        const vaoInfo = this.grassVAOInfos[key];
+        this.gl.deleteVertexArray(vaoInfo.vao);
       }
-      this.grassVAOInfo = null;
+      this.grassVAOInfos = {};
     }
     if (this.instanceVBO) {
       this.gl.deleteBuffer(this.instanceVBO);

@@ -206,7 +206,6 @@ export class PathTracer {
       this.gl.TEXTURE_2D,
       this.accumulationTextures[lastFrameIndex]
     );
-
     this.gl.uniform1i(this.uniforms.lastFrame, 8);
 
     //put samples, bounce in shader
@@ -326,7 +325,10 @@ export class PathTracer {
     TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, this.uniforms.leafs!, 4);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, this.uniforms.terrainTypes!, 5);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, this.uniforms.vertexNormal!, 6);
-    TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture!, this.uniforms.grassBB!, 9);
+    if(SettingsManager.instance.getSetting("grassEnabled")?.value){
+      TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture!, this.uniforms.grassBB!, 9);
+    }
+    
 
     //NOTE: When we fix natively pathtraced clouds we will put this back.
     /*

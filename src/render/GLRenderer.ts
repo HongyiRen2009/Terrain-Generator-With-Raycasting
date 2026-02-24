@@ -10,9 +10,9 @@ import { SSAOPass } from "./passes/SSAOPass";
 import { SSAOBlurPass } from "./passes/SSAOBlurPass";
 import { LightingPass } from "./passes/LightingPass";
 import { CloudsPass } from "./passes/CloudsPass";
+import { glMatrix, mat4, vec3 } from "gl-matrix";
 import { CSMPass } from "./passes/Shadows/SunShadow/CSMPass";
 import { CSMShadowMaskPass } from "./passes/Shadows/SunShadow/CSMShadowMaskPass";
-import { mat4, vec3 } from "gl-matrix";
 import { DirectionalLight } from "../map/Light";
 import { CubeShadowsPass } from "./passes/Shadows/PointShadow/CubeShadowsPass";
 import { CubeShadowMaskPass } from "./passes/Shadows/PointShadow/CubeShadowMaskPass";
@@ -188,8 +188,8 @@ export class GLRenderer {
       shadowBlurPass,
       combineGeometryPass
     );
-    this.renderGraph.add(cloudsPass, lightingPass, combineGeometryPass);
-    this.renderGraph.add(finalPass, cloudsPass);
+    this.renderGraph.add(cloudsPass, combineGeometryPass);
+    this.renderGraph.add(finalPass, cloudsPass,lightingPass);
   }
 
   public render(time: number, pathtracerOn: boolean = false): void {
@@ -200,6 +200,7 @@ export class GLRenderer {
     //Run Pathtracer
     if(pathtracerOn){
       this.pathtracer.render(time);
+      return;
     }
 
     //Now run auxillary shaders
@@ -265,6 +266,11 @@ export class GLRenderer {
     this.resourceCache.setData("nearFarPlanes", this.camera.getNearFarPlanes());
     this.resourceCache.setData("cameraPosition", this.camera.position);
     this.resourceCache.setData("cameraDirection", this.camera.front);
+    this.resourceCache.setData("fovY",glMatrix.toRadian(this.camera.fovy));
+    this.resourceCache.setData(
+      "aspectRatio",
+      this.canvas.width / this.canvas.height
+    );
     const debugPauseActive =
       this.resourceCache.getData("debugPauseMode") ??
       this.resourceCache.getData("debugPause") ??
@@ -276,6 +282,11 @@ export class GLRenderer {
         this.camera.getNearFarPlanes()
       );
       this.resourceCache.setData("pausedCameraPosition", this.camera.position);
+      this.resourceCache.setData("pausedFovY", glMatrix.toRadian(this.camera.fovy));
+      this.resourceCache.setData(
+        "pausedAspectRatio",
+        this.canvas.width / this.canvas.height
+      );
       this.resourceCache.setData("pausedViewportSize", {
         width: this.canvas.width,
         height: this.canvas.height

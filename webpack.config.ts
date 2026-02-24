@@ -18,6 +18,7 @@ const config: webpack.Configuration = {
   devServer: {
     static: path.resolve(__dirname, "public"),
     hot: true,
+    open: true,
     port: 3000
   },
   resolve: {
@@ -48,7 +49,24 @@ const config: webpack.Configuration = {
       {
         test: /\.frag$/,
         type: "asset/source"
-      }
+      },
+      {
+        test: /\.wgsl$/,
+        type: "asset/source"
+      },
+      {
+        test: /\.glsl$/,
+        type: "asset/source"
+      },
+      {
+        test:/\.txt$/,
+        type: "asset/source"
+      },      
+      
+      {
+        test: /\.png$/,
+        type: 'asset/resource',
+      },
     ]
   },
   plugins: [new webpack.HotModuleReplacementPlugin()]
