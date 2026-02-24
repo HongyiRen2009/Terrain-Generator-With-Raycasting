@@ -11,3 +11,8 @@ declare module "*.3mf" {
   const url: string;
   export default url;
 }
+
+declare module "*.stl" {
+  const url: string;
+  export default url;
+}

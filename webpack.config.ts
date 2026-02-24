@@ -43,6 +43,10 @@ const config: webpack.Configuration = {
         type: "asset/resource"
       },
       {
+        test: /\.stl$/,
+        type: "asset/resource"
+      },
+      {
         test: /\.vert$/,
         type: "asset/source"
       },

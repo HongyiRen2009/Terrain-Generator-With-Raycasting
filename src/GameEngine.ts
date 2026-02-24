@@ -10,7 +10,7 @@ import { WorldUtils } from "./utils/WorldUtils";
 import gearModelUrl from "../models/stand.3mf";
 
 import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
-import { threemfToMesh } from "./modelLoader/3fmreader";
+import { threemfToMesh } from "./modelLoader/3mfreader";
 import { Color, Terrains } from "./map/terrains";
 import { WorldObject } from "./map/WorldObject";
 import { SettingsManager } from "./Settings";
