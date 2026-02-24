@@ -605,6 +605,7 @@ private async generateChunkStrip(
     // Count total triangles for pre-allocation logging
     let totalTriangles = 0;
     for (const chunk of Object.values(this.chunks)) {
+      if(!chunk.getMesh()) continue;
       totalTriangles += chunk.getMesh().mesh.length;
     }
     for (const obj of this.worldObjects) {
@@ -614,6 +615,7 @@ private async generateChunkStrip(
     // Merge chunks with transformation applied
     for (const chunk of Object.values(this.chunks)) {
       const chunkMesh = chunk.getMesh();
+      if(!chunkMesh) continue;
       const transformedChunkMesh = new Mesh();
 
       // Transform each triangle by the chunk position
@@ -650,6 +652,7 @@ private async generateChunkStrip(
     if (this.worldObjects.length > 0) {
       for (let objIdx = 0; objIdx < this.worldObjects.length; objIdx++) {
         const obj = this.worldObjects[objIdx];
+        if(!obj.mesh) continue;
 
         // Create a simple hash of the transform matrix to detect changes
         const transformHash = obj.position.join(",");
