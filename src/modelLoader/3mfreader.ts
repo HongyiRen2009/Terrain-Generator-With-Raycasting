@@ -75,7 +75,9 @@ function buildMeshFromExtracted(
             color: col,
             reflectiveness: material.metallic,
             roughness: material.roughness,
-            type: terrainType
+            type: terrainType,
+            emissivity: vec3.fromValues(0, 0, 0),
+            metallicity: 0
           };
           types[j] = Object.keys(Terrains).length - 1;
         }

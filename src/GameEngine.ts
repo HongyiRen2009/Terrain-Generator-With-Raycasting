@@ -1,6 +1,6 @@
 import { mat3, mat4, vec3 } from "gl-matrix";
 import { DebugMenu } from "./DebugMenu";
-import { WorldMap } from "./map/Map";
+import { Chunk, WorldMap } from "./map/Map";
 import { Camera } from "./render/Camera";
 import { GLRenderer } from "./render/GLRenderer";
 import { PathTracer } from "./Pathtracing/PathTracer";
@@ -13,6 +13,7 @@ import { loadPLYToMesh, objSourceToMesh } from "./modelLoader/objreader";
 import { threemfToMesh } from "./modelLoader/3mfreader";
 import { Color, Terrains } from "./map/terrains";
 import { WorldObject } from "./map/WorldObject";
+import { SettingsManager } from "./Settings";
 
 /**
  * Our holding class for all game mechanics
@@ -40,7 +41,10 @@ export class GameEngine {
   private currentFPS: number = 0;
 
   private worldInitialized = false;
+  private renderDistance = 3; // In chunks
+  private lastCameraChunk: vec3 = vec3.fromValues(-1, -1, -1);
   private updatePathracing: () => void;
+  private pathtracerUpdated: boolean = false;
   // Stored bound event handlers for cleanup
   private boundMouseDown: ((e?: any) => void) | null = null;
   private boundMouseMove: ((e: MouseEvent) => void) | null = null;
@@ -63,6 +67,7 @@ export class GameEngine {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
     this.canvas.style.display = "none";
+    this.initWorldSettings();
 
     //GL Context
     this.gl = this.canvas.getContext("webgl2", {
@@ -76,7 +81,7 @@ export class GameEngine {
     //Initialize controls
     this.addKeys();
 
-    this.updatePathracing = () => {};
+    this.updatePathracing = () => { };
 
     //Initialize world
     // Increase world height to allow taller mountains (was 64)
@@ -89,8 +94,10 @@ export class GameEngine {
     );
 
     //Initialize Camera
-    this.mainCamera = new Camera(vec3.fromValues(-22, 20, 33));
-
+    this.mainCamera = new Camera(vec3.fromValues(500, 50, 500), this.debug);
+    this.lastCameraChunk = this.world.getChunkCoordsFromPosition(
+      this.mainCamera.position
+    );
     //Initial pathTracer
     this.pathTracer = new PathTracer(
       this.canvas,
@@ -108,9 +115,12 @@ export class GameEngine {
       this.world,
       this.pathTracer
     );
-  
+
     this.updatePathracing = () => {
-      this.pathTracer.initBVH(this.world.combinedMesh());
+      if (!this.pathtracerUpdated) {
+        this.pathtracerUpdated = true;
+        this.pathTracer.initBVH(this.world.combinedMesh());
+      }
       this.pathTracer.init(false);
     };
 
@@ -144,6 +154,7 @@ export class GameEngine {
       pathBtn.classList.add("active");
       rayBtn.classList.remove("active");
       this.mode = 1; // Set to pathtracing
+      this.pathTracer.initBVH(this.world.combinedMesh());
       this.pathTracer.init();
     };
     pathBtn.addEventListener("click", this.boundPathClick);
@@ -207,33 +218,15 @@ export class GameEngine {
     // Dispose subsystems
     try {
       this.renderer.dispose();
-    } catch (e) {}
+    } catch (e) { }
     try {
       this.pathTracer.dispose();
-    } catch (e) {}
-    try {
-      this.world.dispose();
-    } catch (e) {}
+    } catch (e) { }
   }
   public async initialize() {
-    await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateTerrain())
-    );
-    this.world.populateFieldMap();
 
-    // Build full chunk meshes using marching cubes (requires populated field map)
-    await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateMarchingCubes())
-    );
+    this.generateChunksAroundCamera();
 
-    // Also generate edge-only triangles for stitching/LOD (optional)
-    await Promise.all(
-      this.world.chunks.map((chunk) => chunk.generateEdgeTriangles())
-    );
-
-    this.renderer.vaoManager.createTerrainVAO(
-      WorldUtils.genTerrainVertices(this.world)
-    );
     this.world.onObjectAdded = (obj: WorldObject) => {
       this.world.objectUI.setupObjectUI(
         obj,
@@ -264,12 +257,35 @@ export class GameEngine {
 
     WorldUtils.addChunkGears(this.world, gearMesh);
 
-    this.pathTracer.initBVH(this.world.combinedMesh());
-    this.pathTracer.init(false);
+    //this.pathTracer.initBVH(this.world.combinedMesh());
+    //this.pathTracer.init(false);
     this.worldInitialized = true;
     this.canvas.style.display = "block";
     document.getElementById("loadingBox")!.style.display = "none";
   }
+  private initWorldSettings() {
+    SettingsManager.instance.createSection(
+      document.getElementById("settings-section")!,
+      "World Settings"
+    );
+    SettingsManager.instance.addSliderToSection("World Settings", {
+      id: "Render Distance",
+      label: "Render Distance",
+      defaultValue: this.renderDistance,
+      min: 1,
+      max: 20,
+      step: 1,
+      numType: "int",
+      onChange: (v: number) => {
+        this.renderDistance = v;
+      }
+    });
+    SettingsManager.instance.addButtonToSection("World Settings", "Regenerate Terrain", () => {
+      this.generateChunksAroundCamera(true
+      );
+    });
+  }
+
   /**
    * Our Game Loop - Run once every frame (capped at max framerate)
    */
@@ -287,7 +303,7 @@ export class GameEngine {
       if (this.mode == 0) {
         this.renderer.render(timestamp);
       } else {
-        this.renderer.render(timestamp,true);
+        this.renderer.render(timestamp, true);
         //this.pathTracer.render(timestamp);
         //this.mode=-1;
       }
@@ -302,14 +318,92 @@ export class GameEngine {
     this.debug.update();
   }
 
+generateChunksAroundCamera(deleteAllChunks: boolean = false) {
+  if (this.world.isGeneratingChunk) return;
+  
+  const cameraChunk = this.world.getChunkCoordsFromPosition(
+    this.mainCamera.position
+  );
+  
+  // Unload distant chunks
+  for (const chunkKey in this.world.chunks) {
+    const chunkPos = WorldUtils.chunkKeyToPosition(chunkKey);
+    const distance = Math.max(
+      Math.abs(chunkPos[0] - cameraChunk[0]) / this.world.resolution,
+      Math.abs(chunkPos[1] - cameraChunk[1]) / this.world.height,
+      Math.abs(chunkPos[2] - cameraChunk[2]) / this.world.resolution
+    );
+    if (distance > this.renderDistance || deleteAllChunks) {
+      this.world.unloadChunk(chunkPos);
+      this.renderer.vaoManager.deleteTerrainVao(chunkKey);
+    }
+  }
+
+  // Find which chunks need to be generated
+  const chunksToGenerate: vec3[] = [];
+  for (let j = -this.renderDistance; j <= this.renderDistance; j++) {
+    for (let i = -this.renderDistance; i <= this.renderDistance; i++) {
+      const chunkPos = vec3.fromValues(
+        cameraChunk[0] + i * this.world.resolution,
+        0,
+        cameraChunk[2] + j * this.world.resolution
+      );
+      if (!this.world.hasChunkAt(chunkPos)) {
+        chunksToGenerate.push(chunkPos);
+      }
+    }
+  }
+
+  if (chunksToGenerate.length === 0) return;
+
+  // Find bounding box of chunks to generate
+  let minX = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxZ = -Infinity;
+  
+  for (const pos of chunksToGenerate) {
+    minX = Math.min(minX, pos[0]);
+    minZ = Math.min(minZ, pos[2]);
+    maxX = Math.max(maxX, pos[0]);
+    maxZ = Math.max(maxZ, pos[2]);
+  }
+
+  // Calculate strip dimensions in chunks
+  const lengthInChunks = Math.round((maxX - minX) / this.world.resolution) + 1;
+  const widthInChunks = Math.round((maxZ - minZ) / this.world.resolution) + 1;
+  const startPos = vec3.fromValues(minX, 0, minZ);
+
+  // Generate all chunks in one strip
+  this.world.loadChunkStrip(
+    startPos,
+    lengthInChunks,
+    widthInChunks,
+    (chunk: Chunk) => {
+      this.renderer.vaoManager.createTerrainVAO(
+        chunk,
+        WorldUtils.chunkKeyFromPosition(chunk.ChunkPosition, this.world)
+      );
+    }
+  );
+  this.world.processChunkQueue();
+}
+  updateChunksForCamera() {
+    const cameraChunk = this.world.getChunkCoordsFromPosition(
+      this.mainCamera.position
+    );
+
+    if (vec3.equals(cameraChunk, this.lastCameraChunk) || this.mode != 0) {
+      return;
+    }
+    this.lastCameraChunk = cameraChunk;
+    this.generateChunksAroundCamera();
+  }
   /**
    * Controls to move the camera!
    */
   updateCamera(time: number) {
     let velocity = this.mainCamera.speed * time;
     let movement = vec3.create();
-    let oldCamPos: vec3 = vec3.create();
-    vec3.copy(oldCamPos, this.mainCamera.position);
+    this.mainCamera.lastPosition = vec3.clone(this.mainCamera.position);
 
     //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
     if (this.keys["KeyF"]) velocity *= 4;
@@ -328,9 +422,10 @@ export class GameEngine {
 
     vec3.add(this.mainCamera.position, this.mainCamera.position, movement);
 
-    if (!vec3.equals(this.mainCamera.position, oldCamPos)) {
+    if (!vec3.equals(this.mainCamera.position, this.mainCamera.lastPosition)) {
       this.pathTracer.resetAccumulation();
     }
+    this.updateChunksForCamera();
   }
 
   addKeys() {

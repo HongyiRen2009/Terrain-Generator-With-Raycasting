@@ -4,6 +4,9 @@ import { PointLight, DirectionalLight } from "../map/Light";
 import { Camera } from "../render/Camera";
 import { mat4, vec3 } from "gl-matrix";
 import { Color } from "../map/terrains";
+export interface Frustum {
+  planes: [vec3, number][];
+}
 
 export class WorldUtils {
   /**
@@ -15,11 +18,9 @@ export class WorldUtils {
     const triangleMeshes: Mesh[] = []; // Store all chunks' meshes
     let mainMesh = new Mesh();
 
-    for (const chunk of world.chunks) {
+    for (const chunk of Object.values(world.chunks)) {
       const triangleMesh = chunk.Mesh;
-      triangleMesh.translate(
-        vec3.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1])
-      );
+      triangleMesh.translate(chunk.ChunkPosition);
       mainMesh.merge(triangleMesh);
       triangleMeshes.push(triangleMesh); // Store the chunk's mesh
     }
@@ -28,7 +29,7 @@ export class WorldUtils {
   }
 
   static addChunkGears(world: WorldMap, gearMesh: Mesh) {
-    for (const chunk of world.chunks) {
+    for (const chunk of Object.values(world.chunks)) {
       for (const gearPos of chunk.gearObjects) {
         let position = mat4.create();
         mat4.translate(position, position, gearPos);
@@ -219,4 +220,82 @@ export class WorldUtils {
       }
     }
   }
+  static chunkKeyFromPosition(position: vec3, world: WorldMap): string {
+    const chunkX = Math.floor(position[0] / world.resolution) * world.resolution;
+    const chunkY = Math.floor(position[1] / world.height) * world.height;
+    const chunkZ = Math.floor(position[2] / world.resolution) * world.resolution;
+    return `${chunkX},${chunkY},${chunkZ}`;
+  }
+  static chunkKeyToPosition(chunkKey: string): vec3 {
+    const [chunkX, chunkY, chunkZ] = chunkKey.split(",").map(Number);
+    return vec3.fromValues(chunkX, chunkY, chunkZ);
+  }
+
+
+static extractFrustumPlanes(viewProj: mat4): Frustum {
+  // Extract planes from the combined view-projection matrix
+  // Each plane: [normal, distance]
+  const m = viewProj;
+  const planes: [vec3, number][] = [];
+  // Left
+  planes.push([
+    vec3.fromValues(m[3] + m[0], m[7] + m[4], m[11] + m[8]),
+    m[15] + m[12]
+  ]);
+  // Right
+  planes.push([
+    vec3.fromValues(m[3] - m[0], m[7] - m[4], m[11] - m[8]),
+    m[15] - m[12]
+  ]);
+  // Bottom
+  planes.push([
+    vec3.fromValues(m[3] + m[1], m[7] + m[5], m[11] + m[9]),
+    m[15] + m[13]
+  ]);
+  // Top
+  planes.push([
+    vec3.fromValues(m[3] - m[1], m[7] - m[5], m[11] - m[9]),
+    m[15] - m[13]
+  ]);
+  // Near
+  planes.push([
+    vec3.fromValues(m[3] + m[2], m[7] + m[6], m[11] + m[10]),
+    m[15] + m[14]
+  ]);
+  // Far
+  planes.push([
+    vec3.fromValues(m[3] - m[2], m[7] - m[6], m[11] - m[10]),
+    m[15] - m[14]
+  ]);
+  // Normalize planes
+  for (const plane of planes) {
+    const n = plane[0];
+    const l = vec3.length(n);
+    vec3.scale(n, n, 1 / l);
+    plane[1] /= l;
+  }
+  return { planes };
+}
+
+static aabbInFrustum(box: { min: vec3; max: vec3 }, frustum: Frustum, modelMatrix: mat4): boolean {
+  // Transform AABB corners by modelMatrix
+  const corners = [
+    vec3.transformMat4(vec3.create(), vec3.fromValues(box.min[0], box.min[1], box.min[2]), modelMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(box.max[0], box.min[1], box.min[2]), modelMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(box.min[0], box.max[1], box.min[2]), modelMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(box.max[0], box.max[1], box.min[2]), modelMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(box.min[0], box.min[1], box.max[2]), modelMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(box.max[0], box.min[1], box.max[2]), modelMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(box.min[0], box.max[1], box.max[2]), modelMatrix),
+    vec3.transformMat4(vec3.create(), vec3.fromValues(box.max[0], box.max[1], box.max[2]), modelMatrix),
+  ];
+  for (const [normal, d] of frustum.planes) {
+    let out = 0;
+    for (const c of corners) {
+      if (vec3.dot(normal, c) + d < 0) out++;
+    }
+    if (out === 8) return false; // All corners outside this plane
+  }
+  return true;
+}
 }

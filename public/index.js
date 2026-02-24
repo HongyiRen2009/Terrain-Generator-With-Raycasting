@@ -1,6 +1,17 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
+/***/ "./assets/coverage map.png":
+/*!*********************************!*\
+  !*** ./assets/coverage map.png ***!
+  \*********************************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+"use strict";
+module.exports = __webpack_require__.p + "72eaa44279be9043fabe.png";
+
+/***/ }),
+
 /***/ "./models/stand.3mf":
 /*!**************************!*\
   !*** ./models/stand.3mf ***!
@@ -9,6 +20,1921 @@
 
 "use strict";
 module.exports = __webpack_require__.p + "3c4995c18eac9a702c1f.3mf";
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/ignoreAttributes.js":
+/*!**************************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/ignoreAttributes.js ***!
+  \**************************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ getIgnoreAttributesFn)
+/* harmony export */ });
+function getIgnoreAttributesFn(ignoreAttributes) {
+    if (typeof ignoreAttributes === 'function') {
+        return ignoreAttributes
+    }
+    if (Array.isArray(ignoreAttributes)) {
+        return (attrName) => {
+            for (const pattern of ignoreAttributes) {
+                if (typeof pattern === 'string' && attrName === pattern) {
+                    return true
+                }
+                if (pattern instanceof RegExp && pattern.test(attrName)) {
+                    return true
+                }
+            }
+        }
+    }
+    return () => false
+}
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/util.js":
+/*!**************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/util.js ***!
+  \**************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   getAllMatches: () => (/* binding */ getAllMatches),
+/* harmony export */   getValue: () => (/* binding */ getValue),
+/* harmony export */   isEmptyObject: () => (/* binding */ isEmptyObject),
+/* harmony export */   isExist: () => (/* binding */ isExist),
+/* harmony export */   isName: () => (/* binding */ isName),
+/* harmony export */   merge: () => (/* binding */ merge),
+/* harmony export */   nameRegexp: () => (/* binding */ nameRegexp)
+/* harmony export */ });
+
+
+const nameStartChar = ':A-Za-z_\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD';
+const nameChar = nameStartChar + '\\-.\\d\\u00B7\\u0300-\\u036F\\u203F-\\u2040';
+const nameRegexp = '[' + nameStartChar + '][' + nameChar + ']*';
+const regexName = new RegExp('^' + nameRegexp + '$');
+
+function getAllMatches(string, regex) {
+  const matches = [];
+  let match = regex.exec(string);
+  while (match) {
+    const allmatches = [];
+    allmatches.startIndex = regex.lastIndex - match[0].length;
+    const len = match.length;
+    for (let index = 0; index < len; index++) {
+      allmatches.push(match[index]);
+    }
+    matches.push(allmatches);
+    match = regex.exec(string);
+  }
+  return matches;
+}
+
+const isName = function(string) {
+  const match = regexName.exec(string);
+  return !(match === null || typeof match === 'undefined');
+}
+
+function isExist(v) {
+  return typeof v !== 'undefined';
+}
+
+function isEmptyObject(obj) {
+  return Object.keys(obj).length === 0;
+}
+
+/**
+ * Copy all the properties of a into b.
+ * @param {*} target
+ * @param {*} a
+ */
+function merge(target, a, arrayMode) {
+  if (a) {
+    const keys = Object.keys(a); // will return an array of own properties
+    const len = keys.length; //don't make it inline
+    for (let i = 0; i < len; i++) {
+      if (arrayMode === 'strict') {
+        target[keys[i]] = [ a[keys[i]] ];
+      } else {
+        target[keys[i]] = a[keys[i]];
+      }
+    }
+  }
+}
+/* exports.merge =function (b,a){
+  return Object.assign(b,a);
+} */
+
+function getValue(v) {
+  if (exports.isExist(v)) {
+    return v;
+  } else {
+    return '';
+  }
+}
+
+// const fakeCall = function(a) {return a;};
+// const fakeCallNoReturn = function() {};
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/validator.js":
+/*!*******************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/validator.js ***!
+  \*******************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   validate: () => (/* binding */ validate)
+/* harmony export */ });
+/* harmony import */ var _util_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./util.js */ "./node_modules/fast-xml-parser/src/util.js");
+
+
+
+
+const defaultOptions = {
+  allowBooleanAttributes: false, //A tag can have attributes without any value
+  unpairedTags: []
+};
+
+//const tagsPattern = new RegExp("<\\/?([\\w:\\-_\.]+)\\s*\/?>","g");
+function validate(xmlData, options) {
+  options = Object.assign({}, defaultOptions, options);
+
+  //xmlData = xmlData.replace(/(\r\n|\n|\r)/gm,"");//make it single line
+  //xmlData = xmlData.replace(/(^\s*<\?xml.*?\?>)/g,"");//Remove XML starting tag
+  //xmlData = xmlData.replace(/(<!DOCTYPE[\s\w\"\.\/\-\:]+(\[.*\])*\s*>)/g,"");//Remove DOCTYPE
+  const tags = [];
+  let tagFound = false;
+
+  //indicates that the root tag has been closed (aka. depth 0 has been reached)
+  let reachedRoot = false;
+
+  if (xmlData[0] === '\ufeff') {
+    // check for byte order mark (BOM)
+    xmlData = xmlData.substr(1);
+  }
+  
+  for (let i = 0; i < xmlData.length; i++) {
+
+    if (xmlData[i] === '<' && xmlData[i+1] === '?') {
+      i+=2;
+      i = readPI(xmlData,i);
+      if (i.err) return i;
+    }else if (xmlData[i] === '<') {
+      //starting of tag
+      //read until you reach to '>' avoiding any '>' in attribute value
+      let tagStartPos = i;
+      i++;
+      
+      if (xmlData[i] === '!') {
+        i = readCommentAndCDATA(xmlData, i);
+        continue;
+      } else {
+        let closingTag = false;
+        if (xmlData[i] === '/') {
+          //closing tag
+          closingTag = true;
+          i++;
+        }
+        //read tagname
+        let tagName = '';
+        for (; i < xmlData.length &&
+          xmlData[i] !== '>' &&
+          xmlData[i] !== ' ' &&
+          xmlData[i] !== '\t' &&
+          xmlData[i] !== '\n' &&
+          xmlData[i] !== '\r'; i++
+        ) {
+          tagName += xmlData[i];
+        }
+        tagName = tagName.trim();
+        //console.log(tagName);
+
+        if (tagName[tagName.length - 1] === '/') {
+          //self closing tag without attributes
+          tagName = tagName.substring(0, tagName.length - 1);
+          //continue;
+          i--;
+        }
+        if (!validateTagName(tagName)) {
+          let msg;
+          if (tagName.trim().length === 0) {
+            msg = "Invalid space after '<'.";
+          } else {
+            msg = "Tag '"+tagName+"' is an invalid name.";
+          }
+          return getErrorObject('InvalidTag', msg, getLineNumberForPosition(xmlData, i));
+        }
+
+        const result = readAttributeStr(xmlData, i);
+        if (result === false) {
+          return getErrorObject('InvalidAttr', "Attributes for '"+tagName+"' have open quote.", getLineNumberForPosition(xmlData, i));
+        }
+        let attrStr = result.value;
+        i = result.index;
+
+        if (attrStr[attrStr.length - 1] === '/') {
+          //self closing tag
+          const attrStrStart = i - attrStr.length;
+          attrStr = attrStr.substring(0, attrStr.length - 1);
+          const isValid = validateAttributeString(attrStr, options);
+          if (isValid === true) {
+            tagFound = true;
+            //continue; //text may presents after self closing tag
+          } else {
+            //the result from the nested function returns the position of the error within the attribute
+            //in order to get the 'true' error line, we need to calculate the position where the attribute begins (i - attrStr.length) and then add the position within the attribute
+            //this gives us the absolute index in the entire xml, which we can use to find the line at last
+            return getErrorObject(isValid.err.code, isValid.err.msg, getLineNumberForPosition(xmlData, attrStrStart + isValid.err.line));
+          }
+        } else if (closingTag) {
+          if (!result.tagClosed) {
+            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' doesn't have proper closing.", getLineNumberForPosition(xmlData, i));
+          } else if (attrStr.trim().length > 0) {
+            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' can't have attributes or invalid starting.", getLineNumberForPosition(xmlData, tagStartPos));
+          } else if (tags.length === 0) {
+            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' has not been opened.", getLineNumberForPosition(xmlData, tagStartPos));
+          } else {
+            const otg = tags.pop();
+            if (tagName !== otg.tagName) {
+              let openPos = getLineNumberForPosition(xmlData, otg.tagStartPos);
+              return getErrorObject('InvalidTag',
+                "Expected closing tag '"+otg.tagName+"' (opened in line "+openPos.line+", col "+openPos.col+") instead of closing tag '"+tagName+"'.",
+                getLineNumberForPosition(xmlData, tagStartPos));
+            }
+
+            //when there are no more tags, we reached the root level.
+            if (tags.length == 0) {
+              reachedRoot = true;
+            }
+          }
+        } else {
+          const isValid = validateAttributeString(attrStr, options);
+          if (isValid !== true) {
+            //the result from the nested function returns the position of the error within the attribute
+            //in order to get the 'true' error line, we need to calculate the position where the attribute begins (i - attrStr.length) and then add the position within the attribute
+            //this gives us the absolute index in the entire xml, which we can use to find the line at last
+            return getErrorObject(isValid.err.code, isValid.err.msg, getLineNumberForPosition(xmlData, i - attrStr.length + isValid.err.line));
+          }
+
+          //if the root level has been reached before ...
+          if (reachedRoot === true) {
+            return getErrorObject('InvalidXml', 'Multiple possible root nodes found.', getLineNumberForPosition(xmlData, i));
+          } else if(options.unpairedTags.indexOf(tagName) !== -1){
+            //don't push into stack
+          } else {
+            tags.push({tagName, tagStartPos});
+          }
+          tagFound = true;
+        }
+
+        //skip tag text value
+        //It may include comments and CDATA value
+        for (i++; i < xmlData.length; i++) {
+          if (xmlData[i] === '<') {
+            if (xmlData[i + 1] === '!') {
+              //comment or CADATA
+              i++;
+              i = readCommentAndCDATA(xmlData, i);
+              continue;
+            } else if (xmlData[i+1] === '?') {
+              i = readPI(xmlData, ++i);
+              if (i.err) return i;
+            } else{
+              break;
+            }
+          } else if (xmlData[i] === '&') {
+            const afterAmp = validateAmpersand(xmlData, i);
+            if (afterAmp == -1)
+              return getErrorObject('InvalidChar', "char '&' is not expected.", getLineNumberForPosition(xmlData, i));
+            i = afterAmp;
+          }else{
+            if (reachedRoot === true && !isWhiteSpace(xmlData[i])) {
+              return getErrorObject('InvalidXml', "Extra text at the end", getLineNumberForPosition(xmlData, i));
+            }
+          }
+        } //end of reading tag text value
+        if (xmlData[i] === '<') {
+          i--;
+        }
+      }
+    } else {
+      if ( isWhiteSpace(xmlData[i])) {
+        continue;
+      }
+      return getErrorObject('InvalidChar', "char '"+xmlData[i]+"' is not expected.", getLineNumberForPosition(xmlData, i));
+    }
+  }
+
+  if (!tagFound) {
+    return getErrorObject('InvalidXml', 'Start tag expected.', 1);
+  }else if (tags.length == 1) {
+      return getErrorObject('InvalidTag', "Unclosed tag '"+tags[0].tagName+"'.", getLineNumberForPosition(xmlData, tags[0].tagStartPos));
+  }else if (tags.length > 0) {
+      return getErrorObject('InvalidXml', "Invalid '"+
+          JSON.stringify(tags.map(t => t.tagName), null, 4).replace(/\r?\n/g, '')+
+          "' found.", {line: 1, col: 1});
+  }
+
+  return true;
+};
+
+function isWhiteSpace(char){
+  return char === ' ' || char === '\t' || char === '\n'  || char === '\r';
+}
+/**
+ * Read Processing insstructions and skip
+ * @param {*} xmlData
+ * @param {*} i
+ */
+function readPI(xmlData, i) {
+  const start = i;
+  for (; i < xmlData.length; i++) {
+    if (xmlData[i] == '?' || xmlData[i] == ' ') {
+      //tagname
+      const tagname = xmlData.substr(start, i - start);
+      if (i > 5 && tagname === 'xml') {
+        return getErrorObject('InvalidXml', 'XML declaration allowed only at the start of the document.', getLineNumberForPosition(xmlData, i));
+      } else if (xmlData[i] == '?' && xmlData[i + 1] == '>') {
+        //check if valid attribut string
+        i++;
+        break;
+      } else {
+        continue;
+      }
+    }
+  }
+  return i;
+}
+
+function readCommentAndCDATA(xmlData, i) {
+  if (xmlData.length > i + 5 && xmlData[i + 1] === '-' && xmlData[i + 2] === '-') {
+    //comment
+    for (i += 3; i < xmlData.length; i++) {
+      if (xmlData[i] === '-' && xmlData[i + 1] === '-' && xmlData[i + 2] === '>') {
+        i += 2;
+        break;
+      }
+    }
+  } else if (
+    xmlData.length > i + 8 &&
+    xmlData[i + 1] === 'D' &&
+    xmlData[i + 2] === 'O' &&
+    xmlData[i + 3] === 'C' &&
+    xmlData[i + 4] === 'T' &&
+    xmlData[i + 5] === 'Y' &&
+    xmlData[i + 6] === 'P' &&
+    xmlData[i + 7] === 'E'
+  ) {
+    let angleBracketsCount = 1;
+    for (i += 8; i < xmlData.length; i++) {
+      if (xmlData[i] === '<') {
+        angleBracketsCount++;
+      } else if (xmlData[i] === '>') {
+        angleBracketsCount--;
+        if (angleBracketsCount === 0) {
+          break;
+        }
+      }
+    }
+  } else if (
+    xmlData.length > i + 9 &&
+    xmlData[i + 1] === '[' &&
+    xmlData[i + 2] === 'C' &&
+    xmlData[i + 3] === 'D' &&
+    xmlData[i + 4] === 'A' &&
+    xmlData[i + 5] === 'T' &&
+    xmlData[i + 6] === 'A' &&
+    xmlData[i + 7] === '['
+  ) {
+    for (i += 8; i < xmlData.length; i++) {
+      if (xmlData[i] === ']' && xmlData[i + 1] === ']' && xmlData[i + 2] === '>') {
+        i += 2;
+        break;
+      }
+    }
+  }
+
+  return i;
+}
+
+const doubleQuote = '"';
+const singleQuote = "'";
+
+/**
+ * Keep reading xmlData until '<' is found outside the attribute value.
+ * @param {string} xmlData
+ * @param {number} i
+ */
+function readAttributeStr(xmlData, i) {
+  let attrStr = '';
+  let startChar = '';
+  let tagClosed = false;
+  for (; i < xmlData.length; i++) {
+    if (xmlData[i] === doubleQuote || xmlData[i] === singleQuote) {
+      if (startChar === '') {
+        startChar = xmlData[i];
+      } else if (startChar !== xmlData[i]) {
+        //if vaue is enclosed with double quote then single quotes are allowed inside the value and vice versa
+      } else {
+        startChar = '';
+      }
+    } else if (xmlData[i] === '>') {
+      if (startChar === '') {
+        tagClosed = true;
+        break;
+      }
+    }
+    attrStr += xmlData[i];
+  }
+  if (startChar !== '') {
+    return false;
+  }
+
+  return {
+    value: attrStr,
+    index: i,
+    tagClosed: tagClosed
+  };
+}
+
+/**
+ * Select all the attributes whether valid or invalid.
+ */
+const validAttrStrRegxp = new RegExp('(\\s*)([^\\s=]+)(\\s*=)?(\\s*([\'"])(([\\s\\S])*?)\\5)?', 'g');
+
+//attr, ="sd", a="amit's", a="sd"b="saf", ab  cd=""
+
+function validateAttributeString(attrStr, options) {
+  //console.log("start:"+attrStr+":end");
+
+  //if(attrStr.trim().length === 0) return true; //empty string
+
+  const matches = (0,_util_js__WEBPACK_IMPORTED_MODULE_0__.getAllMatches)(attrStr, validAttrStrRegxp);
+  const attrNames = {};
+
+  for (let i = 0; i < matches.length; i++) {
+    if (matches[i][1].length === 0) {
+      //nospace before attribute name: a="sd"b="saf"
+      return getErrorObject('InvalidAttr', "Attribute '"+matches[i][2]+"' has no space in starting.", getPositionFromMatch(matches[i]))
+    } else if (matches[i][3] !== undefined && matches[i][4] === undefined) {
+      return getErrorObject('InvalidAttr', "Attribute '"+matches[i][2]+"' is without value.", getPositionFromMatch(matches[i]));
+    } else if (matches[i][3] === undefined && !options.allowBooleanAttributes) {
+      //independent attribute: ab
+      return getErrorObject('InvalidAttr', "boolean attribute '"+matches[i][2]+"' is not allowed.", getPositionFromMatch(matches[i]));
+    }
+    /* else if(matches[i][6] === undefined){//attribute without value: ab=
+                    return { err: { code:"InvalidAttr",msg:"attribute " + matches[i][2] + " has no value assigned."}};
+                } */
+    const attrName = matches[i][2];
+    if (!validateAttrName(attrName)) {
+      return getErrorObject('InvalidAttr', "Attribute '"+attrName+"' is an invalid name.", getPositionFromMatch(matches[i]));
+    }
+    if (!attrNames.hasOwnProperty(attrName)) {
+      //check for duplicate attribute.
+      attrNames[attrName] = 1;
+    } else {
+      return getErrorObject('InvalidAttr', "Attribute '"+attrName+"' is repeated.", getPositionFromMatch(matches[i]));
+    }
+  }
+
+  return true;
+}
+
+function validateNumberAmpersand(xmlData, i) {
+  let re = /\d/;
+  if (xmlData[i] === 'x') {
+    i++;
+    re = /[\da-fA-F]/;
+  }
+  for (; i < xmlData.length; i++) {
+    if (xmlData[i] === ';')
+      return i;
+    if (!xmlData[i].match(re))
+      break;
+  }
+  return -1;
+}
+
+function validateAmpersand(xmlData, i) {
+  // https://www.w3.org/TR/xml/#dt-charref
+  i++;
+  if (xmlData[i] === ';')
+    return -1;
+  if (xmlData[i] === '#') {
+    i++;
+    return validateNumberAmpersand(xmlData, i);
+  }
+  let count = 0;
+  for (; i < xmlData.length; i++, count++) {
+    if (xmlData[i].match(/\w/) && count < 20)
+      continue;
+    if (xmlData[i] === ';')
+      break;
+    return -1;
+  }
+  return i;
+}
+
+function getErrorObject(code, message, lineNumber) {
+  return {
+    err: {
+      code: code,
+      msg: message,
+      line: lineNumber.line || lineNumber,
+      col: lineNumber.col,
+    },
+  };
+}
+
+function validateAttrName(attrName) {
+  return (0,_util_js__WEBPACK_IMPORTED_MODULE_0__.isName)(attrName);
+}
+
+// const startsWithXML = /^xml/i;
+
+function validateTagName(tagname) {
+  return (0,_util_js__WEBPACK_IMPORTED_MODULE_0__.isName)(tagname) /* && !tagname.match(startsWithXML) */;
+}
+
+//this function returns the line number for the character at the given index
+function getLineNumberForPosition(xmlData, index) {
+  const lines = xmlData.substring(0, index).split(/\r?\n/);
+  return {
+    line: lines.length,
+
+    // column number is last line's length + 1, because column numbering starts at 1:
+    col: lines[lines.length - 1].length + 1
+  };
+}
+
+//this function returns the position of the first character of match within attrStr
+function getPositionFromMatch(match) {
+  return match.startIndex + match[1].length;
+}
+
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/xmlparser/DocTypeReader.js":
+/*!*********************************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/xmlparser/DocTypeReader.js ***!
+  \*********************************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ readDocType)
+/* harmony export */ });
+/* harmony import */ var _util_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../util.js */ "./node_modules/fast-xml-parser/src/util.js");
+
+
+//TODO: handle comments
+function readDocType(xmlData, i){
+    
+    const entities = {};
+    if( xmlData[i + 3] === 'O' &&
+         xmlData[i + 4] === 'C' &&
+         xmlData[i + 5] === 'T' &&
+         xmlData[i + 6] === 'Y' &&
+         xmlData[i + 7] === 'P' &&
+         xmlData[i + 8] === 'E')
+    {    
+        i = i+9;
+        let angleBracketsCount = 1;
+        let hasBody = false, comment = false;
+        let exp = "";
+        for(;i<xmlData.length;i++){
+            if (xmlData[i] === '<' && !comment) { //Determine the tag type
+                if( hasBody && hasSeq(xmlData, "!ENTITY",i)){
+                    i += 7; 
+                    let entityName, val;
+                    [entityName, val,i] = readEntityExp(xmlData,i+1);
+                    if(val.indexOf("&") === -1) //Parameter entities are not supported
+                        entities[ entityName ] = {
+                            regx : RegExp( `&${entityName};`,"g"),
+                            val: val
+                        };
+                }
+                else if( hasBody && hasSeq(xmlData, "!ELEMENT",i))  {
+                    i += 8;//Not supported
+                    const {index} = readElementExp(xmlData,i+1);
+                    i = index;
+                }else if( hasBody && hasSeq(xmlData, "!ATTLIST",i)){
+                    i += 8;//Not supported
+                    // const {index} = readAttlistExp(xmlData,i+1);
+                    // i = index;
+                }else if( hasBody && hasSeq(xmlData, "!NOTATION",i)) {
+                    i += 9;//Not supported
+                    const {index} = readNotationExp(xmlData,i+1);
+                    i = index;
+                }else if( hasSeq(xmlData, "!--",i) ) comment = true;
+                else throw new Error(`Invalid DOCTYPE`);
+
+                angleBracketsCount++;
+                exp = "";
+            } else if (xmlData[i] === '>') { //Read tag content
+                if(comment){
+                    if( xmlData[i - 1] === "-" && xmlData[i - 2] === "-"){
+                        comment = false;
+                        angleBracketsCount--;
+                    }
+                }else{
+                    angleBracketsCount--;
+                }
+                if (angleBracketsCount === 0) {
+                  break;
+                }
+            }else if( xmlData[i] === '['){
+                hasBody = true;
+            }else{
+                exp += xmlData[i];
+            }
+        }
+        if(angleBracketsCount !== 0){
+            throw new Error(`Unclosed DOCTYPE`);
+        }
+    }else{
+        throw new Error(`Invalid Tag instead of DOCTYPE`);
+    }
+    return {entities, i};
+}
+
+const skipWhitespace = (data, index) => {
+    while (index < data.length && /\s/.test(data[index])) {
+        index++;
+    }
+    return index;
+};
+
+function readEntityExp(xmlData, i) {    
+    //External entities are not supported
+    //    <!ENTITY ext SYSTEM "http://normal-website.com" >
+
+    //Parameter entities are not supported
+    //    <!ENTITY entityname "&anotherElement;">
+
+    //Internal entities are supported
+    //    <!ENTITY entityname "replacement text">
+
+    // Skip leading whitespace after <!ENTITY
+    i = skipWhitespace(xmlData, i);
+
+    // Read entity name
+    let entityName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i]) && xmlData[i] !== '"' && xmlData[i] !== "'") {
+        entityName += xmlData[i];
+        i++;
+    }
+    validateEntityName(entityName);
+
+    // Skip whitespace after entity name
+    i = skipWhitespace(xmlData, i);
+
+    // Check for unsupported constructs (external entities or parameter entities)
+    if (xmlData.substring(i, i + 6).toUpperCase() === "SYSTEM") {
+        throw new Error("External entities are not supported");
+    }else if (xmlData[i] === "%") {
+        throw new Error("Parameter entities are not supported");
+    }
+
+    // Read entity value (internal entity)
+    let entityValue = "";
+    [i, entityValue] = readIdentifierVal(xmlData, i, "entity");
+    i--;
+    return [entityName, entityValue, i ];
+}
+
+function readNotationExp(xmlData, i) {
+    // Skip leading whitespace after <!NOTATION
+    i = skipWhitespace(xmlData, i);
+
+    // Read notation name
+    let notationName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+        notationName += xmlData[i];
+        i++;
+    }
+    validateEntityName(notationName);
+
+    // Skip whitespace after notation name
+    i = skipWhitespace(xmlData, i);
+
+    // Check identifier type (SYSTEM or PUBLIC)
+    const identifierType = xmlData.substring(i, i + 6).toUpperCase();
+    if (identifierType !== "SYSTEM" && identifierType !== "PUBLIC") {
+        throw new Error(`Expected SYSTEM or PUBLIC, found "${identifierType}"`);
+    }
+    i += identifierType.length;
+
+    // Skip whitespace after identifier type
+    i = skipWhitespace(xmlData, i);
+
+    // Read public identifier (if PUBLIC)
+    let publicIdentifier = null;
+    let systemIdentifier = null;
+
+    if (identifierType === "PUBLIC") {
+        [i, publicIdentifier ] = readIdentifierVal(xmlData, i, "publicIdentifier");
+
+        // Skip whitespace after public identifier
+        i = skipWhitespace(xmlData, i);
+
+        // Optionally read system identifier
+        if (xmlData[i] === '"' || xmlData[i] === "'") {
+            [i, systemIdentifier ] = readIdentifierVal(xmlData, i,"systemIdentifier");
+        }
+    } else if (identifierType === "SYSTEM") {
+        // Read system identifier (mandatory for SYSTEM)
+        [i, systemIdentifier ] = readIdentifierVal(xmlData, i, "systemIdentifier");
+
+        if (!systemIdentifier) {
+            throw new Error("Missing mandatory system identifier for SYSTEM notation");
+        }
+    }
+    
+    return {notationName, publicIdentifier, systemIdentifier, index: --i};
+}
+
+function readIdentifierVal(xmlData, i, type) {
+    let identifierVal = "";
+    const startChar = xmlData[i];
+    if (startChar !== '"' && startChar !== "'") {
+        throw new Error(`Expected quoted string, found "${startChar}"`);
+    }
+    i++;
+
+    while (i < xmlData.length && xmlData[i] !== startChar) {
+        identifierVal += xmlData[i];
+        i++;
+    }
+
+    if (xmlData[i] !== startChar) {
+        throw new Error(`Unterminated ${type} value`);
+    }
+    i++;
+    return [i, identifierVal];
+}
+
+function readElementExp(xmlData, i) {
+    // <!ELEMENT br EMPTY>
+    // <!ELEMENT div ANY>
+    // <!ELEMENT title (#PCDATA)>
+    // <!ELEMENT book (title, author+)>
+    // <!ELEMENT name (content-model)>
+    
+    // Skip leading whitespace after <!ELEMENT
+    i = skipWhitespace(xmlData, i);
+
+    // Read element name
+    let elementName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+        elementName += xmlData[i];
+        i++;
+    }
+
+    // Validate element name
+    if (!validateEntityName(elementName)) {
+        throw new Error(`Invalid element name: "${elementName}"`);
+    }
+
+    // Skip whitespace after element name
+    i = skipWhitespace(xmlData, i);
+    let contentModel = "";
+    // Expect '(' to start content model
+    if(xmlData[i] === "E" && hasSeq(xmlData, "MPTY",i)) i+=4;
+    else if(xmlData[i] === "A" && hasSeq(xmlData, "NY",i)) i+=2;
+    else if (xmlData[i] === "(") {
+        i++; // Move past '('
+
+        // Read content model
+        while (i < xmlData.length && xmlData[i] !== ")") {
+            contentModel += xmlData[i];
+            i++;
+        }
+        if (xmlData[i] !== ")") {
+            throw new Error("Unterminated content model");
+        }
+
+    }else{
+        throw new Error(`Invalid Element Expression, found "${xmlData[i]}"`);
+    }
+    
+    return {
+        elementName,
+        contentModel: contentModel.trim(),
+        index: i
+    };
+}
+
+function readAttlistExp(xmlData, i) {
+    // Skip leading whitespace after <!ATTLIST
+    i = skipWhitespace(xmlData, i);
+
+    // Read element name
+    let elementName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+        elementName += xmlData[i];
+        i++;
+    }
+
+    // Validate element name
+    validateEntityName(elementName)
+
+    // Skip whitespace after element name
+    i = skipWhitespace(xmlData, i);
+
+    // Read attribute name
+    let attributeName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+        attributeName += xmlData[i];
+        i++;
+    }
+
+    // Validate attribute name
+    if (!validateEntityName(attributeName)) {
+        throw new Error(`Invalid attribute name: "${attributeName}"`);
+    }
+
+    // Skip whitespace after attribute name
+    i = skipWhitespace(xmlData, i);
+
+    // Read attribute type
+    let attributeType = "";
+    if (xmlData.substring(i, i + 8).toUpperCase() === "NOTATION") {
+        attributeType = "NOTATION";
+        i += 8; // Move past "NOTATION"
+
+        // Skip whitespace after "NOTATION"
+        i = skipWhitespace(xmlData, i);
+
+        // Expect '(' to start the list of notations
+        if (xmlData[i] !== "(") {
+            throw new Error(`Expected '(', found "${xmlData[i]}"`);
+        }
+        i++; // Move past '('
+
+        // Read the list of allowed notations
+        let allowedNotations = [];
+        while (i < xmlData.length && xmlData[i] !== ")") {
+            let notation = "";
+            while (i < xmlData.length && xmlData[i] !== "|" && xmlData[i] !== ")") {
+                notation += xmlData[i];
+                i++;
+            }
+
+            // Validate notation name
+            notation = notation.trim();
+            if (!validateEntityName(notation)) {
+                throw new Error(`Invalid notation name: "${notation}"`);
+            }
+
+            allowedNotations.push(notation);
+
+            // Skip '|' separator or exit loop
+            if (xmlData[i] === "|") {
+                i++; // Move past '|'
+                i = skipWhitespace(xmlData, i); // Skip optional whitespace after '|'
+            }
+        }
+
+        if (xmlData[i] !== ")") {
+            throw new Error("Unterminated list of notations");
+        }
+        i++; // Move past ')'
+
+        // Store the allowed notations as part of the attribute type
+        attributeType += " (" + allowedNotations.join("|") + ")";
+    } else {
+        // Handle simple types (e.g., CDATA, ID, IDREF, etc.)
+        while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+            attributeType += xmlData[i];
+            i++;
+        }
+
+        // Validate simple attribute type
+        const validTypes = ["CDATA", "ID", "IDREF", "IDREFS", "ENTITY", "ENTITIES", "NMTOKEN", "NMTOKENS"];
+        if (!validTypes.includes(attributeType.toUpperCase())) {
+            throw new Error(`Invalid attribute type: "${attributeType}"`);
+        }
+    }
+
+    // Skip whitespace after attribute type
+    i = skipWhitespace(xmlData, i);
+
+    // Read default value
+    let defaultValue = "";
+    if (xmlData.substring(i, i + 8).toUpperCase() === "#REQUIRED") {
+        defaultValue = "#REQUIRED";
+        i += 8;
+    } else if (xmlData.substring(i, i + 7).toUpperCase() === "#IMPLIED") {
+        defaultValue = "#IMPLIED";
+        i += 7;
+    } else {
+        [i, defaultValue] = readIdentifierVal(xmlData, i, "ATTLIST");
+    }
+
+    return {
+        elementName,
+        attributeName,
+        attributeType,
+        defaultValue,
+        index: i
+    }
+}
+
+function hasSeq(data, seq,i){
+    for(let j=0;j<seq.length;j++){
+        if(seq[j]!==data[i+j+1]) return false;
+    }
+    return true;
+}
+
+function validateEntityName(name){
+    if ((0,_util_js__WEBPACK_IMPORTED_MODULE_0__.isName)(name))
+	return name;
+    else
+        throw new Error(`Invalid entity name ${name}`);
+}
+
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/xmlparser/OptionsBuilder.js":
+/*!**********************************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/xmlparser/OptionsBuilder.js ***!
+  \**********************************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   buildOptions: () => (/* binding */ buildOptions),
+/* harmony export */   defaultOptions: () => (/* binding */ defaultOptions)
+/* harmony export */ });
+
+const defaultOptions = {
+    preserveOrder: false,
+    attributeNamePrefix: '@_',
+    attributesGroupName: false,
+    textNodeName: '#text',
+    ignoreAttributes: true,
+    removeNSPrefix: false, // remove NS from tag name or attribute name if true
+    allowBooleanAttributes: false, //a tag can have attributes without any value
+    //ignoreRootElement : false,
+    parseTagValue: true,
+    parseAttributeValue: false,
+    trimValues: true, //Trim string values of tag and attributes
+    cdataPropName: false,
+    numberParseOptions: {
+      hex: true,
+      leadingZeros: true,
+      eNotation: true
+    },
+    tagValueProcessor: function(tagName, val) {
+      return val;
+    },
+    attributeValueProcessor: function(attrName, val) {
+      return val;
+    },
+    stopNodes: [], //nested tags will not be parsed even for errors
+    alwaysCreateTextNode: false,
+    isArray: () => false,
+    commentPropName: false,
+    unpairedTags: [],
+    processEntities: true,
+    htmlEntities: false,
+    ignoreDeclaration: false,
+    ignorePiTags: false,
+    transformTagName: false,
+    transformAttributeName: false,
+    updateTag: function(tagName, jPath, attrs){
+      return tagName
+    },
+    // skipEmptyListItem: false
+    captureMetaData: false,
+};
+   
+const buildOptions = function(options) {
+    return Object.assign({}, defaultOptions, options);
+};
+
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/xmlparser/OrderedObjParser.js":
+/*!************************************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/xmlparser/OrderedObjParser.js ***!
+  \************************************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ OrderedObjParser)
+/* harmony export */ });
+/* harmony import */ var _util_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../util.js */ "./node_modules/fast-xml-parser/src/util.js");
+/* harmony import */ var _xmlNode_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./xmlNode.js */ "./node_modules/fast-xml-parser/src/xmlparser/xmlNode.js");
+/* harmony import */ var _DocTypeReader_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./DocTypeReader.js */ "./node_modules/fast-xml-parser/src/xmlparser/DocTypeReader.js");
+/* harmony import */ var strnum__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! strnum */ "./node_modules/strnum/strnum.js");
+/* harmony import */ var _ignoreAttributes_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../ignoreAttributes.js */ "./node_modules/fast-xml-parser/src/ignoreAttributes.js");
+
+///@ts-check
+
+
+
+
+
+
+
+// const regx =
+//   '<((!\\[CDATA\\[([\\s\\S]*?)(]]>))|((NAME:)?(NAME))([^>]*)>|((\\/)(NAME)\\s*>))([^<]*)'
+//   .replace(/NAME/g, util.nameRegexp);
+
+//const tagsRegx = new RegExp("<(\\/?[\\w:\\-\._]+)([^>]*)>(\\s*"+cdataRegx+")*([^<]+)?","g");
+//const tagsRegx = new RegExp("<(\\/?)((\\w*:)?([\\w:\\-\._]+))([^>]*)>([^<]*)("+cdataRegx+"([^<]*))*([^<]+)?","g");
+
+class OrderedObjParser{
+  constructor(options){
+    this.options = options;
+    this.currentNode = null;
+    this.tagsNodeStack = [];
+    this.docTypeEntities = {};
+    this.lastEntities = {
+      "apos" : { regex: /&(apos|#39|#x27);/g, val : "'"},
+      "gt" : { regex: /&(gt|#62|#x3E);/g, val : ">"},
+      "lt" : { regex: /&(lt|#60|#x3C);/g, val : "<"},
+      "quot" : { regex: /&(quot|#34|#x22);/g, val : "\""},
+    };
+    this.ampEntity = { regex: /&(amp|#38|#x26);/g, val : "&"};
+    this.htmlEntities = {
+      "space": { regex: /&(nbsp|#160);/g, val: " " },
+      // "lt" : { regex: /&(lt|#60);/g, val: "<" },
+      // "gt" : { regex: /&(gt|#62);/g, val: ">" },
+      // "amp" : { regex: /&(amp|#38);/g, val: "&" },
+      // "quot" : { regex: /&(quot|#34);/g, val: "\"" },
+      // "apos" : { regex: /&(apos|#39);/g, val: "'" },
+      "cent" : { regex: /&(cent|#162);/g, val: "¢" },
+      "pound" : { regex: /&(pound|#163);/g, val: "£" },
+      "yen" : { regex: /&(yen|#165);/g, val: "¥" },
+      "euro" : { regex: /&(euro|#8364);/g, val: "€" },
+      "copyright" : { regex: /&(copy|#169);/g, val: "©" },
+      "reg" : { regex: /&(reg|#174);/g, val: "®" },
+      "inr" : { regex: /&(inr|#8377);/g, val: "₹" },
+      "num_dec": { regex: /&#([0-9]{1,7});/g, val : (_, str) => String.fromCodePoint(Number.parseInt(str, 10)) },
+      "num_hex": { regex: /&#x([0-9a-fA-F]{1,6});/g, val : (_, str) => String.fromCodePoint(Number.parseInt(str, 16)) },
+    };
+    this.addExternalEntities = addExternalEntities;
+    this.parseXml = parseXml;
+    this.parseTextData = parseTextData;
+    this.resolveNameSpace = resolveNameSpace;
+    this.buildAttributesMap = buildAttributesMap;
+    this.isItStopNode = isItStopNode;
+    this.replaceEntitiesValue = replaceEntitiesValue;
+    this.readStopNodeData = readStopNodeData;
+    this.saveTextToParentTag = saveTextToParentTag;
+    this.addChild = addChild;
+    this.ignoreAttributesFn = (0,_ignoreAttributes_js__WEBPACK_IMPORTED_MODULE_1__["default"])(this.options.ignoreAttributes)
+  }
+
+}
+
+function addExternalEntities(externalEntities){
+  const entKeys = Object.keys(externalEntities);
+  for (let i = 0; i < entKeys.length; i++) {
+    const ent = entKeys[i];
+    this.lastEntities[ent] = {
+       regex: new RegExp("&"+ent+";","g"),
+       val : externalEntities[ent]
+    }
+  }
+}
+
+/**
+ * @param {string} val
+ * @param {string} tagName
+ * @param {string} jPath
+ * @param {boolean} dontTrim
+ * @param {boolean} hasAttributes
+ * @param {boolean} isLeafNode
+ * @param {boolean} escapeEntities
+ */
+function parseTextData(val, tagName, jPath, dontTrim, hasAttributes, isLeafNode, escapeEntities) {
+  if (val !== undefined) {
+    if (this.options.trimValues && !dontTrim) {
+      val = val.trim();
+    }
+    if(val.length > 0){
+      if(!escapeEntities) val = this.replaceEntitiesValue(val);
+      
+      const newval = this.options.tagValueProcessor(tagName, val, jPath, hasAttributes, isLeafNode);
+      if(newval === null || newval === undefined){
+        //don't parse
+        return val;
+      }else if(typeof newval !== typeof val || newval !== val){
+        //overwrite
+        return newval;
+      }else if(this.options.trimValues){
+        return parseValue(val, this.options.parseTagValue, this.options.numberParseOptions);
+      }else{
+        const trimmedVal = val.trim();
+        if(trimmedVal === val){
+          return parseValue(val, this.options.parseTagValue, this.options.numberParseOptions);
+        }else{
+          return val;
+        }
+      }
+    }
+  }
+}
+
+function resolveNameSpace(tagname) {
+  if (this.options.removeNSPrefix) {
+    const tags = tagname.split(':');
+    const prefix = tagname.charAt(0) === '/' ? '/' : '';
+    if (tags[0] === 'xmlns') {
+      return '';
+    }
+    if (tags.length === 2) {
+      tagname = prefix + tags[1];
+    }
+  }
+  return tagname;
+}
+
+//TODO: change regex to capture NS
+//const attrsRegx = new RegExp("([\\w\\-\\.\\:]+)\\s*=\\s*(['\"])((.|\n)*?)\\2","gm");
+const attrsRegx = new RegExp('([^\\s=]+)\\s*(=\\s*([\'"])([\\s\\S]*?)\\3)?', 'gm');
+
+function buildAttributesMap(attrStr, jPath, tagName) {
+  if (this.options.ignoreAttributes !== true && typeof attrStr === 'string') {
+    // attrStr = attrStr.replace(/\r?\n/g, ' ');
+    //attrStr = attrStr || attrStr.trim();
+
+    const matches = (0,_util_js__WEBPACK_IMPORTED_MODULE_2__.getAllMatches)(attrStr, attrsRegx);
+    const len = matches.length; //don't make it inline
+    const attrs = {};
+    for (let i = 0; i < len; i++) {
+      const attrName = this.resolveNameSpace(matches[i][1]);
+      if (this.ignoreAttributesFn(attrName, jPath)) {
+        continue
+      }
+      let oldVal = matches[i][4];
+      let aName = this.options.attributeNamePrefix + attrName;
+      if (attrName.length) {
+        if (this.options.transformAttributeName) {
+          aName = this.options.transformAttributeName(aName);
+        }
+        if(aName === "__proto__") aName  = "#__proto__";
+        if (oldVal !== undefined) {
+          if (this.options.trimValues) {
+            oldVal = oldVal.trim();
+          }
+          oldVal = this.replaceEntitiesValue(oldVal);
+          const newVal = this.options.attributeValueProcessor(attrName, oldVal, jPath);
+          if(newVal === null || newVal === undefined){
+            //don't parse
+            attrs[aName] = oldVal;
+          }else if(typeof newVal !== typeof oldVal || newVal !== oldVal){
+            //overwrite
+            attrs[aName] = newVal;
+          }else{
+            //parse
+            attrs[aName] = parseValue(
+              oldVal,
+              this.options.parseAttributeValue,
+              this.options.numberParseOptions
+            );
+          }
+        } else if (this.options.allowBooleanAttributes) {
+          attrs[aName] = true;
+        }
+      }
+    }
+    if (!Object.keys(attrs).length) {
+      return;
+    }
+    if (this.options.attributesGroupName) {
+      const attrCollection = {};
+      attrCollection[this.options.attributesGroupName] = attrs;
+      return attrCollection;
+    }
+    return attrs
+  }
+}
+
+const parseXml = function(xmlData) {
+  xmlData = xmlData.replace(/\r\n?/g, "\n"); //TODO: remove this line
+  const xmlObj = new _xmlNode_js__WEBPACK_IMPORTED_MODULE_3__["default"]('!xml');
+  let currentNode = xmlObj;
+  let textData = "";
+  let jPath = "";
+  for(let i=0; i< xmlData.length; i++){//for each char in XML data
+    const ch = xmlData[i];
+    if(ch === '<'){
+      // const nextIndex = i+1;
+      // const _2ndChar = xmlData[nextIndex];
+      if( xmlData[i+1] === '/') {//Closing Tag
+        const closeIndex = findClosingIndex(xmlData, ">", i, "Closing Tag is not closed.")
+        let tagName = xmlData.substring(i+2,closeIndex).trim();
+
+        if(this.options.removeNSPrefix){
+          const colonIndex = tagName.indexOf(":");
+          if(colonIndex !== -1){
+            tagName = tagName.substr(colonIndex+1);
+          }
+        }
+
+        if(this.options.transformTagName) {
+          tagName = this.options.transformTagName(tagName);
+        }
+
+        if(currentNode){
+          textData = this.saveTextToParentTag(textData, currentNode, jPath);
+        }
+
+        //check if last tag of nested tag was unpaired tag
+        const lastTagName = jPath.substring(jPath.lastIndexOf(".")+1);
+        if(tagName && this.options.unpairedTags.indexOf(tagName) !== -1 ){
+          throw new Error(`Unpaired tag can not be used as closing tag: </${tagName}>`);
+        }
+        let propIndex = 0
+        if(lastTagName && this.options.unpairedTags.indexOf(lastTagName) !== -1 ){
+          propIndex = jPath.lastIndexOf('.', jPath.lastIndexOf('.')-1)
+          this.tagsNodeStack.pop();
+        }else{
+          propIndex = jPath.lastIndexOf(".");
+        }
+        jPath = jPath.substring(0, propIndex);
+
+        currentNode = this.tagsNodeStack.pop();//avoid recursion, set the parent tag scope
+        textData = "";
+        i = closeIndex;
+      } else if( xmlData[i+1] === '?') {
+
+        let tagData = readTagExp(xmlData,i, false, "?>");
+        if(!tagData) throw new Error("Pi Tag is not closed.");
+
+        textData = this.saveTextToParentTag(textData, currentNode, jPath);
+        if( (this.options.ignoreDeclaration && tagData.tagName === "?xml") || this.options.ignorePiTags){
+
+        }else{
+  
+          const childNode = new _xmlNode_js__WEBPACK_IMPORTED_MODULE_3__["default"](tagData.tagName);
+          childNode.add(this.options.textNodeName, "");
+          
+          if(tagData.tagName !== tagData.tagExp && tagData.attrExpPresent){
+            childNode[":@"] = this.buildAttributesMap(tagData.tagExp, jPath, tagData.tagName);
+          }
+          this.addChild(currentNode, childNode, jPath, i);
+        }
+
+
+        i = tagData.closeIndex + 1;
+      } else if(xmlData.substr(i + 1, 3) === '!--') {
+        const endIndex = findClosingIndex(xmlData, "-->", i+4, "Comment is not closed.")
+        if(this.options.commentPropName){
+          const comment = xmlData.substring(i + 4, endIndex - 2);
+
+          textData = this.saveTextToParentTag(textData, currentNode, jPath);
+
+          currentNode.add(this.options.commentPropName, [ { [this.options.textNodeName] : comment } ]);
+        }
+        i = endIndex;
+      } else if( xmlData.substr(i + 1, 2) === '!D') {
+        const result = (0,_DocTypeReader_js__WEBPACK_IMPORTED_MODULE_4__["default"])(xmlData, i);
+        this.docTypeEntities = result.entities;
+        i = result.i;
+      }else if(xmlData.substr(i + 1, 2) === '![') {
+        const closeIndex = findClosingIndex(xmlData, "]]>", i, "CDATA is not closed.") - 2;
+        const tagExp = xmlData.substring(i + 9,closeIndex);
+
+        textData = this.saveTextToParentTag(textData, currentNode, jPath);
+
+        let val = this.parseTextData(tagExp, currentNode.tagname, jPath, true, false, true, true);
+        if(val == undefined) val = "";
+
+        //cdata should be set even if it is 0 length string
+        if(this.options.cdataPropName){
+          currentNode.add(this.options.cdataPropName, [ { [this.options.textNodeName] : tagExp } ]);
+        }else{
+          currentNode.add(this.options.textNodeName, val);
+        }
+        
+        i = closeIndex + 2;
+      }else {//Opening tag
+        let result = readTagExp(xmlData,i, this.options.removeNSPrefix);
+        let tagName= result.tagName;
+        const rawTagName = result.rawTagName;
+        let tagExp = result.tagExp;
+        let attrExpPresent = result.attrExpPresent;
+        let closeIndex = result.closeIndex;
+
+        if (this.options.transformTagName) {
+          tagName = this.options.transformTagName(tagName);
+        }
+        
+        //save text as child node
+        if (currentNode && textData) {
+          if(currentNode.tagname !== '!xml'){
+            //when nested tag is found
+            textData = this.saveTextToParentTag(textData, currentNode, jPath, false);
+          }
+        }
+
+        //check if last tag was unpaired tag
+        const lastTag = currentNode;
+        if(lastTag && this.options.unpairedTags.indexOf(lastTag.tagname) !== -1 ){
+          currentNode = this.tagsNodeStack.pop();
+          jPath = jPath.substring(0, jPath.lastIndexOf("."));
+        }
+        if(tagName !== xmlObj.tagname){
+          jPath += jPath ? "." + tagName : tagName;
+        }
+        const startIndex = i;
+        if (this.isItStopNode(this.options.stopNodes, jPath, tagName)) {
+          let tagContent = "";
+          //self-closing tag
+          if(tagExp.length > 0 && tagExp.lastIndexOf("/") === tagExp.length - 1){
+            if(tagName[tagName.length - 1] === "/"){ //remove trailing '/'
+              tagName = tagName.substr(0, tagName.length - 1);
+              jPath = jPath.substr(0, jPath.length - 1);
+              tagExp = tagName;
+            }else{
+              tagExp = tagExp.substr(0, tagExp.length - 1);
+            }
+            i = result.closeIndex;
+          }
+          //unpaired tag
+          else if(this.options.unpairedTags.indexOf(tagName) !== -1){
+            
+            i = result.closeIndex;
+          }
+          //normal tag
+          else{
+            //read until closing tag is found
+            const result = this.readStopNodeData(xmlData, rawTagName, closeIndex + 1);
+            if(!result) throw new Error(`Unexpected end of ${rawTagName}`);
+            i = result.i;
+            tagContent = result.tagContent;
+          }
+
+          const childNode = new _xmlNode_js__WEBPACK_IMPORTED_MODULE_3__["default"](tagName);
+
+          if(tagName !== tagExp && attrExpPresent){
+            childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
+          }
+          if(tagContent) {
+            tagContent = this.parseTextData(tagContent, tagName, jPath, true, attrExpPresent, true, true);
+          }
+          
+          jPath = jPath.substr(0, jPath.lastIndexOf("."));
+          childNode.add(this.options.textNodeName, tagContent);
+          
+          this.addChild(currentNode, childNode, jPath, startIndex);
+        }else{
+  //selfClosing tag
+          if(tagExp.length > 0 && tagExp.lastIndexOf("/") === tagExp.length - 1){
+            if(tagName[tagName.length - 1] === "/"){ //remove trailing '/'
+              tagName = tagName.substr(0, tagName.length - 1);
+              jPath = jPath.substr(0, jPath.length - 1);
+              tagExp = tagName;
+            }else{
+              tagExp = tagExp.substr(0, tagExp.length - 1);
+            }
+            
+            if(this.options.transformTagName) {
+              tagName = this.options.transformTagName(tagName);
+            }
+
+            const childNode = new _xmlNode_js__WEBPACK_IMPORTED_MODULE_3__["default"](tagName);
+            if(tagName !== tagExp && attrExpPresent){
+              childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
+            }
+            this.addChild(currentNode, childNode, jPath, startIndex);
+            jPath = jPath.substr(0, jPath.lastIndexOf("."));
+          }
+    //opening tag
+          else{
+            const childNode = new _xmlNode_js__WEBPACK_IMPORTED_MODULE_3__["default"]( tagName);
+            this.tagsNodeStack.push(currentNode);
+            
+            if(tagName !== tagExp && attrExpPresent){
+              childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
+            }
+            this.addChild(currentNode, childNode, jPath, startIndex);
+            currentNode = childNode;
+          }
+          textData = "";
+          i = closeIndex;
+        }
+      }
+    }else{
+      textData += xmlData[i];
+    }
+  }
+  return xmlObj.child;
+}
+
+function addChild(currentNode, childNode, jPath, startIndex){
+  // unset startIndex if not requested
+  if (!this.options.captureMetaData) startIndex = undefined;
+  const result = this.options.updateTag(childNode.tagname, jPath, childNode[":@"])
+  if(result === false){
+  } else if(typeof result === "string"){
+    childNode.tagname = result
+    currentNode.addChild(childNode, startIndex);
+  }else{
+    currentNode.addChild(childNode, startIndex);
+  }
+}
+
+const replaceEntitiesValue = function(val){
+
+  if(this.options.processEntities){
+    for(let entityName in this.docTypeEntities){
+      const entity = this.docTypeEntities[entityName];
+      val = val.replace( entity.regx, entity.val);
+    }
+    for(let entityName in this.lastEntities){
+      const entity = this.lastEntities[entityName];
+      val = val.replace( entity.regex, entity.val);
+    }
+    if(this.options.htmlEntities){
+      for(let entityName in this.htmlEntities){
+        const entity = this.htmlEntities[entityName];
+        val = val.replace( entity.regex, entity.val);
+      }
+    }
+    val = val.replace( this.ampEntity.regex, this.ampEntity.val);
+  }
+  return val;
+}
+function saveTextToParentTag(textData, currentNode, jPath, isLeafNode) {
+  if (textData) { //store previously collected data as textNode
+    if(isLeafNode === undefined) isLeafNode = currentNode.child.length === 0
+    
+    textData = this.parseTextData(textData,
+      currentNode.tagname,
+      jPath,
+      false,
+      currentNode[":@"] ? Object.keys(currentNode[":@"]).length !== 0 : false,
+      isLeafNode);
+
+    if (textData !== undefined && textData !== "")
+      currentNode.add(this.options.textNodeName, textData);
+    textData = "";
+  }
+  return textData;
+}
+
+//TODO: use jPath to simplify the logic
+/**
+ * 
+ * @param {string[]} stopNodes 
+ * @param {string} jPath
+ * @param {string} currentTagName 
+ */
+function isItStopNode(stopNodes, jPath, currentTagName){
+  const allNodesExp = "*." + currentTagName;
+  for (const stopNodePath in stopNodes) {
+    const stopNodeExp = stopNodes[stopNodePath];
+    if( allNodesExp === stopNodeExp || jPath === stopNodeExp  ) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns the tag Expression and where it is ending handling single-double quotes situation
+ * @param {string} xmlData 
+ * @param {number} i starting index
+ * @returns 
+ */
+function tagExpWithClosingIndex(xmlData, i, closingChar = ">"){
+  let attrBoundary;
+  let tagExp = "";
+  for (let index = i; index < xmlData.length; index++) {
+    let ch = xmlData[index];
+    if (attrBoundary) {
+        if (ch === attrBoundary) attrBoundary = "";//reset
+    } else if (ch === '"' || ch === "'") {
+        attrBoundary = ch;
+    } else if (ch === closingChar[0]) {
+      if(closingChar[1]){
+        if(xmlData[index + 1] === closingChar[1]){
+          return {
+            data: tagExp,
+            index: index
+          }
+        }
+      }else{
+        return {
+          data: tagExp,
+          index: index
+        }
+      }
+    } else if (ch === '\t') {
+      ch = " "
+    }
+    tagExp += ch;
+  }
+}
+
+function findClosingIndex(xmlData, str, i, errMsg){
+  const closingIndex = xmlData.indexOf(str, i);
+  if(closingIndex === -1){
+    throw new Error(errMsg)
+  }else{
+    return closingIndex + str.length - 1;
+  }
+}
+
+function readTagExp(xmlData,i, removeNSPrefix, closingChar = ">"){
+  const result = tagExpWithClosingIndex(xmlData, i+1, closingChar);
+  if(!result) return;
+  let tagExp = result.data;
+  const closeIndex = result.index;
+  const separatorIndex = tagExp.search(/\s/);
+  let tagName = tagExp;
+  let attrExpPresent = true;
+  if(separatorIndex !== -1){//separate tag name and attributes expression
+    tagName = tagExp.substring(0, separatorIndex);
+    tagExp = tagExp.substring(separatorIndex + 1).trimStart();
+  }
+
+  const rawTagName = tagName;
+  if(removeNSPrefix){
+    const colonIndex = tagName.indexOf(":");
+    if(colonIndex !== -1){
+      tagName = tagName.substr(colonIndex+1);
+      attrExpPresent = tagName !== result.data.substr(colonIndex + 1);
+    }
+  }
+
+  return {
+    tagName: tagName,
+    tagExp: tagExp,
+    closeIndex: closeIndex,
+    attrExpPresent: attrExpPresent,
+    rawTagName: rawTagName,
+  }
+}
+/**
+ * find paired tag for a stop node
+ * @param {string} xmlData 
+ * @param {string} tagName 
+ * @param {number} i 
+ */
+function readStopNodeData(xmlData, tagName, i){
+  const startIndex = i;
+  // Starting at 1 since we already have an open tag
+  let openTagCount = 1;
+
+  for (; i < xmlData.length; i++) {
+    if( xmlData[i] === "<"){ 
+      if (xmlData[i+1] === "/") {//close tag
+          const closeIndex = findClosingIndex(xmlData, ">", i, `${tagName} is not closed`);
+          let closeTagName = xmlData.substring(i+2,closeIndex).trim();
+          if(closeTagName === tagName){
+            openTagCount--;
+            if (openTagCount === 0) {
+              return {
+                tagContent: xmlData.substring(startIndex, i),
+                i : closeIndex
+              }
+            }
+          }
+          i=closeIndex;
+        } else if(xmlData[i+1] === '?') { 
+          const closeIndex = findClosingIndex(xmlData, "?>", i+1, "StopNode is not closed.")
+          i=closeIndex;
+        } else if(xmlData.substr(i + 1, 3) === '!--') { 
+          const closeIndex = findClosingIndex(xmlData, "-->", i+3, "StopNode is not closed.")
+          i=closeIndex;
+        } else if(xmlData.substr(i + 1, 2) === '![') { 
+          const closeIndex = findClosingIndex(xmlData, "]]>", i, "StopNode is not closed.") - 2;
+          i=closeIndex;
+        } else {
+          const tagData = readTagExp(xmlData, i, '>')
+
+          if (tagData) {
+            const openTagName = tagData && tagData.tagName;
+            if (openTagName === tagName && tagData.tagExp[tagData.tagExp.length-1] !== "/") {
+              openTagCount++;
+            }
+            i=tagData.closeIndex;
+          }
+        }
+      }
+  }//end for loop
+}
+
+function parseValue(val, shouldParse, options) {
+  if (shouldParse && typeof val === 'string') {
+    //console.log(options)
+    const newval = val.trim();
+    if(newval === 'true' ) return true;
+    else if(newval === 'false' ) return false;
+    else return (0,strnum__WEBPACK_IMPORTED_MODULE_0__["default"])(val, options);
+  } else {
+    if ((0,_util_js__WEBPACK_IMPORTED_MODULE_2__.isExist)(val)) {
+      return val;
+    } else {
+      return '';
+    }
+  }
+}
+
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/xmlparser/XMLParser.js":
+/*!*****************************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/xmlparser/XMLParser.js ***!
+  \*****************************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ XMLParser)
+/* harmony export */ });
+/* harmony import */ var _OptionsBuilder_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./OptionsBuilder.js */ "./node_modules/fast-xml-parser/src/xmlparser/OptionsBuilder.js");
+/* harmony import */ var _OrderedObjParser_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./OrderedObjParser.js */ "./node_modules/fast-xml-parser/src/xmlparser/OrderedObjParser.js");
+/* harmony import */ var _node2json_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./node2json.js */ "./node_modules/fast-xml-parser/src/xmlparser/node2json.js");
+/* harmony import */ var _validator_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../validator.js */ "./node_modules/fast-xml-parser/src/validator.js");
+/* harmony import */ var _xmlNode_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./xmlNode.js */ "./node_modules/fast-xml-parser/src/xmlparser/xmlNode.js");
+
+
+
+
+
+
+class XMLParser{
+    
+    constructor(options){
+        this.externalEntities = {};
+        this.options = (0,_OptionsBuilder_js__WEBPACK_IMPORTED_MODULE_0__.buildOptions)(options);
+        
+    }
+    /**
+     * Parse XML dats to JS object 
+     * @param {string|Buffer} xmlData 
+     * @param {boolean|Object} validationOption 
+     */
+    parse(xmlData,validationOption){
+        if(typeof xmlData === "string"){
+        }else if( xmlData.toString){
+            xmlData = xmlData.toString();
+        }else{
+            throw new Error("XML data is accepted in String or Bytes[] form.")
+        }
+        if( validationOption){
+            if(validationOption === true) validationOption = {}; //validate with default options
+            
+            const result = (0,_validator_js__WEBPACK_IMPORTED_MODULE_1__.validate)(xmlData, validationOption);
+            if (result !== true) {
+              throw Error( `${result.err.msg}:${result.err.line}:${result.err.col}` )
+            }
+          }
+        const orderedObjParser = new _OrderedObjParser_js__WEBPACK_IMPORTED_MODULE_2__["default"](this.options);
+        orderedObjParser.addExternalEntities(this.externalEntities);
+        const orderedResult = orderedObjParser.parseXml(xmlData);
+        if(this.options.preserveOrder || orderedResult === undefined) return orderedResult;
+        else return (0,_node2json_js__WEBPACK_IMPORTED_MODULE_3__["default"])(orderedResult, this.options);
+    }
+
+    /**
+     * Add Entity which is not by default supported by this library
+     * @param {string} key 
+     * @param {string} value 
+     */
+    addEntity(key, value){
+        if(value.indexOf("&") !== -1){
+            throw new Error("Entity value can't have '&'")
+        }else if(key.indexOf("&") !== -1 || key.indexOf(";") !== -1){
+            throw new Error("An entity must be set without '&' and ';'. Eg. use '#xD' for '&#xD;'")
+        }else if(value === "&"){
+            throw new Error("An entity with value '&' is not permitted");
+        }else{
+            this.externalEntities[key] = value;
+        }
+    }
+
+    /**
+     * Returns a Symbol that can be used to access the metadata
+     * property on a node.
+     * 
+     * If Symbol is not available in the environment, an ordinary property is used
+     * and the name of the property is here returned.
+     * 
+     * The XMLMetaData property is only present when `captureMetaData`
+     * is true in the options.
+     */
+    static getMetaDataSymbol() {
+        return _xmlNode_js__WEBPACK_IMPORTED_MODULE_4__["default"].getMetaDataSymbol();
+    }
+}
+
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/xmlparser/node2json.js":
+/*!*****************************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/xmlparser/node2json.js ***!
+  \*****************************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ prettify)
+/* harmony export */ });
+/* harmony import */ var _xmlNode_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./xmlNode.js */ "./node_modules/fast-xml-parser/src/xmlparser/xmlNode.js");
+
+
+
+
+const METADATA_SYMBOL = _xmlNode_js__WEBPACK_IMPORTED_MODULE_0__["default"].getMetaDataSymbol();
+
+/**
+ * 
+ * @param {array} node 
+ * @param {any} options 
+ * @returns 
+ */
+function prettify(node, options){
+  return compress( node, options);
+}
+
+/**
+ * 
+ * @param {array} arr 
+ * @param {object} options 
+ * @param {string} jPath 
+ * @returns object
+ */
+function compress(arr, options, jPath){
+  let text;
+  const compressedObj = {};
+  for (let i = 0; i < arr.length; i++) {
+    const tagObj = arr[i];
+    const property = propName(tagObj);
+    let newJpath = "";
+    if(jPath === undefined) newJpath = property;
+    else newJpath = jPath + "." + property;
+
+    if(property === options.textNodeName){
+      if(text === undefined) text = tagObj[property];
+      else text += "" + tagObj[property];
+    }else if(property === undefined){
+      continue;
+    }else if(tagObj[property]){
+      
+      let val = compress(tagObj[property], options, newJpath);
+      const isLeaf = isLeafTag(val, options);
+      if (tagObj[METADATA_SYMBOL] !== undefined) {
+        val[METADATA_SYMBOL] = tagObj[METADATA_SYMBOL]; // copy over metadata
+      }
+
+      if(tagObj[":@"]){
+        assignAttributes( val, tagObj[":@"], newJpath, options);
+      }else if(Object.keys(val).length === 1 && val[options.textNodeName] !== undefined && !options.alwaysCreateTextNode){
+        val = val[options.textNodeName];
+      }else if(Object.keys(val).length === 0){
+        if(options.alwaysCreateTextNode) val[options.textNodeName] = "";
+        else val = "";
+      }
+
+      if(compressedObj[property] !== undefined && compressedObj.hasOwnProperty(property)) {
+        if(!Array.isArray(compressedObj[property])) {
+            compressedObj[property] = [ compressedObj[property] ];
+        }
+        compressedObj[property].push(val);
+      }else{
+        //TODO: if a node is not an array, then check if it should be an array
+        //also determine if it is a leaf node
+        if (options.isArray(property, newJpath, isLeaf )) {
+          compressedObj[property] = [val];
+        }else{
+          compressedObj[property] = val;
+        }
+      }
+    }
+    
+  }
+  // if(text && text.length > 0) compressedObj[options.textNodeName] = text;
+  if(typeof text === "string"){
+    if(text.length > 0) compressedObj[options.textNodeName] = text;
+  }else if(text !== undefined) compressedObj[options.textNodeName] = text;
+  return compressedObj;
+}
+
+function propName(obj){
+  const keys = Object.keys(obj);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if(key !== ":@") return key;
+  }
+}
+
+function assignAttributes(obj, attrMap, jpath, options){
+  if (attrMap) {
+    const keys = Object.keys(attrMap);
+    const len = keys.length; //don't make it inline
+    for (let i = 0; i < len; i++) {
+      const atrrName = keys[i];
+      if (options.isArray(atrrName, jpath + "." + atrrName, true, true)) {
+        obj[atrrName] = [ attrMap[atrrName] ];
+      } else {
+        obj[atrrName] = attrMap[atrrName];
+      }
+    }
+  }
+}
+
+function isLeafTag(obj, options){
+  const { textNodeName } = options;
+  const propCount = Object.keys(obj).length;
+  
+  if (propCount === 0) {
+    return true;
+  }
+
+  if (
+    propCount === 1 &&
+    (obj[textNodeName] || typeof obj[textNodeName] === "boolean" || obj[textNodeName] === 0)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+/***/ }),
+
+/***/ "./node_modules/fast-xml-parser/src/xmlparser/xmlNode.js":
+/*!***************************************************************!*\
+  !*** ./node_modules/fast-xml-parser/src/xmlparser/xmlNode.js ***!
+  \***************************************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ XmlNode)
+/* harmony export */ });
+
+
+let METADATA_SYMBOL;
+
+if (typeof Symbol !== "function") {
+  METADATA_SYMBOL = "@@xmlMetadata";
+} else {
+  METADATA_SYMBOL = Symbol("XML Node Metadata");
+}
+
+class XmlNode{
+  constructor(tagname) {
+    this.tagname = tagname;
+    this.child = []; //nested tags, text, cdata, comments in order
+    this[":@"] = {}; //attributes map
+  }
+  add(key,val){
+    // this.child.push( {name : key, val: val, isCdata: isCdata });
+    if(key === "__proto__") key = "#__proto__";
+    this.child.push( {[key]: val });
+  }
+  addChild(node, startIndex) {
+    if(node.tagname === "__proto__") node.tagname = "#__proto__";
+    if(node[":@"] && Object.keys(node[":@"]).length > 0){
+      this.child.push( { [node.tagname]: node.child, [":@"]: node[":@"] });
+    }else{
+      this.child.push( { [node.tagname]: node.child });
+    }
+    // if requested, add the startIndex
+    if (startIndex !== undefined) {
+      // Note: for now we just overwrite the metadata. If we had more complex metadata,
+      // we might need to do an object append here:  metadata = { ...metadata, startIndex }
+      this.child[this.child.length - 1][METADATA_SYMBOL] = { startIndex };
+    }
+  }
+  /** symbol used for metadata */
+  static getMetaDataSymbol() {
+    return METADATA_SYMBOL;
+  }
+}
+
 
 /***/ }),
 
@@ -4811,6 +6737,149 @@ function buildPermutationTable(random) {
 
 /***/ }),
 
+/***/ "./node_modules/strnum/strnum.js":
+/*!***************************************!*\
+  !*** ./node_modules/strnum/strnum.js ***!
+  \***************************************/
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ toNumber)
+/* harmony export */ });
+const hexRegex = /^[-+]?0x[a-fA-F0-9]+$/;
+const numRegex = /^([\-\+])?(0*)([0-9]*(\.[0-9]*)?)$/;
+// const octRegex = /^0x[a-z0-9]+/;
+// const binRegex = /0x[a-z0-9]+/;
+
+ 
+const consider = {
+    hex :  true,
+    // oct: false,
+    leadingZeros: true,
+    decimalPoint: "\.",
+    eNotation: true,
+    //skipLike: /regex/
+};
+
+function toNumber(str, options = {}){
+    options = Object.assign({}, consider, options );
+    if(!str || typeof str !== "string" ) return str;
+    
+    let trimmedStr  = str.trim();
+    
+    if(options.skipLike !== undefined && options.skipLike.test(trimmedStr)) return str;
+    else if(str==="0") return 0;
+    else if (options.hex && hexRegex.test(trimmedStr)) {
+        return parse_int(trimmedStr, 16);
+    // }else if (options.oct && octRegex.test(str)) {
+    //     return Number.parseInt(val, 8);
+    }else if (trimmedStr.search(/.+[eE].+/)!== -1) { //eNotation
+        return resolveEnotation(str,trimmedStr,options);
+    // }else if (options.parseBin && binRegex.test(str)) {
+    //     return Number.parseInt(val, 2);
+    }else{
+        //separate negative sign, leading zeros, and rest number
+        const match = numRegex.exec(trimmedStr);
+        // +00.123 => [ , '+', '00', '.123', ..
+        if(match){
+            const sign = match[1] || "";
+            const leadingZeros = match[2];
+            let numTrimmedByZeros = trimZeros(match[3]); //complete num without leading zeros
+            const decimalAdjacentToLeadingZeros = sign ? // 0., -00., 000.
+                str[leadingZeros.length+1] === "." 
+                : str[leadingZeros.length] === ".";
+
+            //trim ending zeros for floating number
+            if(!options.leadingZeros //leading zeros are not allowed
+                && (leadingZeros.length > 1 
+                    || (leadingZeros.length === 1 && !decimalAdjacentToLeadingZeros))){
+                // 00, 00.3, +03.24, 03, 03.24
+                return str;
+            }
+            else{//no leading zeros or leading zeros are allowed
+                const num = Number(trimmedStr);
+                const parsedStr = String(num);
+
+                if( num === 0) return num;
+                if(parsedStr.search(/[eE]/) !== -1){ //given number is long and parsed to eNotation
+                    if(options.eNotation) return num;
+                    else return str;
+                }else if(trimmedStr.indexOf(".") !== -1){ //floating number
+                    if(parsedStr === "0") return num; //0.0
+                    else if(parsedStr === numTrimmedByZeros) return num; //0.456. 0.79000
+                    else if( parsedStr === `${sign}${numTrimmedByZeros}`) return num;
+                    else return str;
+                }
+                
+                let n = leadingZeros? numTrimmedByZeros : trimmedStr;
+                if(leadingZeros){
+                    // -009 => -9
+                    return (n === parsedStr) || (sign+n === parsedStr) ? num : str
+                }else  {
+                    // +9
+                    return (n === parsedStr) || (n === sign+parsedStr) ? num : str
+                }
+            }
+        }else{ //non-numeric string
+            return str;
+        }
+    }
+}
+
+const eNotationRegx = /^([-+])?(0*)(\d*(\.\d*)?[eE][-\+]?\d+)$/;
+function resolveEnotation(str,trimmedStr,options){
+    if(!options.eNotation) return str;
+    const notation = trimmedStr.match(eNotationRegx); 
+    if(notation){
+        let sign = notation[1] || "";
+        const eChar = notation[3].indexOf("e") === -1 ? "E" : "e";
+        const leadingZeros = notation[2];
+        const eAdjacentToLeadingZeros = sign ? // 0E.
+            str[leadingZeros.length+1] === eChar 
+            : str[leadingZeros.length] === eChar;
+
+        if(leadingZeros.length > 1 && eAdjacentToLeadingZeros) return str;
+        else if(leadingZeros.length === 1 
+            && (notation[3].startsWith(`.${eChar}`) || notation[3][0] === eChar)){
+                return Number(trimmedStr);
+        }else if(options.leadingZeros && !eAdjacentToLeadingZeros){ //accept with leading zeros
+            //remove leading 0s
+            trimmedStr = (notation[1] || "") + notation[3];
+            return Number(trimmedStr);
+        }else return str;
+    }else{
+        return str;
+    }
+}
+
+/**
+ * 
+ * @param {string} numStr without leading zeros
+ * @returns 
+ */
+function trimZeros(numStr){
+    if(numStr && numStr.indexOf(".") !== -1){//float
+        numStr = numStr.replace(/0+$/, ""); //remove ending zeros
+        if(numStr === ".")  numStr = "0";
+        else if(numStr[0] === ".")  numStr = "0"+numStr;
+        else if(numStr[numStr.length-1] === ".")  numStr = numStr.substring(0,numStr.length-1);
+        return numStr;
+    }
+    return numStr;
+}
+
+function parse_int(numStr, base){
+    //polyfill
+    if(parseInt) return parseInt(numStr, base);
+    else if(Number.parseInt) return Number.parseInt(numStr, base);
+    else if(window && window.parseInt) return window.parseInt(numStr, base);
+    else throw new Error("parseInt, Number.parseInt, window.parseInt are not supported")
+}
+
+/***/ }),
+
 /***/ "./src/DebugMenu.ts":
 /*!**************************!*\
   !*** ./src/DebugMenu.ts ***!
@@ -4826,13 +6895,12 @@ __webpack_require__.r(__webpack_exports__);
  * Our class for debug screen
  * Note: using this slows down performance. To disable set the attribute debugMode to false.
  */
-var DebugMenu = /** @class */ (function () {
+class DebugMenu {
     /**
      * Constructs debug menu
      * @param mode (optional) Boolean if debug mode is on or off - default to true
      */
-    function DebugMenu(mode) {
-        if (mode === void 0) { mode = true; }
+    constructor(mode = true) {
         this._debugMode = true;
         this.object = document.getElementById("debugMenu");
         this.objects = {};
@@ -4843,55 +6911,49 @@ var DebugMenu = /** @class */ (function () {
     /**
      * Updates value in debug menu
      */
-    DebugMenu.prototype.update = function () {
+    update() {
         if (this.debugMode) {
             if (Date.now() - this.lastUpdate >= 1000 / this.updateSpeed) {
                 this.object.innerHTML = "";
-                for (var key in this.objects) {
-                    var val = this.objects[key];
-                    var a = val();
-                    var elem = document.createElement("p");
-                    elem.textContent = "".concat(key, ": ").concat(a);
+                for (let key in this.objects) {
+                    let val = this.objects[key];
+                    let a = val();
+                    let elem = document.createElement("p");
+                    elem.textContent = `${key}: ${a}`;
                     this.object.appendChild(elem);
                 }
                 this.lastUpdate = Date.now();
             }
         }
-    };
+    }
     /**
      * Adds thing to be debug
      * @param key The id/identifier on screen
      * @param supplier Has to be the SUPPLIER to the object you now want to read. If you want it to always show the variable counter, then you would use the ARROW FUNCTION ()=>`${counter}` in this area. Note that the arrow function must always return a number or string
      */
-    DebugMenu.prototype.addElement = function (key, supplier) {
+    addElement(key, supplier) {
         this.objects[key] = supplier;
-    };
+    }
     /**
      * Remove element from debug menu
      * @param key Key to remove (string)
      */
-    DebugMenu.prototype.removeElement = function (key) {
+    removeElement(key) {
         delete this.objects[key];
-    };
-    Object.defineProperty(DebugMenu.prototype, "debugMode", {
-        get: function () {
-            return this._debugMode;
-        },
-        set: function (mode) {
-            this._debugMode = mode;
-            if (mode == true) {
-                this.object.style.display = "block";
-            }
-            else {
-                this.object.style.display = "none";
-            }
-        },
-        enumerable: false,
-        configurable: true
-    });
-    return DebugMenu;
-}());
-
+    }
+    set debugMode(mode) {
+        this._debugMode = mode;
+        if (mode == true) {
+            this.object.style.display = "block";
+        }
+        else {
+            this.object.style.display = "none";
+        }
+    }
+    get debugMode() {
+        return this._debugMode;
+    }
+}
 
 
 /***/ }),
@@ -4907,8 +6969,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   GameEngine: () => (/* binding */ GameEngine)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 /* harmony import */ var _DebugMenu__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./DebugMenu */ "./src/DebugMenu.ts");
 /* harmony import */ var _map_Map__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./map/Map */ "./src/map/Map.ts");
 /* harmony import */ var _render_Camera__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/Camera */ "./src/render/Camera.ts");
@@ -4918,42 +6979,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../models/stand.3mf */ "./models/stand.3mf");
 /* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
 /* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./map/terrains */ "./src/map/terrains.ts");
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __generator = (undefined && undefined.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
-            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [op[0] & 2, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
-            }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./Settings */ "./src/Settings.ts");
+
 
 
 
@@ -4968,18 +6995,15 @@ var __generator = (undefined && undefined.__generator) || function (thisArg, bod
  * Our holding class for all game mechanics
  * Generally doing something like this is better programming practice & may avoid bugs and merge conflicts in the future
  */
-var GameEngine = /** @class */ (function () {
+class GameEngine {
     /**
      * Constructs game engine
      * @param canvasId The ID of the canvas rendered to
      * @returns
      */
-    function GameEngine(canvasId) {
-        var _this = this;
+    constructor(canvas) {
         //
         this.keys = {};
-        this.maxFPS = 60;
-        this.frameInterval = 1000 / this.maxFPS;
         this.lastRenderTime = 0;
         this.mode = 0; // 0 for hybrid, 1 for pathtracer, -1 for off
         //
@@ -4987,6 +7011,9 @@ var GameEngine = /** @class */ (function () {
         this.lastFPSCheck = 0;
         this.currentFPS = 0;
         this.worldInitialized = false;
+        this.renderDistance = 3; // In chunks
+        this.lastCameraChunk = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(-1, -1, -1);
+        this.pathtracerUpdated = false;
         // Stored bound event handlers for cleanup
         this.boundMouseDown = null;
         this.boundMouseMove = null;
@@ -4998,10 +7025,11 @@ var GameEngine = /** @class */ (function () {
         this.boundKeyUp = null;
         //Debugger
         this.debug = new _DebugMenu__WEBPACK_IMPORTED_MODULE_0__.DebugMenu(true); // Pass into class when want to use
-        this.canvas = document.getElementById(canvasId);
+        this.canvas = canvas;
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
         this.canvas.style.display = "none";
+        this.initWorldSettings();
         //GL Context
         this.gl = this.canvas.getContext("webgl2", {
             antialias: true,
@@ -5012,53 +7040,59 @@ var GameEngine = /** @class */ (function () {
         });
         //Initialize controls
         this.addKeys();
-        this.updatePathracing = function () { };
+        this.updatePathracing = () => { };
         //Initialize world
-        this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 64, 1000, this.gl, function () { return _this.updatePathracing; });
+        // Increase world height to allow taller mountains (was 64)
+        this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 160, 1000, this.gl, () => this.updatePathracing);
         //Initialize Camera
-        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(-22, 20, 33));
-        //Initialize Renderer
-        this.renderer = new _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world);
+        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(500, 50, 500));
+        this.lastCameraChunk = this.world.getChunkCoordsFromPosition(this.mainCamera.position);
         //Initial pathTracer
-        this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.renderer, this.debug);
-        this.updatePathracing = function () {
-            _this.pathTracer.initBVH(_this.world.combinedMesh());
-            _this.pathTracer.init(false);
+        this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.debug);
+        //Initialize Renderer
+        this.renderer = new _render_GLRenderer__WEBPACK_IMPORTED_MODULE_3__.GLRenderer(this.gl, this.canvas, this.mainCamera, this.debug, this.world, this.pathTracer);
+        this.updatePathracing = () => {
+            if (!this.pathtracerUpdated) {
+                this.pathtracerUpdated = true;
+                this.pathTracer.initBVH(this.world.combinedMesh());
+            }
+            this.pathTracer.init(false);
         };
         //Events
-        this.boundMouseDown = function () { return _this.requestScreenLock(); };
-        this.boundMouseMove = function (e) { return _this.mouseMove(e); };
-        this.boundResize = function () { return _this.resizeCanvas(); };
+        this.boundMouseDown = () => this.requestScreenLock();
+        this.boundMouseMove = (e) => this.mouseMove(e);
+        this.boundResize = () => this.resizeCanvas();
         this.canvas.addEventListener("mousedown", this.boundMouseDown);
         this.canvas.addEventListener("mousemove", this.boundMouseMove);
         window.addEventListener("resize", this.boundResize);
         //Debugging
-        this.debug.addElement("FPS", function () { return Math.round(_this.currentFPS); });
-        this.debug.addElement("#Types", function () { return Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_8__.Terrains).length; });
+        this.debug.addElement("FPS", () => Math.round(this.currentFPS));
+        this.debug.addElement("#Types", () => Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_8__.Terrains).length);
         //Initialize switcher
-        var rayBtn = document.getElementById("raytracing");
-        var pathBtn = document.getElementById("pathtracing");
-        this.boundRayClick = function () {
+        const rayBtn = document.getElementById("raytracing");
+        const pathBtn = document.getElementById("pathtracing");
+        this.boundRayClick = () => {
             rayBtn.classList.add("active");
             pathBtn.classList.remove("active");
-            if (_this.mode == 1) {
-                _this.pathTracer.leave();
+            if (this.mode == 1) {
+                this.pathTracer.leave();
             }
-            _this.mode = 0; // Set to raytracing
+            this.mode = 0; // Set to raytracing
         };
         rayBtn.addEventListener("click", this.boundRayClick);
-        this.boundPathClick = function () {
+        this.boundPathClick = () => {
             pathBtn.classList.add("active");
             rayBtn.classList.remove("active");
-            _this.mode = 1; // Set to pathtracing
-            _this.pathTracer.init();
+            this.mode = 1; // Set to pathtracing
+            this.pathTracer.initBVH(this.world.combinedMesh());
+            this.pathTracer.init();
         };
         pathBtn.addEventListener("click", this.boundPathClick);
         //Initialize menu
-        var menuButton = document.getElementById("menu-toggle");
-        var sidebar = document.getElementById("sidebar");
-        var topBar = document.getElementById("topBarWrapper");
-        this.boundMenuClick = function () {
+        const menuButton = document.getElementById("menu-toggle");
+        const sidebar = document.getElementById("sidebar");
+        const topBar = document.getElementById("topBarWrapper");
+        this.boundMenuClick = () => {
             sidebar.classList.toggle("open");
             topBar.classList.toggle("shifted");
         };
@@ -5073,8 +7107,7 @@ var GameEngine = /** @class */ (function () {
     /**
      * Dispose engine resources and remove DOM / event hooks.
      */
-    GameEngine.prototype.dispose = function () {
-        var _a, _b, _c;
+    dispose() {
         // Remove event listeners
         try {
             if (this.boundMouseDown)
@@ -5084,11 +7117,17 @@ var GameEngine = /** @class */ (function () {
             if (this.boundResize)
                 window.removeEventListener("resize", this.boundResize);
             if (this.boundRayClick)
-                (_a = document.getElementById("raytracing")) === null || _a === void 0 ? void 0 : _a.removeEventListener("click", this.boundRayClick);
+                document
+                    .getElementById("raytracing")
+                    ?.removeEventListener("click", this.boundRayClick);
             if (this.boundPathClick)
-                (_b = document.getElementById("pathtracing")) === null || _b === void 0 ? void 0 : _b.removeEventListener("click", this.boundPathClick);
+                document
+                    .getElementById("pathtracing")
+                    ?.removeEventListener("click", this.boundPathClick);
             if (this.boundMenuClick)
-                (_c = document.getElementById("menu-toggle")) === null || _c === void 0 ? void 0 : _c.removeEventListener("click", this.boundMenuClick);
+                document
+                    .getElementById("menu-toggle")
+                    ?.removeEventListener("click", this.boundMenuClick);
             if (this.boundKeyDown)
                 window.removeEventListener("keydown", this.boundKeyDown);
             if (this.boundKeyUp)
@@ -5106,72 +7145,74 @@ var GameEngine = /** @class */ (function () {
             this.pathTracer.dispose();
         }
         catch (e) { }
-        try {
-            this.world.dispose();
-        }
-        catch (e) { }
-    };
-    GameEngine.prototype.initialize = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            var mesh, identity2;
-            var _this = this;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateTerrain(); }))];
-                    case 1:
-                        _a.sent();
-                        this.world.populateFieldMap();
-                        return [4 /*yield*/, Promise.all(this.world.chunks.map(function (chunk) { return chunk.generateMarchingCubes(); }))];
-                    case 2:
-                        _a.sent();
-                        this.renderer.vaoManager.createTerrainVAO(_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.genTerrainVertices(this.world));
-                        this.world.onObjectAdded = function (obj) {
-                            _this.world.objectUI.setupObjectUI(obj, _this.world, document.getElementById("world-objects"), _this.world.objectUI);
-                            _this.renderer.vaoManager.createWorldObjectVAOs(_this.world.worldObjects);
-                        };
-                        this.world.onObjectRemoved = function (id) {
-                            try {
-                                _this.renderer.vaoManager.removeWorldObjectVAO(id);
-                            }
-                            catch (e) {
-                                // ignore
-                            }
-                        };
-                        return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__)];
-                    case 3:
-                        mesh = _a.sent();
-                        identity2 = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
-                        gl_matrix__WEBPACK_IMPORTED_MODULE_10__.identity(identity2);
-                        this.world.addObject(mesh, identity2, "Gear");
-                        this.pathTracer.initBVH(this.world.combinedMesh());
-                        this.pathTracer.init(false);
-                        this.worldInitialized = true;
-                        this.canvas.style.display = "block";
-                        document.getElementById("loadingBox").style.display = "none";
-                        return [2 /*return*/];
-                }
-            });
+    }
+    async initialize() {
+        this.generateChunksAroundCamera();
+        this.world.onObjectAdded = (obj) => {
+            this.world.objectUI.setupObjectUI(obj, this.world, document.getElementById("world-objects"), this.world.objectUI);
+            this.renderer.vaoManager.createWorldObjectVAOs(this.world.worldObjects);
+        };
+        this.world.onObjectRemoved = (id) => {
+            try {
+                this.renderer.vaoManager.removeWorldObjectVAO(id);
+            }
+            catch (e) {
+                // ignore
+            }
+        };
+        // Set up light change callback and create initial light VAOs
+        this.world.onLightsChanged = () => {
+            this.renderer.vaoManager.createPointLightVAOs(this.world.lights);
+        };
+        this.renderer.vaoManager.createPointLightVAOs(this.world.lights);
+        // Add a gear object
+        const gearResult = await (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__);
+        const gearMesh = gearResult.mesh;
+        // Note: gearResult.transform could be applied if needed, but addChunkGears applies its own transforms
+        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.addChunkGears(this.world, gearMesh);
+        //this.pathTracer.initBVH(this.world.combinedMesh());
+        //this.pathTracer.init(false);
+        this.worldInitialized = true;
+        this.canvas.style.display = "block";
+        document.getElementById("loadingBox").style.display = "none";
+    }
+    initWorldSettings() {
+        _Settings__WEBPACK_IMPORTED_MODULE_9__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "World Settings");
+        _Settings__WEBPACK_IMPORTED_MODULE_9__.SettingsManager.instance.addSliderToSection("World Settings", {
+            id: "Render Distance",
+            label: "Render Distance",
+            defaultValue: this.renderDistance,
+            min: 1,
+            max: 20,
+            step: 1,
+            numType: "int",
+            onChange: (v) => {
+                this.renderDistance = v;
+            }
         });
-    };
+        _Settings__WEBPACK_IMPORTED_MODULE_9__.SettingsManager.instance.addButtonToSection("World Settings", "Regenerate Terrain", () => {
+            this.generateChunksAroundCamera(true);
+        });
+    }
     /**
      * Our Game Loop - Run once every frame (capped at max framerate)
      */
-    GameEngine.prototype.tick = function (timestamp) {
-        if (timestamp - this.lastRenderTime < this.frameInterval ||
-            this.mode == -1) {
+    tick(timestamp) {
+        if (this.mode == -1) {
             return;
         }
-        var timePassed = timestamp - this.lastRenderTime;
+        const timePassed = timestamp - this.lastRenderTime;
         this.lastRenderTime = timestamp;
         if (this.worldInitialized) {
             if (GameEngine.getLockedElement()) {
                 this.updateCamera(timePassed);
             }
             if (this.mode == 0) {
-                this.renderer.render();
+                this.renderer.render(timestamp);
             }
             else {
-                this.pathTracer.render(timestamp);
+                this.renderer.render(timestamp, true);
+                //this.pathTracer.render(timestamp);
                 //this.mode=-1;
             }
         }
@@ -5183,58 +7224,111 @@ var GameEngine = /** @class */ (function () {
             this.frameCounter = 0;
         }
         this.debug.update();
-    };
+    }
+    generateChunksAroundCamera(deleteAllChunks = false) {
+        if (this.world.isGeneratingChunk)
+            return;
+        const cameraChunk = this.world.getChunkCoordsFromPosition(this.mainCamera.position);
+        // Unload distant chunks
+        for (const chunkKey in this.world.chunks) {
+            const chunkPos = _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.chunkKeyToPosition(chunkKey);
+            const distance = Math.max(Math.abs(chunkPos[0] - cameraChunk[0]) / this.world.resolution, Math.abs(chunkPos[1] - cameraChunk[1]) / this.world.height, Math.abs(chunkPos[2] - cameraChunk[2]) / this.world.resolution);
+            if (distance > this.renderDistance || deleteAllChunks) {
+                this.world.unloadChunk(chunkPos);
+                this.renderer.vaoManager.deleteTerrainVao(chunkKey);
+            }
+        }
+        // Find which chunks need to be generated
+        const chunksToGenerate = [];
+        for (let j = -this.renderDistance; j <= this.renderDistance; j++) {
+            for (let i = -this.renderDistance; i <= this.renderDistance; i++) {
+                const chunkPos = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(cameraChunk[0] + i * this.world.resolution, 0, cameraChunk[2] + j * this.world.resolution);
+                if (!this.world.hasChunkAt(chunkPos)) {
+                    chunksToGenerate.push(chunkPos);
+                }
+            }
+        }
+        if (chunksToGenerate.length === 0)
+            return;
+        // Find bounding box of chunks to generate
+        let minX = Infinity, minZ = Infinity;
+        let maxX = -Infinity, maxZ = -Infinity;
+        for (const pos of chunksToGenerate) {
+            minX = Math.min(minX, pos[0]);
+            minZ = Math.min(minZ, pos[2]);
+            maxX = Math.max(maxX, pos[0]);
+            maxZ = Math.max(maxZ, pos[2]);
+        }
+        // Calculate strip dimensions in chunks
+        const lengthInChunks = Math.round((maxX - minX) / this.world.resolution) + 1;
+        const widthInChunks = Math.round((maxZ - minZ) / this.world.resolution) + 1;
+        const startPos = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(minX, 0, minZ);
+        // Generate all chunks in one strip
+        this.world.loadChunkStrip(startPos, lengthInChunks, widthInChunks, (chunk) => {
+            this.renderer.vaoManager.createTerrainVAO(chunk, _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.chunkKeyFromPosition(chunk.ChunkPosition, this.world));
+        });
+        this.world.processChunkQueue();
+    }
+    updateChunksForCamera() {
+        const cameraChunk = this.world.getChunkCoordsFromPosition(this.mainCamera.position);
+        if (gl_matrix__WEBPACK_IMPORTED_MODULE_10__.equals(cameraChunk, this.lastCameraChunk) || this.mode != 0) {
+            return;
+        }
+        this.lastCameraChunk = cameraChunk;
+        this.generateChunksAroundCamera();
+    }
     /**
      * Controls to move the camera!
      */
-    GameEngine.prototype.updateCamera = function (time) {
-        var velocity = this.mainCamera.speed * time;
-        var movement = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
-        var oldCamPos = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
-        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.copy(oldCamPos, this.mainCamera.position);
+    updateCamera(time) {
+        let velocity = this.mainCamera.speed * time;
+        let movement = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
+        this.mainCamera.lastPosition = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.clone(this.mainCamera.position);
         //scaleAndAdd simply adds the second operand by a scaler. Basically just +=camera.front*velocity
+        if (this.keys["KeyF"])
+            velocity *= 4;
         if (this.keys["KeyW"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.front, velocity); // Forward
         if (this.keys["KeyS"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.front, -velocity); // Backward
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.front, -velocity); // Backward
         if (this.keys["KeyA"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.right, -velocity); // Left
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.right, -velocity); // Left
         if (this.keys["KeyD"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.right, velocity); // Right
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.right, velocity); // Right
         if (this.keys["Space"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.up, velocity); // Up
         if (this.keys["ShiftLeft"])
-            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
-        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.add(this.mainCamera.position, this.mainCamera.position, movement);
-        if (!gl_matrix__WEBPACK_IMPORTED_MODULE_9__.equals(this.mainCamera.position, oldCamPos)) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scaleAndAdd(movement, movement, this.mainCamera.up, -velocity); // Down
+        gl_matrix__WEBPACK_IMPORTED_MODULE_10__.add(this.mainCamera.position, this.mainCamera.position, movement);
+        if (!gl_matrix__WEBPACK_IMPORTED_MODULE_10__.equals(this.mainCamera.position, this.mainCamera.lastPosition)) {
             this.pathTracer.resetAccumulation();
         }
-    };
-    GameEngine.prototype.addKeys = function () {
-        var _this = this;
-        this.boundKeyDown = function (event) {
-            _this.keys[event.code] = true;
+        this.updateChunksForCamera();
+    }
+    addKeys() {
+        this.boundKeyDown = (event) => {
+            this.keys[event.code] = true;
         };
-        this.boundKeyUp = function (event) {
-            _this.keys[event.code] = false;
+        this.boundKeyUp = (event) => {
+            this.keys[event.code] = false;
         };
         window.addEventListener("keydown", this.boundKeyDown);
         window.addEventListener("keyup", this.boundKeyUp);
-    };
+    }
     /*--------------------------------Utilities--------------------------------*/
     /**
      * Requests a pointer lock on the game
      */
-    GameEngine.prototype.requestScreenLock = function () {
+    requestScreenLock() {
         this.canvas.requestPointerLock();
         document.getElementById("body").requestFullscreen();
-    };
+    }
     /**
      * To measure the movement of the mouse
      */
-    GameEngine.prototype.mouseMove = function (event) {
+    mouseMove(event) {
         if (GameEngine.getLockedElement()) {
-            var movementX = event.movementX, movementY = event.movementY;
+            let { movementX, movementY } = event;
             // Convert pixels to angles
             this.mainCamera.yaw += movementX * this.mainCamera.sensitivity;
             this.mainCamera.pitch -= movementY * this.mainCamera.sensitivity;
@@ -5246,30 +7340,28 @@ var GameEngine = /** @class */ (function () {
             this.mainCamera.UpdateCameraVectors();
             this.pathTracer.resetAccumulation();
         }
-    };
+    }
     /**
      * Resize the canvas to fill screen at all times
      */
-    GameEngine.prototype.resizeCanvas = function () {
+    resizeCanvas() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.renderer.resizeGBuffer(this.canvas.width, this.canvas.height);
         this.pathTracer.resetAccumulation();
-    };
+    }
     /**
      * Use when you want to see if the screen is locked or not
      * @returns HTML Element (The locked element)
      */
-    GameEngine.getLockedElement = function () {
+    static getLockedElement() {
         return document.pointerLockElement;
-    };
-    GameEngine.toRadians = function (degrees) {
+    }
+    static toRadians(degrees) {
         return degrees * (Math.PI / 180);
-    };
-    return GameEngine;
-}());
-
+    }
+}
 
 
 /***/ }),
@@ -5285,8 +7377,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   PathTracer: () => (/* binding */ PathTracer)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
 /* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
 /* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
 /* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
@@ -5296,6 +7388,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../map/BVHUtils */ "./src/map/BVHUtils.ts");
 /* harmony import */ var _glsl_copyShader_copy_frag__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./glsl/copyShader/copy.frag */ "./src/Pathtracing/glsl/copyShader/copy.frag");
 /* harmony import */ var _glsl_copyShader_copy_vert__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./glsl/copyShader/copy.vert */ "./src/Pathtracing/glsl/copyShader/copy.vert");
+/* harmony import */ var _render_passes_CloudsPass__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../render/passes/CloudsPass */ "./src/render/passes/CloudsPass.ts");
+/* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../map/terrains */ "./src/map/terrains.ts");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ../Settings */ "./src/Settings.ts");
 // Ik this code is a lot of repeat from code in other places, but I do have some things I plan on doing which would make me using the other code less desirable for this purpose
 
 
@@ -5307,21 +7402,18 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-var PathTracer = /** @class */ (function () {
-    function PathTracer(canvas, context, world, camera, glRenderer, debug) {
+
+
+
+class PathTracer {
+    constructor(canvas, context, world, camera, debug) {
         // Accumulation stuff
         this.framebuffers = [];
         this.accumulationTextures = [];
         this.currentFrame = 0; // The source texture/framebuffer index
         this.frameNumber = 0; // The accumulation counter
-        this.numBounces = 15;
-        // VAO/VBO for fullscreen triangle
         this.fullscreenVAO = null;
         this.fullscreenVBO = null;
-        // bound event handlers so we can remove listeners
-        this.boundHandleBounce = null;
-        // Textures created for pathtracing data (vertices, bvh, etc.)
-        this.pathDataTextures = [];
         //Information
         this.vertices = null;
         this.terrains = null;
@@ -5332,15 +7424,34 @@ var PathTracer = /** @class */ (function () {
         // Terrain Info
         this.terrainTypes = null;
         this.vertexNormals = null;
+        this.grassBB = null;
+        this.glRendererVaoManager = null;
+        this.uniforms = {
+            vertices: null,
+            terrains: null,
+            boundindingBoxes: null,
+            nodes: null,
+            leafs: null,
+            terrainTypes: null,
+            vertexNormal: null,
+            numTerrains: null,
+            camera: null,
+            inverseViewProj: null,
+            resolution: null,
+            lastFrame: null,
+            frameNum: null,
+            COPYPROGRAM_sourceTex: null,
+            grassBB: null,
+        };
         this.canvas = canvas;
         this.gl = context;
         this.world = world;
         this.camera = camera;
-        this.glRenderer = glRenderer;
         this.debug = debug;
+        this.noiseGenerator = new _render_passes_CloudsPass__WEBPACK_IMPORTED_MODULE_9__.NoiseGenerator(this.gl);
         this.gl.enable(this.gl.BLEND);
         //Enable float texture writing extention
-        var float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
+        const float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
         if (!float_render_ext) {
             alert("Error: Floating point render targets are not supported on this browser/GPU.");
             throw new Error("EXT_color_buffer_float not supported");
@@ -5348,34 +7459,31 @@ var PathTracer = /** @class */ (function () {
         //Shaders
         this.meshProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _glsl_pathtracerShader_path_vert__WEBPACK_IMPORTED_MODULE_5__, _glsl_pathtracerShader_path_frag__WEBPACK_IMPORTED_MODULE_4__);
         this.copyProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _glsl_copyShader_copy_vert__WEBPACK_IMPORTED_MODULE_8__, _glsl_copyShader_copy_frag__WEBPACK_IMPORTED_MODULE_7__);
-        //Slider
-        var slider = document.getElementById("bounceSlider");
-        this.boundHandleBounce = this.handleBounceInput.bind(this);
-        slider.addEventListener("input", this.boundHandleBounce);
-        slider.value = this.numBounces.toString();
-        var bounceValue = document.getElementById("bounceValue");
-        bounceValue.textContent = "".concat(this.numBounces);
+        this.initSettingsSection();
     }
-    PathTracer.prototype.handleBounceInput = function (event) {
-        var target = event.target;
-        var newValue = parseInt(target.value);
-        this.numBounces = newValue;
-        var bounceValue = document.getElementById("bounceValue");
-        bounceValue.textContent = newValue.toString();
-    };
-    PathTracer.prototype.initBVH = function (mainMesh) {
+    initBVH(mainMesh) {
         ////////////////////// build flat BVH structure
         //Obtain bvh from mesh.
-        var BVHtriangles = mainMesh.exportBVHTriangles();
-        var BVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.exportBVH(BVHtriangles);
-        var flatBVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.flattenBVH(BVHtree);
+        const BVHtriangles = mainMesh.exportBVHTriangles();
+        if (this.glRendererVaoManager) {
+            const grassInfo = this.glRendererVaoManager.getGrassBVHTriangle();
+            let grassTriangles = grassInfo.triangles;
+            for (let i = 0; i < grassTriangles.length; i++) {
+                BVHtriangles.push(grassTriangles[i]);
+            }
+            if (grassTriangles.length != 0) {
+                this.grassBB = grassInfo.primitives;
+            }
+        }
+        const BVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.exportBVH(BVHtriangles);
+        const flatBVHtree = _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh.flattenBVH(BVHtree);
         ////////////// Pack everything float format to send to glsl
         //Pack triangles
-        var _a = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals), vertices = _a.vertices, terrains = _a.terrains, normals = _a.normals;
+        const { vertices, terrains, normals } = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packTriangles(mainMesh.mesh, mainMesh.type, mainMesh.normals);
         //Pack BVH
-        var _b = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packBVH(flatBVHtree), boundingBoxes = _b.boundingBoxes, nodes = _b.nodes, leafs = _b.leafs;
+        const { boundingBoxes, nodes, leafs } = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packBVH(flatBVHtree);
         //Pack terrain Types
-        var terrainTypes = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packTerrainTypes();
+        const terrainTypes = _map_BVHUtils__WEBPACK_IMPORTED_MODULE_6__.BVHUtils.packTerrainTypes();
         //save
         this.vertices = vertices;
         this.terrains = terrains;
@@ -5384,44 +7492,40 @@ var PathTracer = /** @class */ (function () {
         this.leafs = leafs;
         this.terrainTypes = terrainTypes;
         this.vertexNormals = normals;
-    };
-    PathTracer.prototype.render = function (time) {
+    }
+    render(time) {
         this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
         // Clear the color buffer with specified clear color
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
         //const resScaleFactor = 1 / (this.world.resolution / 4);
         this.drawMesh();
-    };
-    PathTracer.prototype.drawMesh = function () {
-        // initPathtracing and makeVao are done during init() / initBVH to avoid
-        // recreating GPU resources every frame.
+    }
+    drawMesh() {
+        this.setupFrame();
         //Put camera position, direction in shader
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.meshProgram, "u_cameraPos"), this.camera.position);
-        var viewProjMatrix = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
-        var invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
-        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.invert(invViewProjMatrix, viewProjMatrix);
-        this.gl.uniformMatrix4fv(this.gl.getUniformLocation(this.meshProgram, "u_invViewProjMatrix"), false, invViewProjMatrix);
-        var resolution = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
+        this.gl.uniform3fv(this.uniforms.camera, this.camera.position);
+        const viewProjMatrix = this.camera.calculateProjectionMatrix(this.canvas.width, this.canvas.height);
+        const invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_12__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_12__.invert(invViewProjMatrix, viewProjMatrix);
+        this.gl.uniformMatrix4fv(this.uniforms.inverseViewProj, false, invViewProjMatrix);
+        const resolution = gl_matrix__WEBPACK_IMPORTED_MODULE_13__.create();
         resolution[0] = this.canvas.width;
         resolution[1] = this.canvas.height;
-        this.gl.uniform2fv(this.gl.getUniformLocation(this.meshProgram, "u_resolution"), resolution);
+        this.gl.uniform2fv(this.uniforms.resolution, resolution);
         //put lights in the shader
-        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_3__.WorldUtils.updateLights(this.gl, this.meshProgram, this.world.lights);
+        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_3__.WorldUtils.updateLights(this.gl, this.meshProgram, this.world.lights, this.world.sunLight);
         //Bind Previous Frame
-        var lastFrameIndex = this.currentFrame;
-        var nextFrameIndex = (this.currentFrame + 1) % 2;
+        const lastFrameIndex = this.currentFrame;
+        const nextFrameIndex = (this.currentFrame + 1) % 2;
         this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.accumulationTextures[lastFrameIndex]);
-        var lastFrameLoc = this.gl.getUniformLocation(this.meshProgram, "u_lastFrame");
-        this.gl.uniform1i(lastFrameLoc, 8);
+        this.gl.uniform1i(this.uniforms.lastFrame, 8);
         //put samples, bounce in shader
+        _Settings__WEBPACK_IMPORTED_MODULE_11__.SettingsManager.instance.updateProgramUniforms(this.gl, this.meshProgram);
         this.frameNumber++;
-        this.gl.uniform1i(this.gl.getUniformLocation(this.meshProgram, "numBounces"), this.numBounces);
-        this.gl.uniform1f(this.gl.getUniformLocation(this.meshProgram, "u_frameNumber"), this.frameNumber); // Send as a float for seeding
+        this.gl.uniform1i(this.uniforms.frameNum, this.frameNumber); // Send as a float for seeding
         // Draw
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.framebuffers[nextFrameIndex]);
-        if (this.fullscreenVAO)
-            this.gl.bindVertexArray(this.fullscreenVAO);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
         //Ping Pong
@@ -5429,92 +7533,114 @@ var PathTracer = /** @class */ (function () {
         //Draw to canvas using copy shader
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
         this.gl.useProgram(this.copyProgram);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.copyProgram, this.accumulationTextures[nextFrameIndex], "u_sourceTexture", 0);
-        var frameLoc = this.gl.getUniformLocation(this.copyProgram, "u_frameNumber");
-        this.gl.uniform1f(frameLoc, this.frameNumber);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.copyProgram, this.accumulationTextures[nextFrameIndex], this.uniforms.COPYPROGRAM_sourceTex, 0);
         // We can reuse the same fullscreen triangle VAO
-        if (this.fullscreenVAO)
-            this.gl.bindVertexArray(this.fullscreenVAO);
         this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
         this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-        //draw other shaders
-        this.glRenderer.render(true);
-    };
-    PathTracer.prototype.makeVao = function () {
+        this.gl.bindVertexArray(null);
+    }
+    makeVao() {
         if (this.fullscreenVAO)
-            return; // already created
-        var fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
-        var vao = this.gl.createVertexArray();
+            return; // Already created once
+        const fullscreenTriangle = new Float32Array([-1, -1, 3, -1, -1, 3]);
+        const vao = this.gl.createVertexArray();
         this.gl.bindVertexArray(vao);
-        var vbo = this.gl.createBuffer();
+        const vbo = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, fullscreenTriangle, this.gl.STATIC_DRAW);
         this.gl.enableVertexAttribArray(0);
         this.gl.vertexAttribPointer(0, 2, this.gl.FLOAT, false, 0, 0);
         this.fullscreenVAO = vao;
         this.fullscreenVBO = vbo;
-    };
-    PathTracer.prototype.init = function (showAccumulation) {
-        var _this = this;
-        if (showAccumulation === void 0) { showAccumulation = true; }
-        if (showAccumulation)
-            this.debug.addElement("Accumulation Frame", function () { return _this.frameNumber; });
-        this.initPathtracing();
+        // Unbind to avoid polluting other pipelines
+        this.gl.bindVertexArray(null);
+    }
+    init(showAccumulation = true) {
+        if (showAccumulation) {
+            this.debug.addElement("Accumulation Frame", () => this.frameNumber);
+            this.camera.farPlane = this.camera.pathtracingFarPlane;
+        }
+        this.uniforms.vertices = this.gl.getUniformLocation(this.meshProgram, "u_vertices");
+        this.uniforms.terrains = this.gl.getUniformLocation(this.meshProgram, "u_terrains");
+        this.uniforms.boundindingBoxes = this.gl.getUniformLocation(this.meshProgram, "u_boundingBox");
+        this.uniforms.nodes = this.gl.getUniformLocation(this.meshProgram, "u_nodesTex");
+        this.uniforms.leafs = this.gl.getUniformLocation(this.meshProgram, "u_leafsTex");
+        this.uniforms.terrainTypes = this.gl.getUniformLocation(this.meshProgram, "u_terrainTypes");
+        this.uniforms.vertexNormal = this.gl.getUniformLocation(this.meshProgram, "u_normals");
+        this.uniforms.numTerrains = this.gl.getUniformLocation(this.meshProgram, "u_numTerrains");
+        this.uniforms.camera = this.gl.getUniformLocation(this.meshProgram, "u_cameraPos");
+        this.uniforms.inverseViewProj = this.gl.getUniformLocation(this.meshProgram, "u_invViewProjMatrix");
+        this.uniforms.resolution = this.gl.getUniformLocation(this.meshProgram, "u_resolution");
+        this.uniforms.lastFrame = this.gl.getUniformLocation(this.meshProgram, "u_lastFrame");
+        this.uniforms.frameNum = this.gl.getUniformLocation(this.meshProgram, "u_frameNumber");
+        this.uniforms.grassBB = this.gl.getUniformLocation(this.meshProgram, "u_grassBB");
+        this.uniforms.COPYPROGRAM_sourceTex = this.gl.getUniformLocation(this.copyProgram, "u_sourceTexture");
+        this.initBVHTextures();
+        this.setupFrame();
         this.makeVao();
         this.resetAccumulation();
-    };
-    PathTracer.prototype.leave = function () {
+    }
+    leave() {
         this.debug.removeElement("Accumulation Frame");
-    };
-    PathTracer.prototype.initPathtracing = function () {
+        this.camera.farPlane = this.camera.rayTracingFarPlane;
+    }
+    initBVHTextures() {
+        this.vertexTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+        this.terrainTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+        this.boundingBoxesTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+        this.nodesTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+        this.leafsTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+        this.terrainTypeTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+        this.vertexNormalsTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+        this.grassTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.grassBB);
+        //clouds
+        this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
+        this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
+    }
+    setupFrame() {
         this.gl.useProgram(this.meshProgram);
-        // Delete old path data textures if any
-        if (this.pathDataTextures.length > 0) {
-            for (var _i = 0, _a = this.pathDataTextures; _i < _a.length; _i++) {
-                var t = _a[_i];
-                this.gl.deleteTexture(t);
-            }
-            this.pathDataTextures = [];
-        }
+        const ext = this.gl.getExtension("EXT_color_buffer_float");
+        if (!ext)
+            console.warn("No float render targets available.");
         //Textures
-        var verticeTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
-        var terrainTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
-        var boundingBoxesTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
-        var nodesTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
-        var leafsTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
-        var terrainTypeTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
-        var vertexNormalsTex = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
-        this.pathDataTextures.push(verticeTex, terrainTex, boundingBoxesTex, nodesTex, leafsTex, terrainTypeTex, vertexNormalsTex);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, verticeTex, "u_vertices", 0);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, terrainTex, "u_terrains", 1);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, boundingBoxesTex, "u_boundingBox", 2);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, nodesTex, "u_nodesTex", 3);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, leafsTex, "u_leafsTex", 4);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, terrainTypeTex, "u_terrainTypes", 5);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, vertexNormalsTex, "u_normals", 6);
-    };
-    PathTracer.prototype.initBuffers = function () {
-        // Delete old textures/framebuffers if present
-        if (this.accumulationTextures && this.accumulationTextures.length > 0) {
-            for (var _i = 0, _a = this.accumulationTextures; _i < _a.length; _i++) {
-                var tex = _a[_i];
-                if (tex)
-                    this.gl.deleteTexture(tex);
-            }
-            this.accumulationTextures = [];
-        }
-        if (this.framebuffers && this.framebuffers.length > 0) {
-            for (var _b = 0, _c = this.framebuffers; _b < _c.length; _b++) {
-                var fbo = _c[_b];
-                if (fbo)
-                    this.gl.deleteFramebuffer(fbo);
-            }
-            this.framebuffers = [];
-        }
-        for (var i = 0; i < 2; ++i) {
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex, this.uniforms.vertices, 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex, this.uniforms.terrains, 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.boundingBoxesTex, this.uniforms.boundindingBoxes, 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.nodesTex, this.uniforms.nodes, 3);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex, this.uniforms.leafs, 4);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex, this.uniforms.terrainTypes, 5);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex, this.uniforms.vertexNormal, 6);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture, this.uniforms.grassBB, 9);
+        //NOTE: When we fix natively pathtraced clouds we will put this back.
+        /*
+        this.gl.activeTexture(this.gl.TEXTURE7);
+        this.gl.bindTexture(this.gl.TEXTURE_3D, this.noiseTexture!);
+        
+        this.gl.uniform1i(
+          this.gl.getUniformLocation(this.meshProgram, "u_CloudNoise"),
+          7
+        );
+        //TextureUtils.bindTex(this.gl, this.meshProgram, this.weatherMapTexture!, "u_WeatherMap", 8);
+    
+        this.gl.uniform3fv(
+          this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMin"),
+          vec3.fromValues(-300, 100, -300)
+        );
+        this.gl.uniform3fv(
+          this.gl.getUniformLocation(this.meshProgram, "u_cloudsCubeMax"),
+          vec3.fromValues(300, 160, 300)
+        );*/
+        this.gl.uniform1i(this.uniforms.numTerrains, Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_10__.Terrains).length);
+        //VAO
+        this.gl.bindVertexArray(this.fullscreenVAO);
+    }
+    initBuffers() {
+        this.accumulationTextures = [];
+        this.framebuffers = [];
+        for (let i = 0; i < 2; ++i) {
             // Create a texture to store the accumulated image
-            var texture = this.gl.createTexture();
+            const texture = this.gl.createTexture();
             this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
             this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA32F, this.canvas.width, this.canvas.height, 0, this.gl.RGBA, this.gl.FLOAT, null);
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
@@ -5523,30 +7649,28 @@ var PathTracer = /** @class */ (function () {
             this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
             this.accumulationTextures.push(texture);
             // Create a framebuffer and attach the texture to it
-            var fbo = this.gl.createFramebuffer();
+            const fbo = this.gl.createFramebuffer();
             this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
             this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, texture, 0);
             this.framebuffers.push(fbo);
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null); // Unbind
-    };
-    PathTracer.prototype.resetAccumulation = function () {
-        this.frameNumber = 0;
+    }
+    resetAccumulation() {
+        this.frameNumber = 1;
         this.initBuffers();
-    };
-    PathTracer.prototype.dispose = function () {
+    }
+    dispose() {
         // delete accumulation textures/framebuffers
         if (this.accumulationTextures) {
-            for (var _i = 0, _a = this.accumulationTextures; _i < _a.length; _i++) {
-                var tex = _a[_i];
+            for (const tex of this.accumulationTextures) {
                 if (tex)
                     this.gl.deleteTexture(tex);
             }
             this.accumulationTextures = [];
         }
         if (this.framebuffers) {
-            for (var _b = 0, _c = this.framebuffers; _b < _c.length; _b++) {
-                var fbo = _c[_b];
+            for (const fbo of this.framebuffers) {
                 if (fbo)
                     this.gl.deleteFramebuffer(fbo);
             }
@@ -5566,16 +7690,68 @@ var PathTracer = /** @class */ (function () {
             this.gl.deleteBuffer(this.fullscreenVBO);
             this.fullscreenVBO = null;
         }
-        // remove slider listener
-        var slider = document.getElementById("bounceSlider");
-        if (slider && this.boundHandleBounce) {
-            slider.removeEventListener("input", this.boundHandleBounce);
-            this.boundHandleBounce = null;
-        }
-    };
-    return PathTracer;
-}());
-
+    }
+    initSettingsSection() {
+        _Settings__WEBPACK_IMPORTED_MODULE_11__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "Pathtracer Settings");
+        _Settings__WEBPACK_IMPORTED_MODULE_11__.SettingsManager.instance.addSliderToSection("Pathtracer Settings", {
+            id: "numBounces",
+            label: "Maximum Number of Bounces",
+            min: 1,
+            max: 20,
+            step: 1,
+            defaultValue: 5,
+            numType: "int"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_11__.SettingsManager.instance.addSliderToSection("Pathtracer Settings", {
+            id: "u_skips",
+            label: "Skips",
+            min: 1,
+            max: 50,
+            step: 1,
+            defaultValue: 4,
+            numType: "int"
+        });
+        // Attach program uniforms for all settings
+        _Settings__WEBPACK_IMPORTED_MODULE_11__.SettingsManager.instance.attatchProgram(this.meshProgram, [
+            "numBounces",
+            "u_skips",
+            "u_redScatter",
+            "u_greenScatter",
+            "u_blueScatter",
+            "u_haloSize",
+            "u_skyGradientQuality",
+            "u_sunsetQuality",
+            "u_MIE",
+            "ambientLightIntensity",
+            "u_skyBrightnessBoost",
+            //NOTE: When we fix natively pathtraced clouds we will put this back.
+            /*"CLOUDS_enableClouds",
+            "CLOUDS_MAX_STEPS",
+            "CLOUDS_MAX_STEPS_LIGHT",
+            "CLOUDS_weatherMapOffsetX",
+            "CLOUDS_weatherMapOffsetY",
+            "CLOUDS_absorption",
+            "CLOUDS_densityThreshold",
+            "CLOUDS_baseFrequency",
+            "CLOUDS_detailFrequency",
+            "CLOUDS_lightAbsorption",
+            "CLOUDS_lightIntensity",
+            "CLOUDS_ambientIntensity",
+            "CLOUDS_darknessThreshold",
+            "CLOUDS_phaseG",
+            "CLOUDS_phaseMultiplier",
+            "CLOUDS_blueNoiseAmplitude",
+            "CLOUDS_baseCloudColor",
+            "CLOUDS_skyContribution",
+            "CLOUDS_lightDarkSharpness",
+            "CLOUDS_simplexMultiplier",*/
+            //Grass
+            "grassBaseColor",
+            "grassEnabled",
+            "grassTipColor"
+        ]);
+    }
+}
 
 
 /***/ }),
@@ -5587,7 +7763,7 @@ var PathTracer = /** @class */ (function () {
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nuniform sampler2D u_sourceTexture; // This texture now contains the SUM of samples\r\nuniform float u_frameNumber;       // We need the frame number here now\r\nin vec2 v_uv;\r\nout vec4 fragColor;\r\n\r\n// ACES Filmic Tone Mapping Curve\r\nvec3 ACESFilmic(vec3 x) {\r\n    const float a = 2.51;\r\n    const float b = 0.03;\r\n    const float c = 2.43;\r\n    const float d = 0.59;\r\n    const float e = 0.14;\r\n    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);\r\n}\r\n\r\nvoid main() {\r\n    // 1. Get the SUM of colors from the accumulation texture\r\n    vec3 sumColor = texture(u_sourceTexture, v_uv).rgb;\r\n\r\n    // 2. Calculate the correct average by dividing by the number of samples (frames)\r\n    //    Add a max to prevent division by zero if frameNumber is somehow 0.\r\n    vec3 avgColor = sumColor / max(u_frameNumber, 1.0);\r\n\r\n    // 3. Now apply tone mapping and gamma to the STABLE AVERAGE\r\n    float exposure = 1.0;\r\n    vec3 tonedColor = ACESFilmic(avgColor * exposure);\r\n    \r\n    float gamma = 2.2;\r\n    vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));\r\n\r\n    fragColor = vec4(finalColor, 1.0);\r\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nuniform sampler2D u_sourceTexture; // This texture now contains the SUM of samples\r\nin vec2 v_uv;\r\nout vec4 fragColor;\r\n\r\n// ACES Filmic Tone Mapping Curve\r\nvec3 ACESFilmic(vec3 x) {\r\n    const float a = 2.51;\r\n    const float b = 0.03;\r\n    const float c = 2.43;\r\n    const float d = 0.59;\r\n    const float e = 0.14;\r\n    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);\r\n}\r\n\r\nvoid main() {\r\n    vec3 sumColor = texture(u_sourceTexture, v_uv).rgb;\r\n\r\n    float exposure = 1.0;\r\n    vec3 tonedColor = ACESFilmic(sumColor * exposure);\r\n    \r\n    float gamma = 2.2;\r\n    vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));\r\n\r\n    fragColor = vec4(finalColor, 1.0);\r\n}";
 
 /***/ }),
 
@@ -5609,7 +7785,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\n// Input: A h
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\n#define MAX_LIGHTS 30\r\n#define PI 3.1415926\r\n//#define NUM_TERRAINS 1000 \r\n\r\n//Note: \r\nuniform sampler2D u_lastFrame;\r\nuniform float u_frameNumber;\r\nuniform int numBounces;\r\n\r\n\r\nuniform sampler2D u_vertices;\r\nuniform sampler2D u_terrains;\r\nuniform sampler2D u_normals;\r\nuniform sampler2D u_boundingBox;\r\nuniform sampler2D u_nodesTex;\r\nuniform sampler2D u_leafsTex;\r\nuniform sampler2D u_terrainTypes;\r\nuniform vec3 u_cameraPos;\r\nuniform mat4 u_invViewProjMatrix;\r\nuniform vec2 u_resolution;\r\n\r\nstruct Light {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n};\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\n\r\nin vec2 v_uv;\r\nout vec4 fragColor;\r\n\r\nstruct BVH{\r\n    vec3 min;\r\n    vec3 max;\r\n    int right;\r\n    int left;\r\n    int[4] triangles;\r\n};\r\n\r\nstruct Triangle{\r\n    vec3[3] vertices; \r\n    int[3] types;\r\n    vec3 min;\r\n    vec3 max;\r\n    vec3 center;\r\n    vec3 triNormal;\r\n    vec3[3] normals;\r\n};\r\n\r\nstruct TerrainType{\r\n    vec3 color;\r\n    float reflectiveness; // Decimal 0-1   \r\n    float roughness; // Decimal 0-1\r\n    int type; //Type. See terrains.ts\r\n};\r\n\r\n//TerrainType[NUM_TERRAINS] Terrains;\r\n\r\n// Provides a high quality 32-bit hash function to generate pseudo-random numbers\r\n// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins\r\nuint hash(uint state) {\r\n    state ^= 2747636419u;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    return state;\r\n}\r\n\r\n// Generates a random float in the [0, 1] range\r\nfloat rand(inout uint state) {\r\n    state = hash(state);\r\n    return float(state) / 4294967295.0; // 2^32 - 1\r\n}\r\n\r\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\r\n    ivec2 size = textureSize(tex, 0);\r\n    int texWidth = size.x;\r\n    \r\n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\r\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\r\n\r\n    // Calculate 2D coordinates of the texel\r\n    int y_coord = texelIndex / texWidth;\r\n    int x_coord = texelIndex % texWidth;\r\n\r\n    // Convert to UV coordinates [0, 1] for sampling\r\n    // Add 0.5 to sample the center of the texel\r\n    float u = (float(x_coord) + 0.5) / float(texWidth);\r\n    float v = (float(y_coord) + 0.5) / float(size.y);\r\n\r\n    vec4 texel = texture(tex, vec2(u, v));\r\n\r\n    if (componentIndex == 0) return texel.r;\r\n    else if (componentIndex == 1) return texel.g;\r\n    else if (componentIndex == 2) return texel.b;\r\n    else return texel.a;\r\n}\r\n\r\nBVH getBVH(int i){\r\n    BVH r;\r\n    int bbBoxSize = 6;\r\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\r\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\r\n\r\n    int nodeSize = 2;\r\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\r\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\r\n\r\n    int leafSize = 4;\r\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\r\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\r\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\r\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\r\n    \r\n    return r;\r\n}\r\n\r\nTriangle getTriangle(int i){\r\n    Triangle tri;\r\n    int triVertexSize = 9;\r\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\r\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\r\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\r\n\r\n    int typeSize = 3;\r\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\r\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\r\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\r\n\r\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.center = (tri.min + tri.max) * 0.5;\r\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\r\n\r\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\r\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\r\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\r\n\r\n    return tri;\r\n}\r\n\r\nTerrainType getTerrainType(int i){\r\n    TerrainType t;\r\n    int terrainTypeSize = 6;\r\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\r\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \r\n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \r\n    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));\r\n\r\n    return t;\r\n}\r\n\r\nbool intersectAABB(vec3 rayOrigin, vec3 rayDir, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\r\n    vec3 invDir = 1.0 / rayDir;\r\n    vec3 t0s = (boxMin - rayOrigin) * invDir;\r\n    vec3 t1s = (boxMax - rayOrigin) * invDir;\r\n\r\n    vec3 tSmalls = min(t0s, t1s);\r\n    vec3 tBigs = max(t0s, t1s);\r\n\r\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\r\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\r\n\r\n    return tMax >= max(tMin, 0.0);\r\n}\r\n\r\n//AI written; Returns distance to intersection with triangle\r\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\r\n    const float EPSILON = 0.000001;\r\n    vec3 v0 = tri.vertices[0];\r\n    vec3 v1 = tri.vertices[1];\r\n    vec3 v2 = tri.vertices[2];\r\n    vec3 edge1 = v1 - v0;\r\n    vec3 edge2 = v2 - v0;\r\n\r\n    vec3 h = cross(rayDir, edge2);\r\n    float a = dot(edge1, h);\r\n\r\n    if (a > -EPSILON && a < EPSILON) {\r\n        return -1.0; // Ray is parallel to the triangle\r\n    }\r\n\r\n    float f = 1.0 / a;\r\n    vec3 s = rayOrigin - v0;\r\n    float u = f * dot(s, h);\r\n\r\n    if (u < 0.0 || u > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    vec3 q = cross(s, edge1);\r\n    float v = f * dot(rayDir, q);\r\n\r\n    if (v < 0.0 || u + v > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    // At this stage we can compute t to find out where the intersection point is on the line.\r\n    float t = f * dot(edge2, q);\r\n    if (t > EPSILON) { // ray intersection\r\n        barycentric = vec3(1.0 - u - v, u, v);\r\n        return t;\r\n    }\r\n    \r\n    return -1.0; // This means that there is a line intersection but not a ray intersection.\r\n}\r\n\r\n//AI written; Returns distance to intersection with light sphere\r\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\r\n    vec3 oc = rayOrigin - light.position; \r\n\r\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\r\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\r\n    float b = 2.0 * dot(oc, rayDir);\r\n    float c = dot(oc, oc) - light.radius * light.radius;\r\n\r\n    float discriminant = b*b - 4.0*a*c;\r\n\r\n    // If the discriminant is negative, the ray misses the sphere.\r\n    if (discriminant < 0.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    float sqrt_d = sqrt(discriminant);\r\n\r\n    // Calculate the two potential intersection distances (solutions for t)\r\n    float t0 = (-b - sqrt_d) / (2.0 * a);\r\n    float t1 = (-b + sqrt_d) / (2.0 * a);\r\n\r\n    // We need the smallest, positive t value.\r\n    // Check the closer intersection point (t0) first.\r\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\r\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t0;\r\n    }\r\n    // If t0 was behind the ray, check the farther intersection point (t1).\r\n    // This case occurs if the ray starts inside the sphere.\r\n    else if (t1 > 0.001) {\r\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t1;\r\n    }\r\n\r\n    // Both intersection points are behind the ray's origin.\r\n    return -1.0;\r\n}\r\n\r\n/**\r\n * Returns TRIANGLE index\r\n */\r\nint traverseBVH(vec3 rayOrigin, vec3 rayDir, int BVHindex, out vec3 closestBarycentric, out float minHitDistance) {\r\n    int closestHitIndex = -1;\r\n    minHitDistance = 1.0/0.0; // Infinity\r\n\r\n    int stack[64]; // Stack of 64 - May need to change for larger BVH later\r\n    int stackPtr = 0;\r\n    stack[stackPtr++] = 0; // Push root node index\r\n\r\n    while (stackPtr > 0) {\r\n        int nodeIndex = stack[--stackPtr];\r\n        BVH node = getBVH(nodeIndex);\r\n\r\n        float tMin, tMax;\r\n        if (!intersectAABB(rayOrigin, rayDir, node.min, node.max, tMin, tMax)) {\r\n            continue;\r\n        }\r\n\r\n        if (tMin >= minHitDistance) {\r\n            continue;\r\n        }\r\n\r\n        if (node.left == -1) { // Leaf Node\r\n            for (int j = 0; j < 4; j++) {\r\n                int triIdx = node.triangles[j];\r\n                if (triIdx == -1) continue;\r\n\r\n                Triangle tri = getTriangle(triIdx);\r\n                vec3 currentBarycentric;\r\n                float hitDist = intersectTriangle(rayOrigin, rayDir, tri, currentBarycentric);\r\n\r\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\r\n                    minHitDistance = hitDist;\r\n                    closestHitIndex = triIdx;\r\n                    closestBarycentric = currentBarycentric;\r\n                }\r\n            }\r\n        } else { // Internal Node\r\n            // Check for space for two children to prevent stack overflow\r\n            if (stackPtr < 63) { \r\n                stack[stackPtr++] = node.left;\r\n                stack[stackPtr++] = node.right;\r\n            }\r\n        }\r\n    }\r\n\r\n    return closestHitIndex;\r\n}\r\n\r\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\r\n    return (\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\nfloat smoothItem(float[3] a, vec3 baryCentric){\r\n    return(\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\n\r\nvoid getInfo(Triangle tri, TerrainType tt1, TerrainType tt2, TerrainType tt3, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){\r\n    vec3[3] colors = vec3[3](\r\n        tt1.color,\r\n        tt2.color,\r\n        tt3.color\r\n    );\r\n    float[3] reflectivities = float[3](\r\n        tt1.reflectiveness,\r\n        tt2.reflectiveness,\r\n        tt3.reflectiveness\r\n    );\r\n    float[3] roughness = float[3](\r\n        tt1.roughness,\r\n        tt2.roughness,\r\n        tt3.roughness\r\n    );\r\n\r\n    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));\r\n    matColor = smoothItem(colors,baryCentric);\r\n    matRoughness = smoothItem(roughness,baryCentric);\r\n    reflectiveness = smoothItem(reflectivities,baryCentric);\r\n}\r\n\r\n/**\r\nReturn random direction based on given via cosine\r\n*/\r\nvec3 weightedDIR(vec3 normal, inout uint rng_state){\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cos_theta = sqrt(1.0 - r2);\r\n    float sin_theta = sqrt(r2);\r\n    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);\r\n    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, normal));\r\n    vec3 bitangent = cross(normal, tangent);\r\n    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;\r\n    return normalize(dirWorld);\r\n}\r\n\r\nvec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));\r\n    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\r\n\r\n    vec3 localDir = vec3(\r\n        cos(phi) * sinTheta,\r\n        sin(phi) * sinTheta,\r\n        cosTheta\r\n    );\r\n\r\n    // Construct tangent space around the perfect reflection direction\r\n    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, perfectDir));\r\n    vec3 bitangent = cross(perfectDir, tangent);\r\n\r\n    vec3 worldDir = normalize(\r\n        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z\r\n    );\r\n\r\n    return worldDir;\r\n}\r\n\r\nbool isValidVec3(vec3 v) {\r\n    return all(greaterThanEqual(v, vec3(-1e20))) &&\r\n           all(lessThanEqual(v, vec3(1e20))) &&\r\n           !any(isnan(v));\r\n}\r\n\r\nvec3 PathTrace(vec3 OGrayOrigin, vec3 OGrayDir, inout uint rng_state) {\r\n    vec3 rayOrigin = OGrayOrigin;\r\n    vec3 rayDir = OGrayDir;\r\n\r\n    vec3 color = vec3(0.0);\r\n    vec3 throughput = vec3(1.0);\r\n\r\n    int hasMirror = -2;\r\n    for (int bounce = 0; bounce < numBounces; bounce++) {\r\n        vec3 baryCentric;\r\n        float minHitDistance;\r\n        \r\n        int triIndex = traverseBVH(rayOrigin, rayDir, 0, baryCentric, minHitDistance);\r\n        \r\n        int hitLightIndex = -1;\r\n        for (int i = 0; i < numActiveLights; i++) {\r\n            vec3 lightHitNormal;\r\n            float lightHitDistance = intersectLight(rayOrigin, rayDir, lights[i], lightHitNormal);\r\n            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {\r\n                hitLightIndex = i;\r\n                minHitDistance = lightHitDistance;\r\n            }\r\n        }\r\n\r\n        if (hitLightIndex != -1) {\r\n            // Ray hit light source\r\n            if(bounce != 0){\r\n                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;\r\n            }else{\r\n                color = lights[hitLightIndex].showColor;\r\n            }\r\n            \r\n            break; // Path terminates.\r\n        }\r\n\r\n        if (triIndex == -1) {\r\n            // Ray missed everything and flew into space.\r\n            if(bounce == 0 || bounce == hasMirror + 1){\r\n                color = throughput * vec3(0.54,0.824,0.94);\r\n            }else{\r\n                color += throughput * 0.00001; // light sky!\r\n            }\r\n            break;\r\n        }\r\n\r\n        // The ray hit a triangle \r\n        //Get information\r\n        vec3 hitPoint = rayOrigin + rayDir * minHitDistance;\r\n        Triangle tri = getTriangle(triIndex);\r\n\r\n        TerrainType t1 = getTerrainType(tri.types[0]);\r\n        TerrainType t2 = getTerrainType(tri.types[1]);\r\n        TerrainType t3 = getTerrainType(tri.types[2]);\r\n\r\n        vec3 smoothNormal, matColor;\r\n        float matRoughness, reflectiveness;\r\n        int type = 2;\r\n        type = getTerrainType(tri.types[0]).type;\r\n        getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);\r\n        \r\n\r\n        vec3 geometricNormal = tri.triNormal;\r\n        bool didSwitch = false;\r\n        if (dot(geometricNormal, rayDir) > 0.0) geometricNormal = -geometricNormal;\r\n        if (dot(smoothNormal, geometricNormal) < 0.0) {\r\n            smoothNormal = -smoothNormal;\r\n            didSwitch = true;\r\n        }\r\n\r\n        vec3 BRDF = matColor / PI;\r\n        \r\n        //in the future consider NEE (Next Event Estimation) - Was removed cause buggy\r\n\r\n\r\n        // INDIRECT LIGHTING (Prepare for the NEXT bounce)\r\n        // Create the next bounce ray\r\n        if(type != 4) //Transmission goes through\r\n            rayOrigin = hitPoint + geometricNormal * 0.01;\r\n        if(type == 1){ //Diffuse\r\n            rayDir = weightedDIR(smoothNormal, rng_state);\r\n            throughput *= matColor;\r\n        }else if (type == 2) { // Specular (mirror)\r\n            rayDir = normalize(reflect(rayDir, smoothNormal)); // Use built-in\r\n            throughput *= vec3(0.8); // decrease brightness a bit\r\n            hasMirror = bounce;\r\n        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular\r\n            vec3 perfect = normalize(reflect(rayDir, smoothNormal));\r\n            rayDir = sampleGlossyDirection(perfect, matRoughness, rng_state);\r\n            throughput *= matColor; //Switch to BDF later\r\n            //Consider fresnel in the future\r\n            hasMirror = bounce;\r\n        }else if (type == 4){ //Transmission (Glass)\r\n            float eta;\r\n            vec3 transmissionNormal;\r\n            if(didSwitch){ //exiting\r\n                eta = matRoughness / 1.0;\r\n                transmissionNormal = -smoothNormal; // Refract in the opposite direction\r\n            }else{ //entering\r\n                eta = 1.0 / matRoughness;\r\n                transmissionNormal = smoothNormal; // Refract in the same direction\r\n            }\r\n            vec3 refracted = refract(rayDir, transmissionNormal, eta);\r\n            if (length(refracted) < 0.001) {\r\n                // TIR: fall back to mirror reflection\r\n                rayDir = normalize(reflect(rayDir, transmissionNormal));\r\n                rayOrigin = hitPoint + geometricNormal * 0.01;\r\n            } else {\r\n                rayDir = normalize(refracted);\r\n                rayOrigin = hitPoint + rayDir * 0.01;\r\n            }\r\n            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce\r\n            vec3 absorption = (vec3(1.0) - matColor)*0.2;  // if matColor is tint\r\n            throughput *= exp(-absorption * (minHitDistance*0.2)); //Beer Lambert law\r\n        }else if (type == 5){ // Emissive\r\n            color += throughput * matColor;\r\n            break;\r\n        }\r\n    }\r\n    return min(color, vec3(10.0));\r\n}\r\n\r\nvoid main() {\r\n    //Random Hash\r\n    uint pixel_x = uint(v_uv.x * u_resolution.x); \r\n    uint pixel_y = uint(v_uv.y * u_resolution.y);\r\n    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);\r\n    uint rng_state = hash(seed + uint(u_frameNumber));\r\n    rng_state = hash(rng_state + uint(u_frameNumber));\r\n\r\n    //Load terrains\r\n    /*for(int i = 0; i < NUM_TERRAINS; i++){\r\n        Terrains[i] = getTerrainType(i);\r\n    }*/\r\n    \r\n    // Jitter calculation for Anti-Alising\r\n    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one\r\n    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].\r\n\r\n    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;\r\n    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC\r\n\r\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\r\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \r\n    // Transform from clip space to world space\r\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\r\n    // Perform perspective divide\r\n    rayWorld /= rayWorld.w;\r\n    // The ray direction is the vector from the camera to this point in the world\r\n    vec3 rayDir = normalize(rayWorld.xyz - u_cameraPos);\r\n    vec3 rayOrigin = u_cameraPos;\r\n\r\n    vec3 lastSum = texture(u_lastFrame, v_uv).rgb; //Old color\r\n    vec3 newSampleColor = PathTrace(rayOrigin, rayDir, rng_state); // Sample Color\r\n    vec3 newSum = lastSum + newSampleColor; // New sum\r\n\r\n    fragColor = vec4(newSum,1.0); \r\n}";
+module.exports = "#version 300 es\r\n\r\n//Sources:\r\n//Gemini/Chatgpt (GOATS) - Written most of the funky low level code (texture reading)\r\n//Hongyi Ren - Cloud sampling functions\r\n//https://www.reddit.com/r/GraphicsProgramming/comments/pjssze/directional_lighting_in_a_path_tracer/ - More specifically the two stackoverflow links in the comments - NEE implementation\r\n//https://www.cg.tuwien.ac.at/sites/default/files/course/4854/attachments/12_3_next%20event%20estimation_notes.pdf - NEE theory\r\n\r\nprecision highp float;\r\nprecision highp sampler3D;\r\nprecision highp int;\r\n#define MAX_LIGHTS 100\r\n#define PI 3.1415926\r\n#define BVH_DEPTH 64\r\n#define NUM_TERRAINS 50 \r\n#define MAX_FLOAT 1e20\r\n\r\n//Note: \r\nuniform sampler2D u_lastFrame;\r\nuniform int u_frameNumber;\r\nuniform int numBounces;\r\nuniform int u_skips;\r\n\r\nuniform sampler2D u_vertices;\r\nuniform sampler2D u_terrains;\r\nuniform sampler2D u_normals;\r\nuniform sampler2D u_boundingBox;\r\nuniform sampler2D u_nodesTex;\r\nuniform sampler2D u_leafsTex;\r\nuniform sampler2D u_terrainTypes;\r\nuniform sampler2D u_grassBB;\r\nuniform sampler3D u_CloudNoise;\r\nuniform sampler2D u_WeatherMap;\r\n\r\nuniform vec3 u_cameraPos;\r\nuniform mat4 u_invViewProjMatrix;\r\nuniform vec2 u_resolution;\r\n\r\nuniform vec3 u_cloudsCubeMin;\r\nuniform vec3 u_cloudsCubeMax;\r\n\r\n//Cloud settings\r\nuniform bool CLOUDS_enableClouds;\r\nuniform float CLOUDS_absorption;\r\nuniform float CLOUDS_densityThreshold;\r\nuniform float CLOUDS_baseFrequency;\r\nuniform float CLOUDS_detailFrequency;\r\nuniform float CLOUDS_lightAbsorption;\r\nuniform float CLOUDS_lightIntensity;\r\nuniform float CLOUDS_darknessThreshold;\r\nuniform float CLOUDS_ambientIntensity;\r\nuniform float CLOUDS_phaseG;\r\nuniform float CLOUDS_phaseMultiplier;\r\nuniform float CLOUDS_weatherMapOffsetX;\r\nuniform float CLOUDS_weatherMapOffsetY;\r\nuniform int CLOUDS_MAX_STEPS;\r\nuniform int CLOUDS_MAX_STEPS_LIGHT;\r\nuniform float CLOUDS_blueNoiseAmplitude;\r\nuniform vec3 CLOUDS_baseCloudColor;\r\nuniform float CLOUDS_skyContribution;\r\nuniform float CLOUDS_lightDarkSharpness;\r\nuniform float CLOUDS_simplexMultiplier;\r\nconst float CLOUDS_DENSITY_THRESHOLD_SKIP = 0.01f;\r\nconst float CLOUDS_ALPHA_THRESHOLD = 0.99f;\r\n\r\n//Grass\r\nuniform vec3 grassBaseColor;\r\nuniform vec3 grassTipColor;\r\nuniform bool grassEnabled;\r\n\r\n//Light/Sun\r\nstruct Light {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n};\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\n\r\n\r\n/*uniform float sunDirX;\r\nuniform float sunDirY;\r\nuniform float sunDirZ;*/\r\nuniform vec3 u_sunDirection;\r\n\r\nuniform float u_sunIntensity;    // Sun intensity (controls brightness)\r\nuniform float u_sunAngularRadius; // Angular radius of the sun in radians (approx 0.00465 radians or 0.266 degrees)\r\nuniform vec3 u_sunColor;\r\nuniform float u_blueScatter;\r\nuniform float u_redScatter;\r\nuniform float u_greenScatter;\r\nuniform float u_haloSize;\r\nuniform int u_skyGradientQuality;\r\nuniform int u_sunsetQuality; \r\nuniform float u_MIE;\r\nuniform float ambientLightIntensity;\r\nuniform float u_skyBrightnessBoost; \r\n\r\nin vec2 v_uv;\r\nout vec4 fragColor;\r\n\r\nstruct BVH{\r\n    vec3 min;\r\n    vec3 max;\r\n    int right;\r\n    int left;\r\n    int[4] triangles;\r\n};\r\n\r\nstruct Triangle{\r\n    vec3[3] vertices; \r\n    int[3] types;\r\n    vec3 min;\r\n    vec3 max;\r\n    vec3 center;\r\n    vec3 triNormal;\r\n    vec3[3] normals;\r\n};\r\n\r\nstruct TerrainType{\r\n    vec3 color;\r\n    float reflectiveness; // Decimal 0-1   \r\n    float roughness; // Decimal 0-1\r\n    int type; //Type. See terrains.ts\r\n};\r\n\r\nstruct Ray{\r\n    vec3 origin;\r\n    vec3 dir;\r\n};\r\n\r\nTerrainType[NUM_TERRAINS] Terrains;\r\nuniform int u_numTerrains;\r\n\r\n// Provides a high quality 32-bit hash function to generate pseudo-random numbers\r\n// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins\r\nuint hash(uint state) {\r\n    state ^= 2747636419u;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    return state;\r\n}\r\n\r\n// Generates a random float in the [0, 1] range\r\nfloat rand(inout uint state) {\r\n    state = hash(state);\r\n    return float(state) / 4294967295.0; // 2^32 - 1\r\n}\r\n\r\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\r\n    ivec2 size = textureSize(tex, 0);\r\n    int texWidth = size.x;\r\n    \r\n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\r\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\r\n\r\n    // Calculate 2D coordinates of the texel\r\n    int y_coord = texelIndex / texWidth;\r\n    int x_coord = texelIndex % texWidth;\r\n\r\n    // Convert to UV coordinates [0, 1] for sampling\r\n    // Add 0.5 to sample the center of the texel\r\n    float u = (float(x_coord) + 0.5) / float(texWidth);\r\n    float v = (float(y_coord) + 0.5) / float(size.y);\r\n\r\n    vec4 texel = textureLod(tex, vec2(u, v), 0.0);//texture(tex, vec2(u, v));\r\n\r\n    if (componentIndex == 0) return texel.r;\r\n    else if (componentIndex == 1) return texel.g;\r\n    else if (componentIndex == 2) return texel.b;\r\n    else return texel.a;\r\n}\r\n\r\nBVH getBVH(int i){\r\n    BVH r;\r\n    int bbBoxSize = 6;\r\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\r\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\r\n\r\n    int nodeSize = 2;\r\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\r\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\r\n\r\n    int leafSize = 4;\r\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\r\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\r\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\r\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\r\n    \r\n    return r;\r\n}\r\n\r\nTriangle getTriangle(int i){\r\n    Triangle tri;\r\n    int triVertexSize = 9;\r\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\r\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\r\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\r\n\r\n    int typeSize = 3;\r\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\r\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\r\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\r\n\r\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.center = (tri.min + tri.max) * 0.5;\r\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\r\n\r\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\r\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\r\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\r\n\r\n    return tri;\r\n}\r\n\r\nTerrainType getTerrainType(int i){\r\n    TerrainType t;\r\n    int terrainTypeSize = 6;\r\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\r\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \r\n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \r\n    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));\r\n\r\n    return t;\r\n}\r\n\r\nbool intersectAABB(Ray mainRay, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\r\n    vec3 invDir = 1.0 / mainRay.dir;\r\n    vec3 t0s = (boxMin - mainRay.origin) * invDir;\r\n    vec3 t1s = (boxMax - mainRay.origin) * invDir;\r\n\r\n    vec3 tSmalls = min(t0s, t1s);\r\n    vec3 tBigs = max(t0s, t1s);\r\n\r\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\r\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\r\n\r\n    return tMax >= max(tMin, 0.0);\r\n}\r\n\r\n//AI written; Returns distance to intersection with triangle\r\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\r\n    const float EPSILON = 0.000001;\r\n    vec3 v0 = tri.vertices[0];\r\n    vec3 v1 = tri.vertices[1];\r\n    vec3 v2 = tri.vertices[2];\r\n\r\n    vec3 edge1 = v1 - v0;\r\n    vec3 edge2 = v2 - v0;\r\n\r\n    vec3 h = cross(rayDir, edge2);\r\n    float a = dot(edge1, h);\r\n\r\n    if (a > -EPSILON && a < EPSILON) {\r\n        return -1.0; // Ray is parallel to the triangle\r\n    }\r\n\r\n    float f = 1.0 / a;\r\n    vec3 s = rayOrigin - v0;\r\n    float u = f * dot(s, h);\r\n\r\n    if (u < 0.0 || u > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    vec3 q = cross(s, edge1);\r\n    float v = f * dot(rayDir, q);\r\n\r\n    if (v < 0.0 || u + v > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    // At this stage we can compute t to find out where the intersection point is on the line.\r\n    float t = f * dot(edge2, q);\r\n    if (t > EPSILON) { // ray intersection\r\n        barycentric = vec3(1.0 - u - v, u, v);\r\n        return t;\r\n    }\r\n    \r\n    return -1.0; // This means that there is a line intersection but not a ray intersection.\r\n}\r\n\r\nvec3 rotateY(vec3 v, float angle) {\r\n    float c = cos(angle);\r\n    float s = sin(angle);\r\n    return vec3(c * v.x - s * v.z, v.y, s * v.x + c * v.z);\r\n}\r\n\r\n// --- Intersection Function ---\r\n// Returns true if hit, writes distance to 'dist' and fills 'result' struct\r\nbool intersectGrassBlade(Ray mainRay,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) {\r\n    // ------------------------------------\r\n    \r\n    // 1. TRANSFORM RAY TO LOCAL SPACE\r\n    vec3 localOrigin = mainRay.origin - instancePos;\r\n    vec3 localDir = mainRay.dir;\r\n    float hitY = 0.0;\r\n\r\n    // Inverse Rotation (Rotate by -rotation)\r\n    localOrigin = rotateY(localOrigin, -rotation);\r\n    localDir = rotateY(localDir, -rotation);\r\n\r\n    // Inverse Shear (Undo the lean: x' = x - lean*y)\r\n    localOrigin.x -= lean * localOrigin.y;\r\n    localOrigin.z -= lean * localOrigin.y;\r\n    localDir.x -= lean * localDir.y;\r\n    localDir.z -= lean * localDir.y;\r\n\r\n    float tClosest = 1e20;\r\n    vec3 normalClosest = vec3(0.0);\r\n    bool hitAny = false;\r\n    \r\n    float bladeHeight = 1.0;\r\n    float baseWidth = 0.1; \r\n    \r\n    // --- Test Plane A (Z-facing part) ---\r\n    if (abs(localDir.z) > 1e-6) {\r\n        float t = -localOrigin.z / localDir.z;\r\n        if (t > 0.0) { // Removed t < tClosest check since it's the first check\r\n            vec3 p = localOrigin + t * localDir;\r\n            if (p.y >= 0.0 && p.y <= bladeHeight) {\r\n                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));\r\n                if (abs(p.x) <= currentWidth) {\r\n                    tClosest = t;\r\n                    hitAny = true;\r\n                    // Base normal (0,0,1) -> Sheared normal -> Rotated normal\r\n                    // Sheared Plane Z: z - lean*y = 0. Normal is (0, -lean, 1)\r\n                    normalClosest = normalize(vec3(0.0, -lean, 1.0));\r\n                    hitY = p.y;\r\n                    // Flip if hitting backface\r\n                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;\r\n                }\r\n            }\r\n        }\r\n    }\r\n\r\n    // --- Test Plane B (X-facing part) ---\r\n    if (abs(localDir.x) > 1e-6) {\r\n        float t = -localOrigin.x / localDir.x;\r\n        // Only update if this hit is closer than the previous one\r\n        if (t > 0.0 && t < tClosest) {\r\n            vec3 p = localOrigin + t * localDir;\r\n            if (p.y >= 0.0 && p.y <= bladeHeight) {\r\n                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));\r\n                if (abs(p.z) <= currentWidth) {\r\n                    tClosest = t;\r\n                    hitAny = true;\r\n                    // Base normal (1,0,0) -> Sheared normal -> Rotated normal\r\n                    // Sheared Plane X: x - lean*y = 0. Normal is (1, -lean, 0)\r\n                    normalClosest = normalize(vec3(1.0, -lean, 0.0));\r\n                    hitY = p.y;\r\n                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;\r\n                }\r\n            }\r\n        }\r\n    }\r\n\r\n    if (!hitAny) {\r\n        return false;\r\n    }\r\n\r\n    // Output 1: Distance\r\n    dist = tClosest;\r\n\r\n    // Output 2: Triangle Struct\r\n    // Rotate the normal back to world space\r\n    vec3 worldNormal = rotateY(normalClosest, rotation);\r\n    \r\n    // Fill required dummy data to prevent compilation errors/undefined behavior\r\n    result.vertices = vec3[3](vec3(0.), vec3(0.), vec3(0.));\r\n    result.types[1] = 0;\r\n    result.types[2] = 0;\r\n    result.min = vec3(0.);\r\n    result.max = vec3(0.);\r\n    result.center = vec3(0.);\r\n    result.normals = vec3[3](vec3(0.), vec3(0.), vec3(0.));\r\n\r\n    // Fill only the required fields\r\n    result.types[0] = -1;       // As requested\r\n    result.triNormal = worldNormal; // The calculated normal\r\n    result.normals[0].x = hitY; //Height\r\n    return true;\r\n}\r\n\r\n//AI written; Returns distance to intersection with light sphere\r\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\r\n    vec3 oc = rayOrigin - light.position; \r\n\r\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\r\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\r\n    float b = 2.0 * dot(oc, rayDir);\r\n    float c = dot(oc, oc) - light.radius * light.radius;\r\n\r\n    float discriminant = b*b - 4.0*a*c;\r\n\r\n    // If the discriminant is negative, the ray misses the sphere.\r\n    if (discriminant < 0.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    float sqrt_d = sqrt(discriminant);\r\n\r\n    // Calculate the two potential intersection distances (solutions for t)\r\n    float t0 = (-b - sqrt_d) / (2.0 * a);\r\n    float t1 = (-b + sqrt_d) / (2.0 * a);\r\n\r\n    // We need the smallest, positive t value.\r\n    // Check the closer intersection point (t0) first.\r\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\r\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t0;\r\n    }\r\n    // If t0 was behind the ray, check the farther intersection point (t1).\r\n    // This case occurs if the ray starts inside the sphere.\r\n    else if (t1 > 0.001) {\r\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t1;\r\n    }\r\n\r\n    // Both intersection points are behind the ray's origin.\r\n    return -1.0;\r\n}\r\n\r\n/**\r\n * Returns TRIANGLE index\r\n */\r\nint traverseBVH(Ray mainRay, out vec3 closestBarycentric, out float minHitDistance, out Triangle hitTriangle) {\r\n    int closestHitIndex = -1;\r\n    minHitDistance = 1.0/0.0001; // Infinity\r\n\r\n    int stack[BVH_DEPTH]; \r\n    int stackPtr = 0;\r\n    stack[stackPtr++] = 0; // Push root node index\r\n\r\n    while (stackPtr > 0) {\r\n        int nodeIndex = stack[--stackPtr];\r\n        BVH node = getBVH(nodeIndex);\r\n\r\n        float tMin, tMax;\r\n        if (!intersectAABB(mainRay, node.min, node.max, tMin, tMax)) {\r\n            continue;\r\n        }\r\n\r\n        if (tMin >= minHitDistance) {\r\n            continue;\r\n        }\r\n\r\n        if (node.left == -1) { // Leaf Node\r\n            for (int j = 0; j < 4; j++) {\r\n                int triIdx = node.triangles[j];\r\n                if(triIdx <= -2 && grassEnabled){//gRaS\r\n                    //Do cool stuff later\r\n                    int thingI = triIdx*(-1)-2;\r\n                    int grassInfoSize = 8;\r\n                    vec3 minB = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+1),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+2));\r\n                    //vec3 max = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+3),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+4),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+5));\r\n                    float lean = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+6);\r\n                    float angle = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+7);\r\n                    //bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) \r\n                    Triangle tri;\r\n                    float hitDist;\r\n                    bool val = intersectGrassBlade(mainRay, minB, lean, angle, hitDist, tri);\r\n                    if(val && hitDist < minHitDistance){\r\n                        minHitDistance = hitDist;\r\n                        closestHitIndex = triIdx;\r\n                        closestBarycentric = vec3(0.0);\r\n                        hitTriangle= tri;\r\n                    }\r\n                    continue;\r\n                }\r\n                if (triIdx == -1) continue;\r\n\r\n                Triangle tri = getTriangle(triIdx);\r\n                vec3 currentBarycentric;\r\n                float hitDist = intersectTriangle(mainRay.origin, mainRay.dir, tri, currentBarycentric);\r\n\r\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\r\n                    minHitDistance = hitDist;\r\n                    closestHitIndex = triIdx;\r\n                    closestBarycentric = currentBarycentric;\r\n                    hitTriangle= tri;\r\n                }\r\n            }\r\n        } else { // Internal Node\r\n            // Check for space for two children to prevent stack overflow\r\n            if (stackPtr < BVH_DEPTH-1) { \r\n                stack[stackPtr++] = node.left;\r\n                stack[stackPtr++] = node.right;\r\n            }\r\n        }\r\n    }\r\n\r\n    return closestHitIndex;\r\n}\r\n\r\n// New optimized traversal for shadows: Returns TRUE immediately on any hit\r\nbool traverseBVHShadow(Ray shadowRay, float maxDist) {\r\n    int stack[BVH_DEPTH]; \r\n    int stackPtr = 0;\r\n    stack[stackPtr++] = 0; // Push root node index\r\n\r\n    while (stackPtr > 0) {\r\n        int nodeIndex = stack[--stackPtr];\r\n        BVH node = getBVH(nodeIndex);\r\n\r\n        float tMin, tMax;\r\n        if (!intersectAABB(shadowRay, node.min, node.max, tMin, tMax)) {\r\n            continue;\r\n        }\r\n\r\n        // Optimization: If the AABB is further away than the light source, ignore it\r\n        if (tMin >= maxDist) {\r\n            continue;\r\n        }\r\n\r\n        if (node.left == -1) { // Leaf Node\r\n            for (int j = 0; j < 4; j++) {\r\n                int triIdx = node.triangles[j];\r\n                \r\n                // Grass Logic\r\n                if(triIdx <= -2 && grassEnabled){\r\n                    int thingI = triIdx*(-1)-2;\r\n                    int grassInfoSize = 8;\r\n                    vec3 minB = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+1),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+2));\r\n                    float lean = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+6);\r\n                    float angle = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+7);\r\n                    \r\n                    Triangle dummyTri; // Not used, but required by function signature\r\n                    float hitDist;\r\n                    bool hit = intersectGrassBlade(shadowRay, minB, lean, angle, hitDist, dummyTri);\r\n                    \r\n                    // If we hit grass closer than the light, we are blocked\r\n                    if(hit && hitDist > 0.001 && hitDist < maxDist){\r\n                        return true;\r\n                    }\r\n                    continue;\r\n                }\r\n\r\n                if (triIdx == -1) continue;\r\n\r\n                Triangle tri = getTriangle(triIdx);\r\n                vec3 dummyBary;\r\n                float hitDist = intersectTriangle(shadowRay.origin, shadowRay.dir, tri, dummyBary);\r\n\r\n                // If we hit geometry closer than the light, we are blocked\r\n                if (hitDist > 0.001 && hitDist < maxDist) {\r\n                    return true;\r\n                }\r\n            }\r\n        } else { // Internal Node\r\n            if (stackPtr < BVH_DEPTH-1) { \r\n                stack[stackPtr++] = node.left;\r\n                stack[stackPtr++] = node.right;\r\n            }\r\n        }\r\n    }\r\n\r\n    return false; // No occlusion found\r\n}\r\n\r\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\r\n    return (\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\nfloat smoothItem(float[3] a, vec3 baryCentric){\r\n    return(\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\n\r\nvoid getInfo(Triangle tri, TerrainType tt1, TerrainType tt2, TerrainType tt3, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){\r\n    vec3[3] colors = vec3[3](\r\n        tt1.color,\r\n        tt2.color,\r\n        tt3.color\r\n    );\r\n    float[3] reflectivities = float[3](\r\n        tt1.reflectiveness,\r\n        tt2.reflectiveness,\r\n        tt3.reflectiveness\r\n    );\r\n    float[3] roughness = float[3](\r\n        tt1.roughness,\r\n        tt2.roughness,\r\n        tt3.roughness\r\n    );\r\n\r\n    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));\r\n    matColor = smoothItem(colors,baryCentric);\r\n    matRoughness = smoothItem(roughness,baryCentric);\r\n    reflectiveness = smoothItem(reflectivities,baryCentric);\r\n}\r\n\r\n/**\r\nReturn random direction based on given via cosine\r\n*/\r\nvec3 weightedDIR(vec3 normal, inout uint rng_state){\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cos_theta = sqrt(1.0 - r2);\r\n    float sin_theta = sqrt(r2);\r\n    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);\r\n    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, normal));\r\n    vec3 bitangent = cross(normal, tangent);\r\n    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;\r\n    return normalize(dirWorld);\r\n}\r\n\r\nvec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));\r\n    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\r\n\r\n    vec3 localDir = vec3(\r\n        cos(phi) * sinTheta,\r\n        sin(phi) * sinTheta,\r\n        cosTheta\r\n    );\r\n\r\n    // Construct tangent space around the perfect reflection direction\r\n    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, perfectDir));\r\n    vec3 bitangent = cross(perfectDir, tangent);\r\n\r\n    vec3 worldDir = normalize(\r\n        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z\r\n    );\r\n\r\n    return worldDir;\r\n}\r\nvec3 sampleCone(vec3 coneAxis, float maxAngle, inout uint rng_state) {\r\n    // 1. Generate 2 random numbers\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float cosMaxAngle = cos(maxAngle);\r\n    \r\n    // --- 2. Spherical Coordinate Sampling (Inverse Transform Sampling) ---\r\n    // cos_theta: Samples the cosine of the polar angle (theta) uniformly \r\n    // over the solid angle of the cone. This is the crucial step for uniformity.\r\n    float cos_theta = mix(cosMaxAngle, 1.0, r2); \r\n    \r\n    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);\r\n    float phi = 2.0 * PI * r1; // Azimuthal angle (phi) is uniform 0 to 2*PI\r\n\r\n    // --- 3. Create Local Direction (Cone Axis = Z-axis) ---\r\n    // The direction vector in the local cone space.\r\n    vec3 localDir = vec3(\r\n        cos(phi) * sin_theta,\r\n        sin(phi) * sin_theta,\r\n        cos_theta\r\n    );\r\n\r\n    // --- 4. Transform Local Direction to World Space (Tangent Space Transform) ---\r\n    \r\n    // Calculate an orthonormal basis (tangent space) around the coneAxis.\r\n    // The standard 'up' vector handles cases where coneAxis is near (0, 1, 0)\r\n    // by choosing a different vector to cross with.\r\n    vec3 up = abs(coneAxis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, coneAxis));\r\n    vec3 bitangent = cross(coneAxis, tangent);\r\n\r\n    // Transform the local direction (localDir) into the world space basis (tangent, bitangent, coneAxis)\r\n    vec3 worldDir = normalize(\r\n        tangent * localDir.x + \r\n        bitangent * localDir.y + \r\n        coneAxis * localDir.z\r\n    );\r\n    \r\n    return worldDir;\r\n}\r\n\r\nbool isValidVec3(vec3 v) {\r\n    return all(greaterThanEqual(v, vec3(-1e20))) &&\r\n           all(lessThanEqual(v, vec3(1e20))) &&\r\n           !any(isnan(v));\r\n}\r\n\r\n// --- PBR Helper Functions ---\r\n\r\n// 1. Fresnel Schlick\r\n// cosTheta is dot(H, V)\r\nvec3 fresnelSchlick(float cosTheta, vec3 F0) {\r\n    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);\r\n}\r\n\r\n// 2. Distribution GGX (Trowbridge-Reitz)\r\nfloat DistributionGGX(vec3 N, vec3 H, float roughness) {\r\n    float a = roughness * roughness;\r\n    float a2 = a * a;\r\n    float NdotH = max(dot(N, H), 0.0);\r\n    float NdotH2 = NdotH * NdotH;\r\n\r\n    float num = a2;\r\n    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\r\n    denom = PI * denom * denom;\r\n\r\n    return num / denom;\r\n}\r\n\r\n// 3. Geometry Schlick-GGX (Smith method)\r\nfloat GeometrySchlickGGX(float NdotV, float roughness) {\r\n    float r = (roughness + 1.0);\r\n    float k = (r * r) / 8.0; // Use k = a^2 / 2 for IBL, but (r+1)^2 / 8 for direct light path tracing\r\n\r\n    float num = NdotV;\r\n    float denom = NdotV * (1.0 - k) + k;\r\n\r\n    return num / denom;\r\n}\r\n\r\nfloat GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {\r\n    float NdotV = max(dot(N, V), 0.0);\r\n    float NdotL = max(dot(N, L), 0.0);\r\n    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\r\n    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\r\n\r\n    return ggx1 * ggx2;\r\n}\r\n\r\n// 4. GGX Importance Sampling\r\n// Returns a Half-vector (H) based on roughness\r\nvec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {\r\n    float a = roughness * roughness;\r\n    \r\n    float phi = 2.0 * PI * Xi.x;\r\n    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));\r\n    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);\r\n    \r\n    // Spherical to Cartesian (Tangent space)\r\n    vec3 H;\r\n    H.x = cos(phi) * sinTheta;\r\n    H.y = sin(phi) * sinTheta;\r\n    H.z = cosTheta;\r\n    \r\n    // Tangent to World space\r\n    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, N));\r\n    vec3 bitangent = cross(N, tangent);\r\n    \r\n    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;\r\n    return normalize(sampleVec);\r\n}\r\n\r\n// Evaluate Both Specular and Diffuse for Direct Light (NEE)\r\n// This calculates how much light reflects from the sun to the camera\r\nvec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albedo, float metallic) {\r\n    vec3 H = normalize(V + L);\r\n    float NdotV = max(dot(N, V), 0.0);\r\n    float NdotL = max(dot(N, L), 0.0);\r\n    float HdotV = max(dot(H, V), 0.0);\r\n    \r\n    if (NdotL <= 0.0 || NdotV <= 0.0) return vec3(0.0);\r\n\r\n    // 1. Specular Term (Cook-Torrance)\r\n    float D = DistributionGGX(N, H, roughness);\r\n    float G = GeometrySmith(N, V, L, roughness);\r\n    vec3 F = fresnelSchlick(HdotV, F0);\r\n    \r\n    vec3 kS = F; // Specular contribution\r\n    vec3 kD = vec3(1.0) - kS; // Remaining energy for diffuse\r\n    kD *= (1.0 - metallic);   // Metals have 0 diffuse\r\n\r\n    vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.0001);\r\n    vec3 diffuse = albedo / PI; //regular lambertian diffuse\r\n    \r\n    return kD * diffuse + specular; \r\n}\r\n\r\n//Get sky color. AI generated\r\nvec3 getSkyColor(vec3 rayDir, vec3 sunDir) {\r\n    // -------------------------------------\r\n    // Constants\r\n    // -------------------------------------\r\n    const float RE = 6360e3;          // Earth Radius (meters)\r\n    const float RA = 6420e3;          // Atmosphere Radius (meters)\r\n    const float HR = 8000.0;          // Rayleigh Scale Height\r\n    const float HM = 1200.0;          // Mie Scale Height\r\n    float G_MIE = u_haloSize;         // Mie Anisotropy\r\n    \r\n\r\n\r\n    vec3 BETA_R = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.001; \r\n    vec3 BETA_M = vec3(u_MIE * 0.001);                 \r\n\r\n    float SUN_INTENSITY = u_sunIntensity; \r\n    int STEPS_PRIMARY = u_skyGradientQuality;   \r\n    int STEPS_LIGHT = u_sunsetQuality;       \r\n\r\n    // -------------------------------------\r\n    // Setup Geometry\r\n    // -------------------------------------\r\n    Light atmosphere;\r\n    atmosphere.position = vec3(0.0);\r\n    atmosphere.radius = RA;\r\n\r\n    vec3 camPos = vec3(0.0, RE + u_cameraPos.y, 0.0); \r\n    vec3 dummyNormal; \r\n\r\n    // Calculate distance to leave the atmosphere\r\n    float distToTop = intersectLight(camPos, rayDir, atmosphere, dummyNormal);\r\n    \r\n    // If we look down and don't hit the atmosphere cap (or hit ground logic),\r\n    // we initialize with White instead of Black.\r\n    if (distToTop < 0.0) return vec3(1.0); \r\n\r\n    // -------------------------------------\r\n    // Raymarching\r\n    // -------------------------------------\r\n    float stepSize = distToTop / float(STEPS_PRIMARY);\r\n    vec3 currentPos = camPos;\r\n    \r\n    vec3 totalR = vec3(0.0); \r\n    vec3 totalM = vec3(0.0); \r\n    float optDepthR = 0.0;\r\n    float optDepthM = 0.0;\r\n    \r\n    float mu = dot(rayDir, sunDir);\r\n    float phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);\r\n    float g = G_MIE; float g2 = g * g;\r\n    float phaseM = 3.0 / (8.0 * PI) * ((1.0 - g2) * (1.0 + mu * mu)) / \r\n                   ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));\r\n\r\n    for (int i = 0; i < STEPS_PRIMARY; ++i) {\r\n        vec3 samplePos = currentPos + rayDir * (stepSize * 0.5);\r\n        float height = length(samplePos) - RE;\r\n        \r\n        if (height < 0.0) height = 0.0;\r\n\r\n        float hr = exp(-height / HR) * stepSize;\r\n        float hm = exp(-height / HM) * stepSize;\r\n        \r\n        optDepthR += hr;\r\n        optDepthM += hm;\r\n        \r\n        float distToSun = intersectLight(samplePos, sunDir, atmosphere, dummyNormal);\r\n        float stepSizeSun = distToSun / float(STEPS_LIGHT);\r\n        float sunDepthR = 0.0;\r\n        float sunDepthM = 0.0;\r\n        vec3 sunPos = samplePos;\r\n        \r\n        for (int j = 0; j < STEPS_LIGHT; ++j) {\r\n            vec3 sPos = sunPos + sunDir * (stepSizeSun * 0.5);\r\n            float h = length(sPos) - RE;\r\n            if (h < 0.0) h = 0.0;\r\n            \r\n            sunDepthR += exp(-h / HR) * stepSizeSun;\r\n            sunDepthM += exp(-h / HM) * stepSizeSun;\r\n            sunPos += sunDir * stepSizeSun;\r\n        }\r\n        \r\n        vec3 tau = BETA_R * (optDepthR + sunDepthR) + BETA_M * 1.1 * (optDepthM + sunDepthM);\r\n        vec3 attenuation = exp(-tau);\r\n        \r\n        totalR += hr * attenuation;\r\n        totalM += hm * attenuation;\r\n        \r\n        currentPos += rayDir * stepSize;\r\n    }\r\n    \r\n    // -------------------------------------\r\n    // Final Color Calculation\r\n    // -------------------------------------\r\n    vec3 skyColor = SUN_INTENSITY * (totalR * BETA_R * phaseR + totalM * BETA_M * phaseM);\r\n    \r\n    // Apply Brightness\r\n    skyColor *= u_skyBrightnessBoost;\r\n\r\n    // --- [CHANGE #2 PART B] Smooth Horizon Blend ---\r\n    // Instead of a sharp cut, we mix the calculated sky with a white color\r\n    // based on how far the ray is looking down. \r\n    // -0.1 to 0.1 creates a small foggy blur at the horizon line.\r\n    // If rayDir.y is very negative (looking down), blendingFactor becomes 0.0 (All white).\r\n    \r\n    vec3 groundColor = vec3(1.0); // White\r\n    float horizonBlend = smoothstep(-0.05, 0.05, rayDir.y);\r\n    \r\n    return mix(groundColor, skyColor, horizonBlend);\r\n}\r\nvec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){\r\n    vec3 directLight = vec3(0.0);\r\n    bool autoNormal = false;\r\n    if(length(smoothNormal) == 0.0){\r\n        autoNormal = true;\r\n    }\r\n    if(numActiveLights == 0){\r\n        return vec3(0.0);\r\n    }\r\n    \r\n    int i = int(rand(rng_state)*float(numActiveLights));\r\n    Light light = lights[i]; \r\n    rng_state = hash(rng_state);\r\n    \r\n    // choose a point on the light sphere\r\n    float r1 = (rand(rng_state)-0.5)*2.0;\r\n    float r2 = (rand(rng_state)-0.5)*2.0;\r\n    float r3 = (rand(rng_state)-0.5)*2.0;\r\n    vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;\r\n    vec3 lightPoint = light.position + jitter;\r\n\r\n    vec3 lightDir = normalize(lightPoint - mainRay.origin);\r\n    float lightDistance = length(lightPoint - mainRay.origin);\r\n\r\n    if(autoNormal){\r\n        smoothNormal = lightDir;\r\n    }\r\n\r\n    Ray shadowRay;\r\n    shadowRay.origin = mainRay.origin;\r\n    shadowRay.dir = lightDir;\r\n\r\n    // Fast Shadow Check\r\n    bool blocked = traverseBVHShadow(shadowRay, lightDistance);\r\n\r\n    if(!blocked){\r\n        float P = 1.0/(lightDistance*lightDistance);\r\n        float NdotL = max(dot(smoothNormal, lightDir), 0.0);\r\n        directLight += BRDF * light.color * light.intensity * NdotL * P * PI * light.radius * light.radius;\r\n    }\r\n    return directLight;\r\n}\r\n\r\nvec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state, int bounce) {\r\n    vec3 sunAxis = -u_sunDirection; \r\n\r\n    vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);\r\n\r\n    if(length(smoothNormal) == 0.0){\r\n        smoothNormal = lightDir;\r\n    }\r\n    float NdotL = max(dot(smoothNormal, lightDir), 0.0);\r\n    if (NdotL <= 0.0) {\r\n        return vec3(0.0);\r\n    }\r\n    \r\n    Ray shadowRay;\r\n    shadowRay.origin = mainRay.origin;\r\n    shadowRay.dir = lightDir;\r\n\r\n    // Fast Shadow Check (Max distance is effectively infinite for sun)\r\n    bool blocked = traverseBVHShadow(shadowRay, 1e20);\r\n\r\n    if (!blocked) {\r\n        // Ray is not blocked, calculate light contribution\r\n        // --- Light Contribution (Radiance) ---\r\n        // float cos_alpha = cos(u_sunAngularRadius);\r\n        // float solidAngle = 2.0 * PI * (1.0 - cos_alpha);\r\n        // float PDF = 1.0 / solidAngle; \r\n        // L_i = BRDF * NdotL / PDF * Radiance\r\n        // Radiance (L_e) = Intensity / SolidAngle\r\n        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) \r\n        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)\r\n        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:\r\n        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;\r\n        return directLight;\r\n    }\r\n    \r\n    return vec3(0.0);\r\n}\r\n\r\n\r\nvec3 PathTrace(Ray OGRay, inout uint rng_state) {\r\n    Ray ourRay;\r\n    ourRay.origin = OGRay.origin;\r\n    ourRay.dir = OGRay.dir;\r\n    vec3 rayDir = OGRay.dir;\r\n\r\n    vec3 color = vec3(0.0);\r\n    vec3 throughput = vec3(1.0);\r\n\r\n    vec3 UP_VECTOR = vec3(0.0, 1.0, 0.0);\r\n    float COS_ZENITH = dot(-u_sunDirection, UP_VECTOR);\r\n    float ZENITH_ANGLE = acos(COS_ZENITH) * 57.2958; //converted to degrees\r\n    float AIR_MASS = 1.0 / (COS_ZENITH + 0.15 * pow(93.885 - ZENITH_ANGLE, -1.253));\r\n    AIR_MASS = clamp(AIR_MASS, 1.0, 50.0);\r\n    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.001; \r\n    vec3 SUN_TRANSMISSION = exp(-AIR_MASS * BETA_EXTINCTION);\r\n\r\n    int hasMirror = -1;\r\n    for (int bounce = 0; bounce < numBounces; bounce++) {\r\n        vec3 currentRayOrigin = ourRay.origin;\r\n        vec3 currentRayDir = ourRay.dir;\r\n\r\n        vec3 baryCentric;\r\n        float minHitDistance;\r\n        Triangle tri;\r\n        int triIndex = traverseBVH(ourRay, baryCentric, minHitDistance,tri);\r\n        \r\n        int hitLightIndex = -1;\r\n        for (int i = 0; i < numActiveLights; i++) {\r\n            vec3 lightHitNormal;\r\n            float lightHitDistance = intersectLight(ourRay.origin, ourRay.dir, lights[i], lightHitNormal);\r\n            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {\r\n                hitLightIndex = i;\r\n                minHitDistance = lightHitDistance;\r\n            }\r\n        }\r\n\r\n        if (hitLightIndex != -1) {\r\n            // Ray hit light source\r\n            if(bounce == 0 || bounce == hasMirror + 1){\r\n                // Directly visible light or after mirror/glossy\r\n                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;\r\n            }\r\n            //Note, now that we have an NEE we do not need to factor in light hit after the first bounce.\r\n            break; // Path terminates.\r\n        }\r\n        vec3 atmosphereColor = getSkyColor(ourRay.dir, -u_sunDirection);\r\n\r\n        vec3 sunDirToScene = -u_sunDirection; // Direction from scene TO the sun\r\n        float cosAngle = dot(ourRay.dir, sunDirToScene);\r\n        \r\n        // The angular radius is very small, so we use its cosine\r\n        float cosAngularRadius = cos(u_sunAngularRadius);\r\n        \r\n        // If the angle between the ray and the center of the sun is less than the angular radius, \r\n        // the ray hit the visible sun disk.\r\n        bool hitSunDisk = (cosAngle >= cosAngularRadius);\r\n\r\n        vec3 finalSky = atmosphereColor;\r\n        if (triIndex == -1) {\r\n            // Ray missed everything and flew into space (Sky).\r\n            if (hitSunDisk) {\r\n                // Ray hit the visible Sun disk\r\n                finalSky += u_sunColor * u_sunIntensity *SUN_TRANSMISSION; \r\n            }\r\n\r\n            // Apply clouds and final color\r\n            if(bounce == 0 || bounce == hasMirror + 1){\r\n                color += throughput * finalSky;\r\n            }\r\n            color += finalSky*ambientLightIntensity;\r\n            \r\n            break;\r\n        }\r\n\r\n        // The ray hit a triangle \r\n        //Get information\r\n        vec3 hitPoint = ourRay.origin + ourRay.dir * minHitDistance;\r\n\r\n        bool isGrassBlade = false;\r\n        if(tri.types[0] == -1){\r\n            isGrassBlade = true; \r\n        }\r\n        TerrainType t1;//getTerrainType(tri.types[0]);\r\n        TerrainType t2;\r\n        TerrainType t3;\r\n        if(!isGrassBlade){\r\n            t1 = Terrains[tri.types[0]];//getTerrainType(tri.types[0]);\r\n            t2 = Terrains[tri.types[1]];\r\n            t3 = Terrains[tri.types[2]];\r\n        }\r\n\r\n        vec3 smoothNormal, matColor;\r\n        float matRoughness, reflectiveness;\r\n        int type = 1;\r\n        if(t1.type != 1){\r\n            type = t1.type;\r\n        }else if(t2.type != 1){\r\n            type = t2.type;\r\n        }else if(t3.type != 1){\r\n            type = t3.type;\r\n        }else{\r\n            type = t1.type; //default to first one in triangle\r\n        }\r\n        if(!isGrassBlade){\r\n            getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);\r\n        }\r\n\r\n        vec3 geometricNormal = tri.triNormal;\r\n        bool didSwitch = false;\r\n        if (dot(geometricNormal, ourRay.dir) > 0.0) geometricNormal = -geometricNormal; //\"same direction\"\r\n        if(!isGrassBlade){\r\n            if (dot(smoothNormal, geometricNormal) < 0.0) {\r\n                smoothNormal = -smoothNormal;\r\n                didSwitch = true;\r\n            } //If pointing in opposite directions, flip\r\n        }\r\n\r\n        // Create the next bounce ray\r\n        if(isGrassBlade){\r\n            //Do something cool \r\n            //pretend diffuse for now\r\n            type = 1;\r\n            smoothNormal = tri.triNormal;\r\n            matColor =  mix(grassBaseColor,grassTipColor, tri.normals[0].x);\r\n        }\r\n        if(type != 4) //Transmission goes through\r\n            ourRay.origin = hitPoint + geometricNormal * 0.1;\r\n        if(type == 1){ //Diffuse\r\n            //direct lighting\r\n            vec3 directLight = vec3(0.0);\r\n            vec3 BRDF = matColor / PI;\r\n            directLight = sampleSunLight(ourRay,BRDF, smoothNormal, rng_state, bounce) + shootShadowRay(ourRay, BRDF, smoothNormal, rng_state);\r\n            \r\n            ourRay.dir = weightedDIR(smoothNormal, rng_state);\r\n            float cos_theta = dot(ourRay.dir,smoothNormal);\r\n            float p = 0.5*PI;\r\n            throughput *= BRDF*cos_theta/p;\r\n            color += throughput * directLight;\r\n        }else if (type == 2) { // Specular (mirror)\r\n            vec3 useNormal = smoothNormal;\r\n            if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n            vec3 perfect = normalize(reflect(ourRay.dir, useNormal));\r\n            ourRay.dir = perfect;\r\n            throughput *= vec3(0.8); // decrease brightness a bit\r\n            hasMirror = bounce;\r\n        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular\r\n            vec3 useNormal = smoothNormal;\r\n            vec3 backDir = -ourRay.dir;\r\n            if(dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n            float metallic = clamp(reflectiveness, 0.0, 1.0);\r\n            float roughness = clamp(matRoughness, 0.001, 1.0);\r\n            float alpha = roughness * roughness;\r\n            vec3 F0 = mix(vec3(0.04), matColor, metallic);\r\n            vec3 albedo = matColor * (1.0 - metallic);\r\n\r\n            //Direct Lighting\r\n            vec3 L_sun = -u_sunDirection;\r\n            vec3 brdf = EvalUnifiedBRDF(useNormal, backDir, L_sun, alpha, F0, albedo, metallic);\r\n            vec3 directLight = sampleSunLight(ourRay, brdf, useNormal, rng_state, bounce) + shootShadowRay(ourRay, brdf, useNormal, rng_state);\r\n            color += throughput * directLight;\r\n\r\n            //Indirect lighting\r\n            float F_view = fresnelSchlick(max(dot(useNormal, backDir), 0.0), F0).g; // use green channel as estimate\r\n            float specProb = mix(F_view, 1.0, metallic);\r\n            specProb = clamp(specProb, 0.05, 0.95); // Prevent divide by zero\r\n\r\n            float r_val = rand(rng_state);\r\n\r\n            if(r_val < specProb){ //Specular bounce\r\n                vec2 Xi = vec2(rand(rng_state), rand(rng_state));\r\n                vec3 H = ImportanceSampleGGX(Xi, useNormal, alpha);\r\n                vec3 L = normalize(reflect(-backDir, H));\r\n\r\n                float NdotL = dot(useNormal, L);\r\n                float NdotH = dot(useNormal, H);\r\n                float VdotH = dot(backDir, H);\r\n                float NdotV = dot(useNormal, backDir);\r\n\r\n                if (NdotL > 0.0 && VdotH > 0.0) {\r\n                    vec3 F = fresnelSchlick(VdotH, F0);\r\n                    float G = GeometrySmith(useNormal, backDir, L, alpha);\r\n                    \r\n                    // The Weight for GGX Importance Sampling:\r\n                    // Weight = (F * G * VdotH) / (NdotV * NdotH * specProb)\r\n                    vec3 weight = (F * G * VdotH) / (NdotV * NdotH + 0.0001);\r\n                    \r\n                    throughput *= weight / specProb;\r\n                    ourRay.dir = L;\r\n                    hasMirror = bounce;\r\n                }\r\n            }else{\r\n                //regular diffuse\r\n                vec3 L = weightedDIR(useNormal, rng_state);\r\n                vec3 kS = fresnelSchlick(max(dot(useNormal, L), 0.0), F0);\r\n                vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);\r\n                \r\n                throughput *= (kD * albedo) / (1.0 - specProb);\r\n                ourRay.dir = L;\r\n            }    \r\n        }else if (type == 4){ //Transmission (Glass)\r\n            float eta;\r\n            vec3 transmissionNormal;\r\n            if(didSwitch){ //exiting\r\n                eta = reflectiveness / 1.0;\r\n                transmissionNormal = -smoothNormal; // Refract in the opposite direction\r\n            }else{ //entering\r\n                eta = 1.0 / reflectiveness;\r\n                transmissionNormal = smoothNormal; // Refract in the same direction\r\n            }\r\n            vec3 refracted = refract(ourRay.dir, transmissionNormal, eta);\r\n            if (length(refracted) < 0.001) {\r\n                // TIR: fall back to mirror reflection\r\n                vec3 useNormal = smoothNormal;\r\n                if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n                ourRay.dir = normalize(reflect(ourRay.dir, useNormal));\r\n                ourRay.origin = hitPoint + geometricNormal * 0.01;\r\n            } else {\r\n                //Do microfacet\r\n                vec3 useNormal = smoothNormal;\r\n                if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n                ourRay.dir = sampleGlossyDirection(normalize(refracted), matRoughness, rng_state);\r\n\r\n                ourRay.origin = hitPoint - geometricNormal * 0.01;\r\n            }\r\n            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce\r\n            vec3 absorption = -log(matColor)*0.1;  // if matColor is tint\r\n            throughput *= exp(-absorption * (minHitDistance)); //Beer Lambert law\r\n        }else if (type == 5){ // Emissive\r\n            color += throughput * matColor;\r\n            break;\r\n        }\r\n\r\n        if (bounce >= 3) { \r\n            // Calculate survival probability based on the brightness of the current throughput.\r\n            // Brighter paths have a higher chance of surviving.\r\n            float p = max(throughput.r, max(throughput.g, throughput.b));\r\n\r\n            // Clamp probability\r\n            p = clamp(p, 0.0, 0.95);\r\n\r\n            if (rand(rng_state) > p) {\r\n                break; // Terminate path\r\n            }\r\n\r\n            // If the ray survives, we must boost its intensity to compensate for the \r\n            // rays we just killed. This ensures the average brightness remains correct.\r\n            throughput *= 1.0 / p;\r\n        }\r\n        \r\n        // [Sanity Check] Stop if throughput is zero to save performance\r\n        if (length(throughput) <= 0.001) {\r\n            break;\r\n        }\r\n    }\r\n    return min(color, vec3(10.0));\r\n}\r\n\r\nvoid main() {\r\n    int pixelX = int(v_uv.x * u_resolution.x);\r\n    int pixelY = int(v_uv.y * u_resolution.y);\r\n    int patternIndex = pixelX + pixelY * 199;\r\n\r\n    // Check if we should render this frame\r\n    if(patternIndex % u_skips != u_frameNumber % u_skips){\r\n        fragColor = vec4(textureLod(u_lastFrame, v_uv, 0.0).rgb, 1.0);\r\n        return;\r\n    }\r\n    //Random Hash\r\n    uint pixel_x = uint(v_uv.x * u_resolution.x); \r\n    uint pixel_y = uint(v_uv.y * u_resolution.y);\r\n    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);\r\n    uint rng_state = hash(seed + uint(u_frameNumber));\r\n    rng_state = hash(rng_state + uint(u_frameNumber));\r\n\r\n    //Load terrains\r\n    for(int i = 0; i < u_numTerrains; i++){\r\n        Terrains[i] = getTerrainType(i);\r\n    }\r\n    \r\n    // Jitter calculation for Anti-Alising\r\n    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one\r\n    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].\r\n\r\n    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;\r\n    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC\r\n\r\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\r\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \r\n    // Transform from clip space to world space\r\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\r\n    // Perform perspective divide\r\n    rayWorld /= rayWorld.w;\r\n    // The ray direction is the vector from the camera to this point in the world\r\n    Ray mainRay;\r\n    mainRay.origin = u_cameraPos;\r\n    mainRay.dir = normalize(rayWorld.xyz - u_cameraPos);\r\n\r\n\r\n    vec3 newSampleColor = PathTrace(mainRay, rng_state); // Sample Color\r\n    vec3 newSum;\r\n    float effectiveSampleCount = ceil(float(u_frameNumber) / float(u_skips));\r\n    \r\n    effectiveSampleCount = max(effectiveSampleCount, 1.0);\r\n    if(u_frameNumber <= u_skips){ \r\n        newSum = newSampleColor;\r\n    } else {\r\n        vec3 lastSum = textureLod(u_lastFrame, v_uv, 0.0).rgb;\r\n        newSum = lastSum + (newSampleColor - lastSum) / effectiveSampleCount;\r\n    }\r\n\r\n    fragColor = vec4(newSum,1.0); \r\n}";
 
 /***/ }),
 
@@ -5633,28 +7809,137 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(locati
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   SettingsSection: () => (/* binding */ SettingsSection)
+/* harmony export */   SettingsManager: () => (/* binding */ SettingsManager)
 /* harmony export */ });
-var __assign = (undefined && undefined.__assign) || function () {
-    __assign = Object.assign || function(t) {
-        for (var s, i = 1, n = arguments.length; i < n; i++) {
-            s = arguments[i];
-            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                t[p] = s[p];
+class SettingsManager {
+    constructor() {
+        this.sections = new Map();
+        this.attachedProgramUniforms = new Map();
+        this.IdInSection = new Map(); // Map of setting ID to section title
+    }
+    createSection(parentContainer, title) {
+        const section = new SettingsSection(parentContainer, title);
+        this.sections.set(title, section);
+    }
+    addSliderToSection(sectionTitle, config) {
+        const section = this.sections.get(sectionTitle);
+        if (section) {
+            section.addSlider(config);
         }
-        return t;
-    };
-    return __assign.apply(this, arguments);
-};
-var SettingsSection = /** @class */ (function () {
-    function SettingsSection(parentContainer, title, program) {
+        this.IdInSection.set(config.id, sectionTitle);
+    }
+    addCheckboxToSection(sectionTitle, config) {
+        const section = this.sections.get(sectionTitle);
+        if (section) {
+            section.addCheckbox(config);
+        }
+        this.IdInSection.set(config.id, sectionTitle);
+    }
+    addColorPickerToSection(sectionTitle, config) {
+        const section = this.sections.get(sectionTitle);
+        if (section) {
+            section.addColorPicker(config);
+        }
+        this.IdInSection.set(config.id, sectionTitle);
+    }
+    addButtonToSection(sectionTitle, label, onClick) {
+        const section = this.sections.get(sectionTitle);
+        if (section) {
+            section.addButton(label, onClick);
+        }
+    }
+    attatchProgram(program, uniformNames) {
+        this.attachedProgramUniforms.set(program, uniformNames);
+    }
+    updateProgramUniforms(gl, program) {
+        const uniformNames = this.attachedProgramUniforms.get(program);
+        if (!uniformNames)
+            return;
+        uniformNames.forEach((name) => {
+            const setting = this.getSetting(name);
+            if (!setting || setting.uniform === false)
+                return;
+            const loc = gl.getUniformLocation(program, setting.id);
+            if (!loc) {
+                console.warn(`Uniform location for ${setting.id} not found.`);
+                return;
+            }
+            if (setting.type === "slider") {
+                // Check if it's a vector type
+                const isVector = setting.numType === "vec2" || setting.numType === "vec3" || setting.numType === "vec4";
+                if (setting.isArray || isVector) {
+                    const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                    if (isVector) {
+                        // Handle vector uniforms
+                        if (setting.numType === "vec2") {
+                            gl.uniform2fv(loc, new Float32Array(arrayValue.slice(0, 2)));
+                        }
+                        else if (setting.numType === "vec3") {
+                            gl.uniform3fv(loc, new Float32Array(arrayValue.slice(0, 3)));
+                        }
+                        else if (setting.numType === "vec4") {
+                            gl.uniform4fv(loc, new Float32Array(arrayValue.slice(0, 4)));
+                        }
+                    }
+                    else {
+                        // Handle regular array uniforms
+                        gl.uniform1fv(loc, new Float32Array(arrayValue));
+                    }
+                }
+                else {
+                    const numValue = typeof setting.value === "number" ? setting.value : 0;
+                    if (setting.numType === "int") {
+                        gl.uniform1i(loc, Math.floor(numValue));
+                    }
+                    else {
+                        gl.uniform1f(loc, numValue);
+                    }
+                }
+            }
+            else if (setting.type === "checkbox") {
+                gl.uniform1i(loc, setting.value ? 1 : 0);
+            }
+            else if (setting.type === "color") {
+                const rgb = this.hexToRgb(setting.value);
+                gl.uniform3f(loc, rgb[0], rgb[1], rgb[2]);
+            }
+        });
+    }
+    getSetting(id) {
+        const sectionTitle = this.IdInSection.get(id);
+        if (!sectionTitle)
+            throw new Error(`Setting ID '${id}' not found`);
+        const section = this.sections.get(sectionTitle);
+        if (!section)
+            throw new Error(`Section '${sectionTitle}' not found`);
+        return section.getSetting(id);
+    }
+    getSliderArray(id) {
+        const sectionTitle = this.IdInSection.get(id);
+        if (!sectionTitle)
+            throw new Error(`Setting ID '${id}' not found`);
+        const section = this.sections.get(sectionTitle);
+        if (!section)
+            throw new Error(`Section '${sectionTitle}' not found`);
+        return section.getSliderArray(id);
+    }
+    hexToRgb(hex) {
+        const bigint = parseInt(hex.slice(1), 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return [r / 255, g / 255, b / 255];
+    }
+}
+SettingsManager.instance = new SettingsManager();
+class SettingsSection {
+    constructor(parentContainer, title, program) {
         this.settings = new Map();
-        this.program = null;
         // Create section with heading
         this.sectionElement = document.createElement("div");
         this.sectionElement.className = "settings-section";
         this.sectionElement.style.margin = "20px 0";
-        var heading = document.createElement("h3");
+        const heading = document.createElement("h3");
         heading.textContent = title;
         heading.style.marginBottom = "12px";
         this.sectionElement.appendChild(heading);
@@ -5662,182 +7947,623 @@ var SettingsSection = /** @class */ (function () {
         this.container.className = "settings-container";
         this.sectionElement.appendChild(this.container);
         parentContainer.appendChild(this.sectionElement);
-        this.program = program || null;
+    }
+    /**
+     * Add a button to the section
+     */
+    addButton(label, onClick) {
+        const wrapper = document.createElement("div");
+        wrapper.style.margin = "16px 0";
+        const button = document.createElement("button");
+        button.textContent = label;
+        button.style.padding = "8px 16px";
+        button.style.cursor = "pointer";
+        button.style.fontSize = "14px";
+        button.addEventListener("click", onClick);
+        wrapper.appendChild(button);
+        this.container.appendChild(wrapper);
+    }
+    /**
+     * Helper to get value at index (or single value if not array)
+     */
+    getValueAtIndex(value, index, fallback = 0) {
+        if (value === undefined)
+            return fallback;
+        if (typeof value === "number")
+            return value;
+        return value[index] ?? fallback;
     }
     /**
      * Add a slider setting
      */
-    SettingsSection.prototype.addSlider = function (config) {
-        var _a, _b, _c;
-        var setting = __assign(__assign({}, config), { type: "slider", value: (_a = config.defaultValue) !== null && _a !== void 0 ? _a : 0, uniform: (_b = config.uniform) !== null && _b !== void 0 ? _b : true, numType: (_c = config.numType) !== null && _c !== void 0 ? _c : "float" });
+    addSlider(config) {
+        // Check if it's a vector type
+        const isVector = config.numType === "vec2" || config.numType === "vec3" || config.numType === "vec4";
+        const vecLength = config.numType === "vec2" ? 2 : config.numType === "vec3" ? 3 : config.numType === "vec4" ? 4 : 0;
+        // Treat vectors as arrays with fixed length
+        const isArray = config.isArray ?? isVector;
+        const arrayLength = isVector ? vecLength : (config.arrayLength ?? 1);
+        // Handle defaultValue: if single value, fill array; if array, use it; otherwise default to 0
+        let defaultValue;
+        if (isArray) {
+            if (Array.isArray(config.defaultValue)) {
+                // Use provided array, padding with last value if needed
+                const providedArray = config.defaultValue;
+                defaultValue = Array.from({ length: arrayLength }, (_, i) => i < providedArray.length
+                    ? providedArray[i]
+                    : (providedArray[providedArray.length - 1] ?? 0));
+            }
+            else {
+                // Single value: fill entire array
+                defaultValue = Array(arrayLength).fill(config.defaultValue ?? 0);
+            }
+        }
+        else {
+            defaultValue = config.defaultValue ?? 0;
+        }
+        // For array sliders or vector sliders, create an array of values
+        const initialValue = isArray
+            ? Array.isArray(defaultValue)
+                ? defaultValue
+                : Array(arrayLength).fill(defaultValue)
+            : typeof defaultValue === "number"
+                ? defaultValue
+                : (defaultValue[0] ?? 0);
+        const setting = {
+            ...config,
+            type: "slider",
+            value: initialValue,
+            uniform: config.uniform ?? true,
+            numType: config.numType ?? "float",
+            isArray: isArray,
+            arrayLength: arrayLength,
+            arrayIndex: config.arrayIndex ?? 0,
+            defaultValue: defaultValue
+        };
         this.settings.set(config.id, setting);
         this.renderSlider(setting);
-    };
+    }
     /**
      * Add a checkbox setting
      */
-    SettingsSection.prototype.addCheckbox = function (config) {
-        var _a, _b;
-        var setting = __assign(__assign({}, config), { type: "checkbox", value: (_a = config.defaultValue) !== null && _a !== void 0 ? _a : false, uniform: (_b = config.uniform) !== null && _b !== void 0 ? _b : true });
+    addCheckbox(config) {
+        const setting = {
+            ...config,
+            type: "checkbox",
+            value: config.defaultValue ?? false,
+            uniform: config.uniform ?? true
+        };
         this.settings.set(config.id, setting);
         this.renderCheckbox(setting);
-    };
+    }
+    /**
+     * Add a color picker setting
+     */
+    addColorPicker(config) {
+        const setting = {
+            ...config,
+            type: "color",
+            value: config.defaultValue ?? "#ffffff",
+            uniform: config.uniform ?? true
+        };
+        this.settings.set(config.id, setting);
+        this.renderColorPicker(setting);
+    }
     /**
      * Get a slider value
      */
-    SettingsSection.prototype.getSliderValue = function (id) {
-        var setting = this.settings.get(id);
+    getSliderValue(id, index) {
+        const setting = this.settings.get(id);
         if (setting && setting.type === "slider") {
-            return setting.value;
+            if (setting.isArray) {
+                const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                const idx = index !== undefined ? index : (setting.arrayIndex ?? 0);
+                return arrayValue[idx] ?? 0;
+            }
+            return typeof setting.value === "number" ? setting.value : 0;
         }
-        throw new Error("Slider setting '".concat(id, "' not found"));
-    };
+        throw new Error(`Slider setting '${id}' not found`);
+    }
+    /**
+     * Get an array slider value at a specific index
+     */
+    getSliderArray(id) {
+        const setting = this.settings.get(id);
+        if (setting && setting.type === "slider" && setting.isArray) {
+            return Array.isArray(setting.value) ? setting.value : [];
+        }
+        throw new Error(`Array slider setting '${id}' not found`);
+    }
     /**
      * Get a checkbox value
      */
-    SettingsSection.prototype.getCheckboxValue = function (id) {
-        var setting = this.settings.get(id);
+    getCheckboxValue(id) {
+        const setting = this.settings.get(id);
         if (setting && setting.type === "checkbox") {
             return setting.value;
         }
-        throw new Error("Checkbox setting '".concat(id, "' not found"));
-    };
+        throw new Error(`Checkbox setting '${id}' not found`);
+    }
+    /**
+     * Get a color value
+     */
+    getColorValue(id) {
+        const setting = this.settings.get(id);
+        if (setting && setting.type === "color") {
+            return setting.value;
+        }
+        throw new Error(`Color setting '${id}' not found`);
+    }
     /**
      * Set a slider value programmatically
      */
-    SettingsSection.prototype.setSliderValue = function (id, value) {
-        var setting = this.settings.get(id);
+    setSliderValue(id, value, index) {
+        const setting = this.settings.get(id);
         if (setting && setting.type === "slider") {
-            setting.value = value;
-            var sliderElement = document.getElementById("".concat(id, "-slider"));
-            var valueSpan = document.getElementById("".concat(id, "-value"));
-            if (sliderElement)
-                sliderElement.value = value.toString();
-            if (valueSpan)
-                valueSpan.textContent = value.toString();
-            if (setting.onChange)
-                setting.onChange(value);
+            if (setting.isArray) {
+                const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                const idx = index !== undefined ? index : (setting.arrayIndex ?? 0);
+                arrayValue[idx] = value;
+                setting.value = arrayValue;
+                // Update UI if this is the current index
+                if (idx === (setting.arrayIndex ?? 0)) {
+                    const sliderElement = document.getElementById(`${id}-slider`);
+                    const valueSpan = document.getElementById(`${id}-value`);
+                    if (sliderElement)
+                        sliderElement.value = value.toString();
+                    if (valueSpan)
+                        valueSpan.textContent = value.toString();
+                }
+                // Update index display
+                const indexSpan = document.getElementById(`${id}-index`);
+                if (indexSpan) {
+                    indexSpan.textContent = `${setting.arrayIndex ?? 0}`;
+                }
+                if (setting.onChange)
+                    setting.onChange(value);
+            }
+            else {
+                setting.value = value;
+                const sliderElement = document.getElementById(`${id}-slider`);
+                const valueSpan = document.getElementById(`${id}-value`);
+                if (sliderElement)
+                    sliderElement.value = value.toString();
+                if (valueSpan)
+                    valueSpan.textContent = value.toString();
+                if (setting.onChange)
+                    setting.onChange(value);
+            }
         }
-    };
+    }
     /**
      * Set a checkbox value programmatically
      */
-    SettingsSection.prototype.setCheckboxValue = function (id, value) {
-        var setting = this.settings.get(id);
+    setCheckboxValue(id, value) {
+        const setting = this.settings.get(id);
         if (setting && setting.type === "checkbox") {
             setting.value = value;
-            var checkboxElement = document.getElementById("".concat(id, "-checkbox"));
+            const checkboxElement = document.getElementById(`${id}-checkbox`);
             if (checkboxElement)
                 checkboxElement.checked = value;
             if (setting.onChange)
                 setting.onChange(value);
         }
-    };
+    }
+    /**
+     * Set a color value programmatically
+     */
+    setColorValue(id, value) {
+        const setting = this.settings.get(id);
+        if (setting && setting.type === "color") {
+            setting.value = value;
+            const colorElement = document.getElementById(`${id}-color`);
+            if (colorElement)
+                colorElement.value = value;
+            if (setting.onChange)
+                setting.onChange(value);
+        }
+    }
     /**
      * Render a slider setting in the UI
      */
-    SettingsSection.prototype.renderSlider = function (setting) {
-        var wrapper = document.createElement("div");
+    renderSlider(setting) {
+        const wrapper = document.createElement("div");
         wrapper.style.margin = "16px 0";
-        var label = document.createElement("label");
-        label.htmlFor = "".concat(setting.id, "-slider");
-        var valueSpan = document.createElement("span");
-        valueSpan.id = "".concat(setting.id, "-value");
-        valueSpan.textContent = setting.value.toString();
-        label.innerHTML = "".concat(setting.label, ": ");
+        const label = document.createElement("label");
+        label.htmlFor = `${setting.id}-slider`;
+        // Check if this is a vector type
+        const isVector = setting.numType === "vec2" || setting.numType === "vec3" || setting.numType === "vec4";
+        const componentLabels = ["x", "y", "z", "w"];
+        const valueSpan = document.createElement("span");
+        valueSpan.id = `${setting.id}-value`;
+        const currentIndex = setting.arrayIndex ?? 0;
+        // Helper function to get current min/max/step/defaultValue based on index
+        const getCurrentMin = () => this.getValueAtIndex(setting.min, currentIndex, 0);
+        const getCurrentMax = () => this.getValueAtIndex(setting.max, currentIndex, 1);
+        const getCurrentStep = () => this.getValueAtIndex(setting.step, currentIndex, 0.01);
+        const getCurrentDefault = () => this.getValueAtIndex(setting.defaultValue, currentIndex, 0);
+        const currentValue = setting.isArray
+            ? Array.isArray(setting.value)
+                ? setting.value[currentIndex]
+                : getCurrentDefault()
+            : typeof setting.value === "number"
+                ? setting.value
+                : getCurrentDefault();
+        // Don't show value span for vectors (each component shows its own)
+        if (!isVector) {
+            valueSpan.textContent = currentValue.toString();
+        }
+        // For array sliders (but not vectors), add index display and navigation
+        let indexSpan = null;
+        let prevButton = null;
+        let nextButton = null;
+        if (setting.isArray && !isVector && setting.arrayLength) {
+            indexSpan = document.createElement("span");
+            indexSpan.id = `${setting.id}-index`;
+            indexSpan.style.marginLeft = "8px";
+            indexSpan.style.marginRight = "8px";
+            indexSpan.textContent = `[${currentIndex}]`;
+            prevButton = document.createElement("button");
+            prevButton.textContent = "◄";
+            prevButton.style.marginLeft = "8px";
+            prevButton.style.marginRight = "4px";
+            prevButton.style.padding = "2px 8px";
+            prevButton.style.cursor = "pointer";
+            prevButton.disabled = currentIndex === 0;
+            nextButton = document.createElement("button");
+            nextButton.textContent = "►";
+            nextButton.style.marginLeft = "4px";
+            nextButton.style.padding = "2px 8px";
+            nextButton.style.cursor = "pointer";
+            nextButton.disabled = currentIndex >= setting.arrayLength - 1;
+            prevButton.addEventListener("click", () => {
+                if (setting.arrayIndex !== undefined && setting.arrayIndex > 0) {
+                    setting.arrayIndex--;
+                    const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                    const newValue = arrayValue[setting.arrayIndex] ??
+                        this.getValueAtIndex(setting.defaultValue, setting.arrayIndex, 0);
+                    const slider = document.getElementById(`${setting.id}-slider`);
+                    if (slider) {
+                        // Update slider properties based on new index
+                        slider.min = this.getValueAtIndex(setting.min, setting.arrayIndex, 0).toString();
+                        slider.max = this.getValueAtIndex(setting.max, setting.arrayIndex, 1).toString();
+                        slider.step = this.getValueAtIndex(setting.step, setting.arrayIndex, 0.01).toString();
+                        slider.value = newValue.toString();
+                    }
+                    if (valueSpan)
+                        valueSpan.textContent = newValue.toString();
+                    if (indexSpan)
+                        indexSpan.textContent = `[${setting.arrayIndex}]`;
+                    if (prevButton)
+                        prevButton.disabled = setting.arrayIndex === 0;
+                    if (nextButton)
+                        nextButton.disabled =
+                            setting.arrayIndex >= setting.arrayLength - 1;
+                }
+            });
+            nextButton.addEventListener("click", () => {
+                if (setting.arrayIndex !== undefined &&
+                    setting.arrayIndex < setting.arrayLength - 1) {
+                    setting.arrayIndex++;
+                    const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                    const newValue = arrayValue[setting.arrayIndex] ??
+                        this.getValueAtIndex(setting.defaultValue, setting.arrayIndex, 0);
+                    const slider = document.getElementById(`${setting.id}-slider`);
+                    if (slider) {
+                        // Update slider properties based on new index
+                        slider.min = this.getValueAtIndex(setting.min, setting.arrayIndex, 0).toString();
+                        slider.max = this.getValueAtIndex(setting.max, setting.arrayIndex, 1).toString();
+                        slider.step = this.getValueAtIndex(setting.step, setting.arrayIndex, 0.01).toString();
+                        slider.value = newValue.toString();
+                    }
+                    if (valueSpan)
+                        valueSpan.textContent = newValue.toString();
+                    if (indexSpan)
+                        indexSpan.textContent = `[${setting.arrayIndex}]`;
+                    if (prevButton)
+                        prevButton.disabled = setting.arrayIndex === 0;
+                    if (nextButton)
+                        nextButton.disabled =
+                            setting.arrayIndex >= setting.arrayLength - 1;
+                }
+            });
+        }
+        label.innerHTML = `${setting.label}: `;
+        if (!isVector) {
+            label.appendChild(valueSpan);
+            if (indexSpan)
+                label.appendChild(indexSpan);
+            if (prevButton)
+                label.appendChild(prevButton);
+            if (nextButton)
+                label.appendChild(nextButton);
+        }
         label.appendChild(valueSpan);
-        var slider = document.createElement("input");
+        if (indexSpan)
+            label.appendChild(indexSpan);
+        if (prevButton)
+            label.appendChild(prevButton);
+        if (nextButton)
+            label.appendChild(nextButton);
+        const slider = document.createElement("input");
         slider.type = "range";
-        slider.id = "".concat(setting.id, "-slider");
-        slider.min = setting.min.toString();
-        slider.max = setting.max.toString();
-        slider.step = setting.step.toString();
-        slider.value = setting.value.toString();
-        slider.addEventListener("input", function () {
-            var value = parseFloat(slider.value);
-            setting.value = value;
-            valueSpan.textContent = slider.value;
+        slider.id = `${setting.id}-slider`;
+        slider.min = getCurrentMin().toString();
+        slider.max = getCurrentMax().toString();
+        slider.step = getCurrentStep().toString();
+        slider.value = currentValue.toString();
+        // Helper function to get decimal places from step value
+        const getDecimalPlaces = (step) => {
+            const str = step.toString();
+            if (str.includes('e-')) {
+                return parseInt(str.split('e-')[1]);
+            }
+            const decimalPart = str.split('.')[1];
+            return decimalPart ? decimalPart.length : 0;
+        };
+        // Helper function to update value and UI
+        const updateValue = (newValue) => {
+            const min = parseFloat(slider.min);
+            const max = parseFloat(slider.max);
+            const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+            // Round to avoid floating point precision issues
+            const decimals = getDecimalPlaces(step);
+            newValue = parseFloat(newValue.toFixed(decimals));
+            newValue = Math.max(min, Math.min(max, newValue));
+            if (setting.isArray) {
+                const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                const idx = setting.arrayIndex ?? 0;
+                arrayValue[idx] = newValue;
+                setting.value = arrayValue;
+            }
+            else {
+                setting.value = newValue;
+            }
+            slider.value = newValue.toString();
+            valueSpan.textContent = newValue.toString();
             if (setting.onChange) {
-                setting.onChange(value);
+                setting.onChange(newValue);
+            }
+        };
+        slider.addEventListener("input", () => {
+            const value = parseFloat(slider.value);
+            if (setting.isArray) {
+                const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                const idx = setting.arrayIndex ?? 0;
+                arrayValue[idx] = value;
+                setting.value = arrayValue;
+                valueSpan.textContent = slider.value;
+                if (setting.onChange) {
+                    setting.onChange(value);
+                }
+            }
+            else {
+                setting.value = value;
+                valueSpan.textContent = slider.value;
+                if (setting.onChange) {
+                    setting.onChange(value);
+                }
             }
         });
         wrapper.appendChild(label);
         wrapper.appendChild(document.createElement("br"));
-        wrapper.appendChild(slider);
-        this.container.appendChild(wrapper);
-    };
+        // Render sliders: multiple for vectors, single for others
+        if (isVector) {
+            // Render multiple sliders for vector components
+            const vecValue = Array.isArray(setting.value) ? setting.value : [];
+            for (let i = 0; i < setting.arrayLength; i++) {
+                const componentWrapper = document.createElement("div");
+                componentWrapper.style.marginBottom = "8px";
+                componentWrapper.style.display = "flex";
+                componentWrapper.style.alignItems = "center";
+                const componentLabel = document.createElement("label");
+                componentLabel.textContent = `${componentLabels[i]}: `;
+                componentLabel.style.display = "inline-block";
+                componentLabel.style.width = "20px";
+                componentLabel.style.marginRight = "8px";
+                const slider = document.createElement("input");
+                slider.type = "range";
+                slider.id = `${setting.id}-slider-${i}`;
+                slider.min = this.getValueAtIndex(setting.min, i, 0).toString();
+                slider.max = this.getValueAtIndex(setting.max, i, 1).toString();
+                slider.step = this.getValueAtIndex(setting.step, i, 0.01).toString();
+                slider.value = (vecValue[i] ?? 0).toString();
+                slider.style.flex = "1";
+                slider.style.marginRight = "8px";
+                const componentValue = document.createElement("span");
+                componentValue.id = `${setting.id}-value-${i}`;
+                componentValue.textContent = (vecValue[i] ?? 0).toFixed(2);
+                componentValue.style.display = "inline-block";
+                componentValue.style.width = "50px";
+                componentValue.style.textAlign = "right";
+                slider.addEventListener("input", () => {
+                    const value = parseFloat(slider.value);
+                    const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                    arrayValue[i] = value;
+                    setting.value = arrayValue;
+                    componentValue.textContent = value.toFixed(2);
+                    if (setting.onChange) {
+                        setting.onChange(value);
+                    }
+                });
+                componentWrapper.appendChild(componentLabel);
+                componentWrapper.appendChild(slider);
+                componentWrapper.appendChild(componentValue);
+                wrapper.appendChild(componentWrapper);
+            }
+        }
+        else {
+            // Render single slider for non-vector types
+            const slider = document.createElement("input");
+            slider.type = "range";
+            slider.id = `${setting.id}-slider`;
+            slider.min = getCurrentMin().toString();
+            slider.max = getCurrentMax().toString();
+            slider.step = getCurrentStep().toString();
+            slider.value = currentValue.toString();
+            slider.addEventListener("input", () => {
+                const value = parseFloat(slider.value);
+                if (setting.isArray) {
+                    const arrayValue = Array.isArray(setting.value) ? setting.value : [];
+                    const idx = setting.arrayIndex ?? 0;
+                    arrayValue[idx] = value;
+                    setting.value = arrayValue;
+                    valueSpan.textContent = slider.value;
+                    if (setting.onChange) {
+                        setting.onChange(value);
+                    }
+                }
+                else {
+                    setting.value = value;
+                    valueSpan.textContent = slider.value;
+                    if (setting.onChange) {
+                        setting.onChange(value);
+                    }
+                }
+            });
+            // Only add fine tuner buttons if fineTuner is enabled
+            if (setting.fineTuner) {
+                const smallBtnStyle = "padding: 1px 5px; margin: 0 1px; cursor: pointer; font-size: 11px;";
+                const largeBtnStyle = "padding: 1px 3px; margin: 0 1px; cursor: pointer; font-size: 10px;";
+                // 10x decrement button
+                const decrement10xBtn = document.createElement("button");
+                decrement10xBtn.textContent = "−10";
+                decrement10xBtn.style.cssText = largeBtnStyle;
+                decrement10xBtn.title = `Decrease by ${getCurrentStep() * 10}`;
+                decrement10xBtn.addEventListener("click", () => {
+                    const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+                    const currentVal = parseFloat(slider.value);
+                    updateValue(currentVal - step * 10);
+                });
+                // 1x decrement button
+                const decrementBtn = document.createElement("button");
+                decrementBtn.textContent = "−";
+                decrementBtn.style.cssText = smallBtnStyle;
+                decrementBtn.title = `Decrease by ${getCurrentStep()}`;
+                decrementBtn.addEventListener("click", () => {
+                    const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+                    const currentVal = parseFloat(slider.value);
+                    updateValue(currentVal - step);
+                });
+                // 1x increment button
+                const incrementBtn = document.createElement("button");
+                incrementBtn.textContent = "+";
+                incrementBtn.style.cssText = smallBtnStyle;
+                incrementBtn.title = `Increase by ${getCurrentStep()}`;
+                incrementBtn.addEventListener("click", () => {
+                    const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+                    const currentVal = parseFloat(slider.value);
+                    updateValue(currentVal + step);
+                });
+                // 10x increment button
+                const increment10xBtn = document.createElement("button");
+                increment10xBtn.textContent = "+10";
+                increment10xBtn.style.cssText = largeBtnStyle;
+                increment10xBtn.title = `Increase by ${getCurrentStep() * 10}`;
+                increment10xBtn.addEventListener("click", () => {
+                    const step = this.getValueAtIndex(setting.step, setting.arrayIndex ?? 0, 0.01);
+                    const currentVal = parseFloat(slider.value);
+                    updateValue(currentVal + step * 10);
+                });
+                // Create a container for the slider row with buttons
+                const sliderRow = document.createElement("div");
+                sliderRow.style.display = "flex";
+                sliderRow.style.alignItems = "center";
+                sliderRow.style.gap = "2px";
+                sliderRow.appendChild(decrement10xBtn);
+                sliderRow.appendChild(decrementBtn);
+                sliderRow.appendChild(slider);
+                sliderRow.appendChild(incrementBtn);
+                sliderRow.appendChild(increment10xBtn);
+                wrapper.appendChild(sliderRow);
+            }
+            else {
+                wrapper.appendChild(slider);
+            }
+            this.container.appendChild(wrapper);
+        }
+    }
     /**
      * Render a checkbox setting in the UI
      */
-    SettingsSection.prototype.renderCheckbox = function (setting) {
-        var wrapper = document.createElement("div");
+    renderCheckbox(setting) {
+        const wrapper = document.createElement("div");
         wrapper.style.margin = "8px 0";
-        var label = document.createElement("label");
-        label.htmlFor = "".concat(setting.id, "-checkbox");
-        var checkbox = document.createElement("input");
+        const label = document.createElement("label");
+        label.htmlFor = `${setting.id}-checkbox`;
+        const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
-        checkbox.id = "".concat(setting.id, "-checkbox");
+        checkbox.id = `${setting.id}-checkbox`;
         checkbox.checked = setting.value;
-        checkbox.addEventListener("change", function () {
+        checkbox.addEventListener("change", () => {
             setting.value = checkbox.checked;
             if (setting.onChange) {
                 setting.onChange(checkbox.checked);
             }
         });
         label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(" ".concat(setting.label)));
+        label.appendChild(document.createTextNode(` ${setting.label}`));
         wrapper.appendChild(label);
         this.container.appendChild(wrapper);
-    };
-    SettingsSection.prototype.updateUniforms = function (gl) {
-        if (!this.program) {
-            console.warn("No program associated with this settings section.");
-            return;
-        }
-        var program = this.program;
-        this.settings.forEach(function (setting) {
-            if (setting.uniform === false)
-                return;
-            var loc = gl.getUniformLocation(program, setting.id);
-            if (!loc) {
-                console.warn("Uniform location for ".concat(setting.id, " not found."));
-                return;
-            }
-            if (setting.type === "slider") {
-                if (setting.numType === "int") {
-                    gl.uniform1i(loc, Math.floor(setting.value));
-                }
-                else {
-                    gl.uniform1f(loc, setting.value);
-                }
-            }
-            else if (setting.type === "checkbox") {
-                gl.uniform1i(loc, setting.value ? 1 : 0);
+    }
+    /**
+     * Render a color picker setting in the UI
+     */
+    renderColorPicker(setting) {
+        const wrapper = document.createElement("div");
+        wrapper.style.margin = "16px 0";
+        const label = document.createElement("label");
+        label.htmlFor = `${setting.id}-color`;
+        label.textContent = `${setting.label}: `;
+        const colorInput = document.createElement("input");
+        colorInput.type = "color";
+        colorInput.id = `${setting.id}-color`;
+        colorInput.value = setting.value;
+        colorInput.style.marginLeft = "8px";
+        colorInput.style.cursor = "pointer";
+        colorInput.addEventListener("input", () => {
+            setting.value = colorInput.value;
+            if (setting.onChange) {
+                setting.onChange(colorInput.value);
             }
         });
-    };
+        wrapper.appendChild(label);
+        wrapper.appendChild(colorInput);
+        this.container.appendChild(wrapper);
+    }
+    /**
+     * Convert hex color to RGB array (0-1 range)
+     */
+    hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result
+            ? [
+                parseInt(result[1], 16) / 255,
+                parseInt(result[2], 16) / 255,
+                parseInt(result[3], 16) / 255
+            ]
+            : [0, 0, 0];
+    }
     /**
      * Get a setting by ID
      */
-    SettingsSection.prototype.getSetting = function (id) {
+    getSetting(id) {
         return this.settings.get(id);
-    };
+    }
     /**
      * Remove all settings in this section
      */
-    SettingsSection.prototype.clear = function () {
+    clear() {
         this.settings.clear();
         this.container.innerHTML = "";
-    };
+    }
     /**
      * Remove the entire section
      */
-    SettingsSection.prototype.remove = function () {
+    remove() {
         this.sectionElement.remove();
-    };
-    return SettingsSection;
-}());
-
+    }
+}
 
 
 /***/ }),
@@ -5853,14 +8579,48 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _GameEngine__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./GameEngine */ "./src/GameEngine.ts");
 //The idea is YOU SHOULD NEVER EDIT THIS FILE, Edit GameEngine.ts - Abstraction is fun or whatever.
 
-var kMainCanvasId = "#MainCanvas";
-var Engine = new _GameEngine__WEBPACK_IMPORTED_MODULE_0__.GameEngine(kMainCanvasId);
+const kMainCanvasId = "#MainCanvas";
+const mainCanvas = document.getElementById(kMainCanvasId);
 var rafId = null;
-var gameTick = function (timestamp) {
-    Engine.tick(timestamp);
+function setup() {
+    const Engine = new _GameEngine__WEBPACK_IMPORTED_MODULE_0__.GameEngine(mainCanvas);
+    const gameTick = (timestamp) => {
+        Engine.tick(timestamp);
+        rafId = requestAnimationFrame(gameTick);
+    };
     rafId = requestAnimationFrame(gameTick);
-};
-rafId = requestAnimationFrame(gameTick);
+}
+/**
+ * Handle Context Lost
+ * Triggered when the GPU crashes or the OS takes over resources.
+ */
+mainCanvas.addEventListener('webglcontextlost', (event) => {
+    // We must cast the generic Event to WebGLContextEvent to access specific properties if needed,
+    // though preventDefault() exists on the base Event type.
+    const glEvent = event;
+    // CRITICAL: Tells the browser "Do not assume this app is dead; I will handle restoration."
+    glEvent.preventDefault();
+    const WEBGL_INFO_TEXT = "WebGL context lost. Pausing simulation... <br>This most likely happens because a shader is too slow <br>Please wait while we recover context <br>";
+    console.warn(WEBGL_INFO_TEXT);
+    const infoBox = document.getElementById("loadingBox");
+    infoBox.style.display = "block";
+    infoBox.innerHTML = WEBGL_INFO_TEXT;
+    // Stop the render loop to prevent errors from trying to draw to a dead context
+    if (rafId) {
+        cancelAnimationFrame(rafId);
+    }
+});
+/**
+ * Handle Context Restored
+ * Triggered by the browser when the GPU is ready again.
+ */
+mainCanvas.addEventListener('webglcontextrestored', (event) => {
+    const WEBGL_INFO_TEXT = "WebGL context restored! Feel free to reload the page.";
+    console.warn(WEBGL_INFO_TEXT);
+    const infoBox = document.getElementById("loadingBox");
+    infoBox.innerHTML += WEBGL_INFO_TEXT;
+});
+setup();
 
 
 /***/ }),
@@ -5881,22 +8641,20 @@ __webpack_require__.r(__webpack_exports__);
 /**
  * Utility class for packing BVH and triangle data into Float32Arrays for GPU processing.
  */
-var BVHUtils = /** @class */ (function () {
-    function BVHUtils() {
-    }
+class BVHUtils {
     /**
      * Pack all the triangles into a Float32array(s) which can be passed as a RGBAF32
      * @param tri BVH triangles
      */
-    BVHUtils.packTriangles = function (mesh, types, vertexNormals) {
-        var floatsPerTexel = 4; //Using rgbaf32 format, each texel (or pixel of texture) can hold up to 4 floats
+    static packTriangles(mesh, types, vertexNormals) {
+        let floatsPerTexel = 4; //Using rgbaf32 format, each texel (or pixel of texture) can hold up to 4 floats
         //Currently only need to pack the vertices and terrain types - Bounding boxes & other attributes don't matter as they will be part of the BVH
-        var vertices = new Float32Array(Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel); // Each triangle vertices has 9 attributes (3 vertices, 3 axis)
-        var terrains = new Float32Array(Math.ceil((types.length * 3) / floatsPerTexel) * floatsPerTexel); // 3 vertices each have different terrain values.
-        var normals = new Float32Array(Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel); // Each triangle normal for all the vertices has 9 attributes
-        for (var i = 0; i < mesh.length; i++) {
+        let vertices = new Float32Array(Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel); // Each triangle vertices has 9 attributes (3 vertices, 3 axis)
+        let terrains = new Float32Array(Math.ceil((types.length * 3) / floatsPerTexel) * floatsPerTexel); // 3 vertices each have different terrain values.
+        let normals = new Float32Array(Math.ceil((mesh.length * 9) / floatsPerTexel) * floatsPerTexel); // Each triangle normal for all the vertices has 9 attributes
+        for (let i = 0; i < mesh.length; i++) {
             //Iterate through triangles
-            for (var a = 0; a < mesh[i].length; a++) {
+            for (let a = 0; a < mesh[i].length; a++) {
                 //Iterate through vertices in each triangle
                 vertices[i * 9 + 3 * a] = mesh[i][a][0];
                 vertices[i * 9 + 3 * a + 1] = mesh[i][a][1];
@@ -5907,20 +8665,20 @@ var BVHUtils = /** @class */ (function () {
                 normals[i * 9 + 3 * a + 2] = vertexNormals[i][a][2];
             }
         }
-        return { vertices: vertices, terrains: terrains, normals: normals };
-    };
+        return { vertices, terrains, normals };
+    }
     /**
      * Packs flatten BVH to F32 format to be sent to glsl.
      * For how this works @see packTriangles
      * @param BVH
      */
-    BVHUtils.packBVH = function (BVH) {
-        var floatsPerTexel = 4; //See thing in packTriangles Method
-        var boundingBoxes = new Float32Array(Math.ceil((BVH.length * 6) / floatsPerTexel) * floatsPerTexel);
-        var nodes = new Float32Array(Math.ceil((BVH.length * 2) / floatsPerTexel) * floatsPerTexel);
-        var leafs = new Float32Array(Math.ceil((BVH.length * 4) / floatsPerTexel) * floatsPerTexel);
-        for (var i = 0; i < BVH.length; i++) {
-            for (var j = 0; j < 3; j++) {
+    static packBVH(BVH) {
+        let floatsPerTexel = 4; //See thing in packTriangles Method
+        let boundingBoxes = new Float32Array(Math.ceil((BVH.length * 6) / floatsPerTexel) * floatsPerTexel);
+        let nodes = new Float32Array(Math.ceil((BVH.length * 2) / floatsPerTexel) * floatsPerTexel);
+        let leafs = new Float32Array(Math.ceil((BVH.length * 4) / floatsPerTexel) * floatsPerTexel);
+        for (let i = 0; i < BVH.length; i++) {
+            for (let j = 0; j < 3; j++) {
                 boundingBoxes[i * 6 + j] = BVH[i].boundingBoxMin[j];
                 boundingBoxes[i * 6 + 3 + j] = BVH[i].boundingBoxMax[j];
             }
@@ -5932,11 +8690,11 @@ var BVHUtils = /** @class */ (function () {
             leafs[i * 4 + 3] = BVH[i].t4;
         }
         return {
-            boundingBoxes: boundingBoxes,
-            nodes: nodes,
-            leafs: leafs
+            boundingBoxes,
+            nodes,
+            leafs
         };
-    };
+    }
     /**
      * Packs terrain type properties into a Float32Array for efficient GPU transfer.
      *
@@ -5947,15 +8705,18 @@ var BVHUtils = /** @class */ (function () {
      * @returns {Float32Array} A packed array containing the terrain types' properties.
      *
      */
-    BVHUtils.packTerrainTypes = function () {
-        var floatsPerTexel = 4;
-        var numberTerrains = Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains).length;
-        var numberFloats = 6;
-        var out = new Float32Array(Math.ceil((numberTerrains * numberFloats) / floatsPerTexel) *
+    static packTerrainTypes() {
+        let floatsPerTexel = 4;
+        let numberTerrains = Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains).length;
+        let numberFloats = 6;
+        let out = new Float32Array(Math.ceil((numberTerrains * numberFloats) / floatsPerTexel) *
             floatsPerTexel); //r,g,b,illuminosity, reflectiveness
-        var i = 0;
-        for (var key in _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains) {
-            var terrain = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[key];
+        let i = 0;
+        for (const key in _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains) {
+            if (key == "-1") {
+                continue;
+            }
+            let terrain = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[key];
             out[i * numberFloats] = terrain.color.r / 255;
             out[i * numberFloats + 1] = terrain.color.g / 255;
             out[i * numberFloats + 2] = terrain.color.b / 255;
@@ -5965,10 +8726,8 @@ var BVHUtils = /** @class */ (function () {
             i++;
         }
         return out;
-    };
-    return BVHUtils;
-}());
-
+    }
+}
 
 
 /***/ }),
@@ -5982,30 +8741,340 @@ var BVHUtils = /** @class */ (function () {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   Light: () => (/* binding */ Light)
+/* harmony export */   DirectionalLight: () => (/* binding */ DirectionalLight),
+/* harmony export */   PointLight: () => (/* binding */ PointLight),
+/* harmony export */   addShadowedLight: () => (/* binding */ addShadowedLight),
+/* harmony export */   disableShadow: () => (/* binding */ disableShadow),
+/* harmony export */   enableShadow: () => (/* binding */ enableShadow)
 /* harmony export */ });
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 
 /**
  *  Represents a light source in the world.
  */
-var Light = /** @class */ (function () {
-    function Light(position, color, intensity, radius, showColor) {
+class PointLight {
+    constructor(position, color, intensity, radius, showColor, name = "Point Light") {
         this.position = position;
         this.color = color;
         this.intensity = intensity;
         this.radius = radius;
+        this.range = PointLight.calculateRangeFromIntensity(radius, intensity);
         this.showColor = showColor ? showColor : this.color;
+        this.name = name;
+        this.visualizerEnabled = false;
+        this.showShadowMap = false;
     }
-    Light.prototype.setPosition = function (position) {
+    /**
+     * Calculate range so the light cuts off when its contribution
+     * drops below a perceptual threshold (no visible cutoff line)
+     * @param radius The light's radius
+     * @param intensity The light's intensity
+     * @param threshold The minimum noticeable light contribution (default 0.005)
+     */
+    static calculateRangeFromIntensity(radius, intensity, threshold = 0.05, maxRangeMultiplier = 10) {
+        const maxAttenuation = 2.0;
+        const p = 1 - threshold / (maxAttenuation * intensity);
+        // If intensity is too low, use minimum range
+        if (p <= 0)
+            return radius;
+        // Clamp to avoid infinite range for very bright lights
+        const pClamped = Math.min(p, 0.9995);
+        const calculatedRange = radius * pClamped / Math.sqrt(1 - pClamped * pClamped);
+        // Cap range to prevent performance issues with very bright lights
+        return Math.min(calculatedRange, radius * maxRangeMultiplier);
+    }
+    setPosition(position) {
         this.position = position;
-    };
-    Light.prototype.addPosition = function (position) {
+    }
+    addPosition(position) {
         gl_matrix__WEBPACK_IMPORTED_MODULE_0__.add(this.position, this.position, position);
-    };
-    return Light;
-}());
+    }
+}
+class DirectionalLight {
+    constructor(direction, color, intensity, angularRadius) {
+        this.direction = direction;
+        this.color = color;
+        this.intensity = intensity;
+        this.angularRadius = angularRadius;
+    }
+}
+function enableShadow(lights, lightIndex, numShadowedLights) {
+    if (lightIndex < numShadowedLights)
+        return { lights, numShadowedLights };
+    const light = lights[lightIndex];
+    let newLights = [...lights];
+    newLights.splice(lightIndex, 1);
+    newLights.splice(numShadowedLights, 0, light);
+    return { lights: newLights, numShadowedLights: numShadowedLights + 1 };
+}
+function disableShadow(lights, lightIndex, numShadowedLights) {
+    if (lightIndex >= numShadowedLights)
+        return { lights, numShadowedLights };
+    const light = lights[lightIndex];
+    let newLights = [...lights];
+    newLights.splice(lightIndex, 1);
+    newLights.push(light);
+    return { lights: newLights, numShadowedLights: numShadowedLights - 1 };
+}
+function addShadowedLight(lights, light, numShadowedLights) {
+    if (numShadowedLights >= lights.length)
+        return { lights, numShadowedLights };
+    let newLights = [...lights];
+    newLights.splice(numShadowedLights, 0, light);
+    return { lights: newLights, numShadowedLights: numShadowedLights + 1 };
+}
 
+
+/***/ }),
+
+/***/ "./src/map/LightUI.ts":
+/*!****************************!*\
+  !*** ./src/map/LightUI.ts ***!
+  \****************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   LightUI: () => (/* binding */ LightUI)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _Light__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Light */ "./src/map/Light.ts");
+/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+
+
+
+class LightUI {
+    constructor(world, updateTracer) {
+        this.displayOrder = []; // Maintains stable display order
+        this.world = world;
+        this.tracerUpdateSupplier = updateTracer;
+        const { container, addButton } = this.ensureLightSection();
+        this.container = container;
+        this.addButton = addButton;
+        this.addButton.addEventListener("click", () => this.createDefaultLight());
+        this.container.innerHTML = "";
+        // Initialize display order with current lights
+        this.displayOrder = [...this.world.lights];
+        this.displayOrder.forEach((light) => this.createLightCard(light));
+    }
+    ensureLightSection() {
+        // Always rebuild the section to guarantee markup exists and is consistent
+        const existingSection = document.getElementById("point-light-section");
+        if (existingSection) {
+            existingSection.remove();
+        }
+        const sidebar = document.getElementById("sidebar");
+        if (!sidebar) {
+            throw new Error("Sidebar element not found for LightUI");
+        }
+        const section = document.createElement("section");
+        section.id = "point-light-section";
+        const heading = document.createElement("h3");
+        heading.textContent = "Point Lights";
+        section.appendChild(heading);
+        const addButton = document.createElement("button");
+        addButton.id = "add-light-btn";
+        addButton.type = "button";
+        addButton.textContent = "Add Point Light";
+        section.appendChild(addButton);
+        const container = document.createElement("div");
+        container.id = "point-lights";
+        section.appendChild(container);
+        sidebar.appendChild(section);
+        return { container, addButton };
+    }
+    createDefaultLight() {
+        const index = this.world.lights.length + 1;
+        const newLight = new _Light__WEBPACK_IMPORTED_MODULE_0__.PointLight(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(0, 20, 0), new _terrains__WEBPACK_IMPORTED_MODULE_1__.Color(255, 255, 255), 1, 20, undefined, `Point Light ${index}`);
+        this.world.lights.push(newLight);
+        this.displayOrder.push(newLight); // Add to display order
+        this.createLightCard(newLight);
+        this.requestPathTracerUpdate();
+    }
+    createLightCard(light) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "point-light";
+        const title = document.createElement("h4");
+        title.textContent = light.name ?? "Point Light";
+        wrapper.appendChild(title);
+        const nameInput = document.createElement("input");
+        nameInput.type = "text";
+        nameInput.value = light.name ?? "Point Light";
+        nameInput.placeholder = "Point Light name";
+        nameInput.addEventListener("change", () => {
+            const trimmed = nameInput.value.trim();
+            light.name = trimmed.length > 0 ? trimmed : "Point Light";
+            title.textContent = light.name;
+        });
+        wrapper.appendChild(this.createLabeledInput("Name", nameInput));
+        const colorInput = document.createElement("input");
+        colorInput.type = "color";
+        colorInput.value = this.colorToHex(light.color);
+        colorInput.addEventListener("change", () => {
+            const updatedColor = _terrains__WEBPACK_IMPORTED_MODULE_1__.Color.fromHex(colorInput.value);
+            light.color = updatedColor;
+            light.showColor = updatedColor;
+            this.requestPathTracerUpdate();
+        });
+        wrapper.appendChild(this.createLabeledInput("Color", colorInput));
+        wrapper.appendChild(this.createVectorInputGroup("Position", light.position, (axis, value) => {
+            light.position[axis] = value;
+            this.requestPathTracerUpdate();
+        }));
+        const intensityInput = document.createElement("input");
+        intensityInput.type = "number";
+        intensityInput.step = "0.1";
+        intensityInput.min = "0";
+        intensityInput.max = "10";
+        intensityInput.value = light.intensity.toString();
+        const commitIntensity = () => {
+            const val = intensityInput.value === "" ? 0 : parseFloat(intensityInput.value);
+            light.intensity = Math.max(0, val);
+            this.requestPathTracerUpdate();
+        };
+        intensityInput.addEventListener("change", commitIntensity);
+        intensityInput.addEventListener("blur", commitIntensity);
+        wrapper.appendChild(this.createLabeledInput("Intensity", intensityInput));
+        const radiusInput = document.createElement("input");
+        radiusInput.type = "number";
+        radiusInput.step = "1";
+        radiusInput.min = "0";
+        radiusInput.max = "500";
+        radiusInput.value = light.radius.toString();
+        const commitRadius = () => {
+            const val = radiusInput.value === "" ? 0 : parseFloat(radiusInput.value);
+            light.radius = Math.max(0, val);
+            this.requestPathTracerUpdate();
+        };
+        radiusInput.addEventListener("change", commitRadius);
+        radiusInput.addEventListener("blur", commitRadius);
+        wrapper.appendChild(this.createLabeledInput("Radius", radiusInput));
+        const shadowInput = document.createElement("input");
+        shadowInput.type = "checkbox";
+        shadowInput.checked = this.world.lights.indexOf(light) < this.world.numShadowedLights;
+        shadowInput.addEventListener("change", () => {
+            // Recalculate the index each time, as the array may have been reordered
+            const currentIndex = this.world.lights.indexOf(light);
+            if (currentIndex === -1)
+                return; // Light was removed
+            if (shadowInput.checked) {
+                if (this.world.numShadowedLights >= 5) {
+                    shadowInput.checked = false;
+                    alert("You can only have up to 5 shadowed lights");
+                    return;
+                }
+                const result = (0,_Light__WEBPACK_IMPORTED_MODULE_0__.enableShadow)(this.world.lights, currentIndex, this.world.numShadowedLights);
+                this.world.lights = result.lights;
+                this.world.numShadowedLights = result.numShadowedLights;
+            }
+            else {
+                const result = (0,_Light__WEBPACK_IMPORTED_MODULE_0__.disableShadow)(this.world.lights, currentIndex, this.world.numShadowedLights);
+                this.world.lights = result.lights;
+                this.world.numShadowedLights = result.numShadowedLights;
+            }
+            this.refreshLightCards();
+            this.requestPathTracerUpdate();
+        });
+        wrapper.appendChild(this.createLabeledInput("Shadow", shadowInput));
+        // Only show shadow map visualization checkbox for shadowed lights
+        const currentLightIndex = this.world.lights.indexOf(light);
+        if (currentLightIndex < this.world.numShadowedLights) {
+            const shadowMapLabel = document.createElement("label");
+            shadowMapLabel.className = "point-light__shadow-map-toggle";
+            const shadowMapInput = document.createElement("input");
+            shadowMapInput.type = "checkbox";
+            shadowMapInput.checked = light.showShadowMap;
+            shadowMapInput.addEventListener("change", () => {
+                light.showShadowMap = shadowMapInput.checked;
+            });
+            shadowMapLabel.appendChild(shadowMapInput);
+            shadowMapLabel.append(" Show shadow map");
+            wrapper.appendChild(shadowMapLabel);
+        }
+        const deleteButton = document.createElement("button");
+        deleteButton.textContent = "Remove Light";
+        deleteButton.className = "point-light__delete";
+        deleteButton.addEventListener("click", () => {
+            const deleteIndex = this.world.lights.indexOf(light);
+            // If we're deleting a shadowed light, decrement the count
+            if (deleteIndex >= 0 && deleteIndex < this.world.numShadowedLights) {
+                this.world.numShadowedLights--;
+            }
+            this.world.lights = this.world.lights.filter((l) => l !== light);
+            // Remove from display order as well
+            this.displayOrder = this.displayOrder.filter((l) => l !== light);
+            wrapper.remove();
+            this.refreshLightCards();
+            this.requestPathTracerUpdate();
+        });
+        wrapper.appendChild(deleteButton);
+        this.container.appendChild(wrapper);
+    }
+    createVectorInputGroup(labelText, values, onChange) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "vector-input-group";
+        const label = document.createElement("span");
+        label.textContent = `${labelText}:`;
+        wrapper.appendChild(label);
+        ["X", "Y", "Z"].forEach((axisLabel, index) => {
+            const input = document.createElement("input");
+            input.type = "number";
+            input.step = "0.5";
+            input.value = values[index].toString();
+            input.className = "vector-input";
+            const commitValue = () => {
+                const val = input.value === "" ? 0 : parseFloat(input.value);
+                onChange(index, val);
+            };
+            input.addEventListener("change", commitValue);
+            input.addEventListener("blur", commitValue);
+            const axisWrapper = document.createElement("label");
+            axisWrapper.textContent = `${axisLabel}: `;
+            axisWrapper.appendChild(input);
+            wrapper.appendChild(axisWrapper);
+        });
+        return wrapper;
+    }
+    createLabeledInput(labelText, input) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "point-light__label";
+        const textSpan = document.createElement("span");
+        textSpan.textContent = `${labelText}: `;
+        wrapper.appendChild(textSpan);
+        wrapper.appendChild(input);
+        return wrapper;
+    }
+    colorToHex(color) {
+        const toHex = (value) => value.toString(16).padStart(2, "0");
+        return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`;
+    }
+    refreshLightCards() {
+        this.container.innerHTML = "";
+        // Use display order for stable UI, but only show lights that still exist in the world
+        const lightsSet = new Set(this.world.lights);
+        this.displayOrder = this.displayOrder.filter(light => lightsSet.has(light));
+        // Add any new lights that aren't in display order yet
+        this.world.lights.forEach(light => {
+            if (!this.displayOrder.includes(light)) {
+                this.displayOrder.push(light);
+            }
+        });
+        this.displayOrder.forEach((light) => this.createLightCard(light));
+    }
+    requestPathTracerUpdate() {
+        if (this.tracerUpdateSupplier) {
+            const updater = this.tracerUpdateSupplier();
+            if (updater)
+                updater();
+        }
+        // Notify that lights have changed (for VAO updates, etc.) 
+        // Technically, pathtracer doesn't even use lights, but it would be the same update function so it is used anyway
+        if (this.world.onLightsChanged) {
+            this.world.onLightsChanged();
+        }
+    }
+}
 
 
 /***/ }),
@@ -6019,20 +9088,22 @@ var Light = /** @class */ (function () {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Chunk: () => (/* binding */ Chunk),
 /* harmony export */   WorldMap: () => (/* binding */ WorldMap)
 /* harmony export */ });
-/* harmony import */ var _marching_cubes__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./marching_cubes */ "./src/map/marching_cubes.ts");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var _Light__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Light */ "./src/map/Light.ts");
-/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
-/* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
-/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
-/* harmony import */ var _cubes_utils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_utils.ts");
-/* harmony import */ var _ObjectUI__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./ObjectUI */ "./src/map/ObjectUI.ts");
-//Wrapper classes (will write stuff later)
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var _Light__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Light */ "./src/map/Light.ts");
+/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+/* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _cubes_utils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./cubes_utils */ "./src/map/cubes_utils.ts");
+/* harmony import */ var _ObjectUI__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./ObjectUI */ "./src/map/ObjectUI.ts");
+/* harmony import */ var _LightUI__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./LightUI */ "./src/map/LightUI.ts");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../Settings */ "./src/Settings.ts");
+/* harmony import */ var _geometry__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ./geometry */ "./src/map/geometry.ts");
+/* harmony import */ var _WebGPU_compute__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./WebGPU compute */ "./src/map/WebGPU compute.ts");
 
 
 
@@ -6041,139 +9112,550 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-/**
- * The object holding the map of the world
- * Center chunk starts at 0,0 (probably)
- */
-var WorldMap = /** @class */ (function () {
+
+const MAX_CHUNKS_PER_STRIP_TOTAL = 16; // e.g., 4x4, but flexible
+class WorldMap {
     /**
      * Constructs a world
      * @param width Width in # of chunks
      * @param length Length in # of chunks
      * @param height Height of world
      */
-    function WorldMap(width, height, length, gl, updateTracer) {
-        this.lights = [
-            new _Light__WEBPACK_IMPORTED_MODULE_1__.Light(gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0, 500, 0), new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 255, 255), 1, 200, new _terrains__WEBPACK_IMPORTED_MODULE_2__.Color(255, 228, 132))
-        ];
-        this.resolution = 16; //#of vertices square size of chunk
-        this.Workers = [];
-        this.seed = Math.floor(Math.random() * 999) + 1; // Random seed for noise generation
+    constructor(width, height, length, gl, updateTracer) {
+        this.sunLight = new _Light__WEBPACK_IMPORTED_MODULE_0__.DirectionalLight(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(0, -1, 0), new _terrains__WEBPACK_IMPORTED_MODULE_1__.Color(255, 255, 255), 4, 0.1);
+        this.lights = [];
+        this.numShadowedLights = 5;
+        this.resolution = 32; //#of vertices square size of chunk
+        this.chunks = {};
+        this.seed = 42; // Random seed for noise generation
         this.worldObjects = [];
         this.nextWorldObjectId = 0;
+        this.chunksGenerated = 0;
+        this.chunkLoadQueue = [];
+        this.chunkStripQueue = [];
+        this.isGeneratingChunk = false;
         this.tracerUpdateSupplier = updateTracer;
+        console.log(this.seed);
         this.gl = gl;
         this.width = width;
         this.length = length;
         this.height = height;
-        this.chunks = [];
-        for (var i = 0; i < navigator.hardwareConcurrency; i++) {
-            this.Workers.push(new Worker(new URL(/* worker import */ __webpack_require__.p + __webpack_require__.u("src_map_Worker_ts"), __webpack_require__.b)));
+        this.chunks = {};
+        this.objectUI = new _ObjectUI__WEBPACK_IMPORTED_MODULE_5__.ObjectUI(this, this.tracerUpdateSupplier);
+        this.computeShader = new _WebGPU_compute__WEBPACK_IMPORTED_MODULE_9__.ComputeShader();
+        this.computeShader.init();
+        this.lightUI = new _LightUI__WEBPACK_IMPORTED_MODULE_6__.LightUI(this, this.tracerUpdateSupplier);
+        this.initSettings();
+        this.TotalTimings = {
+            noise: 0,
+            fieldReadback: 0,
+            marchingCubes: 0,
+            vertexBufferReadback: 0,
+            indexBufferReadback: 0,
+            meshConstruction: 0,
+            total: 0
+        };
+        this.chunksGenerated = 0;
+    }
+    initSettings() {
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "Sky Settings");
+        //Further Sky settings are in the LightingPass Code
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "u_redScatter",
+            label: "Red Scattering in the Sky",
+            min: 0,
+            max: 0.5,
+            step: 0.001,
+            defaultValue: 0.005,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "u_greenScatter",
+            label: "Green Scattering in the Sky",
+            min: 0,
+            max: 0.5,
+            step: 0.001,
+            defaultValue: 0.011,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "u_blueScatter",
+            label: "Blue Scattering in the Sky",
+            min: 0,
+            max: 0.5,
+            step: 0.001,
+            defaultValue: 0.022,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "u_MIE",
+            label: "Mie (whiteness at sea level)",
+            min: 0,
+            max: 0.5,
+            step: 0.001,
+            defaultValue: 0.021,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "u_haloSize",
+            label: "Mie Anisotropy (Lower = larger halo)",
+            min: 0,
+            max: 5,
+            step: 0.01,
+            defaultValue: 0.76,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "u_skyGradientQuality",
+            label: "Sky Gradient Quality",
+            min: 1,
+            max: 50,
+            step: 1,
+            defaultValue: 12,
+            numType: "int"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "u_sunsetQuality",
+            label: "Sunset Quality",
+            min: 1,
+            max: 50,
+            step: 1,
+            defaultValue: 4,
+            numType: "int"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "u_skyBrightnessBoost",
+            label: "Sky Brighness Coefficient",
+            min: 0,
+            max: 10,
+            step: 0.01,
+            defaultValue: 1.0,
+            numType: "float"
+        });
+    }
+    loadChunk(pos, then = null) {
+        if (this.chunkQueueHasKey(`${pos[0]},${pos[1]},${pos[2]}`)) {
+            return;
         }
-        this.generate();
-        this.fieldMap = new Map();
-        this.objectUI = new _ObjectUI__WEBPACK_IMPORTED_MODULE_6__.ObjectUI(this, this.tracerUpdateSupplier);
+        const key = `${pos[0]},${pos[1]},${pos[2]}`;
+        // Skip if already loaded or queued
+        if (this.chunks[key])
+            return;
+        if (this.chunkLoadQueue.some(item => item.key === key))
+            return;
+        // Add to queue
+        this.chunkLoadQueue.push({ pos, key, then });
+    }
+    chunkQueueHasKey(key) {
+        return this.chunkLoadQueue.some(item => item.key === key);
+    }
+    computeOptimalSubStripSize(lengthInChunks, widthInChunks, maxArea) {
+        let bestTileX = 1;
+        let bestTileZ = Math.max(1, Math.min(widthInChunks, maxArea));
+        let bestCalls = Number.POSITIVE_INFINITY;
+        let bestArea = bestTileX * bestTileZ;
+        const maxX = Math.min(lengthInChunks, maxArea);
+        for (let tx = 1; tx <= maxX; tx++) {
+            const tzCandidate = Math.floor(maxArea / tx);
+            if (tzCandidate < 1)
+                continue;
+            const tz = Math.min(widthInChunks, tzCandidate);
+            const calls = Math.ceil(lengthInChunks / tx) * Math.ceil(widthInChunks / tz);
+            const area = tx * tz;
+            // Prefer fewer calls; break ties by larger area
+            if (calls < bestCalls || (calls === bestCalls && area > bestArea)) {
+                bestCalls = calls;
+                bestArea = area;
+                bestTileX = tx;
+                bestTileZ = tz;
+            }
+        }
+        return { tileX: bestTileX, tileZ: bestTileZ };
+    }
+    // ...existing code...
+    loadChunkStrip(startPos, lengthInChunks, widthInChunks, then = null, allChunksLoadedCallback = null) {
+        // Pick optimal tile size to minimize number of calls for this region
+        const { tileX, tileZ } = this.computeOptimalSubStripSize(lengthInChunks, widthInChunks, MAX_CHUNKS_PER_STRIP_TOTAL);
+        for (let baseX = 0; baseX < lengthInChunks; baseX += tileX) {
+            for (let baseZ = 0; baseZ < widthInChunks; baseZ += tileZ) {
+                const subStripX = Math.min(tileX, lengthInChunks - baseX);
+                const subStripZ = Math.min(tileZ, widthInChunks - baseZ);
+                const subStripStart = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(startPos[0] + baseX * this.resolution, startPos[1], startPos[2] + baseZ * this.resolution);
+                // Overlap check
+                let hasOverlap = false;
+                for (let cx = 0; cx < subStripX && !hasOverlap; cx++) {
+                    for (let cz = 0; cz < subStripZ; cz++) {
+                        const chunkWorldX = subStripStart[0] + cx * this.resolution;
+                        const chunkWorldZ = subStripStart[2] + cz * this.resolution;
+                        const key = `${chunkWorldX},${subStripStart[1]},${chunkWorldZ}`;
+                        if (this.chunks[key] || this.chunkQueueHasKey(key)) {
+                            hasOverlap = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasOverlap) {
+                    // Fallback to individual chunk loading for overlapping region
+                    for (let cx = 0; cx < subStripX; cx++) {
+                        for (let cz = 0; cz < subStripZ; cz++) {
+                            const chunkPos = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(subStripStart[0] + cx * this.resolution, subStripStart[1], subStripStart[2] + cz * this.resolution);
+                            this.loadChunk(chunkPos, then);
+                        }
+                    }
+                }
+                else {
+                    // Queue the sub-strip
+                    this.chunkStripQueue.push({
+                        startPos: subStripStart,
+                        lengthInChunks: subStripX,
+                        widthInChunks: subStripZ,
+                        then,
+                        allChunksLoadedCallback
+                    });
+                }
+            }
+        }
     }
     /**
-     * Clean up resources associated with the map (terminate workers, clear data).
+     * Processes both the chunk strip queue and the individual chunk queue asynchronously.
+     * Prioritizes strip queue for efficiency.
      */
-    WorldMap.prototype.dispose = function () {
-        if (this.Workers && this.Workers.length > 0) {
-            for (var _i = 0, _a = this.Workers; _i < _a.length; _i++) {
-                var w = _a[_i];
-                try {
-                    w.terminate();
+    async processChunkQueue(allChunksLoadedCallback = null) {
+        if (this.isGeneratingChunk)
+            return;
+        // Process strip queue first (more efficient)
+        if (this.chunkStripQueue.length > 0) {
+            this.isGeneratingChunk = true;
+            const { startPos, lengthInChunks, widthInChunks, then, allChunksLoadedCallback: stripCallback } = this.chunkStripQueue.shift();
+            try {
+                await this.generateChunkStrip(startPos, lengthInChunks, widthInChunks, then);
+                if (stripCallback)
+                    stripCallback();
+            }
+            catch (e) {
+                console.error(`Failed to generate chunk strip at ${startPos}:`, e);
+            }
+            finally {
+                this.isGeneratingChunk = false;
+                // Continue processing queues
+                this.processChunkQueue();
+            }
+            return;
+        }
+        // Fall back to individual chunk processing
+        if (this.chunkLoadQueue.length > 0) {
+            this.isGeneratingChunk = true;
+            const { pos, key, then: callback } = this.chunkLoadQueue.shift();
+            try {
+                const chunk = new Chunk(pos, gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, this.height, this.resolution), this.seed, this);
+                this.chunks[key] = chunk;
+                // Await the generation
+                const { mesh, timings } = await chunk.generate();
+                this.addTimings(timings);
+                this.chunksGenerated++;
+                if (callback)
+                    callback(this.chunks[key]);
+            }
+            catch (e) {
+                console.error(`Failed to generate chunk ${key}:`, e);
+                delete this.chunks[key];
+            }
+            finally {
+                this.isGeneratingChunk = false;
+                if (this.chunkLoadQueue.length == 0) {
+                    this.logTiming();
+                    this.logTiming(true);
+                    if (allChunksLoadedCallback) {
+                        allChunksLoadedCallback();
+                    }
                 }
-                catch (e) {
-                    // ignore termination errors
+                this.processChunkQueue(allChunksLoadedCallback); // Process next in the queue
+            }
+            return;
+        }
+    }
+    /**
+     * Generates a strip of chunks by creating a single large mesh and partitioning it.
+     * @param chunkStartPos Starting position in chunk coordinates (vec3) of the strip
+     * @param numberOfChunksX Number of chunks along X
+     * @param widthInChunks Number of chunks along Z
+     * @param then Optional callback after all chunks are generated
+     */
+    async generateChunkStrip(chunkStartPos, numberOfChunksX, numberOfChunksZ, then = null) {
+        // Calculate total grid size for the strip
+        const totalWidth = numberOfChunksX * this.resolution;
+        const totalDepth = numberOfChunksZ * this.resolution;
+        const gridSize = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(totalWidth, this.height, totalDepth);
+        // Call compute shader ONCE for the whole strip
+        const computeShader = this.computeShader;
+        const width = gridSize[0] + 3;
+        const height = gridSize[1] + 3;
+        const depth = gridSize[2] + 3;
+        // Generate field and mesh for the entire strip
+        const fieldBuffer = await computeShader.createSimplexNoise3D(width, height, depth, this.seed, chunkStartPos[0], chunkStartPos[1], chunkStartPos[2]);
+        const interleavedResult = await computeShader.createMarchingCubes(fieldBuffer, width, height, depth);
+        const interleavedData = await computeShader.readInterleavedBuffer(interleavedResult.interleavedBuffer, interleavedResult.vertexCount);
+        const indices = await computeShader.readUintBuffer(interleavedResult.indexBuffer, interleavedResult.indexCount);
+        // Partition triangles into chunks
+        const chunkMeshes = {};
+        // Create chunk meshes using chunk indices (0,1,2...) not world positions
+        for (let cx = 0; cx < numberOfChunksX; cx++) {
+            for (let cz = 0; cz < numberOfChunksZ; cz++) {
+                const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+                const chunkWorldY = chunkStartPos[1];
+                const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+                const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
+                chunkMeshes[key] = new _Mesh__WEBPACK_IMPORTED_MODULE_2__.Mesh();
+            }
+        }
+        // Assign triangles to the correct chunk mesh
+        for (let i = 0; i < indices.length; i += 3) {
+            const idx0 = indices[i];
+            const idx1 = indices[i + 1];
+            const idx2 = indices[i + 2];
+            const offset0 = idx0 * 8;
+            const offset1 = idx1 * 8;
+            const offset2 = idx2 * 8;
+            // Get positions in strip-local space (0 to totalWidth/totalDepth)
+            const tri = [
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset0], interleavedData[offset0 + 1], interleavedData[offset0 + 2]),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset1], interleavedData[offset1 + 1], interleavedData[offset1 + 2]),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset2], interleavedData[offset2 + 1], interleavedData[offset2 + 2])
+            ];
+            // Skip edge triangles to avoid seams (same logic as single chunk generation)
+            let rejectTriangle = false;
+            for (let j = 0; j < 3; j++) {
+                if (tri[j][0] <= 0 ||
+                    tri[j][0] >= width - 1 ||
+                    tri[j][1] <= 0 ||
+                    tri[j][1] >= height - 1 ||
+                    tri[j][2] <= 0 ||
+                    tri[j][2] >= depth - 1) {
+                    rejectTriangle = true;
+                    break;
                 }
             }
-            this.Workers = [];
+            if (rejectTriangle) {
+                continue;
+            }
+            // Determine which chunk this triangle belongs to based on first vertex
+            // The vertex position is in strip-local space, so divide by resolution to get chunk index
+            const localX = tri[0][0];
+            const localZ = tri[0][2];
+            // Calculate chunk indices within the strip (0, 1, 2, ...)
+            const chunkIdxX = Math.floor(localX / this.resolution);
+            const chunkIdxZ = Math.floor(localZ / this.resolution);
+            // Clamp to valid chunk indices
+            const clampedChunkIdxX = Math.max(0, Math.min(numberOfChunksX - 1, chunkIdxX));
+            const clampedChunkIdxZ = Math.max(0, Math.min(numberOfChunksZ - 1, chunkIdxZ));
+            // Calculate world chunk position
+            const chunkWorldX = chunkStartPos[0] + clampedChunkIdxX * this.resolution;
+            const chunkWorldY = chunkStartPos[1];
+            const chunkWorldZ = chunkStartPos[2] + clampedChunkIdxZ * this.resolution;
+            const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
+            const mesh = chunkMeshes[key];
+            if (!mesh)
+                continue;
+            // Convert to chunk-local coordinates by subtracting the chunk's offset within the strip
+            const chunkOffsetX = clampedChunkIdxX * this.resolution;
+            const chunkOffsetZ = clampedChunkIdxZ * this.resolution;
+            const localTri = [
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(tri[0][0] - chunkOffsetX, tri[0][1], tri[0][2] - chunkOffsetZ),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(tri[1][0] - chunkOffsetX, tri[1][1], tri[1][2] - chunkOffsetZ),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(tri[2][0] - chunkOffsetX, tri[2][1], tri[2][2] - chunkOffsetZ)
+            ];
+            const norm = [
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset0 + 4], interleavedData[offset0 + 5], interleavedData[offset0 + 6]),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset1 + 4], interleavedData[offset1 + 5], interleavedData[offset1 + 6]),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset2 + 4], interleavedData[offset2 + 5], interleavedData[offset2 + 6])
+            ];
+            const types = [
+                new Uint32Array(new Float32Array([interleavedData[offset0 + 3]]).buffer)[0],
+                new Uint32Array(new Float32Array([interleavedData[offset1 + 3]]).buffer)[0],
+                new Uint32Array(new Float32Array([interleavedData[offset2 + 3]]).buffer)[0]
+            ];
+            mesh.addTriangle(localTri, norm, types);
         }
-        // Clear other large structures
-        this.chunks = [];
-        this.fieldMap.clear();
-        this.worldObjects = [];
-    };
-    WorldMap.prototype.populateFieldMap = function () {
-        for (var _i = 0, _a = this.chunks; _i < _a.length; _i++) {
-            var chunk = _a[_i];
-            for (var _b = 0, _c = Array.from(chunk.FieldMap.entries()); _b < _c.length; _b++) {
-                var _d = _c[_b], key = _d[0], val = _d[1];
-                this.fieldMap.set(key, val);
+        // Create Chunk objects and assign meshes
+        for (let cx = 0; cx < numberOfChunksX; cx++) {
+            for (let cz = 0; cz < numberOfChunksZ; cz++) {
+                const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+                const chunkWorldY = chunkStartPos[1];
+                const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+                const chunkPos = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(chunkWorldX, chunkWorldY, chunkWorldZ);
+                const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
+                const chunk = new Chunk(chunkPos, gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(this.resolution, this.height, this.resolution), this.seed, this);
+                chunk.Mesh = chunkMeshes[key];
+                this.chunks[key] = chunk;
+                if (then) {
+                    then(chunk);
+                }
             }
         }
-        for (var _e = 0, _f = this.chunks; _e < _f.length; _e++) {
-            var chunk = _f[_e];
-            chunk.setWorldFieldMap(this.fieldMap);
+    }
+    logTiming(average = false) {
+        const timings = average ? this.averageTimings() : this.TotalTimings;
+        if (average) {
+            console.log("Average Chunk Generation Timings (ms):");
         }
-    };
-    //Generates map
-    WorldMap.prototype.generate = function () {
-        this.chunks = [];
-        var worker = 0;
-        for (var i = 0; i < 7; i++)
-            for (var j = 0; j < 7; j++) {
-                this.chunks.push(new _marching_cubes__WEBPACK_IMPORTED_MODULE_0__.Chunk(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(i * this.resolution, j * this.resolution), gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(this.resolution, this.height, this.resolution), this.seed, this.Workers[worker++ % navigator.hardwareConcurrency]));
+        else {
+            console.log("Total Chunk Generation Timings (ms):");
+        }
+        console.log(`  Noise Generation: ${timings.noise.toFixed(2)}`);
+        console.log(`  Field Readback: ${timings.fieldReadback.toFixed(2)}`);
+        console.log(`  Marching Cubes: ${timings.marchingCubes.toFixed(2)}`);
+        console.log(`  Vertex Buffer Readback: ${timings.vertexBufferReadback.toFixed(2)}`);
+        console.log(`  Index Buffer Readback: ${timings.indexBufferReadback.toFixed(2)}`);
+        console.log(`  Mesh Construction: ${timings.meshConstruction.toFixed(2)}`);
+        console.log(`  Total Time: ${timings.total.toFixed(2)}`);
+    }
+    addTimings(timings) {
+        this.TotalTimings.noise += timings.noise;
+        this.TotalTimings.fieldReadback += timings.fieldReadback;
+        this.TotalTimings.marchingCubes += timings.marchingCubes;
+        this.TotalTimings.vertexBufferReadback += timings.vertexBufferReadback;
+        this.TotalTimings.indexBufferReadback += timings.indexBufferReadback;
+        this.TotalTimings.meshConstruction += timings.meshConstruction;
+        this.TotalTimings.total += timings.total;
+    }
+    averageTimings() {
+        const count = this.chunksGenerated || 1;
+        return {
+            noise: this.TotalTimings.noise / count,
+            fieldReadback: this.TotalTimings.fieldReadback / count,
+            marchingCubes: this.TotalTimings.marchingCubes / count,
+            vertexBufferReadback: this.TotalTimings.vertexBufferReadback / count,
+            indexBufferReadback: this.TotalTimings.indexBufferReadback / count,
+            meshConstruction: this.TotalTimings.meshConstruction / count,
+            total: this.TotalTimings.total / count
+        };
+    }
+    async unloadChunk(pos) {
+        const key = `${pos[0]},${pos[1]},${pos[2]}`;
+        delete this.chunks[key];
+        // Remove from queue if it hasn't started generating yet
+        this.chunkLoadQueue = this.chunkLoadQueue.filter(item => item.key !== key);
+    }
+    getChunkAt(chunkX, chunkY, chunkZ) {
+        return this.chunks[`${chunkX},${chunkY},${chunkZ}`];
+    }
+    getAllChunks() {
+        return Object.values(this.chunks);
+    }
+    // Replace the combinedMesh() method in Map.ts (around line 183)
+    combinedMesh() {
+        console.time("combinedMesh generation");
+        const CombinedMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_2__.Mesh();
+        // Count total triangles for pre-allocation logging
+        let totalTriangles = 0;
+        for (const chunk of Object.values(this.chunks)) {
+            totalTriangles += chunk.getMesh().mesh.length;
+        }
+        for (const obj of this.worldObjects) {
+            totalTriangles += obj.mesh.mesh.length;
+        }
+        // Merge chunks with transformation applied
+        for (const chunk of Object.values(this.chunks)) {
+            const chunkMesh = chunk.getMesh();
+            const transformedChunkMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_2__.Mesh();
+            // Transform each triangle by the chunk position
+            for (let i = 0; i < chunkMesh.mesh.length; i++) {
+                const tri = chunkMesh.mesh[i];
+                const norm = chunkMesh.normals[i];
+                const newTri = [
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create()
+                ];
+                const newNorm = [
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create()
+                ];
+                // Apply chunk position offset to vertices
+                for (let j = 0; j < 3; j++) {
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.add(newTri[j], tri[j], chunk.ChunkPosition);
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.copy(newNorm[j], norm[j]); // Normals don't need translation
+                }
+                transformedChunkMesh.mesh.push(newTri);
+                transformedChunkMesh.normals.push(newNorm);
+                transformedChunkMesh.type.push(chunkMesh.type[i]);
             }
-    };
-    WorldMap.prototype.combinedMesh = function () {
-        var CombinedMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
-        // Merge chunks (these are already independent)
-        for (var _i = 0, _a = this.chunks; _i < _a.length; _i++) {
-            var chunk = _a[_i];
-            CombinedMesh.merge(chunk.getMesh());
+            CombinedMesh.merge(transformedChunkMesh);
         }
         // Merge worldObjects with transformation applied
-        for (var _b = 0, _c = this.worldObjects; _b < _c.length; _b++) {
-            var obj = _c[_b];
-            var meshCopy = obj.mesh.copy(); // copy original mesh
-            var transformedMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_3__.Mesh();
-            for (var i = 0; i < meshCopy.mesh.length; i++) {
-                var tri = meshCopy.mesh[i];
-                var norm = meshCopy.normals[i];
-                // Deep copy triangle and normal
-                var newTri = [
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(tri[0]),
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(tri[1]),
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(tri[2])
-                ];
-                var newNorm = [
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(norm[0]),
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(norm[1]),
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.clone(norm[2])
-                ];
-                // Apply transformation
-                for (var j = 0; j < 3; j++) {
-                    // Transform vertex
-                    var v = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(newTri[j][0], newTri[j][1], newTri[j][2], 1);
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_9__.transformMat4(v, v, obj.position);
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.set(newTri[j], v[0], v[1], v[2]);
-                    // Transform normal (rotation + scale only)
-                    var n = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(newNorm[j][0], newNorm[j][1], newNorm[j][2], 0);
-                    var normalMat = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.clone(obj.position);
-                    normalMat[12] = 0;
-                    normalMat[13] = 0;
-                    normalMat[14] = 0;
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_9__.transformMat4(n, n, normalMat);
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_7__.normalize(newNorm[j], gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(n[0], n[1], n[2]));
+        if (this.worldObjects.length > 0) {
+            for (let objIdx = 0; objIdx < this.worldObjects.length; objIdx++) {
+                const obj = this.worldObjects[objIdx];
+                // Create a simple hash of the transform matrix to detect changes
+                const transformHash = obj.position.join(",");
+                const needsRetransform = !obj._cachedTransformedMesh ||
+                    obj._cachedTransformHash !== transformHash;
+                let transformedMesh;
+                if (needsRetransform) {
+                    // Transform mesh from scratch
+                    const meshCopy = obj.mesh;
+                    const triCount = meshCopy.mesh.length;
+                    transformedMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_2__.Mesh();
+                    // Process triangles in batches for progress reporting
+                    const BATCH_SIZE = 50000;
+                    for (let i = 0; i < triCount; i++) {
+                        const tri = meshCopy.mesh[i];
+                        const norm = meshCopy.normals[i];
+                        // Create new triangle and normal (avoid clone overhead)
+                        const newTri = [
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(),
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(),
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create()
+                        ];
+                        const newNorm = [
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(),
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(),
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create()
+                        ];
+                        // Apply transformation to all 3 vertices
+                        for (let j = 0; j < 3; j++) {
+                            // Transform vertex
+                            const v = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(tri[j][0], tri[j][1], tri[j][2], 1);
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.transformMat4(v, v, obj.position);
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.set(newTri[j], v[0], v[1], v[2]);
+                            // Transform normal (rotation + scale only)
+                            const n = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(norm[j][0], norm[j][1], norm[j][2], 0);
+                            const normalMat = gl_matrix__WEBPACK_IMPORTED_MODULE_11__.clone(obj.position);
+                            normalMat[12] = 0;
+                            normalMat[13] = 0;
+                            normalMat[14] = 0;
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.transformMat4(n, n, normalMat);
+                            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.normalize(newNorm[j], gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(n[0], n[1], n[2]));
+                        }
+                        // Add transformed triangle directly
+                        transformedMesh.mesh.push(newTri);
+                        transformedMesh.normals.push(newNorm);
+                        transformedMesh.type.push(meshCopy.type[i]);
+                    }
+                    // Cache the transformed mesh and transform hash
+                    obj._cachedTransformedMesh = transformedMesh;
+                    obj._cachedTransformHash = transformHash;
                 }
-                // Add transformed triangle
-                transformedMesh.addTriangle(newTri, newNorm, meshCopy.type[i]);
+                else {
+                    // Use cached transformed mesh - much faster!
+                    transformedMesh = obj._cachedTransformedMesh;
+                }
+                // Merge transformed mesh into combined mesh
+                CombinedMesh.merge(transformedMesh);
             }
-            // Merge safely into combined mesh
-            CombinedMesh.merge(transformedMesh);
         }
+        console.timeEnd("combinedMesh generation");
         return CombinedMesh;
-    };
+    }
     /**
      * Add an object to the game world
      */
-    WorldMap.prototype.addObject = function (objectData, objectLocation, name) {
-        var _a = (0,_cubes_utils__WEBPACK_IMPORTED_MODULE_5__.meshToInterleavedVerticesAndIndices)(objectData), vertices = _a.vertices, indices = _a.indices;
-        var meshSize = indices.length;
-        var objectBuffer = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_4__.RenderUtils.CreateStaticBuffer(this.gl, vertices, Array.from(indices));
-        var worldObject = {
+    addObject(objectData, objectLocation, name) {
+        const { vertices, indices } = (0,_cubes_utils__WEBPACK_IMPORTED_MODULE_4__.meshToInterleavedVerticesAndIndices)(objectData);
+        const meshSize = indices.length;
+        let objectBuffer = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__.RenderUtils.CreateStaticBuffer(this.gl, vertices, Array.from(indices));
+        const worldObject = {
             buffer: objectBuffer,
             position: objectLocation,
             meshSize: meshSize,
@@ -6186,10 +9668,264 @@ var WorldMap = /** @class */ (function () {
         if (this.onObjectAdded) {
             this.onObjectAdded(worldObject);
         }
-    };
-    return WorldMap;
-}());
+    }
+    /**
+     * Get field value at world coordinates
+     */
+    getFieldValue(worldX, worldY, worldZ) {
+        // Determine which chunk this world position belongs to
+        const chunkX = Math.floor(worldX / this.resolution) * this.resolution;
+        const chunkY = Math.floor(worldY / this.height) * this.height;
+        const chunkZ = Math.floor(worldZ / this.resolution) * this.resolution;
+        const chunk = this.getChunkAt(chunkX, chunkY, chunkZ);
+        if (!chunk)
+            return 0;
+        // Convert world coordinates to local chunk coordinates
+        const localX = worldX - chunkX;
+        const localY = worldY - chunkY;
+        const localZ = worldZ - chunkZ;
+        return chunk.getFieldValueLocal(localX, localY, localZ);
+    }
+    getChunkCoordsFromPosition(position) {
+        const chunkX = Math.floor(position[0] / this.resolution) * this.resolution;
+        const chunkY = Math.floor(position[1] / this.height) * this.height;
+        const chunkZ = Math.floor(position[2] / this.resolution) * this.resolution;
+        return gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(chunkX, chunkY, chunkZ);
+    }
+    hasChunkAt(chunkPos) {
+        const key = `${chunkPos[0]},${chunkPos[1]},${chunkPos[2]}`;
+        return this.chunks[key] !== undefined;
+    }
+}
 
+
+class Chunk {
+    constructor(ChunkPosition, GridSize, seed, worldMap) {
+        this.Field = new Float32Array();
+        this.Mesh = null;
+        this.GridSize = GridSize;
+        this.ChunkPosition = ChunkPosition;
+        this.seed = seed;
+        this.gearObjects = [];
+        this.worldMap = worldMap;
+    }
+    chunkCoordinateToIndex(c) {
+        return (c[0] +
+            c[1] * (this.GridSize[0] + 1) +
+            c[2] * (this.GridSize[0] + 1) * (this.GridSize[1] + 1));
+    }
+    getFieldValueLocal(localX, localY, localZ) {
+        if (localX < 0 ||
+            localX > this.GridSize[0] ||
+            localY < 0 ||
+            localY > this.GridSize[1] ||
+            localZ < 0 ||
+            localZ > this.GridSize[2]) {
+            return -1;
+        }
+        const idx = this.chunkCoordinateToIndex(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(localX, localY, localZ));
+        if (idx < 0 || idx >= this.Field.length) {
+            return -1;
+        }
+        return this.Field[idx];
+    }
+    getFieldValue(localX, localY, localZ) {
+        const localValue = this.getFieldValueLocal(localX, localY, localZ);
+        if (localValue !== -1) {
+            return localValue;
+        }
+        const worldX = localX + this.ChunkPosition[0];
+        const worldY = localY + this.ChunkPosition[1];
+        const worldZ = localZ + this.ChunkPosition[2];
+        return this.worldMap.getFieldValue(worldX, worldY, worldZ);
+    }
+    GenerateCase(cubeCoordinates) {
+        let caseIndex = 0;
+        for (let i = 0; i < _geometry__WEBPACK_IMPORTED_MODULE_12__.VERTICES.length; i++) {
+            let vertexOffset = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(..._geometry__WEBPACK_IMPORTED_MODULE_12__.VERTICES[i]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_8__.add(vertexOffset, vertexOffset, cubeCoordinates);
+            const isTerrain = Number(this.solidChecker(this.getFieldValue(vertexOffset[0], vertexOffset[1], vertexOffset[2])));
+            caseIndex += isTerrain << i;
+        }
+        return caseIndex;
+    }
+    solidChecker(a) {
+        return a > 0.5;
+    }
+    caseToMesh(c, caseNumber) {
+        const caseMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_2__.Mesh();
+        const caseLookup = _geometry__WEBPACK_IMPORTED_MODULE_12__.CASES[caseNumber];
+        for (const triangleLookup of caseLookup) {
+            const vertices = triangleLookup.map((edgeIndex) => this.edgeIndexToCoordinate(c, edgeIndex));
+            // Simple deterministic hash for small per-vertex variation
+            function hash01(x, z) {
+                // stable pseudo-random in [0,1)
+                return Math.abs(Math.sin(x * 127.1 + z * 311.7) * 43758.5453) % 1;
+            }
+            const WATER_LEVEL = 30;
+            const SNOW_LINE = 140;
+            // Determine a terrain type per vertex based on height and slope
+            const types = [0, 0, 0];
+            for (let i = 0; i < 3; i++) {
+                const p = vertices[i].position;
+                const n = vertices[i].normal;
+                const worldY = p[1];
+                const upDot = Math.max(-1, Math.min(1, n[1]));
+                const slope = 1 - Math.abs(upDot); // 0 = flat, higher = steeper
+                // Water
+                if (worldY <= WATER_LEVEL + 0.5) {
+                    types[i] = 4; // water
+                    continue;
+                }
+                // Beaches near water (gentle slope and low height)
+                if (worldY < WATER_LEVEL + 3 && slope < 0.45) {
+                    types[i] = 5; // sand
+                    continue;
+                }
+                // Snow on high altitudes
+                if (worldY > SNOW_LINE) {
+                    types[i] = 3; // snow
+                    continue;
+                }
+                // Cliffs / exposed rock on steep slopes
+                if (slope > 0.8 || upDot < 0.4) {
+                    types[i] = 2; // rock
+                    continue;
+                }
+                // Grassland otherwise
+                types[i] = 0; // grass
+            }
+            caseMesh.addTriangle(vertices.map((v) => v.position), vertices.map((v) => v.normal), types);
+        }
+        return caseMesh;
+    }
+    edgeIndexToCoordinate(c, edgeIndex) {
+        const [a, b] = _geometry__WEBPACK_IMPORTED_MODULE_12__.EDGES[edgeIndex];
+        const v1 = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(..._geometry__WEBPACK_IMPORTED_MODULE_12__.VERTICES[a]);
+        const v2 = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(..._geometry__WEBPACK_IMPORTED_MODULE_12__.VERTICES[b]);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.add(v1, v1, c);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.add(v2, v2, c);
+        const value1 = this.getFieldValue(v1[0], v1[1], v1[2]);
+        const value2 = this.getFieldValue(v2[0], v2[1], v2[2]);
+        const normal1 = this.calculateNormal(v1);
+        const normal2 = this.calculateNormal(v2);
+        const lerpAmount = (value1 - 0.5) / (value1 - 0.5 - (value2 - 0.5));
+        let position = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
+        let normal = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.lerp(position, v1, v2, lerpAmount);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.lerp(normal, normal1, normal2, lerpAmount);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.normalize(normal, normal);
+        return { position, normal };
+    }
+    calculateNormal(vertex) {
+        const delta = 1.0;
+        const normal = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
+        normal[0] =
+            this.getFieldValue(vertex[0] + delta, vertex[1], vertex[2]) -
+                this.getFieldValue(vertex[0] - delta, vertex[1], vertex[2]);
+        normal[1] =
+            this.getFieldValue(vertex[0], vertex[1] + delta, vertex[2]) -
+                this.getFieldValue(vertex[0], vertex[1] - delta, vertex[2]);
+        normal[2] =
+            this.getFieldValue(vertex[0], vertex[1], vertex[2] + delta) -
+                this.getFieldValue(vertex[0], vertex[1], vertex[2] - delta);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.negate(normal, normal);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.normalize(normal, normal);
+        return normal;
+    }
+    async generate() {
+        const timings = {
+            noise: 0,
+            fieldReadback: 0,
+            marchingCubes: 0,
+            vertexBufferReadback: 0,
+            indexBufferReadback: 0,
+            meshConstruction: 0,
+            total: 0
+        };
+        let totalStart = performance.now();
+        // Generate field using compute shader
+        let startTime = performance.now();
+        const computeShader = this.worldMap.computeShader;
+        const width = this.GridSize[0] + 3;
+        const height = this.GridSize[1] + 3;
+        const depth = this.GridSize[2] + 3;
+        const fieldBuffer = await computeShader.createSimplexNoise3D(width, height, depth, this.seed, this.ChunkPosition[0], this.ChunkPosition[1], this.ChunkPosition[2]);
+        timings.noise = performance.now() - startTime;
+        startTime = performance.now();
+        this.Field = await computeShader.readFieldBuffer(fieldBuffer, width, height, depth);
+        timings.fieldReadback = performance.now() - startTime;
+        startTime = performance.now();
+        const { interleavedBuffer, indexBuffer, vertexCount, indexCount } = await computeShader.createMarchingCubes(fieldBuffer, width, height, depth);
+        timings.marchingCubes = performance.now() - startTime;
+        startTime = performance.now();
+        const interleavedData = await computeShader.readInterleavedBuffer(interleavedBuffer, vertexCount);
+        timings.vertexBufferReadback = performance.now() - startTime;
+        startTime = performance.now();
+        const indices = await computeShader.readUintBuffer(indexBuffer, indexCount);
+        timings.indexBufferReadback = performance.now() - startTime;
+        // Reconstruct mesh from compute shader results
+        startTime = performance.now();
+        this.Mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_2__.Mesh();
+        for (let i = 0; i < indices.length; i += 3) {
+            const idx0 = indices[i];
+            const idx1 = indices[i + 1];
+            const idx2 = indices[i + 2];
+            // Calculate offsets in the interleaved buffer (8 floats per vertex)
+            const offset0 = idx0 * 8;
+            const offset1 = idx1 * 8;
+            const offset2 = idx2 * 8;
+            const tri = [
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset0], // position.x
+                interleavedData[offset0 + 1], // position.y
+                interleavedData[offset0 + 2] // position.z
+                ),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset1], interleavedData[offset1 + 1], interleavedData[offset1 + 2]),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset2], interleavedData[offset2 + 1], interleavedData[offset2 + 2])
+            ];
+            // Reject all triangles on edge of chunk to avoid seams
+            let rejectTriangle = false;
+            for (let j = 0; j < 3; j++) {
+                if (tri[j][0] <= 0 ||
+                    tri[j][0] >= width - 1 ||
+                    tri[j][1] <= 0 ||
+                    tri[j][1] >= height - 1 ||
+                    tri[j][2] <= 0 ||
+                    tri[j][2] >= depth - 1) {
+                    rejectTriangle = true;
+                    break;
+                }
+            }
+            if (rejectTriangle) {
+                continue;
+            }
+            const norm = [
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset0 + 4], // normal.x
+                interleavedData[offset0 + 5], // normal.y
+                interleavedData[offset0 + 6] // normal.z
+                ),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset1 + 4], interleavedData[offset1 + 5], interleavedData[offset1 + 6]),
+                gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(interleavedData[offset2 + 4], interleavedData[offset2 + 5], interleavedData[offset2 + 6])
+            ];
+            // Extract terrain types (stored as float, convert back to uint)
+            const terrainTypeFloat0 = interleavedData[offset0 + 3];
+            const terrainTypeFloat1 = interleavedData[offset1 + 3];
+            const terrainTypeFloat2 = interleavedData[offset2 + 3];
+            const types = [
+                new Uint32Array(new Float32Array([terrainTypeFloat0]).buffer)[0],
+                new Uint32Array(new Float32Array([terrainTypeFloat1]).buffer)[0],
+                new Uint32Array(new Float32Array([terrainTypeFloat2]).buffer)[0]
+            ];
+            this.Mesh.addTriangle(tri, norm, types);
+        }
+        timings.meshConstruction = performance.now() - startTime;
+        timings.total = performance.now() - totalStart;
+        return { mesh: this.Mesh, timings };
+    }
+    getMesh() {
+        return this.Mesh;
+    }
+}
 
 
 /***/ }),
@@ -6214,120 +9950,189 @@ __webpack_require__.r(__webpack_exports__);
 /**
  * The "Mesh Class" - Stores the world's mesh
  */
-var Mesh = /** @class */ (function () {
-    function Mesh() {
+class Mesh {
+    constructor() {
         this.mesh = [];
         this.normals = [];
         this.type = []; // To be used when terrain types are implemented
     }
     /**
-     * For when merging two meshes together
-     * @param mesh2 Mesh to merge with the original one
-     */
-    Mesh.prototype.merge = function (mesh2) {
-        var _a, _b, _c;
-        (_a = this.mesh).push.apply(_a, mesh2.mesh);
-        (_b = this.normals).push.apply(_b, mesh2.normals);
-        (_c = this.type).push.apply(_c, mesh2.type);
-    };
+    * For when merging two meshes together
+    * FIXED: Avoids stack overflow with large meshes by using loops instead of spread operator
+    * @param mesh2 Mesh to merge with the original one
+    */
+    merge(mesh2) {
+        // For large meshes (>10k triangles), use direct push to avoid stack overflow
+        const BATCH_THRESHOLD = 10000;
+        if (mesh2.mesh.length > BATCH_THRESHOLD) {
+            // Direct loop - no spread operator
+            for (let i = 0; i < mesh2.mesh.length; i++) {
+                this.mesh.push(mesh2.mesh[i]);
+                this.normals.push(mesh2.normals[i]);
+                this.type.push(mesh2.type[i]);
+            }
+        }
+        else {
+            // For small meshes, spread operator is fine and faster
+            this.mesh.push(...mesh2.mesh);
+            this.normals.push(...mesh2.normals);
+            this.type.push(...mesh2.type);
+        }
+    }
     /**
      * Adds triangle to mesh
      * @param triangle The triangle to add
      * @param normal The normals of the triangle to add
      * @param type (optional) the terrain types of the triangles to add
      */
-    Mesh.prototype.addTriangle = function (triangle, normal, type) {
-        if (type === void 0) { type = [0, 0, 0]; }
+    addTriangle(triangle, normal, type = [0, 0, 0]) {
         this.mesh.push(triangle);
         this.normals.push(normal);
         this.type.push(type);
-    };
+    }
     /**
      * Copies the mesh to another mesh (used generally for OOP to avoid funny pointer errors)
      * @returns A new Mesh with the same values
      */
-    Mesh.prototype.copy = function () {
-        var a = new Mesh();
-        for (var i = 0; i < this.mesh.length; i++) {
+    copy() {
+        const a = new Mesh();
+        for (let i = 0; i < this.mesh.length; i++) {
             a.addTriangle(this.mesh[i], this.normals[i], this.type[i]);
         }
         return a;
-    };
+    }
     /**
      * Translates the entire mesh
      * @param a The translation vector
      */
-    Mesh.prototype.translate = function (a) {
-        for (var i = 0; i < this.mesh.length; i++) {
+    translate(a) {
+        for (let i = 0; i < this.mesh.length; i++) {
             gl_matrix__WEBPACK_IMPORTED_MODULE_2__.add(this.mesh[i][0], this.mesh[i][0], a);
             gl_matrix__WEBPACK_IMPORTED_MODULE_2__.add(this.mesh[i][1], this.mesh[i][1], a);
             gl_matrix__WEBPACK_IMPORTED_MODULE_2__.add(this.mesh[i][2], this.mesh[i][2], a);
         }
-    };
+    }
     /**
      * Scales the entire mesh
      * @param s Scaling factor
      */
-    Mesh.prototype.scale = function (s) {
-        for (var i = 0; i < this.mesh.length; i++) {
-            this.mesh[i][0] = this.mesh[i][0].map(function (val) { return val * s; });
-            this.mesh[i][1] = this.mesh[i][1].map(function (val) { return val * s; });
-            this.mesh[i][2] = this.mesh[i][2].map(function (val) { return val * s; });
+    scale(s) {
+        for (let i = 0; i < this.mesh.length; i++) {
+            this.mesh[i][0] = this.mesh[i][0].map((val) => val * s);
+            this.mesh[i][1] = this.mesh[i][1].map((val) => val * s);
+            this.mesh[i][2] = this.mesh[i][2].map((val) => val * s);
         }
-    };
-    Mesh.prototype.exportBVHTriangles = function () {
-        var _this = this;
-        return this.mesh.map(function (val, i, arr) {
-            var center = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(_Utilities__WEBPACK_IMPORTED_MODULE_1__.Utilities.average([val[0][0], val[1][0], val[2][0]]), _Utilities__WEBPACK_IMPORTED_MODULE_1__.Utilities.average([val[0][1], val[1][1], val[2][1]]), _Utilities__WEBPACK_IMPORTED_MODULE_1__.Utilities.average([val[0][2], val[1][2], val[2][2]]));
-            var terrain = _this.type[i].map(function (type) {
+    }
+    /**
+     * Decimates the mesh by reducing triangle count using block-based decimation
+     * This preserves local mesh structure better than uniform sampling
+     * @param quality Quality factor (0.0 to 1.0). 1.0 = no decimation, 0.5 = 50% triangles, etc.
+     * @returns A new Mesh with reduced triangle count
+     */
+    decimate(quality) {
+        if (quality >= 1.0) {
+            // No decimation needed, return copy
+            return this.copy();
+        }
+        quality = Math.max(0.05, Math.min(1.0, quality)); // Clamp between 0.05 and 1.0 (minimum 5%)
+        if (quality < 0.3) {
+            alert(`⚠️ Very low quality setting (${(quality * 100).toFixed(0)}%) may cause visual artifacts. Consider using at least 30% for better results.`);
+        }
+        const decimatedMesh = new Mesh();
+        const originalCount = this.mesh.length;
+        const targetCount = Math.max(1, Math.floor(originalCount * quality));
+        // Adaptive block-based decimation: preserve local mesh structure
+        // For lower quality, use larger blocks to reduce gaps
+        const adaptiveBlockSize = quality < 0.3 ? 20 : quality < 0.5 ? 15 : 10;
+        const blockSize = Math.max(5, adaptiveBlockSize); // Minimum block size
+        const totalBlocks = Math.ceil(originalCount / blockSize);
+        const blocksToKeep = Math.max(1, Math.ceil(targetCount / blockSize));
+        const skipFactor = Math.max(1, Math.floor(totalBlocks / blocksToKeep));
+        let trianglesAdded = 0;
+        let currentBlock = 0;
+        while (trianglesAdded < targetCount && currentBlock * blockSize < originalCount) {
+            // Keep this block
+            const blockStart = currentBlock * blockSize;
+            const blockEnd = Math.min(blockStart + blockSize, originalCount);
+            // Add all triangles in this block (up to target count)
+            for (let i = blockStart; i < blockEnd && trianglesAdded < targetCount; i++) {
+                decimatedMesh.addTriangle(this.mesh[i], this.normals[i], this.type[i]);
+                trianglesAdded++;
+            }
+            // Skip some blocks to reach target count
+            currentBlock += skipFactor;
+        }
+        return decimatedMesh;
+    }
+    exportBVHTriangles() {
+        return this.mesh.map((val, i, arr) => {
+            let center = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(_Utilities__WEBPACK_IMPORTED_MODULE_1__.Utilities.average([val[0][0], val[1][0], val[2][0]]), _Utilities__WEBPACK_IMPORTED_MODULE_1__.Utilities.average([val[0][1], val[1][1], val[2][1]]), _Utilities__WEBPACK_IMPORTED_MODULE_1__.Utilities.average([val[0][2], val[1][2], val[2][2]]));
+            let terrain = this.type[i].map((type) => {
                 return _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[type];
             });
-            var min = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(Math.min(val[0][0], val[1][0], val[2][0]), Math.min(val[0][1], val[1][1], val[2][1]), Math.min(val[0][2], val[1][2], val[2][2]));
-            var max = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(Math.max(val[0][0], val[1][0], val[2][0]), Math.max(val[0][1], val[1][1], val[2][1]), Math.max(val[0][2], val[1][2], val[2][2]));
+            let min = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(Math.min(val[0][0], val[1][0], val[2][0]), Math.min(val[0][1], val[1][1], val[2][1]), Math.min(val[0][2], val[1][2], val[2][2]));
+            let max = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(Math.max(val[0][0], val[1][0], val[2][0]), Math.max(val[0][1], val[1][1], val[2][1]), Math.max(val[0][2], val[1][2], val[2][2]));
             return {
                 triangle: val,
                 center: center,
                 boundingBox: { min: min, max: max },
                 type: terrain,
                 index: i,
-                vertexNormals: _this.normals[i]
+                vertexNormals: this.normals[i]
             };
         });
-    };
+    }
     /**
      * Export BVH from BVH triangles
      */
-    Mesh.exportBVH = function (triangles, depth) {
-        if (depth === void 0) { depth = 0; }
+    static exportBVH(triangles, depth = 0) {
         if (triangles.length <= 4) {
-            var bbox = Mesh.computeBoundingBox.apply(Mesh, triangles.map(function (val) { return val.boundingBox; }));
+            let bbox = Mesh.computeBoundingBox(...triangles.map((val) => val.boundingBox));
             return {
                 boundingBox: bbox,
-                triangleIndices: triangles.map(function (val) { return val.index; })
+                triangleIndices: triangles.map((val) => val.index)
             };
         }
-        var axis = depth % 3;
-        triangles.sort(function (a, b) { return a.center[axis] - b.center[axis]; });
-        var mid = Math.floor(triangles.length / 2);
-        var left = Mesh.exportBVH(triangles.slice(0, mid), depth + 1);
-        var right = Mesh.exportBVH(triangles.slice(mid), depth + 1);
+        let axis = depth % 3;
+        triangles.sort((a, b) => a.center[axis] - b.center[axis]);
+        let mid = Math.floor(triangles.length / 2);
+        let left = Mesh.exportBVH(triangles.slice(0, mid), depth + 1);
+        let right = Mesh.exportBVH(triangles.slice(mid), depth + 1);
         return {
             boundingBox: Mesh.computeBoundingBox(left.boundingBox, right.boundingBox),
             left: left,
             right: right
         };
-    };
-    Mesh.computeBoundingBox = function () {
-        var boxes = [];
-        for (var _i = 0; _i < arguments.length; _i++) {
-            boxes[_i] = arguments[_i];
-        }
-        var min = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(Math.min.apply(Math, boxes.map(function (val) { return val.min[0]; })), Math.min.apply(Math, boxes.map(function (val) { return val.min[1]; })), Math.min.apply(Math, boxes.map(function (val) { return val.min[2]; })));
-        var max = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(Math.max.apply(Math, boxes.map(function (val) { return val.max[0]; })), Math.max.apply(Math, boxes.map(function (val) { return val.max[1]; })), Math.max.apply(Math, boxes.map(function (val) { return val.max[2]; })));
+    }
+    static computeBoundingBox(...boxes) {
+        let min = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(Math.min(...boxes.map((val) => val.min[0])), Math.min(...boxes.map((val) => val.min[1])), Math.min(...boxes.map((val) => val.min[2])));
+        let max = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(Math.max(...boxes.map((val) => val.max[0])), Math.max(...boxes.map((val) => val.max[1])), Math.max(...boxes.map((val) => val.max[2])));
         return { max: max, min: min };
-    };
-    Mesh.flattenBVH = function (node) {
-        var out = [];
+    }
+    /**
+     * Calculate the center of mass (centroid) of the mesh
+     * @returns The center point as a vec3
+     */
+    getCenter() {
+        if (this.mesh.length === 0) {
+            return gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(0, 0, 0);
+        }
+        let sumX = 0, sumY = 0, sumZ = 0;
+        let vertexCount = 0;
+        // Sum all vertices
+        for (const triangle of this.mesh) {
+            for (const vertex of triangle) {
+                sumX += vertex[0];
+                sumY += vertex[1];
+                sumZ += vertex[2];
+                vertexCount++;
+            }
+        }
+        // Return average
+        return gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(sumX / vertexCount, sumY / vertexCount, sumZ / vertexCount);
+    }
+    static flattenBVH(node) {
+        let out = [];
         if (node.triangleIndices) {
             out.push({
                 boundingBoxMin: node.boundingBox.min,
@@ -6341,9 +10146,9 @@ var Mesh = /** @class */ (function () {
             });
         }
         else {
-            var left = Mesh.flattenBVH(node.left);
-            var right = Mesh.flattenBVH(node.right);
-            //dummy -- will edit
+            let left = Mesh.flattenBVH(node.left);
+            let right = Mesh.flattenBVH(node.right);
+            // Dummy node - will edit
             out.push({
                 boundingBoxMin: node.boundingBox.min,
                 boundingBoxMax: node.boundingBox.max,
@@ -6354,53 +10159,54 @@ var Mesh = /** @class */ (function () {
                 t3: -1,
                 t4: -1
             });
-            //Push sides
-            var i1_1 = out.length; //Note: i1 should always be 1 but better practice
-            out.push.apply(//Note: i1 should always be 1 but better practice
-            out, left.map(function (val) {
-                if (val.left != -1)
-                    val.left += i1_1;
-                if (val.right != -1)
-                    val.right += i1_1;
-                return val;
-            }));
-            var i2_1 = out.length;
-            out.push.apply(out, right.map(function (val) {
-                if (val.left != -1)
-                    val.left += i2_1;
-                if (val.right != -1)
-                    val.right += i2_1;
-                return val;
-            }));
-            out[0].left = i1_1;
-            out[0].right = i2_1;
+            // FIXED: Use loops instead of spread operator for large arrays
+            let i1 = out.length;
+            // Push left nodes
+            for (let i = 0; i < left.length; i++) {
+                const val = left[i];
+                if (val.left !== -1)
+                    val.left += i1;
+                if (val.right !== -1)
+                    val.right += i1;
+                out.push(val);
+            }
+            let i2 = out.length;
+            // Push right nodes  
+            for (let i = 0; i < right.length; i++) {
+                const val = right[i];
+                if (val.left !== -1)
+                    val.left += i2;
+                if (val.right !== -1)
+                    val.right += i2;
+                out.push(val);
+            }
+            out[0].left = i1;
+            out[0].right = i2;
         }
         return out;
-    };
+    }
     // Getter and Setter for vertices (mesh)
-    Mesh.prototype.getVertices = function () {
+    getVertices() {
         return this.mesh;
-    };
-    Mesh.prototype.setVertices = function (value) {
+    }
+    setVertices(value) {
         this.mesh = value;
-    };
+    }
     // Getter and Setter for normals
-    Mesh.prototype.getNormals = function () {
+    getNormals() {
         return this.normals;
-    };
-    Mesh.prototype.setNormals = function (value) {
+    }
+    setNormals(value) {
         this.normals = value;
-    };
+    }
     // Getter and Setter for type
-    Mesh.prototype.getTypes = function () {
+    getTypes() {
         return this.type;
-    };
-    Mesh.prototype.setTypes = function (value) {
+    }
+    setTypes(value) {
         this.type = value;
-    };
-    return Mesh;
-}());
-
+    }
+}
 
 
 /***/ }),
@@ -6416,203 +10222,340 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   ObjectUI: () => (/* binding */ ObjectUI)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
 /* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
 /* harmony import */ var _modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../modelLoader/objreader */ "./src/modelLoader/objreader.ts");
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __generator = (undefined && undefined.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
-            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [op[0] & 2, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
-            }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
 
 
 
 
-var ObjectUI = /** @class */ (function () {
-    function ObjectUI(map, updateTracer) {
-        var _this = this;
+class ObjectUI {
+    constructor(map, updateTracer, camera) {
+        this.nextSpawnPosition = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0, 50, 0);
+        this.transformUpdateTimeout = null; // For debouncing transform updates
         this.tracerUpdateSupplier = updateTracer;
-        var popup = document.getElementById("popup");
-        var openBtn = document.getElementById("open-popup-btn");
-        var closeBtn = document.getElementById("close-popup-btn");
-        var submitBtn = document.getElementById("submit-object");
-        var addMapEntryBtn = document.getElementById("add-map-entry");
-        var importMapDiv = document.getElementById("import-map");
-        var fileInput = document.getElementById("ply-file");
-        var nameInput = document.getElementById("object-name");
-        openBtn.addEventListener("click", function () { return popup.classList.remove("hidden"); });
-        closeBtn.addEventListener("click", function () { return popup.classList.add("hidden"); });
+        this.camera = camera;
+        const popup = document.getElementById("popup");
+        const openBtn = document.getElementById("open-popup-btn");
+        const closeBtn = document.getElementById("close-popup-btn");
+        const submitBtn = document.getElementById("submit-object");
+        const addMapEntryBtn = document.getElementById("add-map-entry");
+        const importMapDiv = document.getElementById("import-map");
+        const fileInput = document.getElementById("ply-file");
+        const nameInput = document.getElementById("object-name");
+        const scaleInput = document.getElementById("model-scale");
+        const qualityInput = document.getElementById("model-quality");
+        const qualityValueSpan = document.getElementById("quality-value");
+        // Update quality display when slider changes
+        if (qualityInput && qualityValueSpan) {
+            qualityInput.addEventListener("input", () => {
+                const value = parseFloat(qualityInput.value);
+                qualityValueSpan.textContent = `${Math.round(value * 100)}%`;
+            });
+        }
+        // Add position controls after popup is ready
+        this.addPositionControls();
+        openBtn.addEventListener("click", () => {
+            popup.classList.remove("hidden");
+            // Update spawn position inputs when popup opens
+            this.updateSpawnInputs();
+        });
+        closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
         // Add mapping UI
-        addMapEntryBtn.addEventListener("click", function () {
-            var wrapper = document.createElement("div");
+        addMapEntryBtn.addEventListener("click", () => {
+            const wrapper = document.createElement("div");
             wrapper.className = "map-entry";
-            // Color input
-            var colorInput = document.createElement("input");
+            const colorInput = document.createElement("input");
             colorInput.type = "color";
-            // Terrain type select
-            var terrainSelect = document.createElement("select");
-            [1, 2, 3, 4, 5].forEach(function (t) {
-                var opt = document.createElement("option");
-                opt.value = t.toString();
-                opt.textContent = "Type ".concat(t);
+            const terrainSelect = document.createElement("select");
+            const terrainTypes = [
+                { value: 1, label: "Diffuse (Matte)" },
+                { value: 2, label: "Specular (Mirror)" },
+                { value: 3, label: "Glossy (Microfacet)" },
+                { value: 4, label: "Transmission (Glass)" },
+                { value: 5, label: "Emission (Light)" }
+            ];
+            terrainTypes.forEach((t) => {
+                const opt = document.createElement("option");
+                opt.value = t.value.toString();
+                opt.textContent = t.label;
                 terrainSelect.appendChild(opt);
             });
-            // Reflectiveness
-            var reflectInput = document.createElement("input");
+            const reflectInput = document.createElement("input");
             reflectInput.type = "number";
             reflectInput.step = "0.1";
             reflectInput.min = "0";
             reflectInput.max = "1";
             reflectInput.value = "0.5";
-            // Roughness
-            var roughInput = document.createElement("input");
+            reflectInput.placeholder = "Metallic";
+            const roughInput = document.createElement("input");
             roughInput.type = "number";
             roughInput.step = "0.1";
             roughInput.min = "0";
             roughInput.max = "1";
             roughInput.value = "0.5";
-            var deleteBtn = document.createElement("button");
+            roughInput.placeholder = "Roughness";
+            const deleteBtn = document.createElement("button");
             deleteBtn.textContent = "Remove";
-            deleteBtn.style.marginLeft = "10px"; // Add some spacing
-            // 2. Add the click event listener to remove the wrapper
-            deleteBtn.addEventListener("click", function () {
+            deleteBtn.style.marginLeft = "10px";
+            deleteBtn.addEventListener("click", () => {
                 wrapper.remove();
             });
-            wrapper.append("Color: ", colorInput, " Terrain: ", terrainSelect, " Reflect: ", reflectInput, " Rough: ", roughInput, deleteBtn);
+            wrapper.append("Color: ", colorInput, " Terrain: ", terrainSelect, " Metallic: ", reflectInput, " Rough: ", roughInput, deleteBtn);
             importMapDiv.appendChild(wrapper);
         });
         // Handle submission
-        submitBtn.addEventListener("click", function () { return __awaiter(_this, void 0, void 0, function () {
-            var file, importMap, mesh, plyText, fileUrl, _a;
-            var _b;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        file = (_b = fileInput.files) === null || _b === void 0 ? void 0 : _b[0];
-                        // 1. UPDATED: Validate for either .ply or .3mf
-                        if (!file ||
-                            !(file.name.endsWith(".ply") ||
-                                file.name.endsWith(".3mf") ||
-                                file.name.endsWith(".obj"))) {
-                            alert("Please upload a valid .ply, .3mf, or .obj file.");
-                            return [2 /*return*/];
-                        }
-                        if (!nameInput.value.trim()) {
-                            alert("Please enter a name for the object.");
-                            return [2 /*return*/];
-                        }
-                        importMap = {};
-                        document.querySelectorAll(".map-entry").forEach(function (entry) {
-                            var inputs = entry.querySelectorAll("input, select");
-                            var color = _terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(inputs[0].value);
-                            var type = parseInt(inputs[1].value);
-                            _terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length] = {
-                                color: color,
-                                reflectiveness: Math.min(1, Math.max(0, parseFloat(inputs[2].value))),
-                                roughness: Math.min(1, Math.max(0, parseFloat(inputs[3].value))),
-                                type: type
-                            };
-                            importMap[color.toString()] = Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length - 1;
-                        });
-                        if (!file.name.endsWith(".ply")) return [3 /*break*/, 2];
-                        return [4 /*yield*/, file.text()];
-                    case 1:
-                        plyText = _c.sent();
-                        mesh = (0,_modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__.loadPLYToMesh)(plyText, importMap);
-                        return [3 /*break*/, 7];
-                    case 2:
-                        if (!file.name.endsWith(".3mf")) return [3 /*break*/, 4];
-                        fileUrl = URL.createObjectURL(file);
-                        return [4 /*yield*/, (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_0__.threemfToMesh)(fileUrl, importMap)];
-                    case 3:
-                        mesh = _c.sent();
-                        URL.revokeObjectURL(fileUrl); // Clean up the temporary URL after loading
-                        return [3 /*break*/, 7];
-                    case 4:
-                        if (!file.name.endsWith(".obj")) return [3 /*break*/, 6];
-                        if (Object.keys(importMap).length != 0) {
-                            alert("OBJ import with color mapping is not yet supported.");
-                            return [2 /*return*/];
-                        }
-                        _a = _modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__.objSourceToMesh;
-                        return [4 /*yield*/, file.text()];
-                    case 5:
-                        mesh = _a.apply(void 0, [_c.sent()]);
-                        return [3 /*break*/, 7];
-                    case 6:
-                        // This case should not be reached due to the validation above, but it's good practice
-                        alert("Unsupported file type.");
-                        return [2 /*return*/];
-                    case 7:
-                        // This part remains the same, as it works with the generic Mesh object
-                        map.addObject(mesh, gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create(), nameInput.value.trim());
-                        // Reset + close popup
-                        importMapDiv.innerHTML = "";
-                        fileInput.value = "";
-                        nameInput.value = "";
-                        popup.classList.add("hidden");
-                        // Generate for pathtracing
-                        if (this.tracerUpdateSupplier)
-                            this.tracerUpdateSupplier()();
-                        return [2 /*return*/];
+        submitBtn.addEventListener("click", async () => {
+            const file = fileInput.files?.[0];
+            if (!file ||
+                !(file.name.endsWith(".ply") ||
+                    file.name.endsWith(".3mf") ||
+                    file.name.endsWith(".obj"))) {
+                alert("Please upload a valid .ply, .3mf, or .obj file.");
+                return;
+            }
+            if (!nameInput.value.trim()) {
+                alert("Please enter a name for the object.");
+                return;
+            }
+            const scaleValue = parseFloat(scaleInput.value) || 1.0;
+            const qualityValue = parseFloat(document.getElementById("model-quality")?.value ||
+                "1");
+            const spawnPos = this.getSpawnPosition();
+            // Show loading indicator
+            const loadingMsg = document.createElement("div");
+            loadingMsg.textContent = "Loading model...";
+            loadingMsg.style.cssText =
+                "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 10000; font-family: monospace;";
+            document.body.appendChild(loadingMsg);
+            try {
+                // Collect import map entries
+                const importMap = {};
+                document.querySelectorAll(".map-entry").forEach((entry) => {
+                    const inputs = entry.querySelectorAll("input, select");
+                    const color = _terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(inputs[0].value);
+                    const type = parseInt(inputs[1].value);
+                    _terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length] = {
+                        color: color,
+                        reflectiveness: Math.min(1, Math.max(0, parseFloat(inputs[2].value))),
+                        roughness: Math.min(1, Math.max(0, parseFloat(inputs[3].value))),
+                        type: type,
+                        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0, 0, 0),
+                        metallicity: 0
+                    };
+                    importMap[color.toString()] = Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length - 1;
+                });
+                let mesh;
+                let threeMFTransform = null;
+                // Load based on file type
+                if (file.name.endsWith(".ply")) {
+                    const plyText = await file.text();
+                    mesh = (0,_modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__.loadPLYToMesh)(plyText, importMap);
                 }
-            });
-        }); });
-        var container = document.getElementById("world-objects");
+                else if (file.name.endsWith(".3mf")) {
+                    const fileUrl = URL.createObjectURL(file);
+                    try {
+                        const result = await (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_0__.threemfToMesh)(fileUrl, importMap, qualityValue);
+                        if (result == null) {
+                            return;
+                        }
+                        mesh = result.mesh;
+                        threeMFTransform = result.transform;
+                    }
+                    finally {
+                        URL.revokeObjectURL(fileUrl);
+                    }
+                }
+                else if (file.name.endsWith(".obj")) {
+                    if (Object.keys(importMap).length != 0) {
+                        alert("OBJ import with color mapping is not yet supported.");
+                        document.body.removeChild(loadingMsg);
+                        return;
+                    }
+                    mesh = (0,_modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__.objSourceToMesh)(await file.text());
+                }
+                else {
+                    throw new Error("Unsupported file type.");
+                }
+                // Apply scale to the mesh
+                if (scaleValue !== 1.0) {
+                    mesh.scale(scaleValue);
+                }
+                // Create transform matrix for spawn position
+                // FIXED: Apply 3MF transform first, then translate to spawn position
+                // This keeps vertices in local space for proper center calculation
+                const transform = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+                // Apply 3MF transform if present (this is the transform from the 3MF file)
+                // IMPORTANT: The 3MF transform should only include rotation/scale, not translation
+                // because translation is handled separately as the world position
+                if (threeMFTransform && !gl_matrix__WEBPACK_IMPORTED_MODULE_4__.equals(threeMFTransform, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create())) {
+                    // Extract translation from 3MF transform
+                    const threeMFTranslation = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(threeMFTransform[12], threeMFTransform[13], threeMFTransform[14]);
+                    // Copy 3MF transform but zero out translation (we'll handle translation separately)
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_4__.copy(transform, threeMFTransform);
+                    transform[12] = 0;
+                    transform[13] = 0;
+                    transform[14] = 0;
+                    // Add 3MF translation to spawn position (so object appears at correct location)
+                    const adjustedSpawnPos = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(adjustedSpawnPos, spawnPos, threeMFTranslation);
+                    // Then translate to adjusted spawn position
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_4__.translate(transform, transform, adjustedSpawnPos);
+                }
+                else {
+                    // No 3MF transform, just translate to spawn position
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_4__.translate(transform, transform, spawnPos);
+                }
+                // Add to world at spawn position
+                map.addObject(mesh, transform, nameInput.value.trim());
+                // Update next spawn position (offset by 10 units in X)
+                this.nextSpawnPosition[0] += 10;
+                // Reset + close popup
+                importMapDiv.innerHTML = "";
+                fileInput.value = "";
+                nameInput.value = "";
+                scaleInput.value = "1";
+                document.getElementById("model-quality").value =
+                    "1";
+                document.getElementById("quality-value").textContent =
+                    "100%";
+                popup.classList.add("hidden");
+                // Generate for pathtracing
+                if (this.tracerUpdateSupplier)
+                    this.tracerUpdateSupplier()();
+                // Success message with position
+                alert(`Successfully loaded ${file.name} at position [${spawnPos[0].toFixed(1)}, ${spawnPos[1].toFixed(1)}, ${spawnPos[2].toFixed(1)}]!`);
+            }
+            catch (error) {
+                console.error("❌ Error loading model:", error);
+                const errorMsg = error instanceof Error ? error.message : String(error);
+                alert(`Error loading model: ${errorMsg}\n\nCheck console for details.`);
+            }
+            finally {
+                document.body.removeChild(loadingMsg);
+            }
+        });
     }
-    ObjectUI.prototype.setupObjectUI = function (obj, world, container, UI) {
-        var wrapper = document.createElement("div");
+    /**
+     * Add position control inputs to the popup UI
+     */
+    addPositionControls() {
+        const popup = document.getElementById("popup");
+        if (!popup) {
+            console.error("Could not find popup element");
+            return;
+        }
+        // Check if position controls already exist
+        if (document.getElementById("spawn-position-section")) {
+            return; // Already added
+        }
+        // Create position control section
+        const positionSection = document.createElement("div");
+        positionSection.id = "spawn-position-section";
+        positionSection.style.cssText =
+            "margin: 15px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5;";
+        const positionTitle = document.createElement("h3");
+        positionTitle.textContent = "Spawn Position";
+        positionTitle.style.margin = "0 0 10px 0";
+        positionSection.appendChild(positionTitle);
+        // X, Y, Z position inputs
+        const axes = ["X", "Y", "Z"];
+        axes.forEach((axis, index) => {
+            const label = document.createElement("label");
+            label.style.display = "block";
+            label.style.marginBottom = "8px";
+            label.innerHTML = `${axis}: `;
+            const input = document.createElement("input");
+            input.type = "number";
+            input.id = `spawn-${axis.toLowerCase()}`;
+            input.value = this.nextSpawnPosition[index].toString();
+            input.step = "1";
+            input.style.width = "100px";
+            input.style.marginLeft = "10px";
+            label.appendChild(input);
+            positionSection.appendChild(label);
+        });
+        // Add "Use Camera Position" button
+        const useCameraBtn = document.createElement("button");
+        useCameraBtn.textContent = "📷 Use Camera Position";
+        useCameraBtn.type = "button";
+        useCameraBtn.style.cssText =
+            "margin-top: 10px; width: 100%; padding: 5px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;";
+        useCameraBtn.addEventListener("click", () => {
+            if (this.camera && this.camera.position) {
+                document.getElementById("spawn-x").value =
+                    this.camera.position[0].toFixed(1);
+                document.getElementById("spawn-y").value =
+                    this.camera.position[1].toFixed(1);
+                document.getElementById("spawn-z").value =
+                    this.camera.position[2].toFixed(1);
+            }
+            else {
+                alert("Camera position not available. Please enter coordinates manually.");
+            }
+        });
+        positionSection.appendChild(useCameraBtn);
+        // Add "Reset to Default" button
+        const resetBtn = document.createElement("button");
+        resetBtn.textContent = "↺ Reset to Default";
+        resetBtn.type = "button";
+        resetBtn.style.cssText =
+            "margin-top: 5px; width: 100%; padding: 5px; background: #666; color: white; border: none; border-radius: 3px; cursor: pointer;";
+        resetBtn.addEventListener("click", () => {
+            document.getElementById("spawn-x").value = "0";
+            document.getElementById("spawn-y").value = "50";
+            document.getElementById("spawn-z").value = "0";
+        });
+        positionSection.appendChild(resetBtn);
+        // Append to popup at the end (will appear before submit button if that's the last element)
+        popup.appendChild(positionSection);
+    }
+    /**
+     * Update spawn position inputs with current nextSpawnPosition
+     */
+    updateSpawnInputs() {
+        document.getElementById("spawn-x")?.setAttribute("value", this.nextSpawnPosition[0].toString());
+        document.getElementById("spawn-y")?.setAttribute("value", this.nextSpawnPosition[1].toString());
+        document.getElementById("spawn-z")?.setAttribute("value", this.nextSpawnPosition[2].toString());
+    }
+    /**
+     * Get spawn position from UI inputs
+     */
+    getSpawnPosition() {
+        const x = parseFloat(document.getElementById("spawn-x")?.value || "0");
+        const y = parseFloat(document.getElementById("spawn-y")?.value || "50");
+        const z = parseFloat(document.getElementById("spawn-z")?.value || "0");
+        return gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(x, y, z);
+    }
+    setupObjectUI(obj, world, container, UI) {
+        const wrapper = document.createElement("div");
         wrapper.className = "world-object";
-        // Name
-        var nameEl = document.createElement("h3");
+        wrapper.style.cssText =
+            "margin-bottom: 15px; padding: 0; border: 1px solid #444; border-radius: 8px; background: rgba(50, 50, 50, 0.8); overflow: hidden;";
+        // Header section with name and delete button
+        const header = document.createElement("div");
+        header.style.cssText =
+            "padding: 12px 15px; background: rgba(60, 60, 60, 0.9); border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;";
+        const nameEl = document.createElement("h3");
         nameEl.textContent = obj.name;
-        wrapper.appendChild(nameEl);
-        // Vertex count
-        var vertsEl = document.createElement("p");
-        vertsEl.textContent = "Vertices: ".concat(obj.mesh.mesh.length * 3);
-        wrapper.appendChild(vertsEl);
-        // Delete button
-        var deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "Delete Object";
-        deleteBtn.style.marginBottom = "10px";
-        deleteBtn.addEventListener("click", function () {
-            // Delete GPU buffers associated with this object (if any)
+        nameEl.style.cssText =
+            "margin: 0; font-size: 1.1em; font-weight: 600; color: #fff;";
+        header.appendChild(nameEl);
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "🗑️";
+        deleteBtn.title = "Delete Object";
+        deleteBtn.style.cssText =
+            "background-color: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s;";
+        deleteBtn.addEventListener("mouseenter", () => (deleteBtn.style.backgroundColor = "#c82333"));
+        deleteBtn.addEventListener("mouseleave", () => (deleteBtn.style.backgroundColor = "#dc3545"));
+        deleteBtn.addEventListener("click", () => {
+            if (!confirm(`Delete "${obj.name}"?`))
+                return;
             try {
                 if (obj.buffer) {
-                    var b = obj.buffer;
+                    const b = obj.buffer;
                     if (world.gl && b.vertex)
                         world.gl.deleteBuffer(b.vertex);
                     if (world.gl && b.indices)
@@ -6620,87 +10563,204 @@ var ObjectUI = /** @class */ (function () {
                 }
             }
             catch (e) {
-                // ignore
+                console.warn("Could not clean up buffers:", e);
             }
-            // Remove from world
-            world.worldObjects = world.worldObjects.filter(function (o) { return o.id !== obj.id; });
-            // Remove UI
+            world.worldObjects = world.worldObjects.filter((o) => o.id !== obj.id);
             wrapper.remove();
-            // Trigger re-trace/update if needed
+            // Clear any pending transform updates
+            if (UI.transformUpdateTimeout !== null) {
+                clearTimeout(UI.transformUpdateTimeout);
+                UI.transformUpdateTimeout = null;
+            }
             if (UI.tracerUpdateSupplier)
                 UI.tracerUpdateSupplier()();
-            // Notify external systems that an object was removed (so they can cleanup VAOs, buffers, etc.)
             if (world.onObjectRemoved)
                 world.onObjectRemoved(obj.id);
         });
-        wrapper.appendChild(deleteBtn);
-        // Helper to create labeled number input
-        function createInput(labelText, value, onChange) {
-            var label = document.createElement("label");
-            label.innerHTML = "<br>".concat(labelText, ": ");
-            var input = document.createElement("input");
-            input.type = "number";
-            input.value = value.toString();
-            input.step = "0.1";
-            input.addEventListener("input", function () {
-                var val = input.value === "" ? 0 : parseFloat(input.value);
-                onChange(val);
-            });
-            label.appendChild(input);
-            wrapper.appendChild(label);
+        header.appendChild(deleteBtn);
+        wrapper.appendChild(header);
+        // Content section
+        const content = document.createElement("div");
+        content.style.cssText = "padding: 15px;";
+        // Info section
+        const infoSection = document.createElement("div");
+        infoSection.style.cssText =
+            "margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #555;";
+        const infoRow = (label, value) => {
+            const row = document.createElement("div");
+            row.style.cssText =
+                "display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em;";
+            const labelSpan = document.createElement("span");
+            labelSpan.textContent = label + ":";
+            labelSpan.style.cssText = "color: #aaa; font-weight: 500;";
+            const valueSpan = document.createElement("span");
+            valueSpan.textContent = value;
+            valueSpan.style.cssText = "color: #fff; font-family: monospace;";
+            row.appendChild(labelSpan);
+            row.appendChild(valueSpan);
+            return row;
+        };
+        const vertCount = obj.mesh.mesh.length * 3;
+        const triangleCount = obj.mesh.mesh.length;
+        infoSection.appendChild(infoRow("Vertices", vertCount.toLocaleString()));
+        infoSection.appendChild(infoRow("Triangles", triangleCount.toLocaleString()));
+        const posEl = document.createElement("div");
+        posEl.style.cssText =
+            "display: flex; justify-content: space-between; font-size: 0.9em;";
+        const posLabel = document.createElement("span");
+        posLabel.textContent = "Position:";
+        posLabel.style.cssText = "color: #aaa; font-weight: 500;";
+        const posValue = document.createElement("span");
+        posValue.style.cssText = "color: #fff; font-family: monospace;";
+        posEl.appendChild(posLabel);
+        posEl.appendChild(posValue);
+        infoSection.appendChild(posEl);
+        content.appendChild(infoSection);
+        // Calculate and cache mesh center (for rotation/scale pivot)
+        // IMPORTANT: Center must be in LOCAL space (from mesh vertices, not world space)
+        if (!obj._cachedMeshCenter) {
+            obj._cachedMeshCenter = obj.mesh.getCenter();
         }
-        // Extract current transform components
-        var translation = [obj.position[12], obj.position[13], obj.position[14]];
-        var rotationDegrees = [0, 0, 0]; // default 0 or store separately in WorldObject
-        var scale = [1, 1, 1]; // default 1 or store separately
+        const meshCenter = obj._cachedMeshCenter;
+        // Extract current transform components from the position matrix
+        // The position matrix is: T_world * T_center * R * S * T_negCenter
+        // We need to decompose it to extract translation, rotation, and scale
+        // For now, we'll extract what we can, but start with identity rotation/scale
+        // and let the user adjust from there
+        // Extract translation (last column, bottom 3 elements)
+        const translation = [obj.position[12], obj.position[13], obj.position[14]];
+        // Extract scale from matrix (length of first 3 column vectors, before rotation)
+        // This is approximate but should work for most cases
+        const sx = Math.sqrt(obj.position[0] * obj.position[0] +
+            obj.position[1] * obj.position[1] +
+            obj.position[2] * obj.position[2]);
+        const sy = Math.sqrt(obj.position[4] * obj.position[4] +
+            obj.position[5] * obj.position[5] +
+            obj.position[6] * obj.position[6]);
+        const sz = Math.sqrt(obj.position[8] * obj.position[8] +
+            obj.position[9] * obj.position[9] +
+            obj.position[10] * obj.position[10]);
+        const scale = [sx, sy, sz];
+        // Start with zero rotation (user can adjust)
+        const rotationDegrees = [0, 0, 0];
+        // Function to update position display
+        const updatePosDisplay = () => {
+            posValue.textContent = `[${translation[0].toFixed(2)}, ${translation[1].toFixed(2)}, ${translation[2].toFixed(2)}]`;
+        };
+        updatePosDisplay();
         // Function to rebuild mat4 from translation, rotation, scale
+        // FIXED: The correct order for rotating/scaling around a local center is:
+        // T_world * (R * S * T_negCenter + center)
+        // But since we can't add vectors to matrices, we use:
+        // T_world * T_rotatedCenter * R * S * T_negCenter
+        // Where T_rotatedCenter applies the center translation in the rotated coordinate space
         function rebuildMatrix() {
-            var rad = rotationDegrees.map(function (d) { return (d * Math.PI) / 180; });
-            var newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
-            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.translate(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(translation[0], translation[1], translation[2]));
-            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateX(newMat, newMat, rad[0]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateY(newMat, newMat, rad[1]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.rotateZ(newMat, newMat, rad[2]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.scale(newMat, newMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(scale[0], scale[1], scale[2]));
-            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.copy(obj.position, newMat);
-            if (UI.tracerUpdateSupplier)
-                UI.tracerUpdateSupplier()();
+            const rad = rotationDegrees.map((d) => (d * Math.PI) / 180);
+            // The correct formula for rotating/scaling around a point P (the center) is:
+            // T_world * R * S * T(-P)
+            // But we need to ensure the center ends up at world position.
+            // After T(-P), the center is at (0,0,0). After R*S, it's still at (0,0,0).
+            // After T_world, it should be at world position.
+            // However, we need to account for the fact that the center offset gets scaled/rotated.
+            // Build rotation/scale matrix first
+            const rotScaleMat = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.scale(rotScaleMat, rotScaleMat, gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(scale[0], scale[1], scale[2]));
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.rotateX(rotScaleMat, rotScaleMat, rad[0]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.rotateY(rotScaleMat, rotScaleMat, rad[1]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.rotateZ(rotScaleMat, rotScaleMat, rad[2]);
+            // After T(-center), center is at (0,0,0)
+            // After R*S, center is still at (0,0,0)
+            // We want center to end up at 'translation' in world space
+            // But the translation happens AFTER rotation, so it's in rotated coordinate space
+            // We need to transform the translation vector by the inverse rotation to get it in local space
+            const invRotScaleMat = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.invert(invRotScaleMat, rotScaleMat);
+            const worldTransInLocalSpace = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.transformMat4(worldTransInLocalSpace, gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(translation[0], translation[1], translation[2]), invRotScaleMat);
+            // Build the full transform: T(worldTransInLocalSpace) * R * S * T(-center)
+            const newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+            // 1. Translate to -center (move object center to origin in LOCAL space)
+            const negCenter = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(-meshCenter[0], -meshCenter[1], -meshCenter[2]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.translate(newMat, newMat, negCenter);
+            // 2. Apply rotation/scale (center is now at origin, so it stays at origin)
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.multiply(newMat, rotScaleMat, newMat);
+            // 3. Translate by world translation (in local/rotated space) to place center at world position
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.translate(newMat, newMat, worldTransInLocalSpace);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.copy(obj.position, newMat);
+            // Position display updates immediately (smooth UI feedback)
+            updatePosDisplay();
+            // Debounce the expensive BVH rebuild - only update after user stops adjusting for 300ms
+            // This prevents rebuilding the entire combined mesh (including transforming all triangles)
+            // on every slider drag, which is very expensive for large meshes
+            if (UI.transformUpdateTimeout !== null) {
+                clearTimeout(UI.transformUpdateTimeout);
+            }
+            UI.transformUpdateTimeout = window.setTimeout(() => {
+                if (UI.tracerUpdateSupplier) {
+                    UI.tracerUpdateSupplier()();
+                }
+                UI.transformUpdateTimeout = null;
+            }, 300); // Wait 300ms after last change before rebuilding
         }
-        // Translation inputs
-        var tHeader = document.createElement("h4");
-        tHeader.textContent = "Translation:";
-        wrapper.appendChild(tHeader);
-        ["X", "Y", "Z"].forEach(function (axis, i) {
-            return createInput(axis, translation[i], function (v) {
-                translation[i] = v;
-                rebuildMatrix();
+        // Helper to create a transform section
+        const createTransformSection = (title, values, axes, onChange) => {
+            const section = document.createElement("div");
+            section.style.cssText = "margin-bottom: 15px;";
+            const sectionTitle = document.createElement("div");
+            sectionTitle.textContent = title;
+            sectionTitle.style.cssText =
+                "font-size: 0.85em; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;";
+            section.appendChild(sectionTitle);
+            const inputsContainer = document.createElement("div");
+            inputsContainer.style.cssText =
+                "display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;";
+            axes.forEach((axis, i) => {
+                const inputGroup = document.createElement("div");
+                inputGroup.style.cssText = "display: flex; flex-direction: column;";
+                const label = document.createElement("label");
+                label.textContent = axis;
+                label.style.cssText =
+                    "font-size: 0.8em; color: #aaa; margin-bottom: 4px; font-weight: 500;";
+                const input = document.createElement("input");
+                input.type = "number";
+                input.value = values[i].toString();
+                input.step = axis === "Rotation" ? "1" : "0.1";
+                input.style.cssText =
+                    "padding: 6px 8px; background: #333; border: 1px solid #555; border-radius: 4px; color: #fff; font-size: 0.9em; font-family: monospace; width: 100%; box-sizing: border-box;";
+                input.addEventListener("input", () => {
+                    const val = input.value === "" ? 0 : parseFloat(input.value);
+                    values[i] = val;
+                    onChange(i, val);
+                    updatePosDisplay();
+                });
+                input.addEventListener("focus", () => (input.style.borderColor = "#666"));
+                input.addEventListener("blur", () => (input.style.borderColor = "#555"));
+                inputGroup.appendChild(label);
+                inputGroup.appendChild(input);
+                inputsContainer.appendChild(inputGroup);
             });
-        });
-        // Rotation inputs (degrees)
-        var rHeader = document.createElement("h4");
-        rHeader.textContent = "Rotation (degrees):";
-        wrapper.appendChild(rHeader);
-        ["X", "Y", "Z"].forEach(function (axis, i) {
-            return createInput(axis, rotationDegrees[i], function (v) {
-                rotationDegrees[i] = v;
-                rebuildMatrix();
-            });
-        });
-        // Scale inputs
-        var sHeader = document.createElement("h4");
-        sHeader.textContent = "Scale:";
-        wrapper.appendChild(sHeader);
-        ["X", "Y", "Z"].forEach(function (axis, i) {
-            return createInput(axis, scale[i], function (v) {
-                scale[i] = v;
-                rebuildMatrix();
-            });
-        });
+            section.appendChild(inputsContainer);
+            return section;
+        };
+        // Translation section
+        content.appendChild(createTransformSection("Translation", translation, ["X", "Y", "Z"], (i, v) => {
+            translation[i] = v;
+            rebuildMatrix();
+        }));
+        // Rotation section
+        content.appendChild(createTransformSection("Rotation (degrees)", rotationDegrees, ["X", "Y", "Z"], (i, v) => {
+            rotationDegrees[i] = v;
+            rebuildMatrix();
+        }));
+        // Scale section
+        content.appendChild(createTransformSection("Scale", scale, ["X", "Y", "Z"], (i, v) => {
+            scale[i] = v;
+            rebuildMatrix();
+        }));
+        wrapper.appendChild(content);
         container.appendChild(wrapper);
-    };
-    return ObjectUI;
-}());
-
+    }
+}
 
 
 /***/ }),
@@ -6716,16 +10776,827 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   Utilities: () => (/* binding */ Utilities)
 /* harmony export */ });
-var Utilities = /** @class */ (function () {
-    function Utilities() {
+class Utilities {
+    static average(l) {
+        return l.reduce((a, b) => a + b) / l.length;
     }
-    Utilities.average = function (l) {
-        return l.reduce(function (a, b) { return a + b; }) / l.length;
-    };
-    return Utilities;
-}());
+}
 
 
+/***/ }),
+
+/***/ "./src/map/WebGPU compute.ts":
+/*!***********************************!*\
+  !*** ./src/map/WebGPU compute.ts ***!
+  \***********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   ComputeShader: () => (/* binding */ ComputeShader)
+/* harmony export */ });
+/* harmony import */ var _noise_wgsl__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./noise.wgsl */ "./src/map/noise.wgsl");
+/* harmony import */ var _marching_cubes_wgsl__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./marching_cubes.wgsl */ "./src/map/marching_cubes.wgsl");
+/* harmony import */ var _prefix_sum_chunk_wgsl__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./prefix_sum_chunk.wgsl */ "./src/map/prefix_sum_chunk.wgsl");
+/* harmony import */ var _prefix_sum_scan_blocks_wgsl__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./prefix_sum_scan_blocks.wgsl */ "./src/map/prefix_sum_scan_blocks.wgsl");
+/* harmony import */ var _prefix_sum_uniform_add_wgsl__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./prefix_sum_uniform_add.wgsl */ "./src/map/prefix_sum_uniform_add.wgsl");
+/* harmony import */ var _calc_vertex_count_wgsl__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./calc_vertex_count.wgsl */ "./src/map/calc_vertex_count.wgsl");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../Settings */ "./src/Settings.ts");
+
+
+
+
+
+
+
+class ComputeShader {
+    constructor() {
+        this.device = null;
+        this.adapter = null;
+        this.terrainOptions = {
+            frequency: 0.01,
+            heightScale: 50.0,
+            waterLevel: 30.0,
+            islandAmount: 0.0,
+            octaves: 5,
+            persistence: 0.5,
+            lacunarity: 2.0,
+            caveThreshold: 0.55
+        };
+        // FIXME: actually update terrain on change
+        this.initSettings((id, value) => console.log(`changed ${id} to ${value}`));
+    }
+    /**
+     * Create settings UI in the provided parent element.
+     * Calls `onChange` when a setting is changed.
+     */
+    initSettings(onChange) {
+        // TODO: actually refresh terrain on change
+        // please also change/add settings when neccessary
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "Terrain Settings");
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("Terrain Settings", {
+            id: "frequency",
+            label: "Noise Frequency",
+            defaultValue: this.terrainOptions.frequency,
+            min: 0.001,
+            max: 0.1,
+            step: 0.001,
+            numType: "float",
+            onChange: (v) => {
+                this.terrainOptions.frequency = v;
+                onChange("frequency", v);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("Terrain Settings", {
+            id: "heightScale",
+            label: "Height Scale",
+            defaultValue: this.terrainOptions.heightScale,
+            min: 1,
+            max: 200,
+            step: 1,
+            numType: "float",
+            onChange: (v) => {
+                this.terrainOptions.heightScale = v;
+                onChange("heightScale", v);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("Terrain Settings", {
+            id: "octaves",
+            label: "Octaves",
+            defaultValue: this.terrainOptions.octaves,
+            min: 1,
+            max: 8,
+            step: 1,
+            numType: "int",
+            onChange: (v) => {
+                this.terrainOptions.octaves = Math.floor(v);
+                onChange("octaves", v);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("Terrain Settings", {
+            id: "persistence",
+            label: "Persistence",
+            defaultValue: this.terrainOptions.persistence,
+            min: 0.1,
+            max: 1.0,
+            step: 0.05,
+            numType: "float",
+            onChange: (v) => {
+                this.terrainOptions.persistence = v;
+                onChange("persistence", v);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("Terrain Settings", {
+            id: "lacunarity",
+            label: "Lacunarity",
+            defaultValue: this.terrainOptions.lacunarity,
+            min: 1.0,
+            max: 4.0,
+            step: 0.1,
+            numType: "float",
+            onChange: (v) => {
+                this.terrainOptions.lacunarity = v;
+                onChange("lacunarity", v);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("Terrain Settings", {
+            id: "islandAmount",
+            label: "Island Amount",
+            defaultValue: this.terrainOptions.islandAmount,
+            min: 0.0,
+            max: 1.0,
+            step: 0.01,
+            numType: "float",
+            onChange: (v) => {
+                this.terrainOptions.islandAmount = v;
+                onChange("islandAmount", v);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("Terrain Settings", {
+            id: "waterLevel",
+            label: "Water Level",
+            defaultValue: this.terrainOptions.waterLevel,
+            min: 0,
+            max: 200,
+            step: 1,
+            numType: "float",
+            onChange: (v) => {
+                this.terrainOptions.waterLevel = v;
+                onChange("waterLevel", v);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("Terrain Settings", {
+            id: "caveThreshold",
+            label: "Cave Threshold",
+            defaultValue: this.terrainOptions.caveThreshold,
+            min: 0.0,
+            max: 1.0,
+            step: 0.01,
+            numType: "float",
+            onChange: (v) => {
+                this.terrainOptions.caveThreshold = v;
+                onChange("caveThreshold", v);
+            }
+        });
+    }
+    async init() {
+        if (!navigator.gpu) {
+            throw new Error("WebGPU is not supported on this browser.");
+        }
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+            throw new Error("WebGPU adapter is not available.");
+        }
+        this.adapter = adapter;
+        this.device = await this.adapter.requestDevice();
+        if (!this.device) {
+            throw new Error("WebGPU is not supported on this browser.");
+        }
+        //this.testPrefixSum();
+    }
+    async testPrefixSum() {
+        if (!this.device) {
+            await this.init();
+        }
+        const inputArray = Array.from({ length: 400000 }, (_, i) => Math.floor(Math.random() * 10));
+        const inputBuffer = this.createGPUBuffer(new Uint32Array(inputArray), GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST);
+        const outputBuffer = await this.computePrefixSum(inputBuffer, inputArray.length);
+        const result = await this.readUintBuffer(outputBuffer, inputArray.length);
+        console.log("Prefix sum result:", result);
+    }
+    async readFieldBuffer(fieldBuffer, width, height, depth) {
+        const size = width * height * depth * 4;
+        const readBuffer = this.device.createBuffer({
+            size,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(fieldBuffer, 0, readBuffer, 0, size);
+        this.device.queue.submit([commandEncoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = readBuffer.getMappedRange();
+        const floatArray = new Float32Array(arrayBuffer.slice(0));
+        readBuffer.unmap();
+        return floatArray;
+    }
+    async readVectorBuffer(vectorBuffer, elementCount) {
+        const size = elementCount * 4;
+        const readBuffer = this.device.createBuffer({
+            size,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(vectorBuffer, 0, readBuffer, 0, size);
+        this.device.queue.submit([commandEncoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = readBuffer.getMappedRange();
+        const floatArray = new Float32Array(arrayBuffer.slice(0));
+        readBuffer.unmap();
+        return floatArray;
+    }
+    async readUintBuffer(uintBuffer, elementCount) {
+        const size = elementCount * 4;
+        const readBuffer = this.device.createBuffer({
+            size,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(uintBuffer, 0, readBuffer, 0, size);
+        this.device.queue.submit([commandEncoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = readBuffer.getMappedRange();
+        const uintArray = new Uint32Array(arrayBuffer.slice(0));
+        readBuffer.unmap();
+        return uintArray;
+    }
+    async readUint(uint) {
+        const readBuffer = this.device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(uint, 0, readBuffer, 0, 4);
+        this.device.queue.submit([commandEncoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = readBuffer.getMappedRange();
+        const value = new Uint32Array(arrayBuffer.slice(0))[0];
+        readBuffer.unmap();
+        return value;
+    }
+    /**
+     * Reads a single uint32 value from a GPUBuffer at the given index.
+     */
+    async readUintAt(buffer, index) {
+        const readBuffer = this.device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(buffer, index * 4, readBuffer, 0, 4);
+        this.device.queue.submit([commandEncoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = readBuffer.getMappedRange();
+        const value = new Uint32Array(arrayBuffer)[0];
+        readBuffer.unmap();
+        return value;
+    }
+    /**
+     * Reads the total vertex and index count from marching cubes buffers.
+     * Returns { vertexCount, indexCount }
+     */
+    async getMarchingCubesCounts(prefixSumBuffer, vertexCountsBuffer, width, height, depth) {
+        const numVoxels = (width - 1) * (height - 1) * (depth - 1);
+        const lastIdx = numVoxels - 1;
+        const lastPrefix = await this.readUintAt(prefixSumBuffer, lastIdx);
+        const lastCount = await this.readUintAt(vertexCountsBuffer, lastIdx);
+        const vertexCount = lastPrefix + lastCount;
+        const indexCount = vertexCount; // or (vertexCount / 3) * 3 if always triangles
+        return { vertexCount, indexCount };
+    }
+    // TODO: sync with noise.wgsl
+    async createSimplexNoise3D(width, height, depth, seed = 0, baseX = 0, baseY = 0, baseZ = 0) {
+        const options = this.terrainOptions;
+        if (!this.device) {
+            await this.init();
+        }
+        const fieldSize = width * height * depth * 4; // 4 bytes per f32
+        // Create storage buffer for noise field
+        const fieldBuffer = this.device.createBuffer({
+            size: fieldSize,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+            mappedAtCreation: true
+        });
+        new Float32Array(fieldBuffer.getMappedRange()).fill(0);
+        fieldBuffer.unmap();
+        // Create uniform buffer for parameters (expanded to include noise settings)
+        const paramsBuffer = this.device.createBuffer({
+            size: 64, // 8 * 4 bytes (first 8 u32) + 8 * 4 bytes for floats/extra
+            usage: GPUBufferUsage.UNIFORM,
+            mappedAtCreation: true
+        });
+        const dv = new DataView(paramsBuffer.getMappedRange());
+        const littleEndian = true;
+        // u32 region
+        dv.setUint32(0, seed >>> 0, littleEndian);
+        dv.setUint32(4, width >>> 0, littleEndian);
+        dv.setUint32(8, height >>> 0, littleEndian);
+        dv.setUint32(12, depth >>> 0, littleEndian);
+        dv.setUint32(16, baseX >>> 0, littleEndian);
+        dv.setUint32(20, baseY >>> 0, littleEndian);
+        dv.setUint32(24, baseZ >>> 0, littleEndian);
+        dv.setUint32(28, 0, littleEndian); // _pad
+        // floats / extras region (offsets in bytes)
+        const frequency = options?.frequency ?? 0.01;
+        const heightScale = options?.heightScale ?? 50.0;
+        const waterLevel = options?.waterLevel ?? 30.0;
+        const islandAmount = options?.islandAmount ?? 0.0;
+        const octaves = options?.octaves ?? 5;
+        const persistence = options?.persistence ?? 0.5;
+        const lacunarity = options?.lacunarity ?? 2.0;
+        const caveThreshold = options?.caveThreshold ?? 0.55;
+        dv.setFloat32(32, frequency, littleEndian);
+        dv.setFloat32(36, heightScale, littleEndian);
+        dv.setFloat32(40, waterLevel, littleEndian);
+        dv.setFloat32(44, islandAmount, littleEndian);
+        dv.setUint32(48, octaves >>> 0, littleEndian);
+        dv.setFloat32(52, persistence, littleEndian);
+        dv.setFloat32(56, lacunarity, littleEndian);
+        dv.setFloat32(60, caveThreshold, littleEndian);
+        paramsBuffer.unmap();
+        // Create shader module
+        const shaderModule = this.device.createShaderModule({
+            code: _noise_wgsl__WEBPACK_IMPORTED_MODULE_0__
+        });
+        // Create bind group layout
+        const bindGroupLayout = this.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" }
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "uniform" }
+                }
+            ]
+        });
+        // Create bind group
+        const bindGroup = this.device.createBindGroup({
+            layout: bindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: fieldBuffer } },
+                { binding: 1, resource: { buffer: paramsBuffer } }
+            ]
+        });
+        // Create compute pipeline
+        const pipeline = this.device.createComputePipeline({
+            layout: this.device.createPipelineLayout({
+                bindGroupLayouts: [bindGroupLayout]
+            }),
+            compute: { module: shaderModule, entryPoint: "main" }
+        });
+        // Create command encoder and compute pass
+        const commandEncoder = this.device.createCommandEncoder();
+        const passEncoder = commandEncoder.beginComputePass();
+        passEncoder.setPipeline(pipeline);
+        passEncoder.setBindGroup(0, bindGroup);
+        passEncoder.dispatchWorkgroups(Math.ceil(width / 4), Math.ceil(height / 4), Math.ceil(depth / 4));
+        passEncoder.end();
+        // Submit the command buffer
+        this.device.queue.submit([commandEncoder.finish()]);
+        return fieldBuffer;
+    }
+    // Update createMarchingCubes to use this encoder
+    async createMarchingCubes(fieldBuffer, width, height, depth) {
+        if (!this.device) {
+            await this.init();
+        }
+        const vertexCountsBuffer = await this.computeVertexCount(fieldBuffer, width, height, depth);
+        const vertexOffsetsBuffer = await this.computePrefixSum(vertexCountsBuffer, (width - 1) * (height - 1) * (depth - 1));
+        const paramsBuffer = this.device.createBuffer({
+            size: 12,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
+        });
+        new Uint32Array(paramsBuffer.getMappedRange()).set([width, height, depth]);
+        paramsBuffer.unmap();
+        const vertexCountData = await this.getMarchingCubesCounts(vertexOffsetsBuffer, vertexCountsBuffer, width, height, depth);
+        const maxVertices = vertexCountData.vertexCount;
+        const maxIndices = vertexCountData.indexCount;
+        // Create interleaved buffer: 2 vec4s per vertex (position+type, normal+padding)
+        const interleavedBuffer = this.device.createBuffer({
+            size: maxVertices * 2 * 16, // 2 vec4s * 16 bytes
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+            mappedAtCreation: true
+        });
+        new Float32Array(interleavedBuffer.getMappedRange()).fill(0);
+        interleavedBuffer.unmap();
+        const indexBuffer = this.device.createBuffer({
+            size: maxIndices * 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+            mappedAtCreation: true
+        });
+        new Uint32Array(indexBuffer.getMappedRange()).fill(0);
+        indexBuffer.unmap();
+        const shaderModule = this.device.createShaderModule({
+            code: _marching_cubes_wgsl__WEBPACK_IMPORTED_MODULE_1__
+        });
+        const bindGroupLayout = this.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" }
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" }
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "read-only-storage" }
+                },
+                {
+                    binding: 3,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "read-only-storage" }
+                },
+                {
+                    binding: 4,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "read-only-storage" }
+                }
+            ]
+        });
+        const bindGroup = this.device.createBindGroup({
+            layout: bindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: interleavedBuffer } },
+                { binding: 1, resource: { buffer: indexBuffer } },
+                { binding: 2, resource: { buffer: fieldBuffer } },
+                { binding: 3, resource: { buffer: paramsBuffer } },
+                { binding: 4, resource: { buffer: vertexOffsetsBuffer } }
+            ]
+        });
+        const pipeline = this.device.createComputePipeline({
+            layout: this.device.createPipelineLayout({
+                bindGroupLayouts: [bindGroupLayout]
+            }),
+            compute: { module: shaderModule, entryPoint: "main" }
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        const passEncoder = commandEncoder.beginComputePass();
+        passEncoder.setPipeline(pipeline);
+        passEncoder.setBindGroup(0, bindGroup);
+        passEncoder.dispatchWorkgroups(Math.ceil(width / 4), Math.ceil(height / 4), Math.ceil(depth / 4));
+        passEncoder.end();
+        this.device.queue.submit([commandEncoder.finish()]);
+        return {
+            interleavedBuffer,
+            indexBuffer,
+            vertexCount: vertexCountData.vertexCount,
+            indexCount: vertexCountData.indexCount
+        };
+    }
+    // Add helper method to read interleaved data
+    async readInterleavedBuffer(interleavedBuffer, vertexCount) {
+        const size = vertexCount * 2 * 16; // 2 vec4s per vertex
+        const readBuffer = this.device.createBuffer({
+            size,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(interleavedBuffer, 0, readBuffer, 0, size);
+        this.device.queue.submit([commandEncoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = readBuffer.getMappedRange();
+        const floatArray = new Float32Array(arrayBuffer.slice(0));
+        readBuffer.unmap();
+        return floatArray;
+    }
+    async computeVertexCount(fieldBuffer, width, height, depth) {
+        if (!this.device) {
+            await this.init();
+        }
+        const numVoxels = (width - 1) * (height - 1) * (depth - 1);
+        // Create params buffer
+        const paramsBuffer = this.device.createBuffer({
+            size: 12, // 3 u32s
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+            mappedAtCreation: true
+        });
+        new Uint32Array(paramsBuffer.getMappedRange()).set([width, height, depth]);
+        paramsBuffer.unmap();
+        // Create vertex count buffer
+        const vertexCountBuffer = this.device.createBuffer({
+            size: numVoxels * 4,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+            mappedAtCreation: true
+        });
+        new Uint32Array(vertexCountBuffer.getMappedRange()).fill(0);
+        vertexCountBuffer.unmap();
+        // Create shader module
+        const shaderModule = this.device.createShaderModule({
+            code: _calc_vertex_count_wgsl__WEBPACK_IMPORTED_MODULE_5__
+        });
+        // Create bind group layout
+        const bindGroupLayout = this.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "read-only-storage" }
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "read-only-storage" }
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" }
+                }
+            ]
+        });
+        // Create bind group
+        const bindGroup = this.device.createBindGroup({
+            layout: bindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: fieldBuffer } },
+                { binding: 1, resource: { buffer: paramsBuffer } },
+                { binding: 2, resource: { buffer: vertexCountBuffer } }
+            ]
+        });
+        // Create and run compute pipeline
+        const pipeline = this.device.createComputePipeline({
+            layout: this.device.createPipelineLayout({
+                bindGroupLayouts: [bindGroupLayout]
+            }),
+            compute: { module: shaderModule, entryPoint: "main" }
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        const passEncoder = commandEncoder.beginComputePass();
+        passEncoder.setPipeline(pipeline);
+        passEncoder.setBindGroup(0, bindGroup);
+        passEncoder.dispatchWorkgroups(Math.ceil((width - 1) / 4), Math.ceil((height - 1) / 4), Math.ceil((depth - 1) / 4));
+        passEncoder.end();
+        this.device.queue.submit([commandEncoder.finish()]);
+        return vertexCountBuffer;
+    }
+    async computePrefixSum(inputBuffer, elementCount) {
+        if (!this.device) {
+            await this.init();
+        }
+        const CHUNK_SIZE = 512;
+        const MAX_SINGLE_PASS_ELEMENTS = 512; // Max elements pass2 can handle in one workgroup
+        // Base case: small enough for single workgroup scan
+        if (elementCount <= CHUNK_SIZE) {
+            return this.computePrefixSumSmall(inputBuffer, elementCount);
+        }
+        const pass1ShaderModule = this.device.createShaderModule({
+            code: _prefix_sum_chunk_wgsl__WEBPACK_IMPORTED_MODULE_2__
+        });
+        const pass3ShaderModule = this.device.createShaderModule({
+            code: _prefix_sum_uniform_add_wgsl__WEBPACK_IMPORTED_MODULE_4__
+        });
+        const pass1UniformBindGroupLayout = this.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "read-only-storage" }
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" }
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" }
+                }
+            ]
+        });
+        const pass3UniformBindGroupLayout = this.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" }
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "read-only-storage" }
+                }
+            ]
+        });
+        const chunkCount = Math.ceil(elementCount / CHUNK_SIZE);
+        // Round up to power of 2 for the sums array
+        let powerOf2 = 1;
+        while (powerOf2 < chunkCount) {
+            powerOf2 *= 2;
+        }
+        const outputArrayBuffer = this.copyGPUBuffer(inputBuffer, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST);
+        const sumArrayBuffer = this.createGPUBuffer(new Uint32Array(powerOf2), GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST);
+        // Pass 1: Scan each chunk and extract block sums
+        const pass1UniformBindGroup = this.device.createBindGroup({
+            layout: pass1UniformBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: inputBuffer } },
+                { binding: 1, resource: { buffer: outputArrayBuffer } },
+                { binding: 2, resource: { buffer: sumArrayBuffer } }
+            ]
+        });
+        const pass1Pipeline = this.device.createComputePipeline({
+            layout: this.device.createPipelineLayout({
+                bindGroupLayouts: [pass1UniformBindGroupLayout]
+            }),
+            compute: {
+                module: pass1ShaderModule,
+                entryPoint: "main"
+            }
+        });
+        const commandEncoder1 = this.device.createCommandEncoder();
+        const passEncoder1 = commandEncoder1.beginComputePass();
+        passEncoder1.setPipeline(pass1Pipeline);
+        passEncoder1.setBindGroup(0, pass1UniformBindGroup);
+        passEncoder1.dispatchWorkgroups(chunkCount);
+        passEncoder1.end();
+        this.device.queue.submit([commandEncoder1.finish()]);
+        // Pass 2: Recursively scan the block sums
+        const scannedSumsBuffer = await this.computePrefixSum(sumArrayBuffer, chunkCount);
+        // Pass 3: Add scanned block sums back to each chunk
+        const pass3UniformBindGroup = this.device.createBindGroup({
+            layout: pass3UniformBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: outputArrayBuffer } },
+                { binding: 1, resource: { buffer: scannedSumsBuffer } }
+            ]
+        });
+        const pass3Pipeline = this.device.createComputePipeline({
+            layout: this.device.createPipelineLayout({
+                bindGroupLayouts: [pass3UniformBindGroupLayout]
+            }),
+            compute: {
+                module: pass3ShaderModule,
+                entryPoint: "main"
+            }
+        });
+        const commandEncoder3 = this.device.createCommandEncoder();
+        const passEncoder3 = commandEncoder3.beginComputePass();
+        passEncoder3.setPipeline(pass3Pipeline);
+        passEncoder3.setBindGroup(0, pass3UniformBindGroup);
+        passEncoder3.dispatchWorkgroups(chunkCount);
+        passEncoder3.end();
+        this.device.queue.submit([commandEncoder3.finish()]);
+        return outputArrayBuffer;
+    }
+    // Helper for small arrays that fit in a single workgroup
+    async computePrefixSumSmall(inputBuffer, elementCount) {
+        const pass2ShaderModule = this.device.createShaderModule({
+            code: _prefix_sum_scan_blocks_wgsl__WEBPACK_IMPORTED_MODULE_3__
+        });
+        let powerOf2 = 1;
+        while (powerOf2 < elementCount) {
+            powerOf2 *= 2;
+        }
+        const pass2UniformBindGroupLayout = this.device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "read-only-storage" }
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: { type: "storage" }
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {}
+                }
+            ]
+        });
+        const outputBuffer = this.createGPUBuffer(new Uint32Array(powerOf2), GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST);
+        const sumSizeBuffer = this.createGPUBuffer(new Uint32Array([powerOf2]), GPUBufferUsage.UNIFORM);
+        const pass2UniformBindGroup = this.device.createBindGroup({
+            layout: pass2UniformBindGroupLayout,
+            entries: [
+                { binding: 0, resource: { buffer: inputBuffer } },
+                { binding: 1, resource: { buffer: outputBuffer } },
+                { binding: 2, resource: { buffer: sumSizeBuffer } }
+            ]
+        });
+        const pass2Pipeline = this.device.createComputePipeline({
+            layout: this.device.createPipelineLayout({
+                bindGroupLayouts: [pass2UniformBindGroupLayout]
+            }),
+            compute: {
+                module: pass2ShaderModule,
+                entryPoint: "main"
+            }
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        const passEncoder = commandEncoder.beginComputePass();
+        passEncoder.setPipeline(pass2Pipeline);
+        passEncoder.setBindGroup(0, pass2UniformBindGroup);
+        passEncoder.dispatchWorkgroups(1);
+        passEncoder.end();
+        this.device.queue.submit([commandEncoder.finish()]);
+        return outputBuffer;
+    }
+    copyGPUBuffer(source, usage = GPUBufferUsage.COPY_SRC |
+        GPUBufferUsage.COPY_DST) {
+        const buffer = this.device.createBuffer({
+            size: source.size,
+            usage
+        });
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(source, 0, buffer, 0, source.size);
+        this.device.queue.submit([commandEncoder.finish()]);
+        return buffer;
+    }
+    createGPUBuffer(array, usage) {
+        const buffer = this.device.createBuffer({
+            size: array.byteLength,
+            usage,
+            mappedAtCreation: true
+        });
+        const mapping = buffer.getMappedRange();
+        if (array instanceof Float32Array) {
+            new Float32Array(mapping).set(array);
+        }
+        else if (array instanceof Uint32Array) {
+            new Uint32Array(mapping).set(array);
+        }
+        buffer.unmap();
+        return buffer;
+    }
+    async createBufferFromArray(array, usage) {
+        if (!this.device) {
+            await this.init();
+        }
+        const buffer = this.device.createBuffer({
+            size: array.byteLength,
+            usage,
+            mappedAtCreation: true
+        });
+        const mapping = buffer.getMappedRange();
+        if (array instanceof Float32Array) {
+            new Float32Array(mapping).set(array);
+        }
+        else if (array instanceof Uint32Array) {
+            new Uint32Array(mapping).set(array);
+        }
+        buffer.unmap();
+        return buffer;
+    }
+    async visualizeNoiseField(canvas, fieldBuffer, width, height, slice // z-index of the slice to visualize
+    ) {
+        if (!this.device) {
+            await this.init();
+        }
+        const imageData = new ImageData(width, height);
+        const readBuffer = this.device.createBuffer({
+            size: width * height * 4,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
+        // Copy only the selected slice from the 3D field
+        const offset = slice * width * height * 4;
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(fieldBuffer, offset, readBuffer, 0, width * height * 4);
+        this.device.queue.submit([commandEncoder.finish()]);
+        await readBuffer.mapAsync(GPUMapMode.READ);
+        const arrayBuffer = readBuffer.getMappedRange();
+        const data = new Float32Array(arrayBuffer);
+        // Scale up to canvas size
+        const ctx = canvas.getContext("2d");
+        const canvasWidth = canvas.width;
+        const canvasHeight = canvas.height;
+        const scaleX = canvasWidth / width;
+        const scaleY = canvasHeight / height;
+        // Create scaled image data
+        const scaledImage = ctx.createImageData(canvasWidth, canvasHeight);
+        for (let y = 0; y < canvasHeight; y++) {
+            for (let x = 0; x < canvasWidth; x++) {
+                // Nearest neighbor sampling
+                const srcX = Math.floor(x / scaleX);
+                const srcY = Math.floor(y / scaleY);
+                const srcIdx = srcY * width + srcX;
+                const value = Math.floor(((data[srcIdx] + 1) / 2) * 255);
+                const dstIdx = (y * canvasWidth + x) * 4;
+                scaledImage.data[dstIdx + 0] = value;
+                scaledImage.data[dstIdx + 1] = value;
+                scaledImage.data[dstIdx + 2] = value;
+                scaledImage.data[dstIdx + 3] = 255;
+            }
+        }
+        ctx.putImageData(scaledImage, 0, 0);
+        readBuffer.unmap();
+    }
+}
+
+
+/***/ }),
+
+/***/ "./src/map/calc_vertex_count.wgsl":
+/*!****************************************!*\
+  !*** ./src/map/calc_vertex_count.wgsl ***!
+  \****************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "@group(0) @binding(0)\r\nvar<storage, read> field: array<f32>;\r\n@group(0) @binding(1)\r\nvar<storage, read> params: Params;\r\n@group(0) @binding(2)\r\nvar<storage, read_write> vertex_counts: array<u32>;\r\nstruct Params {\r\n    width: u32,\r\n    height: u32,\r\n    depth: u32,\r\n}\r\n\r\nconst CASEVertexCounts = array<u32, 256>(0, 3, 3, 6, 3, 6, 6, 9, 3, 6, 6, 9, 6, 9, 9, 6, 3, 6, 6, 9, 6, 9, 9, 12, 6, 9, 9, 12, 9, 12, 12, 9, 3, 6, 6, 9, 6, 9, 9, 12, 6, 9, 9, 12, 9, 12, 12, 9, 6, 9, 9, 6, 9, 12, 12, 9, 9, 12, 12, 9, 12, 15, 15, 6, 3, 6, 6, 9, 6, 9, 9, 12, 6, 9, 9, 12, 9, 12, 12, 9, 6, 9, 9, 12, 9, 12, 12, 15, 9, 12, 12, 15, 12, 15, 15, 12, 6, 9, 9, 12, 9, 12, 6, 9, 9, 12, 12, 15, 12, 15, 9, 6, 9, 12, 12, 9, 12, 15, 9, 6, 12, 15, 15, 12, 15, 6, 12, 3, 3, 6, 6, 9, 6, 9, 9, 12, 6, 9, 9, 12, 9, 12, 12, 9, 6, 9, 9, 12, 9, 12, 12, 15, 9, 6, 12, 9, 12, 9, 15, 6, 6, 9, 9, 12, 9, 12, 12, 15, 9, 12, 12, 15, 12, 15, 15, 12, 9, 12, 12, 9, 12, 15, 15, 12, 12, 9, 15, 6, 15, 12, 6, 3, 6, 9, 9, 12, 9, 12, 12, 15, 9, 12, 12, 15, 6, 9, 9, 6, 9, 12, 12, 15, 12, 15, 15, 6, 12, 9, 15, 12, 9, 6, 12, 3, 9, 12, 12, 15, 12, 15, 9, 12, 12, 15, 15, 6, 9, 12, 6, 3, 6, 9, 9, 6, 9, 12, 6, 3, 9, 6, 12, 3, 6, 3, 3, 0);\r\nconst VERTICES = array<vec3<i32>, 8>(vec3<i32>(0, 0, 0), vec3<i32>(1, 0, 0), vec3<i32>(1, 1, 0), vec3<i32>(0, 1, 0), vec3<i32>(0, 0, 1), vec3<i32>(1, 0, 1), vec3<i32>(1, 1, 1), vec3<i32>(0, 1, 1),);\r\nfn get_field_value(x: u32, y: u32, z: u32) -> f32 {\r\n    return field[x + y * params.width + z * params.width * params.height];\r\n}\r\n\r\n@compute @workgroup_size(4, 4, 4)\r\nfn main(@builtin(global_invocation_id) global_id: vec3<u32>) {\r\n    // Get the voxel coordinates\r\n    let x = global_id.x;\r\n    let y = global_id.y;\r\n    let z = global_id.z;\r\n\r\n    // Bounds check\r\n    if (x >= params.width - 1u || y >= params.height - 1u || z >= params.depth - 1u) {\r\n        return;\r\n    }\r\n    // Compute the 1D index for the voxel\r\n    let idx = x + y * (params.width - 1u) + z * (params.width - 1u) * (params.height - 1u);\r\n    var case_index: u32 = 0u;\r\n    for (var i: u32 = 0u; i < 8u; i = i + 1u) {\r\n        let v = VERTICES[i];\r\n        let val = get_field_value(x + u32(v.x), y + u32(v.y), z + u32(v.z));\r\n        if (val < 0.5) {\r\n            case_index = case_index | (1u << i);\r\n        }\r\n    }\r\n    // Lookup the number of vertices for this case\r\n    let vertex_count = CASEVertexCounts[case_index];\r\n    // Store the vertex count\r\n    vertex_counts[idx] = vertex_count;\r\n}\r\n\r\n";
 
 /***/ }),
 
@@ -6744,28 +11615,24 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
 
-var roundToPrecision = function (value, precision) {
-    return Math.round(value * precision) / precision;
-};
-var vertexKey = function (vertex) {
-    return "".concat(roundToPrecision(vertex[0], 1e2), ",").concat(roundToPrecision(vertex[1], 1e2), ",").concat(roundToPrecision(vertex[2], 1e2));
-};
-var meshToInterleavedVerticesAndIndices = function (mesh) {
+const roundToPrecision = (value, precision) => Math.round(value * precision) / precision;
+const vertexKey = (vertex) => `${roundToPrecision(vertex[0], 1e2)},${roundToPrecision(vertex[1], 1e2)},${roundToPrecision(vertex[2], 1e2)}`;
+const meshToInterleavedVerticesAndIndices = (mesh) => {
     // For each vertex: x, y, z, r, g, b
-    var vertexMap = new Map();
-    var vertices = [];
-    var indices = [];
-    var vertexIndex = 0;
-    for (var i = 0; i < mesh.mesh.length; i++) {
-        var triangle = mesh.mesh[i];
-        var types = mesh.type[i];
-        for (var j = 0; j < 3; j++) {
-            var vertex = triangle[j];
-            var normal = mesh.normals[i][j];
-            var key = vertexKey(vertex);
+    const vertexMap = new Map();
+    const vertices = [];
+    const indices = [];
+    let vertexIndex = 0;
+    for (let i = 0; i < mesh.mesh.length; i++) {
+        const triangle = mesh.mesh[i];
+        const types = mesh.type[i];
+        for (let j = 0; j < 3; j++) {
+            const vertex = triangle[j];
+            const normal = mesh.normals[i][j];
+            const key = vertexKey(vertex);
             if (!vertexMap.has(key)) {
-                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
-                var color = type.color;
+                const type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                const color = type.color;
                 vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255);
                 vertexMap.set(key, vertexIndex);
                 vertexIndex++;
@@ -6778,26 +11645,42 @@ var meshToInterleavedVerticesAndIndices = function (mesh) {
         indices: new Uint32Array(indices)
     };
 };
-var meshToNonInterleavedVerticesAndIndices = function (mesh) {
-    var vertexMap = new Map();
-    var positions = [];
-    var normals = [];
-    var colors = [];
-    var indices = [];
-    var vertexIndex = 0;
-    for (var i = 0; i < mesh.mesh.length; i++) {
-        var triangle = mesh.mesh[i];
-        var types = mesh.type[i];
-        for (var j = 0; j < 3; j++) {
-            var vertex = triangle[j];
-            var normal = mesh.normals[i][j];
-            var key = vertexKey(vertex);
+function packEmissivityToUint8(emissivity) {
+    const r = Math.min(3, Math.floor(emissivity[0] * 3)); // 2 bits
+    const g = Math.min(3, Math.floor(emissivity[1] * 3)); // 2 bits
+    const b = Math.min(3, Math.floor(emissivity[2] * 3)); // 2 bits
+    return (b << 4) | (g << 2) | r;
+}
+const meshToNonInterleavedVerticesAndIndices = (mesh) => {
+    const vertexMap = new Map();
+    const positions = [];
+    const normals = [];
+    const colors = [];
+    const indices = [];
+    const reflectiveness = [];
+    const roughness = [];
+    const metallicity = [];
+    const emissivity = [];
+    const terrainId = [];
+    let vertexIndex = 0;
+    for (let i = 0; i < mesh.mesh.length; i++) {
+        const triangle = mesh.mesh[i];
+        const types = mesh.type[i];
+        for (let j = 0; j < 3; j++) {
+            const vertex = triangle[j];
+            const normal = mesh.normals[i][j];
+            const key = vertexKey(vertex);
             if (!vertexMap.has(key)) {
-                var type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
-                var color = type.color;
+                const type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                const color = type.color;
                 positions.push(vertex[0], vertex[1], vertex[2]);
                 normals.push(normal[0], normal[1], normal[2]);
                 colors.push(color.r / 255, color.g / 255, color.b / 255);
+                reflectiveness.push(type.reflectiveness);
+                roughness.push(type.roughness);
+                metallicity.push(type.metallicity);
+                emissivity.push(packEmissivityToUint8(type.emissivity) / 63.0);
+                terrainId.push(types[j]);
                 vertexMap.set(key, vertexIndex++);
             }
             indices.push(vertexMap.get(key));
@@ -6807,7 +11690,12 @@ var meshToNonInterleavedVerticesAndIndices = function (mesh) {
         positions: new Float32Array(positions),
         normals: new Float32Array(normals),
         colors: new Float32Array(colors),
-        indices: new Uint32Array(indices)
+        indices: new Uint32Array(indices),
+        reflectiveness: new Float32Array(reflectiveness),
+        roughness: new Float32Array(roughness),
+        metallicity: new Float32Array(metallicity),
+        emissivity: new Float32Array(emissivity),
+        terrainId: new Uint8Array(terrainId),
     };
 };
 
@@ -6826,13 +11714,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   CASES: () => (/* binding */ CASES),
 /* harmony export */   EDGES: () => (/* binding */ EDGES),
 /* harmony export */   VERTICES: () => (/* binding */ VERTICES),
+/* harmony export */   cubeColors: () => (/* binding */ cubeColors),
 /* harmony export */   cubeVertices: () => (/* binding */ cubeVertices),
 /* harmony export */   cubeWireframeIndices: () => (/* binding */ cubeWireframeIndices),
 /* harmony export */   quadIndices: () => (/* binding */ quadIndices),
 /* harmony export */   quadVertices: () => (/* binding */ quadVertices)
 /* harmony export */ });
 // Shoutout to BorisTheBrave https://github.com/BorisTheBrave/mc-dc/blob/a165b326849d8814fb03c963ad33a9faf6cc6dea/marching_cubes_3d.py
-var VERTICES = [
+const VERTICES = [
     [0, 0, 0],
     [1, 0, 0],
     [1, 1, 0],
@@ -6842,7 +11731,7 @@ var VERTICES = [
     [1, 1, 1],
     [0, 1, 1]
 ];
-var EDGES = [
+const EDGES = [
     [0, 1],
     [1, 2],
     [2, 3],
@@ -6857,7 +11746,7 @@ var EDGES = [
     [3, 7]
 ];
 //prettier-ignore
-var CASES = [[],
+const CASES = [[],
     [[8, 0, 3]],
     [[1, 0, 9]],
     [[8, 1, 3], [8, 9, 1]],
@@ -7113,16 +12002,33 @@ var CASES = [[],
     [[9, 0, 1]],
     [[3, 0, 8]],
     []];
-var cubeVertices = new Float32Array([
-    // x, y, z, r, g, b
-    0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0,
-    1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 1, 0
+const cubeVertices = new Float32Array([
+    // x, y, z in clip space
+    -1, -1, -1, // 0: near-bottom-left
+    1, -1, -1, // 1: near-bottom-right
+    1, 1, -1, // 2: near-top-right
+    -1, 1, -1, // 3: near-top-left
+    -1, -1, 1, // 4: far-bottom-left
+    1, -1, 1, // 5: far-bottom-right
+    1, 1, 1, // 6: far-top-right
+    -1, 1, 1 // 7: far-top-left
 ]);
-var cubeWireframeIndices = [
+const cubeColors = new Float32Array([
+    // r, g, b
+    1, 0, 0, // near face highlighted
+    1, 0, 0,
+    1, 0, 0,
+    1, 0, 0,
+    0.2, 0.7, 1.0, // far face default color
+    0.2, 0.7, 1.0,
+    0.2, 0.7, 1.0,
+    0.2, 0.7, 1.0
+]);
+const cubeWireframeIndices = [
     // 12 edges × 2 vertices = 24 indices
     0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7
 ];
-var quadVertices = new Float32Array([
+const quadVertices = new Float32Array([
     -1.0,
     -1.0,
     0.0,
@@ -7144,143 +12050,63 @@ var quadVertices = new Float32Array([
     0.0,
     1.0 // Top-left
 ]);
-var quadIndices = new Uint16Array([0, 1, 2, 2, 3, 0]);
+const quadIndices = new Uint16Array([0, 1, 2, 2, 3, 0]);
 
 
 /***/ }),
 
-/***/ "./src/map/marching_cubes.ts":
-/*!***********************************!*\
-  !*** ./src/map/marching_cubes.ts ***!
-  \***********************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+/***/ "./src/map/marching_cubes.wgsl":
+/*!*************************************!*\
+  !*** ./src/map/marching_cubes.wgsl ***!
+  \*************************************/
+/***/ ((module) => {
 
 "use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   Chunk: () => (/* binding */ Chunk)
-/* harmony export */ });
-/* harmony import */ var _Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Mesh */ "./src/map/Mesh.ts");
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __generator = (undefined && undefined.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
-            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [op[0] & 2, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
-            }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
+module.exports = "@group(0) @binding(0)\r\nvar<storage, read_write> interleavedData: array<vec4<f32>>; // vec4: xyz + terrain_type\r\n@group(0) @binding(1)\r\nvar<storage, read_write> indexData: array<u32>;\r\n@group(0) @binding(2)\r\nvar<storage, read> fieldData: array<f32>;\r\n@group(0) @binding(3)\r\nvar<storage, read> params: Params;\r\n@group(0) @binding(4)\r\nvar<storage, read> vertexOffsets: array<u32>;\r\n\r\nstruct Params {\r\n    width: u32,\r\n    height: u32,\r\n    depth: u32,\r\n}\r\n\r\nconst VERTICES = array<vec3<f32>, 8>(\r\n    vec3<f32>(0.0, 0.0, 0.0), \r\n    vec3<f32>(1.0, 0.0, 0.0), \r\n    vec3<f32>(1.0, 1.0, 0.0), \r\n    vec3<f32>(0.0, 1.0, 0.0), \r\n    vec3<f32>(0.0, 0.0, 1.0), \r\n    vec3<f32>(1.0, 0.0, 1.0), \r\n    vec3<f32>(1.0, 1.0, 1.0), \r\n    vec3<f32>(0.0, 1.0, 1.0),\r\n);\r\nconst EDGES = array<vec2<u32>, 12>(vec2<u32>(0, 1), vec2<u32>(1, 2), vec2<u32>(2, 3), vec2<u32>(3, 0), vec2<u32>(4, 5), vec2<u32>(5, 6), vec2<u32>(6, 7), vec2<u32>(7, 4), vec2<u32>(0, 4), vec2<u32>(1, 5), vec2<u32>(2, 6), vec2<u32>(3, 7),);\r\nconst CASES = array<u32, 256 * 5>(0, 0, 0, 0, 0, 776, 0, 0, 0, 0, 2305, 0, 0, 0, 0, 792, 408, 0, 0, 0, 298, 0, 0, 0, 0, 776, 673, 0, 0, 0, 41, 681, 0, 0, 0, 643, 2690, 2442, 0, 0, 2851, 0, 0, 0, 0, 2080, 2226, 0, 0, 0, 2305, 946, 0, 0, 0, 402, 667, 2968, 0, 0, 2979, 2579, 0, 0, 0, 161, 2208, 2984, 0, 0, 944, 185, 2490, 0, 0, 2968, 2715, 0, 0, 0, 2119, 0, 0, 0, 0, 115, 71, 0, 0, 0, 2119, 25, 0, 0, 0, 1049, 1812, 791, 0, 0, 2119, 2578, 0, 0, 0, 1844, 772, 2578, 0, 0, 2562, 2704, 2119, 0, 0, 1193, 932, 675, 1844, 0, 1924, 2851, 0, 0, 0, 2887, 587, 66, 0, 0, 2305, 946, 1144, 0, 0, 434, 2481, 1977, 1145, 0, 442, 315, 1924, 0, 0, 1796, 2567, 2576, 2983, 0, 2119, 944, 185, 2490, 0, 1972, 1209, 2490, 0, 0, 1353, 0, 0, 0, 0, 1353, 2096, 0, 0, 0, 336, 1344, 0, 0, 0, 2100, 1077, 1329, 0, 0, 1173, 298, 0, 0, 0, 776, 673, 2388, 0, 0, 1354, 2626, 576, 0, 0, 675, 936, 2213, 2132, 0, 1353, 571, 0, 0, 0, 523, 139, 1353, 0, 0, 1045, 1025, 571, 0, 0, 1045, 2836, 2849, 2228, 0, 2979, 2579, 1173, 0, 0, 1353, 161, 2208, 2984, 0, 1029, 1291, 59, 1466, 0, 1189, 2212, 2984, 0, 0, 1401, 1929, 0, 0, 0, 2384, 83, 855, 0, 0, 120, 368, 1393, 0, 0, 855, 339, 0, 0, 0, 2135, 2197, 2578, 0, 0, 298, 2384, 83, 855, 0, 40, 2085, 1322, 2135, 0, 2610, 1338, 1845, 0, 0, 1401, 1929, 571, 0, 0, 2336, 1833, 2855, 1401, 0, 2851, 120, 368, 1393, 0, 539, 2839, 1813, 0, 0, 2835, 2587, 2424, 1401, 0, 123, 87, 149, 186, 161, 2640, 1392, 1920, 2976, 944, 1466, 1403, 0, 0, 0, 2661, 0, 0, 0, 0, 776, 1626, 0, 0, 0, 400, 2661, 0, 0, 0, 792, 408, 1626, 0, 0, 609, 1617, 0, 0, 0, 1318, 1298, 776, 0, 0, 2405, 105, 608, 0, 0, 2437, 1410, 643, 1318, 0, 2851, 1626, 0, 0, 0, 2080, 2226, 2661, 0, 0, 2851, 400, 1626, 0, 0, 2661, 402, 667, 2968, 0, 1595, 1334, 309, 0, 0, 1675, 390, 129, 1302, 0, 2309, 1286, 1539, 1595, 0, 1430, 1691, 2968, 0, 0, 2119, 1446, 0, 0, 0, 115, 71, 1626, 0, 0, 2119, 1446, 25, 0, 0, 2661, 1049, 1812, 791, 0, 609, 1617, 2119, 0, 0, 1302, 1554, 1136, 115, 0, 1924, 2405, 105, 608, 0, 2354, 2419, 2375, 2342, 2405, 946, 2119, 1626, 0, 0, 1446, 2887, 587, 66, 0, 2305, 1144, 2851, 2661, 0, 2337, 2857, 1209, 1972, 2661, 2119, 1595, 1334, 309, 0, 267, 75, 1147, 1307, 1627, 1430, 1680, 1547, 2819, 1924, 2405, 2921, 1977, 1145, 0, 2468, 2660, 0, 0, 0, 1610, 1178, 776, 0, 0, 2561, 1546, 1030, 0, 0, 792, 2070, 422, 2148, 0, 297, 2340, 1062, 0, 0, 131, 297, 2340, 1062, 0, 576, 1602, 0, 0, 0, 808, 2084, 1062, 0, 0, 2468, 2660, 946, 0, 0, 651, 130, 1190, 2468, 0, 946, 2561, 1546, 1030, 0, 328, 356, 422, 395, 434, 2835, 1051, 1169, 1611, 0, 438, 395, 264, 356, 329, 2819, 1547, 1030, 0, 0, 2228, 2916, 0, 0, 0, 1926, 1674, 2697, 0, 0, 115, 2672, 2663, 2464, 0, 2657, 352, 103, 120, 0, 1562, 1814, 791, 0, 0, 393, 1665, 1926, 609, 0, 1657, 1849, 777, 617, 297, 2151, 104, 608, 0, 0, 611, 1651, 0, 0, 0, 2851, 1926, 1674, 2697, 0, 151, 2471, 2663, 519, 2855, 416, 166, 104, 2151, 946, 2657, 359, 379, 434, 0, 1681, 1673, 1656, 1555, 1595, 265, 1659, 0, 0, 0, 944, 182, 103, 120, 0, 2919, 0, 0, 0, 0, 1899, 0, 0, 0, 0, 131, 1899, 0, 0, 0, 2305, 2934, 0, 0, 0, 2353, 2435, 2934, 0, 0, 298, 2934, 0, 0, 0, 298, 131, 2934, 0, 0, 41, 681, 1899, 0, 0, 1899, 643, 2690, 2442, 0, 866, 886, 0, 0, 0, 1896, 2144, 98, 0, 0, 1575, 567, 2305, 0, 0, 1944, 663, 402, 1575, 0, 2582, 1559, 1811, 0, 0, 1800, 1543, 262, 2582, 0, 1591, 2358, 2307, 2710, 0, 1671, 2694, 2442, 0, 0, 1208, 1131, 0, 0, 0, 779, 2822, 1540, 0, 0, 2886, 2948, 2305, 0, 0, 2353, 1593, 1715, 1129, 0, 1208, 1131, 673, 0, 0, 673, 779, 2822, 1540, 0, 2706, 656, 1716, 1208, 0, 2371, 1123, 1715, 2707, 675, 2083, 1064, 1572, 0, 0, 66, 582, 0, 0, 0, 400, 2083, 1064, 1572, 0, 2337, 1065, 1572, 0, 0, 314, 2612, 900, 2630, 0, 266, 2566, 1540, 0, 0, 1699, 2707, 2307, 1123, 2115, 1193, 1130, 0, 0, 0, 1353, 1719, 0, 0, 0, 1353, 1719, 2096, 0, 0, 336, 1344, 2934, 0, 0, 1899, 2100, 1077, 1329, 0, 673, 1353, 2934, 0, 0, 776, 2388, 298, 1899, 0, 1719, 1354, 2626, 576, 0, 808, 2090, 2212, 1189, 1899, 866, 886, 1353, 0, 0, 1173, 1896, 2144, 98, 0, 1591, 566, 84, 336, 0, 536, 344, 1352, 1576, 1896, 1353, 2582, 1559, 1811, 0, 1671, 134, 2566, 266, 1173, 2563, 2624, 2644, 2615, 2678, 1896, 2154, 2213, 2132, 0, 1685, 2966, 2203, 0, 0, 875, 99, 1376, 2384, 0, 184, 1456, 1717, 336, 0, 2870, 1589, 1329, 0, 0, 298, 1685, 2966, 2203, 0, 179, 1712, 2400, 1385, 673, 1408, 1464, 1387, 1282, 1322, 875, 1379, 2643, 675, 0, 2195, 918, 1685, 866, 0, 1385, 2400, 98, 0, 0, 2134, 2069, 2049, 2146, 2083, 354, 342, 0, 0, 0, 902, 2198, 2390, 310, 2582, 161, 1696, 1376, 2384, 0, 2051, 2646, 0, 0, 0, 1386, 0, 0, 0, 0, 2741, 2933, 0, 0, 0, 2741, 2933, 131, 0, 0, 1963, 1882, 400, 0, 0, 2677, 2938, 2073, 792, 0, 2834, 1819, 1303, 0, 0, 131, 2834, 1819, 1303, 0, 2818, 1291, 2309, 1883, 0, 1426, 2434, 2098, 1874, 2930, 570, 2613, 1335, 0, 0, 522, 2567, 1800, 2677, 0, 400, 570, 2613, 1335, 0, 647, 664, 537, 629, 602, 1811, 1303, 0, 0, 0, 2160, 113, 373, 0, 0, 89, 848, 1875, 0, 0, 2421, 2439, 0, 0, 0, 1444, 1192, 2219, 0, 0, 67, 842, 1114, 939, 0, 2305, 1444, 1192, 2219, 0, 2868, 788, 404, 2740, 1444, 593, 2130, 2117, 2946, 0, 2885, 2820, 2864, 2897, 2834, 693, 2949, 2117, 37, 2309, 2373, 2866, 0, 0, 0, 2115, 834, 581, 602, 0, 2629, 586, 66, 0, 0, 898, 644, 586, 2629, 400, 1444, 1186, 1057, 1049, 0, 1080, 1332, 309, 0, 0, 81, 69, 0, 0, 0, 2309, 1283, 1336, 1412, 0, 2373, 0, 0, 0, 0, 1207, 2484, 2745, 0, 0, 776, 1207, 2484, 2745, 0, 320, 2881, 2932, 2737, 0, 1050, 1073, 1155, 1195, 1207, 329, 577, 1858, 2930, 0, 657, 1170, 2882, 1867, 131, 1867, 2882, 576, 0, 0, 1207, 692, 804, 2100, 0, 666, 1938, 1175, 882, 0, 1954, 1946, 1865, 1824, 1800, 1866, 1034, 26, 890, 570, 1864, 538, 0, 0, 0, 2324, 1047, 1811, 0, 0, 1800, 263, 2327, 1175, 0, 880, 1856, 0, 0, 0, 1864, 0, 0, 0, 0, 2697, 2954, 0, 0, 0, 179, 2480, 2745, 0, 0, 416, 168, 2219, 0, 0, 939, 794, 0, 0, 0, 657, 2962, 2203, 0, 0, 297, 2347, 2483, 2352, 0, 40, 696, 0, 0, 0, 811, 0, 0, 0, 0, 898, 650, 2697, 0, 0, 2336, 2466, 0, 0, 0, 2083, 2600, 424, 24, 0, 2593, 0, 0, 0, 0, 2067, 2193, 0, 0, 0, 265, 0, 0, 0, 0, 2051, 0, 0, 0, 0, 0, 0, 0, 0, 0);\r\nfn decode_triangle(packed: u32) -> vec3<u32> {\r\n    let edge0 = (packed >> 0u) & 0xFu;\r\n    let edge1 = (packed >> 4u) & 0xFu;\r\n    let edge2 = (packed >> 8u) & 0xFu;\r\n    return vec3<u32>(edge0, edge1, edge2);\r\n}\r\n\r\nfn get_case_triangle(case_idx: u32, tri_idx: u32) -> u32 {\r\n    let offset = case_idx * 5u + tri_idx;\r\n    return CASES[offset];\r\n}\r\n\r\nfn get_field_value(wx: u32, wy: u32, wz: u32) -> f32 {\r\n    let idx = wx + wy * params.width + wz * params.width * params.height;\r\n    return fieldData[idx];\r\n}\r\nfn get_field_value_interpolated(pos: vec3<f32>) -> f32 {\r\n    let x0 = u32(floor(pos.x));\r\n    let y0 = u32(floor(pos.y));\r\n    let z0 = u32(floor(pos.z));\r\n    let x1 = min(x0 + 1u, params.width - 1u);\r\n    let y1 = min(y0 + 1u, params.height - 1u);\r\n    let z1 = min(z0 + 1u, params.depth - 1u);\r\n    \r\n    let fx = fract(pos.x);\r\n    let fy = fract(pos.y);\r\n    let fz = fract(pos.z);\r\n    \r\n    // Sample 8 corners of the cube\r\n    let v000 = get_field_value(x0, y0, z0);\r\n    let v100 = get_field_value(x1, y0, z0);\r\n    let v010 = get_field_value(x0, y1, z0);\r\n    let v110 = get_field_value(x1, y1, z0);\r\n    let v001 = get_field_value(x0, y0, z1);\r\n    let v101 = get_field_value(x1, y0, z1);\r\n    let v011 = get_field_value(x0, y1, z1);\r\n    let v111 = get_field_value(x1, y1, z1);\r\n    \r\n    // Trilinear interpolation\r\n    let v00 = mix(v000, v100, fx);\r\n    let v01 = mix(v001, v101, fx);\r\n    let v10 = mix(v010, v110, fx);\r\n    let v11 = mix(v011, v111, fx);\r\n    \r\n    let v0 = mix(v00, v10, fy);\r\n    let v1 = mix(v01, v11, fy);\r\n    \r\n    return mix(v0, v1, fz);\r\n}\r\n\r\n// --- Compute normal by central differences ---\r\nfn get_normal(pos: vec3<f32>) -> vec3<f32> {\r\n    let d = 1.0;\r\n    let px = clamp(pos.x, 1.0, f32(params.width - 2u));\r\n    let py = clamp(pos.y, 1.0, f32(params.height - 2u));\r\n    let pz = clamp(pos.z, 1.0, f32(params.depth - 2u));\r\n    let fxp = get_field_value_interpolated(vec3<f32>(px + d, py, pz));\r\n    let fxm = get_field_value_interpolated(vec3<f32>(px - d, py, pz));\r\n    let fyp = get_field_value_interpolated(vec3<f32>(px, py + d, pz));\r\n    let fym = get_field_value_interpolated(vec3<f32>(px, py - d, pz));\r\n    let fzp = get_field_value_interpolated(vec3<f32>(px, py, pz + d));\r\n    let fzm = get_field_value_interpolated(vec3<f32>(px, py, pz - d));\r\n    let n = vec3<f32>(fxp - fxm, fyp - fym, fzp - fzm);\r\n    return normalize(- n);\r\n}\r\n\r\n// --- Terrain type heuristic: 0=grass, 2=rock, 3=snow, 4=water, 5=sand ---\r\nfn get_terrain_type(pos: vec3<f32>, normal: vec3<f32>) -> u32 {\r\n    let WATER_LEVEL = 30.0;\r\n    let SNOW_LINE = 140.0;\r\n    let y = pos.y;\r\n    let upDot = clamp(normal.y, - 1.0, 1.0);\r\n    let slope = 1.0 - abs(upDot);\r\n\r\n    if (y < WATER_LEVEL + 0.5 && slope < 0.01) {\r\n        return 4u;\r\n        // water\r\n    }\r\n    if (y < WATER_LEVEL + 3.0 && slope < 0.45) {\r\n        return 5u;\r\n        // sand\r\n    }\r\n    if (y > SNOW_LINE) {\r\n        return 3u;\r\n        // snow\r\n    }\r\n    if (slope > 0.8 || upDot < 0.4) {\r\n        return 2u;\r\n        // rock\r\n    }\r\n    return 0u;\r\n    // grass\r\n}\r\n\r\nfn interpolate_edge(cube_pos: vec3<f32>, edge_idx: u32, values: array<f32, 8>) -> vec3<f32> {\r\n    let edge = EDGES[edge_idx];\r\n    let v0 = VERTICES[edge.x];\r\n    let v1 = VERTICES[edge.y];\r\n    let val0 = values[edge.x];\r\n    let val1 = values[edge.y];\r\n    let t = (0.5 - val0) / (val1 - val0);\r\n    let t_clamped = clamp(t, 0.0, 1.0);\r\n    let p0 = cube_pos + v0;\r\n    let p1 = cube_pos + v1;\r\n    return mix(p0, p1, t_clamped);\r\n}\r\n\r\n@compute @workgroup_size(4, 4, 4)\r\nfn main(@builtin(global_invocation_id) global_id: vec3<u32>) {\r\n    let x = global_id.x;\r\n    let y = global_id.y;\r\n    let z = global_id.z;\r\n    if (x >= params.width - 1u || y >= params.height - 1u || z >= params.depth - 1u) {\r\n        return;\r\n    }\r\n\r\n    let cube_pos = vec3<f32>(f32(x), f32(y), f32(z));\r\n    var cube_values: array<f32, 8>;\r\n    var cube_mask: u32 = 0u;\r\n    for (var i: u32 = 0u; i < 8u; i = i + 1u) {\r\n        let v = VERTICES[i];\r\n        let val = get_field_value(x + u32(v.x), y + u32(v.y), z + u32(v.z));\r\n        cube_values[i] = val;\r\n        if (val < 0.5) {\r\n            cube_mask = cube_mask | (1u << i);\r\n        }\r\n    }\r\n\r\n    let voxel_idx = x + y * (params.width - 1u) + z * (params.width - 1u) * (params.height - 1u);\r\n    let base_vertex = vertexOffsets[voxel_idx];\r\n\r\n    var written: u32 = 0u;\r\n    for (var tri_idx: u32 = 0u; tri_idx < 5u; tri_idx = tri_idx + 1u) {\r\n        let packed_tri = get_case_triangle(cube_mask, tri_idx);\r\n        if (packed_tri == 0u) {\r\n            break;\r\n        }\r\n\r\n        let edges = decode_triangle(packed_tri);\r\n        let v0 = interpolate_edge(cube_pos, edges.x, cube_values);\r\n        let v1 = interpolate_edge(cube_pos, edges.y, cube_values);\r\n        let v2 = interpolate_edge(cube_pos, edges.z, cube_values);\r\n\r\n        let n0 = get_normal(v0);\r\n        let n1 = get_normal(v1);\r\n        let n2 = get_normal(v2);\r\n\r\n        let t0 = get_terrain_type(v0, n0);\r\n        let t1 = get_terrain_type(v1, n1);\r\n        let t2 = get_terrain_type(v2, n2);\r\n\r\n        let vtx_idx = base_vertex + written;\r\n        \r\n        // Interleaved layout: position.xyz, normal.xyz, terrain_type, padding\r\n        // Index 0: position\r\n        interleavedData[vtx_idx * 2u] = vec4<f32>(v0, bitcast<f32>(t0));\r\n        interleavedData[vtx_idx * 2u + 1u] = vec4<f32>(n0, 0.0);\r\n        \r\n        interleavedData[(vtx_idx + 1u) * 2u] = vec4<f32>(v2, bitcast<f32>(t2));\r\n        interleavedData[(vtx_idx + 1u) * 2u + 1u] = vec4<f32>(n2, 0.0);\r\n        \r\n        interleavedData[(vtx_idx + 2u) * 2u] = vec4<f32>(v1, bitcast<f32>(t1));\r\n        interleavedData[(vtx_idx + 2u) * 2u + 1u] = vec4<f32>(n1, 0.0);\r\n\r\n        indexData[vtx_idx] = vtx_idx;\r\n        indexData[vtx_idx + 1u] = vtx_idx + 1u;\r\n        indexData[vtx_idx + 2u] = vtx_idx + 2u;\r\n\r\n        written = written + 3u;\r\n    }\r\n}";
 
-//!NOTE: current code assumes a chunk size of GridSize[0]xGridSize[1]xGridSize[2]
-var Chunk = /** @class */ (function () {
-    function Chunk(ChunkPosition, GridSize, seed, Worker) {
-        this.Field = new Float32Array();
-        this.WorldFieldMap = new Map();
-        this.Mesh = null;
-        this.GridSize = GridSize;
-        this.ChunkPosition = ChunkPosition;
-        this.seed = seed;
-        this.Worker = Worker;
-        this.FieldMap = new Map();
-    }
-    Chunk.prototype.chunkCoordinateToIndex = function (c) {
-        return (c[0] +
-            c[1] * (this.GridSize[0] + 1) +
-            c[2] * (this.GridSize[0] + 1) * (this.GridSize[1] + 1));
-    };
-    Chunk.prototype.setWorldFieldMap = function (worldFieldMap) {
-        this.WorldFieldMap = worldFieldMap;
-    };
-    Chunk.prototype.generateTerrain = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
-            return __generator(this, function (_a) {
-                return [2 /*return*/, new Promise(function (resolve) {
-                        var requestId = Math.random().toString(36).slice(2);
-                        var handler = function (event) {
-                            if (event.data.requestId !== requestId)
-                                return;
-                            _this.Field = event.data.field;
-                            _this.FieldMap = new Map(event.data.fieldMap);
-                            _this.Worker.removeEventListener("message", handler);
-                            resolve(_this.Field);
-                        };
-                        _this.Worker.addEventListener("message", handler);
-                        _this.Worker.postMessage({
-                            requestId: requestId,
-                            GridSize: _this.GridSize,
-                            ChunkPosition: _this.ChunkPosition,
-                            Seed: _this.seed,
-                            generatingTerrain: true,
-                            worldFieldMap: _this.FieldMap
-                        });
-                    })];
-            });
-        });
-    };
-    Chunk.prototype.generateMarchingCubes = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
-            return __generator(this, function (_a) {
-                return [2 /*return*/, new Promise(function (resolve) {
-                        var requestId = Math.random().toString(36).slice(2);
-                        var handler = function (event) {
-                            if (event.data.requestId !== requestId)
-                                return;
-                            _this.Mesh = new _Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
-                            _this.Mesh.setVertices(event.data.meshVertices);
-                            _this.Mesh.setNormals(event.data.meshNormals);
-                            _this.Mesh.setTypes(event.data.meshTypes);
-                            _this.Worker.removeEventListener("message", handler);
-                            resolve(_this.Mesh);
-                        };
-                        _this.Worker.addEventListener("message", handler);
-                        _this.Worker.postMessage({
-                            requestId: requestId,
-                            GridSize: _this.GridSize,
-                            ChunkPosition: _this.ChunkPosition,
-                            Seed: _this.seed,
-                            generatingTerrain: false,
-                            worldFieldMap: _this.WorldFieldMap
-                        });
-                    })];
-            });
-        });
-    };
-    Chunk.prototype.getMesh = function () {
-        return this.Mesh;
-    };
-    return Chunk;
-}());
+/***/ }),
 
+/***/ "./src/map/noise.wgsl":
+/*!****************************!*\
+  !*** ./src/map/noise.wgsl ***!
+  \****************************/
+/***/ ((module) => {
 
+"use strict";
+module.exports = "/**\r\n  * vibecoded slope noise wgsl implementation\r\n  * TODO: add customizable parameters \r\n   TODO: rework settings ui\r\n  */\r\n\r\n\r\n\r\n@group(0) @binding(0)\r\nvar<storage, read_write> field: array<f32>;\r\n\r\n@group(0) @binding(1)\r\nvar<uniform> params: Params;\r\n\r\n//TODO: sync with WebGPU compute.ts\r\nstruct Params {\r\n    seed: u32,\r\n    width: u32,\r\n    height: u32,\r\n    depth: u32,\r\n    baseX: u32,\r\n    baseY: u32,\r\n    baseZ: u32,\r\n    _pad: u32, // padding for 16-byte alignment\r\n    // Noise / terrain configurable parameters (packed to 16-byte aligned region)\r\n    frequency: f32,\r\n    heightScale: f32,\r\n    waterLevel: f32,\r\n    islandAmount: f32,\r\n    octaves: u32,\r\n    persistence: f32,\r\n    lacunarity: f32,\r\n    caveThreshold: f32,\r\n};\r\n\r\n// ---------------- Constants ----------------\r\nconst F3: f32 = 1.0 / 3.0;\r\nconst G3: f32 = 1.0 / 6.0;\r\n\r\n// ---------------- Hash & Gradients ----------------\r\nfn hash(u: u32) -> u32 {\r\n    var a = u;\r\n    a = (a ^ 61u) ^ (a >> 16u);\r\n    a = a + (a << 3u);\r\n    a = a ^ (a >> 4u);\r\n    a = a * 0x27d4eb2du;\r\n    a = a ^ (a >> 15u);\r\n    return a;\r\n}\r\n\r\nfn grad3D(h: u32, x: f32, y: f32, z: f32) -> f32 {\r\n    let hmod = h & 15u;\r\n    let u = select(y, x, hmod < 8u);\r\n    let v = select(select(z, y, hmod < 4u), select(y, x, hmod < 4u), (hmod & 12u) == 0u);\r\n    let a = select(-u, u, (hmod & 1u) == 0u);\r\n    let b = select(-v, v, (hmod & 2u) == 0u);\r\n    return a + b;\r\n}\r\n\r\n// ---------------- Simplex Noise ----------------\r\nfn simplexNoise3D(x: f32, y: f32, z: f32, seed: u32) -> f32 {\r\n    let s = (x + y + z) * F3;\r\n    let i = floor(x + s);\r\n    let j = floor(y + s);\r\n    let k = floor(z + s);\r\n\r\n    let t = (i + j + k) * G3;\r\n    let X0 = i - t;\r\n    let Y0 = j - t;\r\n    let Z0 = k - t;\r\n\r\n    let x0 = x - X0;\r\n    let y0 = y - Y0;\r\n    let z0 = z - Z0;\r\n\r\n    var i1: u32; var j1: u32; var k1: u32;\r\n    var i2: u32; var j2: u32; var k2: u32;\r\n\r\n    if (x0 >= y0) {\r\n        if (y0 >= z0) { i1=1u; j1=0u; k1=0u; i2=1u; j2=1u; k2=0u; }\r\n        else if (x0 >= z0) { i1=1u; j1=0u; k1=0u; i2=1u; j2=0u; k2=1u; }\r\n        else { i1=0u; j1=0u; k1=1u; i2=1u; j2=0u; k2=1u; }\r\n    } else {\r\n        if (y0 < z0) { i1=0u; j1=0u; k1=1u; i2=0u; j2=1u; k2=1u; }\r\n        else if (x0 < z0) { i1=0u; j1=1u; k1=0u; i2=0u; j2=1u; k2=1u; }\r\n        else { i1=0u; j1=1u; k1=0u; i2=1u; j2=1u; k2=0u; }\r\n    }\r\n\r\n    let x1 = x0 - f32(i1) + G3;\r\n    let y1 = y0 - f32(j1) + G3;\r\n    let z1 = z0 - f32(k1) + G3;\r\n    let x2 = x0 - f32(i2) + 2.0*G3;\r\n    let y2 = y0 - f32(j2) + 2.0*G3;\r\n    let z2 = z0 - f32(k2) + 2.0*G3;\r\n    let x3 = x0 - 1.0 + 3.0*G3;\r\n    let y3 = y0 - 1.0 + 3.0*G3;\r\n    let z3 = z0 - 1.0 + 3.0*G3;\r\n\r\n    let ii = u32(i) & 255u;\r\n    let jj = u32(j) & 255u;\r\n    let kk = u32(k) & 255u;\r\n\r\n    let gi0 = hash(ii + hash(jj + hash(kk + seed))) & 15u;\r\n    let gi1 = hash(ii + i1 + hash(jj + j1 + hash(kk + k1 + seed))) & 15u;\r\n    let gi2 = hash(ii + i2 + hash(jj + j2 + hash(kk + k2 + seed))) & 15u;\r\n    let gi3 = hash(ii + 1u + hash(jj + 1u + hash(kk + 1u + seed))) & 15u;\r\n\r\n    var n0: f32 = 0.0;\r\n    var n1: f32 = 0.0;\r\n    var n2: f32 = 0.0;\r\n    var n3: f32 = 0.0;\r\n\r\n    let t0 = 0.6 - x0*x0 - y0*y0 - z0*z0;\r\n    if (t0>0.0) { n0 = pow(t0,4.0)*grad3D(gi0,x0,y0,z0); }\r\n    let t1 = 0.6 - x1*x1 - y1*y1 - z1*z1;\r\n    if (t1>0.0) { n1 = pow(t1,4.0)*grad3D(gi1,x1,y1,z1); }\r\n    let t2 = 0.6 - x2*x2 - y2*y2 - z2*z2;\r\n    if (t2>0.0) { n2 = pow(t2,4.0)*grad3D(gi2,x2,y2,z2); }\r\n    let t3 = 0.6 - x3*x3 - y3*y3 - z3*z3;\r\n    if (t3>0.0) { n3 = pow(t3,4.0)*grad3D(gi3,x3,y3,z3); }\r\n\r\n    return 32.0*(n0+n1+n2+n3);\r\n}\r\n\r\n// ---------------- Fractal Noise ----------------\r\nfn fractalNoise3D(x:f32, y:f32, z:f32, seed:u32, octaves:u32, persistence:f32, lacunarity:f32) -> f32 {\r\n    var total: f32 = 0.0;\r\n    var amplitude: f32 = 1.0;\r\n    var frequency: f32 = 1.0;\r\n    var maxVal: f32 = 0.0;\r\n\r\n    for(var i: u32 = 0u; i < octaves; i=i+1u) {\r\n        total += simplexNoise3D(x*frequency, y*frequency, z*frequency, seed+i) * amplitude;\r\n        maxVal += amplitude;\r\n        amplitude *= persistence;\r\n        frequency *= lacunarity;\r\n    }\r\n\r\n    return total / maxVal;\r\n}\r\n\r\n// ---------------- Terrain Height ----------------\r\nfn terrainHeight(x:f32, z:f32, seed:u32) -> f32 {\r\n    // Use configurable frequency and height scale from params\r\n    let freq = params.frequency;\r\n    let scale = params.heightScale;\r\n    let octs = params.octaves;\r\n    let pers = params.persistence;\r\n    let lac = params.lacunarity;\r\n    return 20.0 + fractalNoise3D(x*freq, 0.0, z*freq, seed, octs, pers, lac) * scale;\r\n}\r\n\r\n// ---------------- Density Function ----------------\r\nfn densityAt(x:f32, y:f32, z:f32, seed:u32) -> f32 {\r\n    let globalX = x + f32(params.baseX);\r\n    let globalY = y + f32(params.baseY);\r\n    let globalZ = z + f32(params.baseZ);\r\n\r\n    // World scaling\r\n    let baseFreq = params.frequency;\r\n    let octs = params.octaves;\r\n    let pers = params.persistence;\r\n    let lac  = params.lacunarity;\r\n    if(globalY < params.waterLevel) {\r\n        return 1.0;\r\n    }\r\n    // Large-scale height field (continuous, noise-only)\r\n    let m = fractalNoise3D(globalX*baseFreq*0.25, 0.0, globalZ*baseFreq*0.25, seed + 11u, octs, pers, lac);\r\n    // Convert [-1..1] approx -> [0..1]\r\n    let macro01 = m * 0.5 + 0.5;\r\n\r\n    // Mountains: bias + sharpen peaks\r\n    let mountains = pow(macro01, 2.2);\r\n\r\n    // Target ground height from noise only (no branching)\r\n    let ground = params.heightScale * mountains + 8.0;\r\n\r\n    // Base density: positive below ground, negative above\r\n    let base = ground - globalY;\r\n\r\n    // Add mid/high frequency terrain detail\r\n    let detail = fractalNoise3D(globalX*baseFreq, globalY*baseFreq*0.35, globalZ*baseFreq, seed + 37u, octs, pers, lac);\r\n    let detailAmp = params.heightScale * 0.15;\r\n\r\n    // Caves (continuous mask)\r\n    let caveNoise = fractalNoise3D(globalX*baseFreq*2.0, globalY*baseFreq*2.0, globalZ*baseFreq*2.0, seed + 97u, octs, pers, lac);\r\n    let cave = (caveNoise - params.caveThreshold) * 8.0;\r\n\r\n    return base + detail * detailAmp - cave;\r\n}\r\n\r\n// ---------------- Compute Entry ----------------\r\n@compute @workgroup_size(4,4,4)\r\nfn main(@builtin(global_invocation_id) global_id: vec3<u32>) {\r\n    let x = global_id.x;\r\n    let y = global_id.y;\r\n    let z = global_id.z;\r\n\r\n    if (x >= params.width || y >= params.height || z >= params.depth) { return; }\r\n\r\n    let value = densityAt(f32(x), f32(y), f32(z), params.seed);\r\n\r\n    let index = z*params.width*params.height + y*params.width + x;\r\n    field[index] = value;\r\n}\r\n";
+
+/***/ }),
+
+/***/ "./src/map/prefix_sum_chunk.wgsl":
+/*!***************************************!*\
+  !*** ./src/map/prefix_sum_chunk.wgsl ***!
+  \***************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "@binding(0) @group(0)\r\nvar<storage, read> input: array<u32>;\r\n@binding(1) @group(0)\r\nvar<storage, read_write> output: array<u32>;\r\n@binding(2) @group(0)\r\nvar<storage, read_write> sums: array<u32>;\r\n\r\nconst n: u32 = 512;\r\nvar<workgroup> temp: array<u32, 532>;\r\n// why 532??\r\nconst bank_size: u32 = 32;\r\n\r\nfn bank_conflict_free_idx(idx: u32) -> u32 {\r\n    var chunk_id: u32 = idx / bank_size;\r\n    return idx + chunk_id;\r\n}\r\n\r\n@compute @workgroup_size(256)\r\nfn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>, @builtin(local_invocation_id) LocalInvocationId: vec3<u32>, @builtin(workgroup_id) WorkgroupID: vec3<u32>) {\r\n    var thread_id: u32 = LocalInvocationId.x;\r\n    var global_thread_id: u32 = GlobalInvocationID.x;\r\n\r\n    if (thread_id < (n >> 1)) {\r\n        temp[bank_conflict_free_idx(2 * thread_id)] = input[2 * global_thread_id];\r\n        temp[bank_conflict_free_idx(2 * thread_id + 1)] = input[2 * global_thread_id + 1];\r\n    }\r\n\r\n    workgroupBarrier();\r\n    var offset: u32 = 1;\r\n\r\n    for (var d: u32 = n >> 1; d > 0; d >>= 1) {\r\n        if (thread_id < d) {\r\n            var ai: u32 = offset * (2 * thread_id + 1) - 1;\r\n            var bi: u32 = offset * (2 * thread_id + 2) - 1;\r\n            temp[bank_conflict_free_idx(bi)] += temp[bank_conflict_free_idx(ai)];\r\n        }\r\n        offset *= 2;\r\n        workgroupBarrier();\r\n    }\r\n\r\n    workgroupBarrier();\r\n    if (thread_id == 0) {\r\n        sums[WorkgroupID.x] = temp[bank_conflict_free_idx(n - 1)];\r\n        temp[bank_conflict_free_idx(n - 1)] = 0;\r\n    }\r\n\r\n    workgroupBarrier();\r\n    for (var d: u32 = 1; d < n; d *= 2) {\r\n        offset >>= 1;\r\n        if (thread_id < d) {\r\n            var ai: u32 = offset * (2 * thread_id + 1) - 1;\r\n            var bi: u32 = offset * (2 * thread_id + 2) - 1;\r\n            var t: u32 = temp[bank_conflict_free_idx(ai)];\r\n            temp[bank_conflict_free_idx(ai)] = temp[bank_conflict_free_idx(bi)];\r\n            temp[bank_conflict_free_idx(bi)] += t;\r\n        }\r\n        workgroupBarrier();\r\n    }\r\n    if (thread_id < (n >> 1)) {\r\n        output[2 * global_thread_id] = temp[bank_conflict_free_idx(2 * thread_id)];\r\n        output[2 * global_thread_id + 1] = temp[bank_conflict_free_idx(2 * thread_id + 1)];\r\n    }\r\n}";
+
+/***/ }),
+
+/***/ "./src/map/prefix_sum_scan_blocks.wgsl":
+/*!*********************************************!*\
+  !*** ./src/map/prefix_sum_scan_blocks.wgsl ***!
+  \*********************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "@binding(0) @group(0)\r\nvar<storage, read> input: array<u32>;\r\n@binding(1) @group(0)\r\nvar<storage, read_write> output: array<u32>;\r\n@binding(2) @group(0)\r\nvar<uniform> n: u32;\r\n\r\nconst bank_size: u32 = 32;\r\nvar<workgroup> temp: array<u32, 532>;\r\n// why 532??\r\n\r\nfn bank_conflict_free_idx(idx: u32) -> u32 {\r\n    var chunk_id: u32 = idx / bank_size;\r\n    return idx + chunk_id;\r\n}\r\n\r\n@compute @workgroup_size(256)\r\nfn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>, @builtin(local_invocation_id) LocalInvocationId: vec3<u32>, @builtin(workgroup_id) WorkgroupID: vec3<u32>) {\r\n    var thread_id: u32 = LocalInvocationId.x;\r\n    var global_thread_id: u32 = GlobalInvocationID.x;\r\n    if (thread_id < (n >> 1)) {\r\n        temp[bank_conflict_free_idx(2 * thread_id)] = input[2 * global_thread_id];\r\n        temp[bank_conflict_free_idx(2 * thread_id + 1)] = input[2 * global_thread_id + 1];\r\n    }\r\n\r\n    workgroupBarrier();\r\n    var offset: u32 = 1;\r\n\r\n    for (var d: u32 = n >> 1; d > 0; d >>= 1) {\r\n        if (thread_id < d) {\r\n            var ai: u32 = offset * (2 * thread_id + 1) - 1;\r\n            var bi: u32 = offset * (2 * thread_id + 2) - 1;\r\n            temp[bank_conflict_free_idx(bi)] += temp[bank_conflict_free_idx(ai)];\r\n        }\r\n        offset *= 2;\r\n        workgroupBarrier();\r\n    }\r\n\r\n    if (thread_id == 0) {\r\n        temp[bank_conflict_free_idx(n - 1)] = 0u;\r\n    }\r\n    workgroupBarrier();\r\n\r\n    for (var d: u32 = 1; d < n; d *= 2) {\r\n        offset >>= 1;\r\n        if (thread_id < d) {\r\n            var ai: u32 = offset * (2 * thread_id + 1) - 1;\r\n            var bi: u32 = offset * (2 * thread_id + 2) - 1;\r\n            var t: u32 = temp[bank_conflict_free_idx(ai)];\r\n            temp[bank_conflict_free_idx(ai)] = temp[bank_conflict_free_idx(bi)];\r\n            temp[bank_conflict_free_idx(bi)] += t;\r\n        }\r\n        workgroupBarrier();\r\n    }\r\n\r\n    if (thread_id < (n >> 1)) {\r\n        output[2 * global_thread_id] = temp[bank_conflict_free_idx(2 * thread_id)];\r\n        output[2 * global_thread_id + 1] = temp[bank_conflict_free_idx(2 * thread_id + 1)];\r\n    }\r\n}";
+
+/***/ }),
+
+/***/ "./src/map/prefix_sum_uniform_add.wgsl":
+/*!*********************************************!*\
+  !*** ./src/map/prefix_sum_uniform_add.wgsl ***!
+  \*********************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "@binding(0) @group(0)\r\nvar<storage, read_write> output: array<u32>;\r\n@binding(1) @group(0)\r\nvar<storage, read> sums: array<u32>;\r\nconst n: u32 = 512;\r\n\r\n@compute @workgroup_size(256)\r\nfn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>, @builtin(local_invocation_id) LocalInvocationId: vec3<u32>, @builtin(workgroup_id) WorkgroupID: vec3<u32>) {\r\n    var thread_id: u32 = LocalInvocationId.x;\r\n    var global_thread_id: u32 = GlobalInvocationID.x;\r\n    output[2 * global_thread_id] += sums[WorkgroupID.x];\r\n    output[2 * global_thread_id + 1] += sums[WorkgroupID.x];\r\n\r\n}";
 
 /***/ }),
 
@@ -7301,100 +12127,117 @@ __webpack_require__.r(__webpack_exports__);
 /**
  * Color class
  */
-var Color = /** @class */ (function () {
+class Color {
+    static fromHex(hex) {
+        // Remove the leading '#' if present
+        if (hex.startsWith("#")) {
+            hex = hex.slice(1);
+        }
+        // Parse the hex string
+        const bigint = parseInt(hex, 16);
+        const r = (bigint >> 16) & 255;
+        const g = (bigint >> 8) & 255;
+        const b = bigint & 255;
+        return new Color(r, g, b);
+    }
+    /**
+     * Creates color object from vec3
+     * @param vec Each color should be 0-1
+     * @returns Color Object
+     */
+    static fromVec3(vec) {
+        return new Color(Math.min(255, Math.max(0, Math.floor(vec[0] * 255))), Math.min(255, Math.max(0, Math.floor(vec[1] * 255))), Math.min(255, Math.max(0, Math.floor(vec[2] * 255))));
+    }
     /**
      * Creates color
      * @param r - Red value (out of 255)
      * @param g - Green value (out of 255)
      * @param b - Blue value (out of 255)
      */
-    function Color(r, g, b) {
+    constructor(r, g, b) {
         if (r < 0 || r > 255)
-            throw new Error("Incorrect color value: red is ".concat(r, "; expect a float from 0 to 255"));
+            throw new Error(`Incorrect color value: red is ${r}; expect a float from 0 to 255`);
         if (g < 0 || g > 255)
-            throw new Error("Incorrect color value: green is ".concat(g, "; expect a float from 0 to 255"));
+            throw new Error(`Incorrect color value: green is ${g}; expect a float from 0 to 255`);
         if (b < 0 || b > 255)
-            throw new Error("Incorrect color value: blue is ".concat(b, "; expect a float from 0 to 255"));
+            throw new Error(`Incorrect color value: blue is ${b}; expect a float from 0 to 255`);
         this.r = r;
         this.g = g;
         this.b = b;
     }
-    Color.fromHex = function (hex) {
-        // Remove the leading '#' if present
-        if (hex.startsWith("#")) {
-            hex = hex.slice(1);
-        }
-        // Parse the hex string
-        var bigint = parseInt(hex, 16);
-        var r = (bigint >> 16) & 255;
-        var g = (bigint >> 8) & 255;
-        var b = bigint & 255;
-        return new Color(r, g, b);
-    };
-    /**
-     * Creates color object from vec3
-     * @param vec Each color should be 0-1
-     * @returns Color Object
-     */
-    Color.fromVec3 = function (vec) {
-        return new Color(Math.min(255, Math.max(0, Math.floor(vec[0] * 255))), Math.min(255, Math.max(0, Math.floor(vec[1] * 255))), Math.min(255, Math.max(0, Math.floor(vec[2] * 255))));
-    };
-    Color.prototype.toString = function () {
-        return "rgb(".concat(this.r, ", ").concat(this.g, ", ").concat(this.b, ")");
-    };
+    toString() {
+        return `rgb(${this.r}, ${this.g}, ${this.b})`;
+    }
     /**
      * Creates a vec3 from the color values
      * @returns vec3 with color values.
      * @remarks Note that these values are automatically switched to out of 1.
      */
-    Color.prototype.createVec3 = function () {
+    createVec3() {
         return gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(this.r / 255, this.g / 255, this.b / 255);
-    };
-    Color.prototype.equals = function (other) {
+    }
+    equals(other) {
         return this.r === other.r && this.g === other.g && this.b === other.b;
-    };
-    return Color;
-}());
-
+    }
+}
 /**
  * The class for calculating the information for all our terrain types
  */
-var Terrains = {
+const Terrains = {
     //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
+    // 0: Grass
     0: {
-        //Regular ground
-        color: new Color(0, 255, 0),
-        reflectiveness: 0.2,
-        roughness: 0.8,
-        type: 1
-    },
-    1: {
-        // Perfect mirror
-        color: new Color(0, 0, 255),
-        reflectiveness: 0.2,
-        roughness: 0.8,
-        type: 2
-    },
-    2: {
-        // Glossy surface
-        color: new Color(255, 0, 0),
-        reflectiveness: 0.2,
-        roughness: 0.0,
+        color: Color.fromHex("#6BAA3A"),
+        reflectiveness: 0.02,
+        roughness: 0.9,
+        metallicity: 0,
+        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0),
         type: 3
     },
+    // 1: Dirt
+    1: {
+        color: Color.fromHex("#7A5229"),
+        reflectiveness: 0.03,
+        roughness: 0.9,
+        metallicity: 0,
+        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0),
+        type: 3
+    },
+    // 2: Rock
+    2: {
+        color: Color.fromHex("#8B8F91"),
+        reflectiveness: 0.04,
+        roughness: 0.85,
+        metallicity: 0,
+        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0),
+        type: 3
+    },
+    // 3: Snow
     3: {
-        // Tinted glass
-        color: new Color(100, 0, 0), //red tint
+        color: Color.fromHex("#F7FBFF"),
+        reflectiveness: 0.06,
+        roughness: 0.95,
+        metallicity: 0,
+        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0),
+        type: 3
+    },
+    // 4: Water (slightly transmissive)
+    4: {
+        color: Color.fromHex("#2F86D1"),
         reflectiveness: 0.2,
-        roughness: 1.5, //Index of refraction (look up)
+        roughness: 0.1,
+        metallicity: 0,
+        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0),
         type: 4
     },
-    4: {
-        // Emissive surface
-        color: new Color(255, 0, 0),
-        reflectiveness: 0.2,
-        roughness: 0.8,
-        type: 5
+    // 5: Sand / Beach
+    5: {
+        color: Color.fromHex("#E3D2A3"),
+        reflectiveness: 0.02,
+        roughness: 0.92,
+        metallicity: 0,
+        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_0__.fromValues(0, 0, 0),
+        type: 3
     }
 };
 
@@ -7415,438 +12258,742 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var jszip__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! jszip */ "./node_modules/jszip/dist/jszip.min.js");
 /* harmony import */ var jszip__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(jszip__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
 /* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
 /* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../map/terrains */ "./src/map/terrains.ts");
-var __assign = (undefined && undefined.__assign) || function () {
-    __assign = Object.assign || function(t) {
-        for (var s, i = 1, n = arguments.length; i < n; i++) {
-            s = arguments[i];
-            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                t[p] = s[p];
-        }
-        return t;
-    };
-    return __assign.apply(this, arguments);
-};
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __generator = (undefined && undefined.__generator) || function (thisArg, body) {
-    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g = Object.create((typeof Iterator === "function" ? Iterator : Object).prototype);
-    return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
-    function verb(n) { return function (v) { return step([n, v]); }; }
-    function step(op) {
-        if (f) throw new TypeError("Generator is already executing.");
-        while (g && (g = 0, op[0] && (_ = 0)), _) try {
-            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [op[0] & 2, t.value];
-            switch (op[0]) {
-                case 0: case 1: t = op; break;
-                case 4: _.label++; return { value: op[1], done: false };
-                case 5: _.label++; y = op[1]; op = [0]; continue;
-                case 7: op = _.ops.pop(); _.trys.pop(); continue;
-                default:
-                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
-                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
-                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
-                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
-                    if (t[2]) _.ops.pop();
-                    _.trys.pop(); continue;
+/* harmony import */ var fast_xml_parser__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! fast-xml-parser */ "./node_modules/fast-xml-parser/src/xmlparser/XMLParser.js");
+
+
+
+
+
+async function threemfToMesh(url, importMap = null, quality = 1.0) {
+    const mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_1__.Mesh();
+    const modelData = await load3MF(url);
+    // Create mesh from extracted data
+    const totalTriangles = modelData.triangles.length;
+    for (let i = 0; i < totalTriangles; i++) {
+        const triangleVertices = modelData.triangles[i].map((vIdx) => modelData.vertices[vIdx]);
+        const triangleVerticesNormals = modelData.triangles[i].map((vIdx) => modelData.normals[vIdx]);
+        let types = [0, 0, 0];
+        // Process colors and materials to assign terrain types
+        for (let j = 0; j < 3; j++) {
+            const vIdx = modelData.triangles[i][j];
+            const col = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromVec3(modelData.colors[vIdx]);
+            const colStr = col.toString();
+            const material = modelData.materials[vIdx];
+            // Check if color is in import map
+            if (importMap && colStr in importMap) {
+                types[j] = importMap[colStr];
             }
-            op = body.call(thisArg, _);
-        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
-        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
-    }
-};
-
-
-
-
-function threemfToMesh(url_1) {
-    return __awaiter(this, arguments, void 0, function (url, importMap) {
-        var mesh, modelData, i, TriangleVertices, TriangleVerticesNormals, types, j, col, col_1, found, key, terrain, j, col, found, key, terrain;
-        if (importMap === void 0) { importMap = null; }
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_1__.Mesh();
-                    return [4 /*yield*/, load3MF(url)];
-                case 1:
-                    modelData = _a.sent();
-                    //creteMesh
-                    for (i = 0; i < modelData.triangles.length; i++) {
-                        TriangleVertices = modelData.triangles[i].map(function (vIdx) { return modelData.vertices[vIdx]; });
-                        TriangleVerticesNormals = modelData.triangles[i].map(function (vIdx) { return modelData.normals[vIdx]; });
-                        types = [0, 0, 0];
-                        if (importMap) {
-                            for (j = 0; j < 3; j++) {
-                                col = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
-                                if (col.toString() in importMap) {
-                                    types[j] = importMap[col.toString()];
-                                }
-                                else {
-                                    col_1 = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
-                                    found = false;
-                                    for (key in _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains) {
-                                        terrain = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[parseInt(key)];
-                                        if (terrain.type == 1 && col_1.equals(terrain.color)) {
-                                            //use that color.
-                                            types[j] = parseInt(key);
-                                            found = true;
-                                        }
-                                    }
-                                    if (!found) {
-                                        //make a new terrain type
-                                        _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length] = {
-                                            color: col_1,
-                                            reflectiveness: 0.2,
-                                            roughness: 0.8,
-                                            type: 1
-                                        };
-                                        types[j] = Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length - 1;
-                                    }
-                                }
-                            }
-                        }
-                        else {
-                            //Make it based on color
-                            for (j = 0; j < 3; j++) {
-                                col = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromVec3(modelData.colors[modelData.triangles[i][j]]);
-                                found = false;
-                                for (key in _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains) {
-                                    terrain = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[parseInt(key)];
-                                    if (terrain.type == 1 && col.equals(terrain.color)) {
-                                        //use that color.
-                                        types[j] = parseInt(key);
-                                        found = true;
-                                    }
-                                }
-                                if (!found) {
-                                    //make a new terrain type
-                                    _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length] = {
-                                        color: col,
-                                        reflectiveness: 0.2,
-                                        roughness: 0.8,
-                                        type: 1
-                                    };
-                                    types[j] = Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length - 1;
-                                }
-                            }
-                        }
-                        mesh.addTriangle(TriangleVertices, TriangleVerticesNormals, types);
+            else {
+                // Check if a terrain with this color and material properties exists
+                let found = false;
+                for (let key in _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains) {
+                    const terrain = _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[parseInt(key)];
+                    if (terrain.color.equals(col) &&
+                        Math.abs(terrain.reflectiveness - material.metallic) < 0.01 &&
+                        Math.abs(terrain.roughness - material.roughness) < 0.01) {
+                        types[j] = parseInt(key);
+                        found = true;
+                        break;
                     }
-                    return [2 /*return*/, mesh];
+                }
+                // Create new terrain type if not found
+                if (!found) {
+                    // Determine terrain type based on material properties
+                    let terrainType = 1; // Default to diffuse
+                    if (material.metallic > 0.8) {
+                        terrainType = 2; // Specular (mirror)
+                    }
+                    else if (material.roughness < 0.3) {
+                        terrainType = 3; // Glossy
+                    }
+                    else if (material.specular > 0.9) {
+                        terrainType = 4; // Transmission
+                    }
+                    _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length] = {
+                        color: col,
+                        reflectiveness: material.metallic,
+                        roughness: material.roughness,
+                        type: terrainType,
+                        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0, 0, 0),
+                        metallicity: 0
+                    };
+                    types[j] = Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length - 1;
+                }
             }
-        });
-    });
+        }
+        mesh.addTriangle(triangleVertices, triangleVerticesNormals, types);
+    }
+    const originalTriangleCount = mesh.mesh.length;
+    // Apply decimation if quality < 1.0
+    // For very large meshes (>500k triangles), automatically reduce quality if user hasn't set it
+    const LARGE_MESH_THRESHOLD = 500000;
+    let finalQuality = quality;
+    if (quality >= 1.0 && originalTriangleCount > LARGE_MESH_THRESHOLD) {
+        // Auto-reduce quality for extremely large meshes to maintain performance
+        // Keep minimum at 30% to avoid severe visual artifacts
+        let recommendedQuality = Math.max(0.3, Math.min(0.7, 500000 / originalTriangleCount));
+        let proceed = window.confirm(`⚠️ The imported model is very large (${originalTriangleCount.toLocaleString()} triangles). We recomend adjusting quality to ${recommendedQuality.toFixed(2)}. If you would like to proceed with the current quality, confirm.`);
+        if (!proceed) {
+            let newQuality = null;
+            while (true) {
+                const input = window.prompt(`Enter a quality value between 0.0 and 1.0\n` +
+                    `(Recommended: ${recommendedQuality.toFixed(2)})\n\n` +
+                    `Press Cancel to quit.`, recommendedQuality.toFixed(2).toString());
+                // User chose to quit
+                if (input === null) {
+                    return null; // or throw / abort import
+                }
+                const value = Number(input);
+                if (!Number.isNaN(value) && value >= 0.0 && value <= 1.0) {
+                    newQuality = value;
+                    break;
+                }
+                window.alert("Invalid input. Quality must be a number between 0.0 and 1.0.");
+            }
+            quality = newQuality;
+        }
+        else {
+            quality = recommendedQuality;
+        }
+    }
+    else if (quality < 0.3) {
+        alert(`⚠️ Quality setting below 30% (${(quality * 100).toFixed(0)}%) may cause significant visual artifacts. Consider using 30-50% for better results.`);
+    }
+    if (finalQuality < 1.0) {
+        const decimatedMesh = mesh.decimate(finalQuality);
+        return { mesh: decimatedMesh, transform: modelData.transform };
+    }
+    return { mesh, transform: modelData.transform };
 }
 /**
- * Calculates smooth vertex normals by averaging the face normals of adjacent triangles.
- * @param vertices The array of vertex positions.
- * @param triangles The array of triangle indices.
- * @returns An array of calculated vertex normals.
+ * Calculates smooth vertex normals
  */
 function calculateNormals(vertices, triangles) {
-    var normals = new Array(vertices.length)
-        .fill(0)
-        .map(function () { return gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create(); });
-    for (var _i = 0, triangles_1 = triangles; _i < triangles_1.length; _i++) {
-        var triangle = triangles_1[_i];
-        var i1 = triangle[0], i2 = triangle[1], i3 = triangle[2];
-        var v1 = vertices[i1];
-        var v2 = vertices[i2];
-        var v3 = vertices[i3];
-        var edge1 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.subtract(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create(), v2, v1);
-        var edge2 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.subtract(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create(), v3, v1);
-        var faceNormal = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.cross(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create(), edge1, edge2);
-        // No need to normalize here, as longer edges (larger triangles) should have more influence.
-        // Add the face normal to each vertex normal
+    const normals = [];
+    for (let i = 0; i < vertices.length; i++) {
+        normals.push(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0, 0, 0));
+    }
+    const edge1 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+    const edge2 = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+    const faceNormal = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+    for (const triangle of triangles) {
+        const [i1, i2, i3] = triangle;
+        const v1 = vertices[i1];
+        const v2 = vertices[i2];
+        const v3 = vertices[i3];
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.subtract(edge1, v2, v1);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.subtract(edge2, v3, v1);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.cross(faceNormal, edge1, edge2);
         gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(normals[i1], normals[i1], faceNormal);
         gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(normals[i2], normals[i2], faceNormal);
         gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(normals[i3], normals[i3], faceNormal);
     }
-    // Normalize all the vertex normals
-    for (var _a = 0, normals_1 = normals; _a < normals_1.length; _a++) {
-        var normal = normals_1[_a];
-        gl_matrix__WEBPACK_IMPORTED_MODULE_3__.normalize(normal, normal);
+    for (let i = 0; i < normals.length; i++) {
+        const len = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.length(normals[i]);
+        if (len > 0.0001) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.normalize(normals[i], normals[i]);
+        }
+        else {
+            // Degenerate normal, use up vector
+            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.set(normals[i], 0, 1, 0);
+        }
     }
     return normals;
 }
 /**
- * The main parsing orchestrator.
- * It sets up the resource library and then processes the build items.
+ * Extract color from various hex formats
  */
-function parse3MFModel(xmlDoc) {
-    var _a;
-    // Define the XML Namespaces
-    // Yes these don't exist but idk XML has them idk why.
-    var CORE_NAMESPACE = "http://schemas.microsoft.com/3dmanufacturing/core/2015/02";
-    var MATERIAL_NAMESPACE = "http://schemas.microsoft.com/3dmanufacturing/material/2015/02";
-    // --- Step 1: Set up scale ---
-    var modelNode = xmlDoc.getElementsByTagNameNS(CORE_NAMESPACE, "model")[0];
-    var unit = (modelNode === null || modelNode === void 0 ? void 0 : modelNode.getAttribute("unit")) || "millimeter";
-    var scale = 1.0;
-    if (unit === "meter")
+function parseHexColor(hexStr) {
+    if (!hexStr || typeof hexStr !== 'string')
+        return null;
+    let hex = hexStr.trim();
+    if (hex.startsWith('#'))
+        hex = hex.substring(1);
+    // Remove any non-hex characters
+    hex = hex.replace(/[^0-9A-Fa-f]/g, '');
+    if (hex.length === 0)
+        return null;
+    let r = 0, g = 0, b = 0;
+    try {
+        if (hex.length === 8) {
+            // RRGGBBAA
+            r = parseInt(hex.substring(0, 2), 16) / 255;
+            g = parseInt(hex.substring(2, 4), 16) / 255;
+            b = parseInt(hex.substring(4, 6), 16) / 255;
+        }
+        else if (hex.length === 6) {
+            // RRGGBB
+            r = parseInt(hex.substring(0, 2), 16) / 255;
+            g = parseInt(hex.substring(2, 4), 16) / 255;
+            b = parseInt(hex.substring(4, 6), 16) / 255;
+        }
+        else if (hex.length === 4) {
+            // RGBA
+            r = parseInt(hex.substring(0, 1).repeat(2), 16) / 255;
+            g = parseInt(hex.substring(1, 2).repeat(2), 16) / 255;
+            b = parseInt(hex.substring(2, 3).repeat(2), 16) / 255;
+        }
+        else if (hex.length === 3) {
+            // RGB
+            r = parseInt(hex.substring(0, 1).repeat(2), 16) / 255;
+            g = parseInt(hex.substring(1, 2).repeat(2), 16) / 255;
+            b = parseInt(hex.substring(2, 3).repeat(2), 16) / 255;
+        }
+        else {
+            console.warn(`⚠️ Unusual hex length (${hex.length}): ${hexStr}`);
+            return null;
+        }
+        // Validate the parsed values
+        if (isNaN(r) || isNaN(g) || isNaN(b)) {
+            console.warn(`⚠️ Failed to parse hex color: ${hexStr}`);
+            return null;
+        }
+        return gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(r, g, b);
+    }
+    catch (e) {
+        console.warn(`⚠️ Error parsing hex color ${hexStr}:`, e);
+        return null;
+    }
+}
+/**
+ * Helper to find a key in an object, case-insensitive and namespace-agnostic
+ */
+function findKey(obj, ...possibleNames) {
+    if (!obj || typeof obj !== 'object')
+        return null;
+    const keys = Object.keys(obj);
+    for (const name of possibleNames) {
+        // Direct match
+        if (keys.includes(name))
+            return name;
+        // Case-insensitive match
+        const lowerName = name.toLowerCase();
+        for (const key of keys) {
+            if (key.toLowerCase() === lowerName)
+                return key;
+            // Check if key ends with the name (for namespaced attributes)
+            if (key.toLowerCase().endsWith(':' + lowerName) ||
+                key.toLowerCase().endsWith('_' + lowerName)) {
+                return key;
+            }
+        }
+    }
+    return null;
+}
+/**
+ * Get value from object using flexible key matching
+ */
+function getValue(obj, ...possibleNames) {
+    const key = findKey(obj, ...possibleNames);
+    return key ? obj[key] : null;
+}
+/**
+ * Improved 3MF parser with better error handling
+ */
+function parse3MFModel(xmlString) {
+    const defaultColor = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0.8, 0.8, 0.8);
+    const parser = new fast_xml_parser__WEBPACK_IMPORTED_MODULE_4__["default"]({
+        ignoreAttributes: false,
+        attributeNamePrefix: "@_",
+        textNodeName: "#text",
+        parseAttributeValue: false,
+        trimValues: true,
+        processEntities: true,
+        removeNSPrefix: true,
+        parseTagValue: false
+    });
+    let result;
+    try {
+        result = parser.parse(xmlString);
+    }
+    catch (e) {
+        console.error("❌ XML parsing failed:", e);
+        throw new Error(`Failed to parse 3MF XML: ${e}`);
+    }
+    // Find model node flexibly
+    const modelNode = getValue(result, 'model', '3mf:model', 'm:model');
+    if (!modelNode) {
+        console.error("❌ No model node found. Available keys:", Object.keys(result));
+        throw new Error("Invalid 3MF: No model node found");
+    }
+    // Parse unit and scale
+    const unit = getValue(modelNode, '@_unit', '@_Unit') || "millimeter";
+    let scale = 1.0;
+    const unitLower = unit.toLowerCase();
+    if (unitLower === "meter")
         scale = 1000.0;
-    else if (unit === "inch")
+    else if (unitLower === "inch")
         scale = 25.4;
-    else if (unit === "centimeter")
+    else if (unitLower === "centimeter")
         scale = 10.0;
-    // --- Step 2: Parse all resources into a library ---
-    var resourceLibrary = {
+    else if (unitLower === "micrometer")
+        scale = 0.001;
+    else if (unitLower === "foot")
+        scale = 304.8;
+    // Resource library
+    const resourceLibrary = {
         objects: new Map(),
-        colors: new Map()
-        // We'll add textures here later
+        colors: new Map(),
+        materials: new Map(),
+        textures: new Map()
     };
-    var defaultColor = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0.8, 0.8, 0.8);
-    // Parse Color Groups and Base Materials (they function similarly)
-    var colorGroups = xmlDoc.getElementsByTagNameNS(MATERIAL_NAMESPACE, "colorgroup");
-    for (var _i = 0, _b = Array.from(colorGroups); _i < _b.length; _i++) {
-        var group = _b[_i];
-        var id = group.getAttribute("id");
-        if (!id)
-            continue;
-        var colors = Array.from(group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "color")).map(function (c) { return _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(c.getAttribute("color")).createVec3(); });
-        resourceLibrary.colors.set(id, colors);
-    }
-    var baseMaterials = xmlDoc.getElementsByTagNameNS(MATERIAL_NAMESPACE, "basematerials");
-    for (var _c = 0, _d = Array.from(baseMaterials); _c < _d.length; _c++) {
-        var group = _d[_c];
-        var id = group.getAttribute("id");
-        if (!id)
-            continue;
-        var colors = Array.from(group.getElementsByTagNameNS(MATERIAL_NAMESPACE, "base")).map(function (b) { return _map_terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(b.getAttribute("displaycolor")).createVec3(); });
-        resourceLibrary.colors.set(id, colors);
-    }
-    // Parse all <object> definitions
-    var objects = xmlDoc.getElementsByTagNameNS(CORE_NAMESPACE, "object");
-    for (var _e = 0, _f = Array.from(objects); _e < _f.length; _e++) {
-        var objectNode = _f[_e];
-        var objectId = objectNode.getAttribute("id");
-        if (!objectId)
-            continue;
-        // An object can contain EITHER a <mesh> OR <components>
-        var meshNode = objectNode.getElementsByTagNameNS(CORE_NAMESPACE, "mesh")[0];
-        var componentsNode = objectNode.getElementsByTagNameNS(CORE_NAMESPACE, "components")[0];
-        if (meshNode) {
-            var vertices = [];
-            var triangles = [];
-            var verticesNode = meshNode.getElementsByTagNameNS(CORE_NAMESPACE, "vertices")[0];
-            for (var _g = 0, _h = Array.from(verticesNode.getElementsByTagNameNS(CORE_NAMESPACE, "vertex")); _g < _h.length; _g++) {
-                var v = _h[_g];
-                vertices.push(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(parseFloat(v.getAttribute("x")) * scale, parseFloat(v.getAttribute("y")) * scale, parseFloat(v.getAttribute("z")) * scale));
-            }
-            var objectColors = new Array(vertices.length)
-                .fill(0)
-                .map(function () { return gl_matrix__WEBPACK_IMPORTED_MODULE_3__.clone(defaultColor); });
-            var objectUvs = new Array(vertices.length)
-                .fill(0)
-                .map(function () { return gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create(); }); // Default UVs
-            var trianglesNode = meshNode.getElementsByTagNameNS(CORE_NAMESPACE, "triangles")[0];
-            for (var _j = 0, _k = Array.from(trianglesNode.getElementsByTagNameNS(CORE_NAMESPACE, "triangle")); _j < _k.length; _j++) {
-                var t = _k[_j];
-                var v1 = parseInt(t.getAttribute("v1"), 10);
-                var v2 = parseInt(t.getAttribute("v2"), 10);
-                var v3 = parseInt(t.getAttribute("v3"), 10);
-                triangles.push([v1, v2, v3]);
-                var pid = t.getAttribute("pid") || objectNode.getAttribute("pid");
-                if (pid && resourceLibrary.colors.has(pid)) {
-                    var colors = resourceLibrary.colors.get(pid);
-                    var p1_str = (_a = t.getAttribute("p1")) !== null && _a !== void 0 ? _a : objectNode.getAttribute("pindex");
-                    if (p1_str) {
-                        var idx = parseInt(p1_str, 10);
-                        if (colors[idx]) {
-                            objectColors[v1] = colors[idx];
-                            objectColors[v2] = colors[idx]; // v2/v3 default to v1 color if not specified
-                            objectColors[v3] = colors[idx];
-                        }
-                    }
-                    var p2_str = t.getAttribute("p2");
-                    if (p2_str)
-                        objectColors[v2] = colors[parseInt(p2_str, 10)];
-                    var p3_str = t.getAttribute("p3");
-                    if (p3_str)
-                        objectColors[v3] = colors[parseInt(p3_str, 10)];
-                }
-            }
-            resourceLibrary.objects.set(objectId, {
-                mesh: {
-                    vertices: vertices,
-                    triangles: triangles,
-                    colors: objectColors,
-                    uvs: objectUvs
-                }
-            });
+    // Parse resources
+    const resources = getValue(modelNode, 'resources', 'm:resources', '3mf:resources');
+    if (resources) {
+        try {
+            parseColorResources(resources, resourceLibrary, defaultColor);
+            parseMaterialResources(resources, resourceLibrary);
+            parseTextureResources(resources, resourceLibrary);
+            parseObjects(resources, resourceLibrary, scale, defaultColor);
         }
-        else if (componentsNode) {
-            var components = [];
-            for (var _l = 0, _m = Array.from(componentsNode.getElementsByTagNameNS(CORE_NAMESPACE, "component")); _l < _m.length; _l++) {
-                var c = _m[_l];
-                var id = c.getAttribute("objectid");
-                if (!id)
-                    continue;
-                components.push({
-                    objectId: id,
-                    transform: parseTransform(c.getAttribute("transform"))
-                });
-            }
-            resourceLibrary.objects.set(objectId, { components: components });
+        catch (e) {
+            console.error("⚠️ Error parsing resources:", e);
         }
     }
-    // --- Step 3: Process the build items recursively to generate the final geometry ---
-    var finalData = {
+    else {
+        console.warn("⚠️ No resources element found");
+    }
+    // Process build items
+    // FIXED: Don't apply transforms to vertices - keep them in local space
+    // This allows proper center calculation and prevents movement during scaling/rotation
+    const finalData = {
         vertices: [],
         colors: [],
         uvs: [],
+        materials: [],
         triangles: []
     };
-    var buildItems = xmlDoc.getElementsByTagNameNS(CORE_NAMESPACE, "item");
-    for (var _o = 0, _p = Array.from(buildItems); _o < _p.length; _o++) {
-        var item = _p[_o];
-        var objectId = item.getAttribute("objectid");
-        if (!objectId)
-            continue;
-        var transform = parseTransform(item.getAttribute("transform"));
-        processObject(objectId, transform, resourceLibrary, finalData);
+    // Accumulate 3MF transforms (for multiple build items, combine them)
+    let combinedTransform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+    let hasTransform = false;
+    const build = getValue(modelNode, 'build', 'm:build', '3mf:build');
+    if (build) {
+        const itemValue = getValue(build, 'item', 'm:item', '3mf:item');
+        if (itemValue) {
+            const items = Array.isArray(itemValue) ? itemValue : [itemValue];
+            // For multiple build items, we'll combine them into one mesh
+            // but for now, just use the first item's transform
+            for (let idx = 0; idx < items.length; idx++) {
+                const item = items[idx];
+                const objectId = getValue(item, '@_objectid', '@_objectId', '@_ObjectId');
+                if (!objectId) {
+                    console.warn("⚠️ Build item missing objectid");
+                    continue;
+                }
+                const transformStr = getValue(item, '@_transform', '@_Transform');
+                const transform = parseTransform(transformStr);
+                // For first item, use its transform; for others, combine (though this is rare)
+                if (idx === 0) {
+                    combinedTransform = transform;
+                    hasTransform = !gl_matrix__WEBPACK_IMPORTED_MODULE_5__.equals(transform, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create());
+                }
+                else {
+                    // Multiple build items - combine transforms (this is unusual but handle it)
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.multiply(combinedTransform, combinedTransform, transform);
+                }
+                try {
+                    // Pass identity transform to keep vertices in local space
+                    processObject(objectId, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), resourceLibrary, finalData);
+                }
+                catch (e) {
+                    console.error(`⚠️ Error processing object ${objectId}:`, e);
+                }
+            }
+        }
     }
-    // --- Step 4: Finalize data and calculate normals ---
-    var finalTriangles = [];
-    for (var i = 0; i < finalData.triangles.length; i += 3) {
+    else {
+        console.warn("⚠️ No build element found");
+    }
+    if (finalData.vertices.length === 0) {
+        throw new Error("No geometry data found in 3MF file");
+    }
+    // Finalize triangles and calculate normals
+    const finalTriangles = [];
+    for (let i = 0; i < finalData.triangles.length; i += 3) {
         finalTriangles.push([
             finalData.triangles[i],
             finalData.triangles[i + 1],
             finalData.triangles[i + 2]
         ]);
     }
-    var normals = calculateNormals(finalData.vertices, finalTriangles);
-    return __assign(__assign({}, finalData), { normals: normals, triangles: finalTriangles });
+    const normals = calculateNormals(finalData.vertices, finalTriangles);
+    return {
+        ...finalData,
+        normals,
+        triangles: finalTriangles,
+        textures: new Map(),
+        transform: hasTransform ? combinedTransform : gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create()
+    };
 }
 /**
- * The new recursive function that processes an object and its children.
- * @param objectId The ID of the object to process from the library.
- * @param cumulativeTransform The transformation matrix accumulated from parent objects.
- * @param library The parsed resource library.
- * @param out The final, flattened geometry data to be populated.
+ * Parse material resources
  */
-function processObject(objectId, cumulativeTransform, library, out) {
-    var _a, _b;
-    var objectData = library.objects.get(objectId);
-    if (!objectData)
+function parseMaterialResources(resources, library) {
+    const materialValue = getValue(resources, 'basematerials', 'basematerial', 'material', 'materials');
+    if (!materialValue) {
         return;
-    // Case 1: The object is a mesh, so we transform and append its geometry.
-    if (objectData.mesh) {
-        var mesh = objectData.mesh;
-        var vertexOffset = out.vertices.length;
-        // Apply transform to each vertex and add to the output
-        for (var _i = 0, _c = mesh.vertices; _i < _c.length; _i++) {
-            var v = _c[_i];
-            var transformedVertex = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
-            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.transformMat4(transformedVertex, v, cumulativeTransform);
-            out.vertices.push(transformedVertex);
-        }
-        // Add corresponding colors and UVs
-        (_a = out.colors).push.apply(_a, mesh.colors);
-        (_b = out.uvs).push.apply(_b, mesh.uvs);
-        // Add triangle indices, adjusted by the vertex offset
-        for (var _d = 0, _e = mesh.triangles; _d < _e.length; _d++) {
-            var tri = _e[_d];
-            out.triangles.push(tri[0] + vertexOffset, tri[1] + vertexOffset, tri[2] + vertexOffset);
-        }
     }
-    // Case 2: The object is an assembly of other components. Recurse!
-    else if (objectData.components) {
-        for (var _f = 0, _g = objectData.components; _f < _g.length; _f++) {
-            var component = _g[_f];
-            // Each component has its own local transform. We multiply it with the parent's.
-            var componentTransform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
-            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.multiply(componentTransform, cumulativeTransform, component.transform);
-            // Recursively process the child component with the new transform.
-            processObject(component.objectId, componentTransform, library, out);
-        }
+    const groups = Array.isArray(materialValue) ? materialValue : [materialValue];
+    for (const group of groups) {
+        const id = getValue(group, '@_id', '@_Id');
+        if (!id)
+            continue;
+        const material = {
+            metallic: parseFloat(getValue(group, '@_metallic', '@_metalness', '@_metal') || "0"),
+            roughness: parseFloat(getValue(group, '@_roughness', '@_rough') || "0.5"),
+            specular: parseFloat(getValue(group, '@_specular', '@_spec') || "0.5"),
+            textureId: getValue(group, '@_textureid', '@_textureId', '@_texture')
+        };
+        library.materials.set(id, material);
     }
 }
 /**
- * The main loader function. Fetches a .3mf file, unzips it, and extracts geometry.
- * @param url The URL of the .3mf file to load.
- * @returns A promise that resolves with the extracted model data.
+ * Parse texture resources
  */
-function load3MF(url) {
-    return __awaiter(this, void 0, void 0, function () {
-        var response, fileData, zip, modelFile, xmlString, parser, xmlDoc, error_1;
-        return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    _a.trys.push([0, 5, , 6]);
-                    return [4 /*yield*/, fetch(url)];
-                case 1:
-                    response = _a.sent();
-                    if (!response.ok) {
-                        throw new Error("Failed to fetch 3MF file: ".concat(response.statusText));
-                    }
-                    return [4 /*yield*/, response.arrayBuffer()];
-                case 2:
-                    fileData = _a.sent();
-                    return [4 /*yield*/, jszip__WEBPACK_IMPORTED_MODULE_0___default().loadAsync(fileData)];
-                case 3:
-                    zip = _a.sent();
-                    modelFile = zip.file("3D/3dmodel.model");
-                    if (!modelFile) {
-                        throw new Error("Invalid 3MF file: 3D/3dmodel.model not found.");
-                    }
-                    return [4 /*yield*/, modelFile.async("string")];
-                case 4:
-                    xmlString = _a.sent();
-                    parser = new DOMParser();
-                    xmlDoc = parser.parseFromString(xmlString, "application/xml");
-                    // 5. Extract data from the parsed XML
-                    return [2 /*return*/, parse3MFModel(xmlDoc)];
-                case 5:
-                    error_1 = _a.sent();
-                    console.error("Error loading or parsing 3MF file:", error_1);
-                    throw error_1;
-                case 6: return [2 /*return*/];
-            }
-        });
-    });
+function parseTextureResources(resources, library) {
+    const textureValue = getValue(resources, 'texture2d', 'texture', 'textures', 'image');
+    if (!textureValue) {
+        return;
+    }
+    const textures = Array.isArray(textureValue) ? textureValue : [textureValue];
+    for (const texture of textures) {
+        const id = getValue(texture, '@_id', '@_Id');
+        const path = getValue(texture, '@_path', '@_href', '@_Path');
+        if (id && path) {
+            library.textures.set(id, path);
+        }
+    }
 }
 /**
- * Parses a 3MF transform string into a gl-matrix mat4.
- * The 3MF spec provides the matrix in row-major order. The gl-matrix `set`
- * function conveniently also takes arguments in row-major order.
- * @param transformString The space-separated string of 12 matrix values.
- * @returns A mat4 representing the transformation.
+ * Parse color resources
+ */
+function parseColorResources(resources, library, defaultColor) {
+    const colorGroupValue = getValue(resources, 'colorgroup', 'basematerials', 'basematerial', 'colors');
+    if (!colorGroupValue) {
+        return;
+    }
+    const groups = Array.isArray(colorGroupValue) ? colorGroupValue : [colorGroupValue];
+    for (const group of groups) {
+        const id = getValue(group, '@_id', '@_Id');
+        if (!id)
+            continue;
+        const colorElements = getValue(group, 'color', 'base', 'item', 'c');
+        if (!colorElements) {
+            continue;
+        }
+        const colorArray = Array.isArray(colorElements) ? colorElements : [colorElements];
+        const parsedColors = [];
+        for (let idx = 0; idx < colorArray.length; idx++) {
+            const c = colorArray[idx];
+            const colorStr = getValue(c, '@_color', '@_displaycolor', '@_displayColor', '@_Color', '@_sRGB', '@_rgb');
+            if (colorStr) {
+                const parsed = parseHexColor(colorStr);
+                if (parsed) {
+                    parsedColors.push(parsed);
+                    continue;
+                }
+            }
+            parsedColors.push(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.clone(defaultColor));
+        }
+        if (parsedColors.length > 0) {
+            library.colors.set(id, parsedColors);
+        }
+    }
+}
+/**
+ * Parse objects - FIXED to handle missing mesh nodes
+ */
+function parseObjects(resources, library, scale, defaultColor) {
+    const objectValue = getValue(resources, 'object', 'objects');
+    if (!objectValue) {
+        console.warn("⚠️ No objects found");
+        return;
+    }
+    const objects = Array.isArray(objectValue) ? objectValue : [objectValue];
+    for (const objectNode of objects) {
+        const objectId = getValue(objectNode, '@_id', '@_Id');
+        if (!objectId)
+            continue;
+        try {
+            const meshValue = getValue(objectNode, 'mesh', 'm:mesh', '3mf:mesh');
+            const componentsValue = getValue(objectNode, 'components', 'm:components', 'component');
+            if (meshValue) {
+                const meshData = parseMesh(objectNode, library, scale, defaultColor);
+                library.objects.set(objectId, { mesh: meshData });
+            }
+            else if (componentsValue) {
+                const components = parseComponents(componentsValue);
+                library.objects.set(objectId, { components });
+            }
+            else {
+                console.warn(`  ⚠️ Object ${objectId} has no mesh or components`);
+            }
+        }
+        catch (e) {
+            console.error(`⚠️ Error parsing object ${objectId}:`, e);
+        }
+    }
+}
+/**
+ * Parse mesh - FIXED triangle validation
+ */
+function parseMesh(objectNode, library, scale, defaultColor) {
+    const meshNode = getValue(objectNode, 'mesh', 'm:mesh', '3mf:mesh');
+    if (!meshNode) {
+        throw new Error("No mesh node found");
+    }
+    const vertices = [];
+    const triangles = [];
+    const objectPid = getValue(objectNode, '@_pid', '@_Pid');
+    const objectPindex = getValue(objectNode, '@_pindex', '@_pIndex', '@_Pindex');
+    // Parse vertices
+    const verticesNode = getValue(meshNode, 'vertices', 'm:vertices');
+    if (verticesNode) {
+        const vertexValue = getValue(verticesNode, 'vertex', 'v');
+        if (vertexValue) {
+            const vertexArray = Array.isArray(vertexValue) ? vertexValue : [vertexValue];
+            for (const v of vertexArray) {
+                const x = parseFloat(getValue(v, '@_x', '@_X') || "0");
+                const y = parseFloat(getValue(v, '@_y', '@_Y') || "0");
+                const z = parseFloat(getValue(v, '@_z', '@_Z') || "0");
+                vertices.push(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(x * scale, y * scale, z * scale));
+            }
+        }
+    }
+    if (vertices.length === 0) {
+        throw new Error("No vertices found in mesh");
+    }
+    const objectColors = new Array(vertices.length);
+    const objectUvs = new Array(vertices.length);
+    const objectMaterials = new Array(vertices.length);
+    for (let i = 0; i < vertices.length; i++) {
+        objectColors[i] = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.clone(defaultColor);
+        objectUvs[i] = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
+        objectMaterials[i] = {
+            metallic: 0,
+            roughness: 0.5,
+            specular: 0.5
+        };
+    }
+    // Parse triangles
+    const trianglesNode = getValue(meshNode, 'triangles', 'm:triangles');
+    if (trianglesNode) {
+        const triangleValue = getValue(trianglesNode, 'triangle', 't');
+        if (triangleValue) {
+            const triangleArray = Array.isArray(triangleValue) ? triangleValue : [triangleValue];
+            for (const t of triangleArray) {
+                const v1 = parseInt(getValue(t, '@_v1', '@_V1') || "0", 10);
+                const v2 = parseInt(getValue(t, '@_v2', '@_V2') || "0", 10);
+                const v3 = parseInt(getValue(t, '@_v3', '@_V3') || "0", 10);
+                // FIXED: Validate indices
+                if (v1 >= vertices.length || v2 >= vertices.length || v3 >= vertices.length ||
+                    v1 < 0 || v2 < 0 || v3 < 0) {
+                    console.warn(`  ⚠️ Triangle references invalid vertex indices: ${v1}, ${v2}, ${v3} (max: ${vertices.length - 1})`);
+                    continue;
+                }
+                const trianglePid = getValue(t, '@_pid', '@_Pid') || objectPid;
+                let p1 = getValue(t, '@_p1', '@_P1');
+                let p2 = getValue(t, '@_p2', '@_P2');
+                let p3 = getValue(t, '@_p3', '@_P3');
+                p1 = p1 !== null ? parseInt(p1, 10) : (objectPindex !== null ? parseInt(objectPindex, 10) : 0);
+                p2 = p2 !== null ? parseInt(p2, 10) : p1;
+                p3 = p3 !== null ? parseInt(p3, 10) : p1;
+                // Apply colors
+                if (trianglePid && library.colors.has(trianglePid)) {
+                    const colors = library.colors.get(trianglePid);
+                    if (p1 < colors.length)
+                        objectColors[v1] = colors[p1];
+                    if (p2 < colors.length)
+                        objectColors[v2] = colors[p2];
+                    if (p3 < colors.length)
+                        objectColors[v3] = colors[p3];
+                }
+                // Apply materials
+                if (trianglePid && library.materials.has(trianglePid)) {
+                    const material = library.materials.get(trianglePid);
+                    objectMaterials[v1] = { ...material };
+                    objectMaterials[v2] = { ...material };
+                    objectMaterials[v3] = { ...material };
+                }
+                triangles.push({
+                    indices: [v1, v2, v3],
+                    colorIndices: [p1, p2, p3],
+                    propertyGroupId: trianglePid || undefined
+                });
+            }
+        }
+    }
+    return {
+        vertices,
+        triangles,
+        colors: objectColors,
+        uvs: objectUvs,
+        materials: objectMaterials
+    };
+}
+/**
+ * Parse components - FIXED to handle both nested and direct component elements
+ */
+function parseComponents(componentsNode) {
+    // componentsNode might be the components wrapper OR an array of component elements
+    let componentArray;
+    if (Array.isArray(componentsNode)) {
+        componentArray = componentsNode;
+    }
+    else {
+        const componentValue = getValue(componentsNode, 'component', 'm:component');
+        if (!componentValue)
+            return [];
+        componentArray = Array.isArray(componentValue) ? componentValue : [componentValue];
+    }
+    return componentArray.map((c) => {
+        const objectId = getValue(c, '@_objectid', '@_objectId', '@_ObjectId');
+        const transformStr = getValue(c, '@_transform', '@_Transform');
+        return {
+            objectId,
+            transform: parseTransform(transformStr)
+        };
+    }).filter((c) => c.objectId);
+}
+/**
+ * Process objects recursively - OPTIMIZED to avoid stack overflow
+ */
+function processObject(objectId, cumulativeTransform, library, out, depth = 0) {
+    // Use iterative processing with a stack to avoid call stack overflow
+    const stack = [
+        { id: objectId, transform: cumulativeTransform, depth: 0 }
+    ];
+    while (stack.length > 0) {
+        const { id, transform, depth } = stack.pop();
+        if (depth > 100) {
+            console.error(`⚠️ Component hierarchy too deep (${depth}), skipping object ${id}`);
+            continue;
+        }
+        const objectData = library.objects.get(id);
+        if (!objectData) {
+            console.warn(`⚠️ Object ${id} not found in library`);
+            continue;
+        }
+        if (objectData.mesh) {
+            const mesh = objectData.mesh;
+            const vertexOffset = out.vertices.length;
+            const isLargeMesh = mesh.vertices.length > 50000;
+            // Transform and add vertices
+            for (const v of mesh.vertices) {
+                const transformedVertex = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
+                gl_matrix__WEBPACK_IMPORTED_MODULE_3__.transformMat4(transformedVertex, v, transform);
+                out.vertices.push(transformedVertex);
+            }
+            // FIXED: Use loops instead of spread operator to avoid stack overflow with large arrays
+            // This prevents "Maximum call stack size exceeded" errors when processing very large meshes
+            for (let i = 0; i < mesh.colors.length; i++) {
+                out.colors.push(mesh.colors[i]);
+            }
+            for (let i = 0; i < mesh.uvs.length; i++) {
+                out.uvs.push(mesh.uvs[i]);
+            }
+            for (let i = 0; i < mesh.materials.length; i++) {
+                out.materials.push(mesh.materials[i]);
+            }
+            // Add triangles with offset
+            for (const tri of mesh.triangles) {
+                out.triangles.push(tri.indices[0] + vertexOffset, tri.indices[1] + vertexOffset, tri.indices[2] + vertexOffset);
+            }
+        }
+        else if (objectData.components) {
+            // Add component children to stack (reverse order to maintain processing order)
+            for (let i = objectData.components.length - 1; i >= 0; i--) {
+                const component = objectData.components[i];
+                const componentTransform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+                gl_matrix__WEBPACK_IMPORTED_MODULE_5__.multiply(componentTransform, transform, component.transform);
+                stack.push({
+                    id: component.objectId,
+                    transform: componentTransform,
+                    depth: depth + 1
+                });
+            }
+        }
+    }
+}
+/**
+ * Load 3MF with texture extraction
+ */
+async function load3MF(url) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch: ${response.statusText}`);
+        }
+        const fileData = await response.arrayBuffer();
+        const zip = await jszip__WEBPACK_IMPORTED_MODULE_0___default().loadAsync(fileData);
+        const modelFile = zip.file("3D/3dmodel.model");
+        if (!modelFile) {
+            throw new Error("Invalid 3MF: 3D/3dmodel.model not found");
+        }
+        const xmlString = await modelFile.async("string");
+        const modelData = parse3MFModel(xmlString);
+        // Extract textures from the zip package
+        const textures = new Map();
+        const texturePatterns = [
+            /^3D\/Textures\/.+\.(png|jpg|jpeg)$/i,
+            /^Textures\/.+\.(png|jpg|jpeg)$/i,
+            /^.+\.(png|jpg|jpeg)$/i
+        ];
+        for (const [filename, file] of Object.entries(zip.files)) {
+            if (file.dir)
+                continue;
+            const matches = texturePatterns.some(pattern => pattern.test(filename));
+            if (matches) {
+                try {
+                    const blob = await file.async("blob");
+                    const textureId = filename.split('/').pop() || filename;
+                    let contentType = "image/png";
+                    if (filename.toLowerCase().endsWith('.jpg') || filename.toLowerCase().endsWith('.jpeg')) {
+                        contentType = "image/jpeg";
+                    }
+                    textures.set(textureId, {
+                        id: textureId,
+                        blob,
+                        contentType
+                    });
+                }
+                catch (err) {
+                    console.warn(`  ⚠️ Failed to extract texture ${filename}:`, err);
+                }
+            }
+        }
+        return {
+            ...modelData,
+            textures
+        };
+    }
+    catch (error) {
+        console.error("❌ Error loading 3MF:", error);
+        throw error;
+    }
+}
+/**
+ * Parse transform matrix
  */
 function parseTransform(transformString) {
-    var transform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(); // Start with an identity matrix
-    if (!transformString) {
+    const transform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+    if (!transformString)
         return transform;
+    try {
+        const parts = transformString.trim().split(/\s+/).map(parseFloat);
+        if (parts.length < 12) {
+            console.warn("⚠️ Invalid transform:", transformString);
+            return transform;
+        }
+        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.set(transform, parts[0], parts[1], parts[2], 0, parts[3], parts[4], parts[5], 0, parts[6], parts[7], parts[8], 0, parts[9], parts[10], parts[11], 1);
     }
-    var parts = transformString.split(" ").map(parseFloat);
-    if (parts.length < 12) {
-        console.warn("Invalid transform string found:", transformString);
-        return transform; // Return identity if transform is malformed
+    catch (e) {
+        console.warn("⚠️ Error parsing transform:", e);
     }
-    // The 3MF string is: Rxx Rxy Rxz Ryx Ryy Ryz Rzx Rzy Rzz Tx Ty Tz
-    // These correspond to the first 3 rows of a 4x4 matrix.
-    // Let's call them p[0] through p[11].
-    // The mat4.set function arguments are in row-major order:
-    // set(out, m00, m01, m02, m03,  // Row 0
-    //          m10, m11, m12, m13,  // Row 1
-    //          m20, m21, m22, m23,  // Row 2
-    //          m30, m31, m32, m33); // Row 3
-    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.set(transform, parts[0], parts[1], parts[2], parts[9], // Row 0: Rxx, Rxy, Rxz, Tx
-    parts[3], parts[4], parts[5], parts[10], // Row 1: Ryx, Ryy, Ryz, Ty
-    parts[6], parts[7], parts[8], parts[11], // Row 2: Rzx, Rzy, Rzz, Tz
-    0, 0, 0, 1 // Row 3
-    );
     return transform;
 }
 
@@ -7871,58 +13018,56 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-var calculateNormal = function (vertices) {
-    var normal = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
-    var v1 = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.subtract(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), vertices[1], vertices[0]);
-    var v2 = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.subtract(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), vertices[2], vertices[0]);
+const calculateNormal = (vertices) => {
+    const normal = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+    const v1 = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.subtract(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), vertices[1], vertices[0]);
+    const v2 = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.subtract(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), vertices[2], vertices[0]);
     gl_matrix__WEBPACK_IMPORTED_MODULE_2__.cross(normal, v1, v2);
     gl_matrix__WEBPACK_IMPORTED_MODULE_2__.normalize(normal, normal);
     return normal;
 };
 //TODO: .obj comes with built in optimization reusing vertices
-var objSourceToMesh = function (objSource) {
-    var i = 0;
-    var mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
-    var vertices = [];
-    for (var _i = 0, _a = objSource.split(/\r?\n/); _i < _a.length; _i++) {
-        var line = _a[_i];
+const objSourceToMesh = (objSource) => {
+    let i = 0;
+    const mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+    const vertices = [];
+    for (const line of objSource.split(/\r?\n/)) {
         if (line.trim() === "") {
             continue;
         }
         if (line.startsWith("v")) {
-            var _b = line.split(" "), _ = _b[0], x = _b[1], y = _b[2], z = _b[3];
+            let [_, x, y, z] = line.split(" ");
             vertices.push(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(parseFloat(x), parseFloat(y), parseFloat(z)));
         }
         else if (line.startsWith("f")) {
             // note: vertix indices start at 1
-            var _c = line.split(" "), _ = _c[0], t1 = _c[1], t2 = _c[2], t3 = _c[3];
-            var triangle = [
+            let [_, t1, t2, t3] = line.split(" ");
+            let triangle = [
                 vertices[parseInt(t1) - 1],
                 vertices[parseInt(t2) - 1],
                 vertices[parseInt(t3) - 1]
             ];
-            var normal = calculateNormal(triangle);
+            let normal = calculateNormal(triangle);
             mesh.addTriangle(triangle, [normal, normal, normal]);
         }
         else {
-            throw new Error("Unexpected line start ".concat(line[0], " of ").concat(line, " at line ").concat(i));
+            throw new Error(`Unexpected line start ${line[0]} of ${line} at line ${i}`);
         }
         i++;
     }
     return mesh;
 };
-function loadPLYToMesh(plyString, importMap) {
-    if (importMap === void 0) { importMap = null; }
-    var lines = plyString.split(/\r?\n/);
-    var numVertices = 0;
-    var numFaces = 0;
-    var headerEnded = false;
-    var vertexLines = [];
-    var faceLines = [];
-    var lineIndex = 0;
+function loadPLYToMesh(plyString, importMap = null) {
+    const lines = plyString.split(/\r?\n/);
+    let numVertices = 0;
+    let numFaces = 0;
+    let headerEnded = false;
+    let vertexLines = [];
+    let faceLines = [];
+    let lineIndex = 0;
     // Parse header
     while (!headerEnded && lineIndex < lines.length) {
-        var line = lines[lineIndex].trim();
+        const line = lines[lineIndex].trim();
         if (line.startsWith("element vertex")) {
             numVertices = parseInt(line.split(" ")[2]);
         }
@@ -7939,18 +13084,17 @@ function loadPLYToMesh(plyString, importMap) {
     lineIndex += numVertices;
     // Get face lines
     faceLines = lines.slice(lineIndex, lineIndex + numFaces);
-    var vertices = [];
-    var normals = [];
-    var colors = [];
+    const vertices = [];
+    const normals = [];
+    const colors = [];
     // Parse vertices (assumes x y z nx ny nz r g b)
-    for (var _i = 0, vertexLines_1 = vertexLines; _i < vertexLines_1.length; _i++) {
-        var line = vertexLines_1[_i];
-        var parts = line.trim().split(/\s+/).map(Number);
-        var v = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(parts[0], parts[1], parts[2]);
+    for (const line of vertexLines) {
+        const parts = line.trim().split(/\s+/).map(Number);
+        const v = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(parts[0], parts[1], parts[2]);
         vertices.push(v);
         // Normal fallback: if normals exist
         if (parts.length >= 6) {
-            var n = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(parts[3], parts[4], parts[5]);
+            const n = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(parts[3], parts[4], parts[5]);
             normals.push(n);
         }
         else {
@@ -7958,48 +13102,47 @@ function loadPLYToMesh(plyString, importMap) {
         }
         //Color fallback
         if (parts.length >= 9) {
-            var c = new _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Color(Math.abs(parts[6] * 255), Math.abs(parts[7] * 255), Math.abs(parts[8] * 255));
+            const c = new _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Color(Math.abs(parts[6] * 255), Math.abs(parts[7] * 255), Math.abs(parts[8] * 255));
             colors.push(c);
         }
         else {
             colors.push(new _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Color(255, 255, 255));
         }
     }
-    var mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+    const mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
     // Parse faces
-    for (var _a = 0, faceLines_1 = faceLines; _a < faceLines_1.length; _a++) {
-        var line = faceLines_1[_a];
-        var parts = line.trim().split(/\s+/).map(Number);
-        var vertexCount = parts[0];
+    for (const line of faceLines) {
+        const parts = line.trim().split(/\s+/).map(Number);
+        const vertexCount = parts[0];
         if (vertexCount < 3)
             continue;
-        var indices = parts.slice(1, vertexCount + 1);
+        const indices = parts.slice(1, vertexCount + 1);
         // triangulate polygon (assumes convex)
-        for (var i = 1; i < vertexCount - 1; i++) {
-            var t = [
+        for (let i = 1; i < vertexCount - 1; i++) {
+            const t = [
                 vertices[indices[0]],
                 vertices[indices[i]],
                 vertices[indices[i + 1]]
             ];
-            var n = [
+            const n = [
                 normals[indices[0]],
                 normals[indices[i]],
                 normals[indices[i + 1]]
             ];
-            var types = [0, 0, 0];
+            let types = [0, 0, 0];
             if (importMap) {
-                for (var j = 0; j < 3; j++) {
-                    var col = colors[indices[j]];
+                for (let j = 0; j < 3; j++) {
+                    const col = colors[indices[j]];
                     if (col.toString() in importMap) {
                         types[j] = importMap[col.toString()];
                     }
                     else {
-                        var col_1 = colors[indices[j]];
+                        const col = colors[indices[j]];
                         //Check if simple exists
-                        var found = false;
-                        for (var key in _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains) {
-                            var terrain = _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains[parseInt(key)];
-                            if (terrain.type == 1 && col_1.equals(terrain.color)) {
+                        let found = false;
+                        for (let key in _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains) {
+                            const terrain = _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains[parseInt(key)];
+                            if (terrain.type == 1 && col.equals(terrain.color)) {
                                 //use that color.
                                 types[j] = parseInt(key);
                                 found = true;
@@ -8008,10 +13151,12 @@ function loadPLYToMesh(plyString, importMap) {
                         if (!found) {
                             //make a new terrain type
                             _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains[Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains).length] = {
-                                color: col_1,
+                                color: col,
                                 reflectiveness: 0.2,
                                 roughness: 0.8,
-                                type: 1
+                                type: 1,
+                                emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(0, 0, 0),
+                                metallicity: 0
                             };
                             types[j] = Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains).length - 1;
                         }
@@ -8020,12 +13165,12 @@ function loadPLYToMesh(plyString, importMap) {
             }
             else {
                 //Make it based on color
-                for (var j = 0; j < 3; j++) {
-                    var col = colors[indices[j]];
+                for (let j = 0; j < 3; j++) {
+                    const col = colors[indices[j]];
                     //Check if simple exists
-                    var found = false;
-                    for (var key in _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains) {
-                        var terrain = _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains[parseInt(key)];
+                    let found = false;
+                    for (let key in _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains) {
+                        const terrain = _map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains[parseInt(key)];
                         if (terrain.type == 1 && col.equals(terrain.color)) {
                             //use that color.
                             types[j] = parseInt(key);
@@ -8038,7 +13183,9 @@ function loadPLYToMesh(plyString, importMap) {
                             color: col,
                             reflectiveness: 0.2,
                             roughness: 0.8,
-                            type: 1
+                            type: 1,
+                            emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(0, 0, 0),
+                            metallicity: 0
                         };
                         types[j] = Object.keys(_map_terrains__WEBPACK_IMPORTED_MODULE_1__.Terrains).length - 1;
                     }
@@ -8070,8 +13217,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _GameEngine__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../GameEngine */ "./src/GameEngine.ts");
 
 
-var Camera = /** @class */ (function () {
-    function Camera(position) {
+class Camera {
+    constructor(position) {
         this.sensitivity = 0.1;
         this.yaw = 0; // Left right rotation in degrees
         this.pitch = 0; // Up down rotation in degrees
@@ -8079,73 +13226,67 @@ var Camera = /** @class */ (function () {
         this.front = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 0, -1);
         this.right = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(1, 0, 0);
         this.up = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 1, 0);
+        this.rayTracingFarPlane = 1000;
+        this.pathtracingFarPlane = 10000000000;
+        this.nearPlane = 0.1;
+        this.fovy = 90; // Field of view in degrees
         this.position = position;
+        this.lastPosition = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.clone(position);
         this.UpdateCameraVectors();
         this.speed = 0.02;
+        this.farPlane = this.rayTracingFarPlane;
     }
-    Object.defineProperty(Camera.prototype, "XPosition", {
-        //enables Camera.XPosition instead of Camera.position[0]
-        get: function () {
-            return this.position[0];
-        },
-        set: function (value) {
-            this.position[0] = value;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Object.defineProperty(Camera.prototype, "YPosition", {
-        get: function () {
-            return this.position[1];
-        },
-        set: function (value) {
-            this.position[1] = value;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Object.defineProperty(Camera.prototype, "ZPosition", {
-        get: function () {
-            return this.position[2];
-        },
-        set: function (value) {
-            this.position[2] = value;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    Camera.prototype.getPosition = function () {
+    //enables Camera.XPosition instead of Camera.position[0]
+    get XPosition() {
+        return this.position[0];
+    }
+    set XPosition(value) {
+        this.position[0] = value;
+    }
+    get YPosition() {
+        return this.position[1];
+    }
+    set YPosition(value) {
+        this.position[1] = value;
+    }
+    get ZPosition() {
+        return this.position[2];
+    }
+    set ZPosition(value) {
+        this.position[2] = value;
+    }
+    getPosition() {
         return this.position;
-    };
-    Camera.prototype.getViewMatrix = function () {
-        var viewMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
-        var target = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
+    }
+    getViewMatrix() {
+        let viewMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+        let target = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
         gl_matrix__WEBPACK_IMPORTED_MODULE_1__.add(target, this.position, this.front); // Look-at target
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.lookAt(viewMatrix, this.position, target, this.up);
         return viewMatrix;
-    };
-    Camera.prototype.calculateProjectionMatrix = function (canvasWidth, canvasHeight) {
-        var matView = this.getViewMatrix();
-        var matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
-        var matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+    }
+    calculateProjectionMatrix(canvasWidth, canvasHeight) {
+        const matView = this.getViewMatrix();
+        const matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+        const matViewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.perspective(matProj, 
-        /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(90), 
+        /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(this.fovy), 
         /* aspectRatio= */ canvasWidth / canvasHeight, 
-        /* near, far= */ 0.1, 100.0);
+        /* near, far= */ this.nearPlane, this.farPlane);
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.multiply(matViewProj, matProj, matView);
         return matViewProj;
-    };
-    Camera.prototype.calculateProjectionMatrices = function (canvasWidth, canvasHeight) {
-        var matView = this.getViewMatrix();
-        var matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
+    }
+    calculateProjectionMatrices(canvasWidth, canvasHeight) {
+        const matView = this.getViewMatrix();
+        const matProj = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create();
         gl_matrix__WEBPACK_IMPORTED_MODULE_2__.perspective(matProj, 
-        /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(90), 
+        /* fovy= */ gl_matrix__WEBPACK_IMPORTED_MODULE_3__.toRadian(this.fovy), 
         /* aspectRatio= */ canvasWidth / canvasHeight, 
-        /* near, far= */ 0.1, 100.0);
-        return { matView: matView, matProj: matProj };
-    };
-    Camera.prototype.UpdateCameraVectors = function () {
-        var front = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
+        /* near, far= */ this.nearPlane, this.farPlane);
+        return { matView, matProj };
+    }
+    UpdateCameraVectors() {
+        let front = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
         front[0] =
             Math.cos(_GameEngine__WEBPACK_IMPORTED_MODULE_0__.GameEngine.toRadians(this.yaw)) *
                 Math.cos(_GameEngine__WEBPACK_IMPORTED_MODULE_0__.GameEngine.toRadians(this.pitch));
@@ -8156,10 +13297,11 @@ var Camera = /** @class */ (function () {
         gl_matrix__WEBPACK_IMPORTED_MODULE_1__.normalize(this.front, front); // Normalize to maintain unit length
         gl_matrix__WEBPACK_IMPORTED_MODULE_1__.cross(this.right, this.front, this.up);
         gl_matrix__WEBPACK_IMPORTED_MODULE_1__.normalize(this.right, this.right);
-    };
-    return Camera;
-}());
-
+    }
+    getNearFarPlanes() {
+        return { near: this.nearPlane, far: this.farPlane };
+    }
+}
 
 
 /***/ }),
@@ -8184,7 +13326,17 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./passes/SSAOBlurPass */ "./src/render/passes/SSAOBlurPass.ts");
 /* harmony import */ var _passes_LightingPass__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./passes/LightingPass */ "./src/render/passes/LightingPass.ts");
 /* harmony import */ var _passes_CloudsPass__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./passes/CloudsPass */ "./src/render/passes/CloudsPass.ts");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_17__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_18__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_19__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/common.js");
+/* harmony import */ var _passes_Shadows_SunShadow_CSMPass__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./passes/Shadows/SunShadow/CSMPass */ "./src/render/passes/Shadows/SunShadow/CSMPass.ts");
+/* harmony import */ var _passes_Shadows_SunShadow_CSMShadowMaskPass__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./passes/Shadows/SunShadow/CSMShadowMaskPass */ "./src/render/passes/Shadows/SunShadow/CSMShadowMaskPass.ts");
+/* harmony import */ var _passes_Shadows_PointShadow_CubeShadowsPass__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ./passes/Shadows/PointShadow/CubeShadowsPass */ "./src/render/passes/Shadows/PointShadow/CubeShadowsPass.ts");
+/* harmony import */ var _passes_Shadows_PointShadow_CubeShadowMaskPass__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ./passes/Shadows/PointShadow/CubeShadowMaskPass */ "./src/render/passes/Shadows/PointShadow/CubeShadowMaskPass.ts");
+/* harmony import */ var _passes_FinalPass__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! ./passes/FinalPass */ "./src/render/passes/FinalPass.ts");
+/* harmony import */ var _passes_GrassGeometryPass__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! ./passes/GrassGeometryPass */ "./src/render/passes/GrassGeometryPass.ts");
+/* harmony import */ var _passes_CombineGeometryPass__WEBPACK_IMPORTED_MODULE_15__ = __webpack_require__(/*! ./passes/CombineGeometryPass */ "./src/render/passes/CombineGeometryPass.ts");
+/* harmony import */ var _passes_Shadows_ShadowBlurPass__WEBPACK_IMPORTED_MODULE_16__ = __webpack_require__(/*! ./passes/Shadows/ShadowBlurPass */ "./src/render/passes/Shadows/ShadowBlurPass.ts");
 
 
 
@@ -8195,105 +13347,170 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
-var GLRenderer = /** @class */ (function () {
-    function GLRenderer(gl, canvas, camera, debug, world) {
+
+
+
+
+
+
+
+
+class GLRenderer {
+    // Expose managers for external access
+    get vaoManager() {
+        return this._vaoManager;
+    }
+    constructor(gl, canvas, camera, debug, world, pathtracer) {
         this.gl = gl;
         this.canvas = canvas;
         this.camera = camera;
         this.debug = debug;
         this.world = world;
+        this.pathtracer = pathtracer;
         gl.viewport(0, 0, canvas.width, canvas.height);
         gl.depthFunc(gl.LEQUAL);
         this.resourceCache = new _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_0__.ResourceCache(gl);
         this.renderGraph = new _renderSystem_RenderGraph__WEBPACK_IMPORTED_MODULE_1__.RenderGraph();
         this._vaoManager = new _renderSystem_managers_VaoManager__WEBPACK_IMPORTED_MODULE_3__.VAOManager(gl);
+        this.pathtracer.glRendererVaoManager = this._vaoManager;
         this.init();
     }
-    Object.defineProperty(GLRenderer.prototype, "vaoManager", {
-        // Expose managers for external access
-        get: function () {
-            return this._vaoManager;
-        },
-        enumerable: false,
-        configurable: true
-    });
-    GLRenderer.prototype.init = function () {
-        var geometryPass = new _passes_GeometryPass__WEBPACK_IMPORTED_MODULE_4__.GeometryPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
-        var ssaoPass = new _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_5__.SSAOPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
-        var ssaoBlurPass = new _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_6__.SSAOBlurPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
-        var lightingPass = new _passes_LightingPass__WEBPACK_IMPORTED_MODULE_7__.LightingPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
-        var cloudsPass = new _passes_CloudsPass__WEBPACK_IMPORTED_MODULE_8__.CloudsPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+    init() {
+        // Set lights in resource cache before initializing passes that depend on them
+        this.resourceCache.setData("lights", this.world.lights);
+        this.resourceCache.setData("sunLight", this.world.sunLight);
+        this.resourceCache.setData("numShadowedLights", this.world.numShadowedLights);
+        const geometryPass = new _passes_GeometryPass__WEBPACK_IMPORTED_MODULE_4__.GeometryPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const ssaoPass = new _passes_SSAOPass__WEBPACK_IMPORTED_MODULE_5__.SSAOPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const ssaoBlurPass = new _passes_SSAOBlurPass__WEBPACK_IMPORTED_MODULE_6__.SSAOBlurPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const lightingPass = new _passes_LightingPass__WEBPACK_IMPORTED_MODULE_7__.LightingPass(this.gl, this.resourceCache, this.canvas, this.renderGraph, "Terrain Lighting Pass", (direction) => {
+            // Update the sun light direction in the world
+            gl_matrix__WEBPACK_IMPORTED_MODULE_17__.copy(this.world.sunLight.direction, direction);
+        });
+        const csmPass = new _passes_Shadows_SunShadow_CSMPass__WEBPACK_IMPORTED_MODULE_9__.CSMPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const cloudsPass = new _passes_CloudsPass__WEBPACK_IMPORTED_MODULE_8__.CloudsPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const cubeShadowsPass = new _passes_Shadows_PointShadow_CubeShadowsPass__WEBPACK_IMPORTED_MODULE_11__.CubeShadowsPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const csmShadowMaskPass = new _passes_Shadows_SunShadow_CSMShadowMaskPass__WEBPACK_IMPORTED_MODULE_10__.CSMShadowMaskPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const cubeShadowMaskPass = new _passes_Shadows_PointShadow_CubeShadowMaskPass__WEBPACK_IMPORTED_MODULE_12__.CubeShadowMaskPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const finalPass = new _passes_FinalPass__WEBPACK_IMPORTED_MODULE_13__.FinalPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const grassGeometryPass = new _passes_GrassGeometryPass__WEBPACK_IMPORTED_MODULE_14__.GrassGeometryPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const combineGeometryPass = new _passes_CombineGeometryPass__WEBPACK_IMPORTED_MODULE_15__.CombineGeometryPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
+        const shadowBlurPass = new _passes_Shadows_ShadowBlurPass__WEBPACK_IMPORTED_MODULE_16__.ShadowBlurPass(this.gl, this.resourceCache, this.canvas, this.renderGraph);
         // Build render graph tree structure
         this.renderGraph.addRoot(geometryPass);
-        this.renderGraph.add(ssaoPass, geometryPass);
-        this.renderGraph.add(ssaoBlurPass, ssaoPass, geometryPass);
-        this.renderGraph.add(lightingPass, geometryPass, ssaoBlurPass);
-        this.renderGraph.add(cloudsPass, geometryPass);
-    };
-    GLRenderer.prototype.render = function (pathtracerOn) {
-        if (pathtracerOn === void 0) { pathtracerOn = false; }
+        this.renderGraph.addRoot(grassGeometryPass);
+        this.renderGraph.add(combineGeometryPass, geometryPass, grassGeometryPass);
+        // Shadow depth passes
+        this.renderGraph.add(csmPass, combineGeometryPass);
+        this.renderGraph.add(cubeShadowsPass, combineGeometryPass);
+        // Shadow mask passes (compute shadows from depth maps)
+        this.renderGraph.add(csmShadowMaskPass, csmPass, combineGeometryPass);
+        this.renderGraph.add(cubeShadowMaskPass, cubeShadowsPass, combineGeometryPass);
+        // Shadow blur pass
+        this.renderGraph.add(shadowBlurPass, cubeShadowMaskPass, csmShadowMaskPass, combineGeometryPass);
+        // SSAO
+        this.renderGraph.add(ssaoPass, combineGeometryPass);
+        this.renderGraph.add(ssaoBlurPass, ssaoPass, combineGeometryPass);
+        // Lighting pass depends on shadow masks and SSAO
+        this.renderGraph.add(lightingPass, ssaoBlurPass, shadowBlurPass, combineGeometryPass);
+        this.renderGraph.add(cloudsPass, combineGeometryPass);
+        this.renderGraph.add(finalPass, cloudsPass, lightingPass);
+    }
+    render(time, pathtracerOn = false) {
         if (!pathtracerOn) {
             this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
             this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
         }
+        //Run Pathtracer
+        if (pathtracerOn) {
+            this.pathtracer.render(time);
+            return;
+        }
+        //Now run auxillary shaders
         this.calculateCameraInfo();
-        var vaosToRender = this._vaoManager.getVaosToRender();
-        var screenQuadVAO = this._vaoManager.getScreenQuadVAO();
-        this.resourceCache.setUniformData("lights", this.world.lights);
+        const vaosToRender = this._vaoManager.getVaosToRender();
+        const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
+        const grassVAO = this._vaoManager.getGrassVAO();
+        this.resourceCache.setData("lights", this.world.lights);
+        this.resourceCache.setData("sunLight", this.world.sunLight);
+        this.resourceCache.setData("numShadowedLights", this.world.numShadowedLights);
         // Get passes in correct execution order
-        var sortedPasses = this.renderGraph.getSortedPasses();
-        for (var _i = 0, sortedPasses_1 = sortedPasses; _i < sortedPasses_1.length; _i++) {
-            var pass = sortedPasses_1[_i];
-            if (pass.VAOInputType === _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.FULLSCREENQUAD) {
-                if (!screenQuadVAO) {
-                    console.warn("No screen quad VAO available for fullscreen pass");
-                    continue;
-                }
-                if (!pathtracerOn || pass.pathtracerRender) {
-                    pass.render(screenQuadVAO, pathtracerOn);
-                }
-            }
-            else if (pass.VAOInputType === _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.SCENE) {
-                if (!pathtracerOn || pass.pathtracerRender) {
-                    pass.render(vaosToRender, pathtracerOn);
+        const sortedPasses = this.renderGraph.getSortedPasses();
+        for (const pass of sortedPasses) {
+            const invocationCount = pass.getInvocationCount();
+            for (let i = 0; i < invocationCount; i++) {
+                pass.setInvocationIndex(i);
+                switch (pass.VAOInputType) {
+                    case _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.FULLSCREENQUAD:
+                        if (!pathtracerOn || pass.pathtracerRender) {
+                            pass.render(screenQuadVAO, pathtracerOn);
+                        }
+                        break;
+                    case _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.SCENE:
+                        pass.render(vaosToRender, pathtracerOn);
+                        break;
+                    case _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.GRASS:
+                        pass.render(grassVAO, pathtracerOn);
+                        break;
+                    case _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.NONE:
+                        pass.render([], pathtracerOn);
+                        break;
                 }
             }
         }
-    };
-    GLRenderer.prototype.calculateCameraInfo = function () {
-        var matViewAndProj = this.camera.calculateProjectionMatrices(this.canvas.width, this.canvas.height);
-        var cameraInfo = {
+    }
+    calculateCameraInfo() {
+        const matViewAndProj = this.camera.calculateProjectionMatrices(this.canvas.width, this.canvas.height);
+        this.resourceCache.setData("viewportSize", {
+            width: this.canvas.width,
+            height: this.canvas.height
+        });
+        const cameraInfo = {
             matView: matViewAndProj.matView,
             matProj: matViewAndProj.matProj,
-            matViewProj: gl_matrix__WEBPACK_IMPORTED_MODULE_9__.multiply(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), matViewAndProj.matProj, matViewAndProj.matView),
-            matViewInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_9__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), matViewAndProj.matView),
-            matProjInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_9__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), matViewAndProj.matProj)
+            matViewProj: gl_matrix__WEBPACK_IMPORTED_MODULE_18__.multiply(gl_matrix__WEBPACK_IMPORTED_MODULE_18__.create(), matViewAndProj.matProj, matViewAndProj.matView),
+            matViewInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_18__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_18__.create(), matViewAndProj.matView),
+            matProjInverse: gl_matrix__WEBPACK_IMPORTED_MODULE_18__.invert(gl_matrix__WEBPACK_IMPORTED_MODULE_18__.create(), matViewAndProj.matProj)
         };
-        this.resourceCache.setUniformData("CameraInfo", cameraInfo);
-        this.resourceCache.setUniformData("cameraPosition", this.camera.position);
-    };
-    GLRenderer.prototype.resizeGBuffer = function (width, height) {
+        this.resourceCache.setData("CameraInfo", cameraInfo);
+        this.resourceCache.setData("nearFarPlanes", this.camera.getNearFarPlanes());
+        this.resourceCache.setData("cameraPosition", this.camera.position);
+        this.resourceCache.setData("cameraDirection", this.camera.front);
+        this.resourceCache.setData("fovY", gl_matrix__WEBPACK_IMPORTED_MODULE_19__.toRadian(this.camera.fovy));
+        this.resourceCache.setData("aspectRatio", this.canvas.width / this.canvas.height);
+        const debugPauseActive = this.resourceCache.getData("debugPauseMode") ??
+            this.resourceCache.getData("debugPause") ??
+            false;
+        if (!debugPauseActive) {
+            this.resourceCache.setData("pausedCameraInfo", cameraInfo);
+            this.resourceCache.setData("pausedNearFarPlanes", this.camera.getNearFarPlanes());
+            this.resourceCache.setData("pausedCameraPosition", this.camera.position);
+            this.resourceCache.setData("pausedFovY", gl_matrix__WEBPACK_IMPORTED_MODULE_19__.toRadian(this.camera.fovy));
+            this.resourceCache.setData("pausedAspectRatio", this.canvas.width / this.canvas.height);
+            this.resourceCache.setData("pausedViewportSize", {
+                width: this.canvas.width,
+                height: this.canvas.height
+            });
+        }
+    }
+    resizeGBuffer(width, height) {
         this.canvas.width = width;
         this.canvas.height = height;
         this.gl.viewport(0, 0, width, height);
         // Resize all render passes
-        var allPasses = this.renderGraph.getSortedPasses();
-        for (var _i = 0, allPasses_1 = allPasses; _i < allPasses_1.length; _i++) {
-            var pass = allPasses_1[_i];
+        const allPasses = this.renderGraph.getSortedPasses();
+        for (const pass of allPasses) {
             pass.resize(width, height);
         }
-    };
-    GLRenderer.prototype.dispose = function () {
+    }
+    dispose() {
         this._vaoManager.dispose();
-        var allPasses = this.renderGraph.getSortedPasses();
-        for (var _i = 0, allPasses_2 = allPasses; _i < allPasses_2.length; _i++) {
-            var pass = allPasses_2[_i];
+        const allPasses = this.renderGraph.getSortedPasses();
+        for (const pass of allPasses) {
             pass.dispose();
         }
-    };
-    return GLRenderer;
-}());
-
+    }
+}
 
 
 /***/ }),
@@ -8305,7 +13522,7 @@ var GLRenderer = /** @class */ (function () {
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\nprecision highp sampler3D;\n#define PI 3.14159265359\nin vec2 fragUV;\nuniform vec3 cameraPosition;\nuniform vec3 cubeMin;\nuniform vec3 cubeMax;\nuniform mat4 viewInverse;\nuniform mat4 projInverse;\nuniform sampler3D noiseTexture;\nuniform sampler2D weatherMap;\nuniform sampler2D depthTexture;\nuniform vec3 sunPos;\nuniform vec3 sunColor;\n\n//settings\nuniform bool enableClouds;\nuniform float absorption;\nuniform float densityThreshold;\nuniform float baseFrequency;\nuniform float detailFrequency;\nuniform float lightAbsorption;\nuniform float lightIntensity;\nuniform float darknessThreshold;\nuniform float ambientIntensity;\nuniform float phaseG;\nuniform float phaseMultiplier;\nuniform float weatherMapOffsetX;\nuniform float weatherMapOffsetY;\nuniform int MAX_STEPS;\nuniform int MAX_STEPS_LIGHT;\n\nuniform float time;\nuniform float windDirectionX;\nuniform float windDirectionZ;\nuniform float windSpeed;\nout vec4 fragColor;\n\n// Add early exit constants\nconst float DENSITY_THRESHOLD_SKIP = 0.01f;\nconst float ALPHA_THRESHOLD = 0.99f;\nvec3 skyColor = vec3(1.0f);\n// Stolen from Sebastian Lague\nvec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {\n// Adapted from: http://jcgt.org/published/0007/03/04/\n    vec3 t0 = (boundsMin - rayOrigin) * invRaydir;\n    vec3 t1 = (boundsMax - rayOrigin) * invRaydir;\n    vec3 tmin = min(t0, t1);\n    vec3 tmax = max(t0, t1);\n\n    float dstA = max(max(tmin.x, tmin.y), tmin.z);\n    float dstB = min(tmax.x, min(tmax.y, tmax.z));\n\n    // CASE 1: ray intersects box from outside (0 <= dstA <= dstB)\n    // dstA is dst to nearest intersection, dstB dst to far intersection\n\n    // CASE 2: ray intersects box from inside (dstA < 0 < dstB)\n    // dstA is the dst to intersection behind the ray, dstB is dst to forward intersection\n\n    // CASE 3: ray misses box (dstA > dstB)\n\n    float dstToBox = max(0.0f, dstA);\n    float dstInsideBox = max(0.0f, dstB - dstToBox);\n    return vec2(dstToBox, dstInsideBox);\n}\nfloat sampleBaseNoise(vec3 pos) {\n    float noise = texture(noiseTexture, pos).r;\n    return noise;\n}\nfloat fbm(vec3 pos, int octaves, float persistence, float lacunarity) {\n    float total = 0.0f;\n    float amplitude = 1.0f;\n    float maxValue = 0.0f;\n    for(int i = 0; i < octaves; i++) {\n        total += sampleBaseNoise(pos) * amplitude;\n        maxValue += amplitude;\n        amplitude *= persistence;\n        pos *= lacunarity;\n    }\n    return total / maxValue;\n}\nfloat sampleDetailNoise(vec3 p) {\n    vec3 worley = texture(noiseTexture, p * 2.0f).gba;\n    return (worley.r * 0.625f + worley.g * 0.25f + worley.b * 0.125f);\n}\n\nfloat sampleDensity(vec3 pos) {\n    vec3 windDirection = normalize(vec3(windDirectionX, 0.0f, windDirectionZ));\n    vec3 windOffset = windDirection * windSpeed * time;\n    vec3 animatedPos = pos + windOffset;\n\n    vec3 localPos = (animatedPos - cubeMin) / (cubeMax - cubeMin);\n    // Weather map (right now idk if this is the best implementation and it needs some improvement)\n\n    vec2 weatherUV = (animatedPos.xz - cubeMin.xz) / (cubeMax.xz - cubeMin.xz);\n    vec2 weatherMapOffset = vec2(weatherMapOffsetX, weatherMapOffsetY);\n    vec2 weatherWindOffset = windDirection.xz * windSpeed * time * 0.001f;\n    vec4 weather = texture(weatherMap, weatherUV + weatherMapOffset + weatherWindOffset);\n    float coverage = weather.r;\n    if(coverage < 0.01f)\n        return 0.0f;\n\n    float height01 = (animatedPos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);\n    if(height01 < 0.1f || height01 > 1.0f)\n        return 0.0f;\n\n    float base = fbm(localPos * baseFrequency, 5, 0.5f, 2.0f);\n    float density = base * coverage;\n    if(density < densityThreshold)\n        return 0.0f;\n\n    vec3 detailWindOffset = windOffset * 0.5f;\n    vec3 detailPos = (pos + detailWindOffset - cubeMin) / (cubeMax - cubeMin);\n    float detail = sampleDetailNoise(detailPos * detailFrequency);\n    density *= mix(0.5f, 1.0f, detail);\n\n    // Height falloff and edge fade (stolen from Sebastian Lague)\n    float originalHeight = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);\n    float heightWeight = smoothstep(0.1f, 0.5f, originalHeight) * (1.0f - smoothstep(0.6f, 1.0f, originalHeight));\n    float containerEdgeFadeDst = 50.0f;\n    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - cubeMin.x, cubeMax.x - pos.x));\n    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - cubeMin.z, cubeMax.z - pos.z));\n    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;\n    heightWeight *= edgeWeight;\n\n    density = (density - densityThreshold) * heightWeight;\n    return clamp(density, 0.0f, 1.0f);\n}\n\nfloat sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {\n    float distInsideBox = rayBoxDst(cubeMin, cubeMax, pos, 1.0f / lightDir).y;\n\n    int lightSteps = rayDensity > 0.5f ? MAX_STEPS_LIGHT : MAX_STEPS_LIGHT / 2;\n\n    float lightTransmittance = 1.0f;\n    float tStep = distInsideBox / float(lightSteps);\n\n    for(int i = 0; i < lightSteps; i++) {\n        if(lightTransmittance < 0.01f) {\n            return darknessThreshold;\n        }\n\n        float t = tStep * (float(i) + 0.5f);\n        vec3 samplePos = pos + lightDir * t;\n        float rawDensity = sampleDensity(samplePos);\n        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);\n        lightTransmittance *= exp(-density * tStep * lightAbsorption);\n    }\n    return darknessThreshold + (1.0f - darknessThreshold) * lightTransmittance;\n}\nfloat PhaseFunction(float cosTheta, float g) {\n    float g2 = g * g;\n    float denom = pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f);\n    return (1.0f - g2) / (4.0f * PI * denom);\n}\n\n// Add function to reconstruct world position from depth\nvec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {\n    vec2 ndc = texCoord * 2.0f - 1.0f;\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\n    vec4 viewSpacePos = projInverse * clipSpacePos;\n    viewSpacePos /= viewSpacePos.w;\n    vec4 worldPos = viewInverse * viewSpacePos;\n    return worldPos.xyz;\n}\n\nvoid main() {\n    if(!enableClouds) {\n        fragColor = vec4(0.0f);\n        return;\n    }\n    vec2 uv = fragUV * 2.0f - 1.0f;\n    vec4 rayClip = vec4(uv, -1.0f, 1.0f);\n    vec4 rayEye = projInverse * rayClip;\n    rayEye = vec4(rayEye.xy, -1.0f, 0.0f);\n    vec3 rayDirWorld = normalize((viewInverse * rayEye).xyz);\n    vec3 rayOriginWorld = cameraPosition;\n\n    // Read scene depth\n    float sceneDepth = texture(depthTexture, fragUV).r;\n\n    // Calculate world position of terrain from depth buffer\n    vec3 terrainWorldPos = getWorldPositionFromDepth(fragUV, sceneDepth);\n    float distanceToTerrain = length(terrainWorldPos - rayOriginWorld);\n\n    // If depth is at far plane (sky), set to very large distance\n    if(sceneDepth >= 1.0f) {\n        distanceToTerrain = 1000000.0f;\n    }\n\n    // Ray-box intersection\n    vec2 dsts = rayBoxDst(cubeMin, cubeMax, rayOriginWorld, 1.0f / rayDirWorld);\n\n    if(dsts.y <= 0.0f) {\n        fragColor = vec4(0.0f);\n        return;\n    }\n\n    float tNear = dsts.x;\n    float tFar = min(dsts.x + dsts.y, distanceToTerrain); // Clip at terrain depth\n\n    // If terrain is in front of cloud box, don't render clouds\n    if(tNear >= distanceToTerrain) {\n        fragColor = vec4(0.0f);\n        return;\n    }\n\n    float tStep = (tFar - tNear) / float(MAX_STEPS);\n\n    vec4 accumulatedColor = vec4(0.0f);\n\n    // Blue noise offset to reduce banding\n    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);\n\n    for(int i = 0; i < MAX_STEPS; i++) {\n        float t = tNear + tStep * (float(i) + blueNoiseOffset);\n\n        // Stop raymarching if we've reached the terrain\n        if(t >= distanceToTerrain) {\n            break;\n        }\n\n        vec3 samplePos = rayOriginWorld + rayDirWorld * t;\n\n        // Sample density\n        float rawDensity = sampleDensity(samplePos);\n        if(rawDensity < DENSITY_THRESHOLD_SKIP) {\n            i += 1; // Skip next sample\n            continue;\n        }\n        float density = pow(smoothstep(0.0f, 1.0f, rawDensity), 0.6f);\n\n        // Calculate lighting with adaptive quality\n        vec3 lightDir = normalize(sunPos - samplePos);\n        float lightTransmittance = sampleLight(samplePos, lightDir, density);\n\n        // Phase function for silver lining\n        float cosTheta = dot(rayDirWorld, lightDir);\n        float phaseVal = PhaseFunction(cosTheta, phaseG);\n        phaseVal = mix(1.0f, phaseVal, phaseMultiplier);\n\n        // Final light color\n        vec3 sunLight = sunColor * lightTransmittance * lightIntensity * phaseVal;\n\n        // Powder effect\n        float powderEffect = 1.0f - exp(-density * 2.0f);\n        sunLight *= mix(1.0f, powderEffect, 0.5f);\n\n        // Ambient and bounce light\n        float height = (samplePos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);\n        float groundFactor = 1.0f - height;\n        vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;\n        vec3 ambientLight = skyColor * ambientIntensity;\n\n        //Final light color\n        vec3 lightColor = sunLight + ambientLight + bounceLight;\n\n        float stepOpacity = 1.0f - exp(-density * tStep * absorption);\n\n        // Accumulate color using front-to-back compositing and premultiplied alpha\n        vec4 color = vec4(lightColor * stepOpacity, stepOpacity);\n        accumulatedColor += color * (1.0f - accumulatedColor.a);\n\n        if(accumulatedColor.a > ALPHA_THRESHOLD)\n            break;\n    }\n    fragColor = accumulatedColor;\n\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nprecision highp sampler2D;\r\nprecision highp sampler3D;\r\n#define PI 3.14159265359\r\n#define e 2.71828182846\r\nin vec2 fragUV;\r\nuniform vec3 cameraPosition;\r\nuniform vec3 cubeMin;\r\nuniform vec3 cubeMax;\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\nuniform mat4 matViewProj;\r\nuniform sampler3D noiseTexture;\r\nuniform sampler3D detailNoiseTexture;\r\nuniform sampler2D weatherMap;\r\nuniform sampler2D depthTexture;\r\nuniform vec3 sunPos;\r\nuniform vec3 sunColor;\r\n\r\n//settings\r\nuniform bool CLOUDS_enableClouds;\r\nuniform vec3 CLOUDS_baseCloudColor;\r\nuniform float CLOUDS_absorption;\r\nuniform float CLOUDS_lightAbsorption;\r\nuniform float CLOUDS_lightIntensity;\r\nuniform float CLOUDS_darknessThreshold;\r\nuniform float CLOUDS_lightDarkSharpness;\r\nuniform float CLOUDS_skyContribution;\r\nuniform float CLOUDS_ambientIntensity;\r\nuniform float CLOUDS_blueNoiseAmplitude;\r\nuniform float CLOUDS_phaseG;\r\nuniform float CLOUDS_phaseMultiplier;\r\nuniform float CLOUDS_weatherMapOffsetX;\r\nuniform float CLOUDS_weatherMapOffsetY;\r\nuniform int CLOUDS_MAX_STEPS;\r\nuniform int CLOUDS_MAX_STEPS_LIGHT;\r\nuniform float CLOUDS_densityFalloffIntensity;\r\nuniform float CLOUDS_distanceFalloffIntensity;\r\n// density settings\r\nuniform float CLOUDS_globalCoverage;\r\nuniform float CLOUDS_globalDensity;\r\nuniform float CLOUDS_baseNoiseFrequency;\r\nuniform float CLOUDS_detailNoiseFrequency;\r\nuniform float CLOUDS_weatherMapFrequency;\r\nuniform vec3 CLOUDS_noiseWeights;\r\nuniform vec3 CLOUDS_detailWeights;\r\nuniform float time;\r\nuniform float CLOUDS_windDirectionX;\r\nuniform float CLOUDS_windDirectionZ;\r\nuniform float CLOUDS_windSpeed;\r\n\r\nuniform bool CLOUDS_enableReprojection;\r\nuniform mat4 previousView;\r\nuniform vec2 tanFovBy2;\r\nuniform sampler2D previousCloudTexture;\r\n\r\nout vec4 fragColor;\r\n\r\n// Add early exit constants\r\nconst float DENSITY_THRESHOLD_SKIP = 0.01f;\r\nconst float ALPHA_THRESHOLD = 0.99f;\r\nvec3 skyColor = vec3(0.5f, 0.7f, 0.9f);\r\nint crossPatternIndex(ivec2 p) {\r\n    int x = p.x & 3;\r\n    int y = p.y & 3;\r\n\r\n    // row-major index\r\n    int i = y * 4 + x;\r\n\r\n    // remapped order (0–15)\r\n    const int pattern[16] = int[16](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);\r\n\r\n    return pattern[i];\r\n}\r\n\r\n// Stolen from Sebastian Lague\r\nvec2 rayBoxDst(vec3 boundsMin, vec3 boundsMax, vec3 rayOrigin, vec3 invRaydir) {\r\n// Adapted from: http://jcgt.org/published/0007/03/04/\r\n    vec3 t0 = (boundsMin - rayOrigin) * invRaydir;\r\n    vec3 t1 = (boundsMax - rayOrigin) * invRaydir;\r\n    vec3 tmin = min(t0, t1);\r\n    vec3 tmax = max(t0, t1);\r\n\r\n    float dstA = max(max(tmin.x, tmin.y), tmin.z);\r\n    float dstB = min(tmax.x, min(tmax.y, tmax.z));\r\n\r\n    // CASE 1: ray intersects box from outside (0 <= dstA <= dstB)\r\n    // dstA is dst to nearest intersection, dstB dst to far intersection\r\n\r\n    // CASE 2: ray intersects box from inside (dstA < 0 < dstB)\r\n    // dstA is the dst to intersection behind the ray, dstB is dst to forward intersection\r\n\r\n    // CASE 3: ray misses box (dstA > dstB)\r\n\r\n    float dstToBox = max(0.0f, dstA);\r\n    float dstInsideBox = max(0.0f, dstB - dstToBox);\r\n    return vec2(dstToBox, dstInsideBox);\r\n}\r\nvec4 reprojectPrevFrame(vec3 intersectionPoint, vec2 uv, out bool valid) {\r\n    // Transform world-space point to previous camera's view space\r\n    vec3 viewSpacePos = (previousView * vec4(intersectionPoint, 1.0f)).xyz;\r\n\r\n    // Reject points behind or too close to the previous camera plane\r\n    if(viewSpacePos.z >= -1e-3f) {\r\n        valid = false;\r\n        return vec4(0.0f);\r\n    }\r\n\r\n    // Project to previous frame's UV coordinates (perspective division)\r\n    // Don't normalize - use the actual view-space position for projection\r\n    float old_u = (viewSpacePos.x / (-viewSpacePos.z * tanFovBy2.x)) * 0.5 + 0.5;\r\n    float old_v = (viewSpacePos.y / (-viewSpacePos.z * tanFovBy2.y)) * 0.5 + 0.5;\r\n    \r\n    vec2 old_uv = vec2(old_u, old_v);\r\n    if(old_uv.x < 0.0f || old_uv.x > 1.0f || old_uv.y < 0.0f || old_uv.y > 1.0f) {\r\n        valid = false;\r\n        return vec4(0.0f);\r\n    }\r\n    \r\n    vec4 prevColor = texture(previousCloudTexture, old_uv);\r\n    if(prevColor.a <= 0.0f) {\r\n        valid = false;\r\n        return vec4(0.0f);\r\n    }\r\n    \r\n    valid = true;\r\n    return prevColor;\r\n}\r\nfloat SAT(float value) {\r\n    return clamp(value, 0.0f, 1.0f);\r\n}\r\nfloat Remap(float value, float minA, float maxA, float minB, float maxB) {\r\n    return minB + (value - minA) * (maxB - minB) / (maxA - minA);\r\n}\r\nfloat SATRemap(float value, float minA, float maxA, float minB, float maxB) {\r\n    return SAT(Remap(value, minA, maxA, minB, maxB));\r\n}\r\nfloat lerp(float a, float b, float t) {\r\n    return a + t * (b - a);\r\n}\r\nfloat shapeAlteringFactor(float heightPercent, vec4 weatherMapValue) {\r\n    float peakHeight = weatherMapValue.b;\r\n    float bottomRound = SAT(Remap(heightPercent, 0.0f, 0.07f, 0.0f, 1.0f));\r\n    float topRound = SAT(Remap(heightPercent, peakHeight * 0.2f, peakHeight, 1.0f, 0.0f));\r\n    float shapeAlter = topRound * bottomRound;\r\n    return shapeAlter;\r\n}\r\nfloat densityAlteringFactor(float heightPercent, vec4 weatherMapValue) {\r\n    float bottomAlter = heightPercent * SAT(Remap(heightPercent, 0.0f, 0.15f, 0.0f, 1.0f));\r\n    float topAlter = SAT(Remap(heightPercent, 0.9f, 1.0f, 1.0f, 0.0f));\r\n    float densityAlter = CLOUDS_globalDensity * bottomAlter * topAlter * weatherMapValue.a * 2.0f;\r\n    return densityAlter;\r\n}\r\nfloat coverage(vec4 weatherMapValue) {\r\n    float lowCoverage = weatherMapValue.r;\r\n    float highCoverage = weatherMapValue.g;\r\n    float coverage = max(lowCoverage, SAT(CLOUDS_globalCoverage - 0.5f) * 2.0f * highCoverage);\r\n    return coverage;\r\n}\r\nfloat sampleDensity(vec3 pos) {\r\n    vec3 windDirection = normalize(vec3(CLOUDS_windDirectionX, 0.0f, CLOUDS_windDirectionZ));\r\n    vec3 windOffset = windDirection * CLOUDS_windSpeed * time;\r\n    vec3 animatedPos = pos + windOffset + vec3(cameraPosition.x, 0.0f, cameraPosition.z);\r\n\r\n    vec3 localPos = animatedPos * 0.001f; // Scale down for noise sampling\r\n    vec2 weatherUV = vec2(localPos.x + CLOUDS_weatherMapOffsetX, localPos.z + CLOUDS_weatherMapOffsetY) * CLOUDS_weatherMapFrequency;\r\n    vec4 weatherSample = texture(weatherMap, weatherUV);\r\n    float heightPercent = (pos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);\r\n    vec4 noiseSample = texture(noiseTexture, localPos * CLOUDS_baseNoiseFrequency);\r\n    float shapeAlter = shapeAlteringFactor(heightPercent, weatherSample);\r\n    float densityAlter = densityAlteringFactor(heightPercent, weatherSample);\r\n    float coverageFactor = coverage(weatherSample);\r\n\r\n    float baseNoise = Remap(noiseSample.r, (dot(noiseSample.gba, (CLOUDS_noiseWeights))) - 1.0f, 1.0f, 0.0f, 1.0f);\r\n    float alteredNoise = SATRemap(baseNoise * shapeAlter, 1.0f - CLOUDS_globalCoverage * coverageFactor, 1.0f, 0.0f, 1.0f);\r\n    if(alteredNoise <= 0.0f) {\r\n        return 0.0f;\r\n    }\r\n    vec4 detailNoise = texture(detailNoiseTexture, localPos * CLOUDS_detailNoiseFrequency);\r\n    float detailFBM = dot(detailNoise.rgb, (CLOUDS_detailWeights));\r\n    float detailNoiseMod = 0.35f * pow(e, -CLOUDS_globalCoverage * 0.75f) * lerp(detailFBM, 1.0f - detailFBM, SAT(heightPercent * 5.0f));\r\n    float density = SATRemap(alteredNoise, detailNoiseMod, 1.0f, 0.0f, 1.0f) * densityAlter;\r\n    return density;\r\n\r\n}\r\nfloat calculateStepLength(float baseStep, float density, float distanceFromCamera) {\r\n    return baseStep + distanceFromCamera / 100.0f * CLOUDS_distanceFalloffIntensity + density * CLOUDS_densityFalloffIntensity;\r\n}\r\nfloat sampleLight(vec3 pos, vec3 lightDir, float rayDensity) {\r\n    float distInsideBox = rayBoxDst(cubeMin, cubeMax, pos, 1.0f / lightDir).y;\r\n\r\n    int lightSteps = rayDensity > 0.5f ? CLOUDS_MAX_STEPS_LIGHT : CLOUDS_MAX_STEPS_LIGHT / 2;\r\n\r\n    float lightTransmittance = 1.0f;\r\n    float tStepBase = distInsideBox / float(lightSteps);\r\n\r\n    float t = 0.0f;\r\n    for(int i = 0; i < lightSteps && t < distInsideBox; i++) {\r\n        if(lightTransmittance < 0.01f) {\r\n            return CLOUDS_darknessThreshold;\r\n        }\r\n\r\n        float tMid = t + tStepBase * 0.5f;\r\n        vec3 samplePos = pos + lightDir * tMid;\r\n        float rawDensity = sampleDensity(samplePos);\r\n        float density = rawDensity;\r\n\r\n        // Adaptive step length for lightmarching\r\n        float distanceFromCamera = length(samplePos - cameraPosition);\r\n        float tStep = calculateStepLength(tStepBase, density, distanceFromCamera);\r\n\r\n        lightTransmittance *= exp(-density * tStep * CLOUDS_lightAbsorption);\r\n        t += tStep;\r\n    }\r\n    lightTransmittance = pow(lightTransmittance, CLOUDS_lightDarkSharpness);\r\n\r\n    return CLOUDS_darknessThreshold + (1.0f - CLOUDS_darknessThreshold) * lightTransmittance;\r\n}\r\nfloat PhaseFunction(float cosTheta, float g) {\r\n    float g2 = g * g;\r\n    float denom = pow(1.0f + g2 - 2.0f * g * cosTheta, 1.5f);\r\n    return (1.0f - g2) / (4.0f * PI * denom);\r\n}\r\n\r\n// Add function to reconstruct world position from depth\r\nvec3 getWorldPositionFromDepth(vec2 texCoord, float depth) {\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projInverse * clipSpacePos;\r\n    viewSpacePos /= viewSpacePos.w;\r\n    vec4 worldPos = viewInverse * viewSpacePos;\r\n    return worldPos.xyz;\r\n}\r\n\r\nvec4 calculateCloudColor(\r\n    vec3 rayOriginWorld,\r\n    vec3 rayDirWorld,\r\n    float tNear,\r\n    float tFar,\r\n    float distanceToTerrain,\r\n    float tStepBase\r\n) {\r\n    vec4 accumulatedColor = vec4(0.0f);\r\n\r\n    float blueNoiseOffset = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898f, 78.233f))) * 43758.5453f) * CLOUDS_blueNoiseAmplitude;\r\n\r\n    float t = tNear + blueNoiseOffset * tStepBase;\r\n    for(int i = 0; i < CLOUDS_MAX_STEPS; i++) {\r\n        if(t >= tFar || t >= distanceToTerrain) {\r\n            break;\r\n        }\r\n        vec3 samplePos = rayOriginWorld + rayDirWorld * t;\r\n\r\n        float rawDensity = sampleDensity(samplePos);\r\n        if(rawDensity < DENSITY_THRESHOLD_SKIP) {\r\n            t += tStepBase * 2.0f; // Skip next sample adaptively\r\n            continue;\r\n        }\r\n        float density = rawDensity;\r\n\r\n        float distanceFromCamera = length(samplePos - cameraPosition);\r\n        float tStep = calculateStepLength(tStepBase, density, distanceFromCamera);\r\n\r\n        vec3 lightDir = normalize(sunPos - samplePos);\r\n        float lightTransmittance = sampleLight(samplePos, lightDir, density);\r\n\r\n        float cosTheta = dot(rayDirWorld, lightDir);\r\n        float phaseVal = PhaseFunction(cosTheta, CLOUDS_phaseG);\r\n        phaseVal = mix(1.0f, phaseVal, CLOUDS_phaseMultiplier);\r\n\r\n        vec3 sunLight = sunColor * lightTransmittance * CLOUDS_lightIntensity * phaseVal;\r\n\r\n        float powderEffect = 1.0f - exp(-density * 2.0f);\r\n        sunLight *= mix(1.0f, powderEffect, 0.5f);\r\n\r\n        float height = (samplePos.y - cubeMin.y) / (cubeMax.y - cubeMin.y);\r\n        float groundFactor = 1.0f - height;\r\n        vec3 bounceLight = vec3(0.8f, 0.75f, 0.7f) * groundFactor * 0.1f;\r\n        vec3 ambientLight = mix(CLOUDS_baseCloudColor, skyColor, CLOUDS_skyContribution) * CLOUDS_ambientIntensity;\r\n\r\n        vec3 lightColor = sunLight + ambientLight + bounceLight;\r\n\r\n        float stepOpacity = 1.0f - exp(-density * tStep * CLOUDS_absorption);\r\n\r\n        vec4 color = vec4(lightColor * stepOpacity, stepOpacity);\r\n        accumulatedColor += color * (1.0f - accumulatedColor.a);\r\n\r\n        if(accumulatedColor.a > ALPHA_THRESHOLD)\r\n            break;\r\n\r\n        t += tStep;\r\n    }\r\n    return accumulatedColor;\r\n}\r\nvoid main() {\r\n    if(!CLOUDS_enableClouds) {\r\n        discard;\r\n    }\r\n    vec2 ndc = fragUV * 2.0f - 1.0f;\r\n    vec4 rayClip = vec4(ndc, -1.0f, 1.0f);\r\n    vec4 rayEye = projInverse * rayClip;\r\n    rayEye = vec4(rayEye.xy, -1.0f, 0.0f);\r\n    vec3 rayDirWorld = normalize((viewInverse * rayEye).xyz);\r\n    vec3 rayOriginWorld = cameraPosition;\r\n\r\n    float sceneDepth = texture(depthTexture, fragUV).r;\r\n    vec3 terrainWorldPos = getWorldPositionFromDepth(fragUV, sceneDepth);\r\n    float distanceToTerrain = length(terrainWorldPos - rayOriginWorld);\r\n\r\n    if(sceneDepth >= 1.0f) {\r\n        distanceToTerrain = 1000000.0f;\r\n    }\r\n\r\n    vec2 dsts = rayBoxDst(cubeMin, cubeMax, rayOriginWorld, 1.0f / rayDirWorld);\r\n\r\n    if(dsts.y <= 0.0f) {\r\n        discard;\r\n    }\r\n\r\n    float tNear = dsts.x;\r\n    float tFar = min(dsts.x + dsts.y, distanceToTerrain);\r\n\r\n    if(tNear >= distanceToTerrain) {\r\n        discard;\r\n    }\r\n\r\n    float tStepBase = (tFar - tNear) / float(CLOUDS_MAX_STEPS);\r\n\r\n    vec4 accumulatedColor = vec4(0.0f);\r\n    int rayIndex = crossPatternIndex(ivec2(gl_FragCoord.xy));\r\n    if(CLOUDS_enableReprojection&&rayIndex>1) {\r\n        float reprojT = max(tNear,tStepBase);\r\n        vec3 firstIntersectionPoint = rayOriginWorld + rayDirWorld * reprojT;\r\n        bool validReproj;\r\n        vec4 prevColor = reprojectPrevFrame(firstIntersectionPoint,fragUV, validReproj);\r\n        if(validReproj) {\r\n            accumulatedColor = prevColor;\r\n            fragColor = accumulatedColor;\r\n            return;\r\n        }\r\n    }\r\n    accumulatedColor = calculateCloudColor(rayOriginWorld, rayDirWorld, tNear, tFar, distanceToTerrain, tStepBase);\r\n    fragColor = accumulatedColor;\r\n\r\n}";
 
 /***/ }),
 
@@ -8316,7 +13533,51 @@ module.exports = "#version 300 es\nprecision highp float;\nprecision highp sampl
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0f);\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/CombineGeometryPass.frag":
+/*!********************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/CombineGeometryPass.frag ***!
+  \********************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r\nlayout(location = 0) out vec4 outNormal;\r\nlayout(location = 1) out vec4 outAlbedo;\r\nlayout(location = 2) out vec4 outMaterialAttributes;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D albedoTexture;\r\nuniform sampler2D materialAttributesTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D grassNormalTexture;\r\nuniform sampler2D grassAlbedoTexture;\r\nuniform sampler2D grassDepthTexture;\r\nvoid main() {\r\n    float sceneDepth = texture(depthTexture, fragUV).r;\r\n    float grassDepth = texture(grassDepthTexture, fragUV).r;\r\n    if(grassDepth < sceneDepth) {\r\n        outNormal = texture(grassNormalTexture, fragUV);\r\n        outAlbedo = texture(grassAlbedoTexture, fragUV);\r\n        outMaterialAttributes = vec4(0.0f); // Grass has no special material attributes yet\r\n        gl_FragDepth = grassDepth;\r\n    } else {\r\n        outNormal = texture(normalTexture, fragUV);\r\n        outAlbedo = texture(albedoTexture, fragUV);\r\n        outMaterialAttributes = texture(materialAttributesTexture, fragUV);\r\n        gl_FragDepth = sceneDepth;\r\n    }\r\n}\r\n";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/CombineGeometryPass.vert":
+/*!********************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/CombineGeometryPass.vert ***!
+  \********************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/FinalPass.frag":
+/*!**********************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/FinalPass.frag ***!
+  \**********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nin vec2 fragUV;\r\nout vec4 outputColor;\r\n\r\nuniform sampler2D sceneTexture;\r\nuniform sampler2D cloudsTexture; // <-- Add this line\r\nuniform vec2 resolution;\r\n\r\n// Vignette\r\nuniform bool enableVignette;\r\nuniform float vignetteStrength;\r\nuniform float vignetteRadius;\r\n\r\n// Chromatic Aberration\r\nuniform bool enableChromaticAberration;\r\nuniform float chromaticAberrationStrength;\r\n\r\n// Film Grain\r\nuniform bool enableFilmGrain;\r\nuniform float filmGrainStrength;\r\n\r\n// Bloom\r\nuniform bool enableBloom;\r\nuniform float bloomThreshold;\r\nuniform float bloomIntensity;\r\n\r\n// Tone Mapping\r\nuniform bool enableToneMapping;\r\nuniform bool useACES;\r\nuniform float exposure;\r\nuniform float gamma;\r\n\r\n// Color Grading\r\nuniform float saturation;\r\nuniform float contrast;\r\nuniform float brightness;\r\n\r\n// Random function for film grain\r\nfloat random(vec2 co) {\r\n    return fract(sin(dot(co.xy, vec2(12.9898f, 78.233f))) * 43758.5453f);\r\n}\r\n\r\n// ACES tone mapping\r\nvec3 ACESFilm(vec3 x) {\r\n    float a = 2.51f;\r\n    float b = 0.03f;\r\n    float c = 2.43f;\r\n    float d = 0.59f;\r\n    float e = 0.14f;\r\n    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0f, 1.0f);\r\n}\r\n\r\n// Reinhard tone mapping\r\nvec3 Reinhard(vec3 x) {\r\n    return x / (x + vec3(1.0f));\r\n}\r\n\r\n// Simple bloom approximation\r\nvec3 bloom(sampler2D tex, vec2 uv, float threshold, float intensity) {\r\n    vec3 color = vec3(0.0f);\r\n    float totalWeight = 0.0f;\r\n\r\n    // Simple blur kernel\r\n    for(int x = -2; x <= 2; x++) {\r\n        for(int y = -2; y <= 2; y++) {\r\n            vec2 offset = vec2(float(x), float(y)) / resolution;\r\n            vec3 samplePixel = texture(tex, uv + offset).rgb;\r\n\r\n            // Extract bright areas\r\n            float brightness = dot(samplePixel, vec3(0.2126f, 0.7152f, 0.0722f));\r\n            if(brightness > threshold) {\r\n                float weight = 1.0f / (1.0f + float(x * x + y * y));\r\n                color += samplePixel * weight;\r\n                totalWeight += weight;\r\n            }\r\n        }\r\n    }\r\n\r\n    return (color / max(totalWeight, 0.001f)) * intensity;\r\n}\r\n\r\nvoid main() {\r\n    vec2 uv = fragUV;\r\n    vec3 color = vec3(0.0f);\r\n\r\n    // Sample clouds and lit scene\r\n    vec4 clouds = texture(cloudsTexture, uv);\r\n    vec3 litScene = texture(sceneTexture, uv).rgb;\r\n\r\n    // Composite clouds over lit scene\r\n    color = clouds.rgb + litScene * (1.0 - clouds.a);\r\n\r\n    // Chromatic Aberration\r\n    if(enableChromaticAberration) {\r\n        vec2 direction = uv - vec2(0.5f);\r\n        float dist = length(direction);\r\n\r\n        float r = texture(sceneTexture, uv + direction * chromaticAberrationStrength * dist).r;\r\n        float g = texture(sceneTexture, uv).g;\r\n        float b = texture(sceneTexture, uv - direction * chromaticAberrationStrength * dist).b;\r\n\r\n        color = vec3(r, g, b);\r\n    }\r\n\r\n    // Bloom\r\n    if(enableBloom) {\r\n        vec3 bloomColor = bloom(sceneTexture, uv, bloomThreshold, bloomIntensity);\r\n        color += bloomColor;\r\n    }\r\n\r\n    // Brightness\r\n    color *= brightness;\r\n\r\n    // Contrast\r\n    color = (color - 0.5f) * contrast + 0.5f;\r\n\r\n    // Saturation\r\n    float luminance = dot(color, vec3(0.2126f, 0.7152f, 0.0722f));\r\n    color = mix(vec3(luminance), color, saturation);\r\n\r\n    // Tone Mapping\r\n    if(enableToneMapping) {\r\n        color *= exposure;\r\n        if(useACES) {\r\n            color = ACESFilm(color);\r\n        }\r\n        // Gamma correction\r\n        color = pow(color, vec3(1.0f / gamma));\r\n    }\r\n\r\n\r\n    // Vignette\r\n    if(enableVignette) {\r\n        vec2 position = uv - vec2(0.5f);\r\n        float vignette = 1.0f - smoothstep(vignetteRadius, vignetteRadius * 1.5f, length(position));\r\n        color *= mix(1.0f, vignette, vignetteStrength);\r\n    }\r\n\r\n    // Film Grain\r\n    if(enableFilmGrain) {\r\n        float grain = random(uv + fract(1.0f)) * 2.0f - 1.0f;\r\n        color += grain * filmGrainStrength;\r\n    }\r\n    \r\n    outputColor = vec4(color, 1.0f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/FinalPass.vert":
+/*!**********************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/FinalPass.vert ***!
+  \**********************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
 
 /***/ }),
 
@@ -8327,7 +13588,7 @@ module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) 
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es \nprecision highp float;\n\nin vec3 viewNormal;\nin vec3 albedo;\nin vec4 viewPos;\n\nlayout(location = 0) out vec4 outNormal;\nlayout(location = 1) out vec4 outAlbedo;\n\nvoid main() {\n    outNormal = vec4(normalize(viewNormal), 1.0);\n    outAlbedo = vec4(albedo, 1.0);\n}";
+module.exports = "#version 300 es \r\nprecision highp float;\r\n\r\nin vec3 viewNormal;\r\nin vec3 albedo;\r\nin vec4 viewPos;\r\nin vec4 materialAttributes;\r\nlayout(location = 0) out vec4 outNormal;\r\nlayout(location = 1) out vec4 outAlbedo;\r\nlayout(location = 2) out vec4 outMaterialAttributes;\r\nvoid main() {\r\n    vec3 normal = normalize(viewNormal);\r\n    // Store normal directly for floating point formats\r\n    outNormal = vec4(normal, 1.0f);\r\n    outAlbedo = vec4(albedo, 1.0f);\r\n    outMaterialAttributes = materialAttributes;\r\n}";
 
 /***/ }),
 
@@ -8338,7 +13599,7 @@ module.exports = "#version 300 es \nprecision highp float;\n\nin vec3 viewNormal
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\n\nin vec3 position;\nin vec3 normal;\nin vec3 color;\n\nuniform mat4 model;\nuniform mat4 view;\nuniform mat4 proj;\n\nout vec3 viewNormal;\nout vec3 albedo;\nout vec4 viewPos;\n\nvoid main() {\n    vec4 worldPos = model * vec4(position, 1.0f);\n    viewPos = view * worldPos;\n\n    mat3 normalMatrix = mat3(transpose(inverse(view * model)));\n    viewNormal = normalize(normalMatrix * normal);\n\n    albedo = color;\n\n    gl_Position = proj * viewPos;\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec3 normal;\r\nlayout(location = 2) in vec3 color;\r\nlayout(location = 3) in float reflectiveness;\r\nlayout(location = 4) in float metalicity;\r\nlayout(location = 5) in float roughness;\r\nlayout(location = 6) in float emissivity;\r\nuniform mat4 model;\r\nuniform mat4 view;\r\nuniform mat4 proj;\r\n\r\nout vec3 viewNormal;\r\nout vec3 albedo;\r\nout vec4 materialAttributes; // x: reflectiveness, y: metalicity, z: roughness, w: emissivity\r\nout vec4 viewPos;\r\n\r\nvoid main() {\r\n    vec4 worldPos = model * vec4(position, 1.0f);\r\n    viewPos = view * worldPos;\r\n\r\n    mat3 normalMatrix = mat3(transpose(inverse(view * model)));\r\n    viewNormal = normalize(normalMatrix * normal);\r\n\r\n    albedo = color;\r\n    materialAttributes = vec4(reflectiveness, metalicity, roughness, emissivity);\r\n    gl_Position = proj * viewPos;\r\n}";
 
 /***/ }),
 
@@ -8349,7 +13610,7 @@ module.exports = "#version 300 es\nprecision highp float;\n\nin vec3 position;\n
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout vec4 outputColor;\nuniform sampler2D normalTexture;\nuniform sampler2D albedoTexture;\nuniform sampler2D depthTexture;\nuniform sampler2D ssaoTexture;\nuniform mat4 viewInverse;\nuniform mat4 projInverse;\nstruct Light {\n    vec3 position;\n    vec3 color;\n    vec3 showColor;\n    float intensity;\n    float radius;\n};\n#define MAX_LIGHTS 100\n\nuniform Light lights[MAX_LIGHTS];\nuniform int numActiveLights;\nuniform vec3 cameraPosition;\n\nvec3 getViewPosition(vec2 texCoord) {\n    float depth = texture(depthTexture, texCoord).r;\n    vec2 ndc = texCoord * 2.0f - 1.0f;\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\n    vec4 viewSpacePos = projInverse * clipSpacePos;\n    return viewSpacePos.xyz / viewSpacePos.w;\n}\n\nvec3 getWorldPosition(vec3 viewPos) {\n    vec4 worldPos = viewInverse * vec4(viewPos, 1.0f);\n    return worldPos.xyz;\n}\n\nvoid main() {\n    vec3 fragViewPos = getViewPosition(fragUV);\n    vec3 fragWorldPos = getWorldPosition(fragViewPos);\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\n    vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);\n\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\n\n    vec3 albedo = texture(albedoTexture, fragUV).rgb;\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\n\n    vec3 ambient = (vec3(0.3f) * albedo) * ambientOcclusion;\n    vec3 lighting = ambient;\n\n    for(int i = 0; i < numActiveLights; i++) {\n        vec3 lightDir = normalize(lights[i].position - fragWorldPos);\n        float diff = max(dot(lightDir, worldNormal), 0.0f);\n        vec3 diffuse = diff * lights[i].color * lights[i].intensity;\n\n        vec3 viewDir = normalize(cameraPosition - fragWorldPos);\n        vec3 reflectDir = reflect(-lightDir, worldNormal);\n        float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 16.0f);\n        vec3 specular = spec * lights[i].color * lights[i].intensity;\n\n        float distance = length(lights[i].position - fragWorldPos);\n        float attenuation = 1.0f / (1.0f + (distance / lights[i].radius) * (distance / lights[i].radius));\n        diffuse *= attenuation;\n        specular *= attenuation;\n\n        lighting += (diffuse + specular) * ambient;\n    }\n\n    if(texture(depthTexture, fragUV).r >= 1.0f) {\n        outputColor = vec4(skyColor, 1.0f);\n    } else {\n        outputColor = vec4(lighting, 1.0f);\n    }\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\n#define MAX_LIGHTS 100\r\n#define MAX_SHADOWED_POINT_LIGHTS 5\r\nin vec2 fragUV;\r\nout vec4 outputColor;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D albedoTexture;\r\nuniform sampler2D materialAttributesTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D ssaoTexture;\r\n// Shadow mask textures from dedicated shadow passes\r\nuniform sampler2D blurredSunShadowMask;\r\nuniform sampler2D blurredPointShadowMaskA;\r\nuniform sampler2D blurredPointShadowMaskB;\r\nuniform sampler2D blurredPointShadowMaskC;\r\nuniform sampler2D blurredPointShadowMaskD;\r\nuniform sampler2D blurredPointShadowMaskE;\r\n\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\n\r\nuniform float ambientLightIntensity;\r\n//Shadow Uniforms\r\nuniform int numShadowedLights;\r\nuniform bool sunDisabled;\r\nuniform bool cascadeDebug;\r\n\r\nstruct PointLight {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n    float range;\r\n};\r\n\r\nstruct DirectionalLight {\r\n    vec3 direction;\r\n    vec3 color;\r\n    float intensity;\r\n};\r\n\r\nuniform DirectionalLight SunLight;\r\nuniform PointLight pointLights[MAX_LIGHTS];\r\nuniform int numActivePointLights;\r\nuniform vec3 cameraPosition;\r\n\r\n// Add these uniforms near the top with other uniforms\r\nuniform float grassSpecularStrength;\r\nuniform float grassShininess;\r\nuniform float grassTranslucencyStrength;\r\nuniform float grassAmbientTransitionPower;\r\nuniform float grassSpecularTransitionPower;\r\nuniform float grassTranslucencyTransitionPower;\r\nuniform float grassDiffuseStrength;\r\nuniform float grassBaseDarkness;\r\nuniform vec3 grassBaseColor;\r\nuniform vec3 grassTipColor;\r\nuniform vec3 grassSpecularColor;\r\nuniform vec3 grassTranslucencyColor;\r\nuniform float sunShadowStrength;\r\nuniform float pointLightShadowStrength;\r\nuniform float grassPointLightintensity;\r\nuniform float grassPointLightDiffuseSoftness;\r\n\r\nconst float PI = 3.14159265359f;\r\nvec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projectionInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {\r\n    vec4 worldPos = viewInverseMatrix * vec4(viewPos, 1.0f);\r\n    return worldPos.xyz;\r\n}\r\n\r\nfloat calculateFresnel(vec3 viewDir, vec3 halfDir, float baseReflectivity) {\r\n    return baseReflectivity + (1.0f - baseReflectivity) * pow(1.0f - dot(viewDir, halfDir), 5.0f);\r\n}\r\n\r\n// Sample point light shadow mask from pre-computed shadow mask textures\r\nfloat getPointShadowMask(int lightIndex) {\r\n    switch(lightIndex) {\r\n        case 0: return texture(blurredPointShadowMaskA, fragUV).r;\r\n        case 1: return texture(blurredPointShadowMaskB, fragUV).r;\r\n        case 2: return texture(blurredPointShadowMaskC, fragUV).r;\r\n        case 3: return texture(blurredPointShadowMaskD, fragUV).r;\r\n        case 4: return texture(blurredPointShadowMaskE, fragUV).r;\r\n        default: return 1.0f;\r\n    }\r\n}\r\n\r\n// Cascade debug visualization colors\r\nvec3 getCascadeDebugColor(int primaryCascade, int secondaryCascade, float blendFactor) {\r\n    vec3 cascadeColors[8] = vec3[](\r\n        vec3(1.0f, 0.2f, 0.2f), // Red - Cascade 0 (smallest/closest)\r\n        vec3(0.2f, 1.0f, 0.2f), // Green - Cascade 1\r\n        vec3(0.2f, 0.2f, 1.0f), // Blue - Cascade 2\r\n        vec3(1.0f, 1.0f, 0.2f), // Yellow - Cascade 3\r\n        vec3(1.0f, 0.2f, 1.0f), // Magenta - Cascade 4\r\n        vec3(0.2f, 1.0f, 1.0f), // Cyan - Cascade 5\r\n        vec3(1.0f, 0.6f, 0.2f), // Orange - Cascade 6\r\n        vec3(0.6f, 0.2f, 1.0f)  // Purple - Cascade 7\r\n    );\r\n    vec3 primaryColor = cascadeColors[primaryCascade % 8];\r\n    vec3 secondaryColor = cascadeColors[secondaryCascade % 8];\r\n    if(blendFactor > 0.0f) {\r\n        vec3 blendedColor = mix(primaryColor, secondaryColor, blendFactor);\r\n        return mix(blendedColor, vec3(1.0f), blendFactor * 0.3f);\r\n    }\r\n    return primaryColor;\r\n}\r\n\r\nfloat DistributionGGX(vec3 N, vec3 H, float roughness) {\r\n    float a = roughness * roughness;\r\n    float a2 = a * a;\r\n    float NdotH = max(dot(N, H), 0.0f);\r\n    float NdotH2 = NdotH * NdotH;\r\n\r\n    float nom = a2;\r\n    float denom = (NdotH2 * (a2 - 1.0f) + 1.0f);\r\n    denom = PI * denom * denom;\r\n\r\n    return nom / denom;\r\n}\r\nfloat GeometrySchlickGGX(float NdotV, float roughness) {\r\n    float r = (roughness + 1.0f);\r\n    float k = (r * r) / 8.0f;\r\n\r\n    float nom = NdotV;\r\n    float denom = NdotV * (1.0f - k) + k;\r\n\r\n    return nom / denom;\r\n}\r\n\r\nfloat GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {\r\n    float NdotV = max(dot(N, V), 0.0f);\r\n    float NdotL = max(dot(N, L), 0.0f);\r\n    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\r\n    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\r\n\r\n    return ggx1 * ggx2;\r\n}\r\nvec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metalicity, float roughness) {\r\n    vec3 viewDir = normalize(cameraPosition - worldPos);\r\n    vec3 lightDir = normalize(-SunLight.direction);\r\n    vec3 halfWay = normalize(viewDir + lightDir);\r\n    float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);\r\n    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metalicity);\r\n    vec3 diffuse = diffuseCoefficient * albedo / PI;\r\n\r\n    // Cook-Torrance BRDF\r\n    float NDF = DistributionGGX(worldNormal, halfWay, roughness);\r\n    float G = GeometrySmith(worldNormal, viewDir, lightDir, roughness);\r\n    vec3 F = vec3(calculateFresnel(viewDir, halfWay, baseReflectivity));\r\n\r\n    vec3 numerator = NDF * G * F;\r\n    float denominator = 4.0f * max(dot(worldNormal, viewDir), 0.0f) * max(dot(worldNormal, lightDir), 0.0f) + 0.001f;\r\n    vec3 specular = numerator / denominator;\r\n    vec3 radiance = SunLight.color * SunLight.intensity;\r\n    float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);\r\n\r\n    return (diffuse + specular) * radiance * diffuseFactor;\r\n}\r\nvec3 unpackEmissivity(float normalizedPacked) {\r\n    // Denormalize from 0-1 range back to 0-63 (stored normalized for RGBA8 texture)\r\n    int packed = int(normalizedPacked * 63.0f + 0.5f); // +0.5 for rounding\r\n    float r = float(packed & 0x3) / 3.0f;\r\n    float g = float((packed >> 2) & 0x3) / 3.0f;\r\n    float b = float((packed >> 4) & 0x3) / 3.0f;\r\n    return vec3(r, g, b);\r\n}\r\n\r\nfloat calculateAttenuation(float d, float r, float range) {\r\n    if(d > range) {\r\n        return 0.0f;\r\n    }\r\n    return 2.0f * (1.0f - d / sqrt(d * d + r * r));\r\n}\r\n\r\nvec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metalicity, float roughness, int lightIndex) {\r\n    vec3 viewDir = normalize(cameraPosition - worldPos);\r\n    vec3 lightDir = normalize(pointLights[lightIndex].position - worldPos);\r\n    vec3 halfWay = normalize(viewDir + lightDir);\r\n    float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);\r\n    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metalicity);\r\n    vec3 diffuse = diffuseCoefficient * albedo / PI;\r\n\r\n    // Cook-Torrance BRDF\r\n    float NDF = DistributionGGX(worldNormal, halfWay, roughness);\r\n    float G = GeometrySmith(worldNormal, viewDir, lightDir, roughness);\r\n    vec3 F = vec3(calculateFresnel(viewDir, halfWay, baseReflectivity));\r\n\r\n    vec3 numerator = NDF * G * F;\r\n    float denominator = 4.0f * max(dot(worldNormal, viewDir), 0.0f) * max(dot(worldNormal, lightDir), 0.0f) + 0.001f;\r\n    vec3 specular = numerator / denominator;\r\n    vec3 radiance = pointLights[lightIndex].color * pointLights[lightIndex].intensity;\r\n    float distance = length(pointLights[lightIndex].position - worldPos);\r\n    float attenuation = calculateAttenuation(distance, pointLights[lightIndex].radius, pointLights[lightIndex].range);\r\n    float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);\r\n\r\n    return (diffuse + specular) * radiance * diffuseFactor * attenuation;\r\n}\r\nvec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float ambientOcclusion, float sunShadow) {\r\n    vec3 ambient = (vec3(ambientLightIntensity) * albedo) * ambientOcclusion;\r\n    vec3 lighting = ambient;\r\n\r\n    // Material attributes\r\n    vec4 materialData = texture(materialAttributesTexture, fragUV);\r\n    float baseReflectivity = materialData.r;\r\n    float metallicity = materialData.g;\r\n    float roughness = materialData.b;\r\n    vec3 emissivity = unpackEmissivity(materialData.a);\r\n\r\n    // Sun PBR lighting\r\n    if(!sunDisabled) {\r\n        lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness) * sunShadow;\r\n    }\r\n\r\n    // Point lights PBR - use pre-computed shadow masks\r\n    for(int i = 0; i < numActivePointLights; i++) {\r\n        float pointLightShadow = (i < numShadowedLights) ? getPointShadowMask(i) : 1.0f;\r\n        lighting += calculatePointPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, i) * pointLightShadow;\r\n    }\r\n\r\n    // Add emissivity ONCE at the end, unaffected by shadows\r\n    // This makes emissive materials glow regardless of lighting conditions\r\n    // Multiply by 4.0 to make emissive objects bright enough to trigger bloom (threshold 1.5)\r\n    lighting += emissivity * 4.0f;\r\n\r\n    return lighting;\r\n}\r\n\r\nvec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float curveAngle, float sunShadow) {\r\n    vec3 viewDirection = normalize(cameraPosition - worldPos);\r\n\r\n    vec3 toCamera = sunDisabled ? vec3(0.0f, 0.0f, -1.0f) : normalize(-SunLight.direction);\r\n    toCamera.y = 0.0f;\r\n\r\n    float curveViewDot = cos(curveAngle) * toCamera.x + sin(curveAngle) * toCamera.z;\r\n    bool isInnerCurve = curveViewDot > 0.0f;\r\n\r\n    float t = clamp(vHeight / 1.5f, 0.0f, 1.0f);\r\n    vec3 baseGrassColor = mix(grassBaseColor, grassTipColor, pow(t, grassAmbientTransitionPower));\r\n\r\n    vec3 normal = normalize(worldNormal) * (isInnerCurve ? -1.0f : 1.0f);\r\n    vec3 tangent = normalize(cross(normal, vec3(0.0f, 1.0f, 0.0f)));\r\n\r\n    // Ambient\r\n    vec3 grassColor = baseGrassColor * grassBaseDarkness;\r\n\r\n    // Sun lighting\r\n    if(!sunDisabled) {\r\n        vec3 lightDir = normalize(-SunLight.direction);\r\n        float diffuse = max(dot(normal, lightDir), 0.0f);\r\n        diffuse = diffuse * 0.6f + 0.4f;\r\n        vec3 sunDiffuse = baseGrassColor * grassDiffuseStrength * diffuse;\r\n\r\n        vec3 halfDir = normalize(lightDir + viewDirection);\r\n        float tdh = dot(tangent, halfDir);\r\n        float spec = pow(sqrt(1.0f - tdh * tdh), grassShininess);\r\n        spec = mix(0.0f, spec, pow(t, grassSpecularTransitionPower));\r\n        vec3 specular = grassSpecularStrength * spec * grassSpecularColor;\r\n\r\n        float translucency = max(dot(-lightDir, normal), 0.0f);\r\n        translucency = mix(0.0f, translucency, pow(t, grassTranslucencyTransitionPower));\r\n        vec3 translucentColor = grassTranslucencyColor * translucency * grassTranslucencyStrength;\r\n\r\n        float shadowFactor = mix(1.0f, sunShadow, sunShadowStrength);\r\n        grassColor += (sunDiffuse + specular + translucentColor) * shadowFactor;\r\n    }\r\n\r\n    // Point lights - use pre-computed shadow masks\r\n    for(int i = 0; i < numActivePointLights; i++) {\r\n        float pointLightShadow = (i < numShadowedLights) ? getPointShadowMask(i) : 1.0f;\r\n        vec3 pointLightDir = normalize(pointLights[i].position - worldPos);\r\n\r\n        float pointDiffuse = max(dot(normal, pointLightDir), 0.0f);\r\n        pointDiffuse = pointDiffuse * (1.0f - grassPointLightDiffuseSoftness) + grassPointLightDiffuseSoftness;\r\n        // Multiply by baseGrassColor so point lights tint the grass properly\r\n        vec3 pointDiffuseColor = baseGrassColor * pointDiffuse * pointLights[i].color * pointLights[i].intensity * grassDiffuseStrength * grassPointLightintensity;\r\n\r\n        vec3 pointHalfDir = normalize(pointLightDir + viewDirection);\r\n        float pointTdh = dot(tangent, pointHalfDir);\r\n        float pointSpec = pow(sqrt(1.0f - pointTdh * pointTdh), grassShininess);\r\n        pointSpec = mix(0.0f, pointSpec, pow(t, grassSpecularTransitionPower));\r\n        vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor * grassPointLightintensity;\r\n\r\n        float distance = length(pointLights[i].position - worldPos);\r\n        float attenuation = calculateAttenuation(distance, pointLights[i].radius, pointLights[i].range);\r\n\r\n        float shadowFactor = mix(1.0f, pointLightShadow, pointLightShadowStrength);\r\n        grassColor += (pointDiffuseColor + pointSpecular) * attenuation * shadowFactor;\r\n    }\r\n\r\n    return pow(grassColor, vec3(2.2f));\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV, projInverse);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);\r\n\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);\r\n\r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n\r\n    vec3 albedo = texture(albedoTexture, fragUV).rgb;\r\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\r\n\r\n    // Sample pre-computed sun shadow mask data\r\n    // R = shadow, G = primary cascade (normalized), B = secondary cascade (normalized), A = blend factor\r\n    vec4 sunShadowData = texture(blurredSunShadowMask, fragUV);\r\n    float sunShadow = sunShadowData.r;\r\n    int primaryCascade = int(sunShadowData.g * 8.0f + 0.5f);\r\n    int secondaryCascade = int(sunShadowData.b * 8.0f + 0.5f);\r\n    float cascadeBlendFactor = sunShadowData.a;\r\n\r\n    // Check if this is a grass material (material ID = 0.5 in alpha channel)\r\n    float materialId = texture(albedoTexture, fragUV).a;\r\n    bool isGrass = abs(materialId - 0.5f) < 0.01f;\r\n\r\n    // Apply cascade debug colors to albedo when enabled\r\n    if(cascadeDebug && !isGrass) {\r\n        albedo = getCascadeDebugColor(primaryCascade, secondaryCascade, cascadeBlendFactor);\r\n    }\r\n\r\n    vec3 lighting;\r\n\r\n    if(isGrass) {\r\n        // For grass: albedo.rg contains (height, curveAngle)\r\n        float vHeight = albedo.r;\r\n        float curveAngle = albedo.g;\r\n        lighting = computeGrassLighting(fragWorldPos, worldNormal, vHeight, curveAngle, sunShadow);\r\n    } else {\r\n        // Standard PBR lighting for terrain\r\n        lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, ambientOcclusion, sunShadow);\r\n    }\r\n\r\n    if(texture(depthTexture, fragUV).r >= 1.0f) {\r\n        outputColor = vec4(skyColor, 1.0f);\r\n    } else {\r\n        outputColor = vec4(lighting, 1.0f);\r\n    }\r\n}";
 
 /***/ }),
 
@@ -8360,7 +13621,7 @@ module.exports = "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout 
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0f);\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
 
 /***/ }),
 
@@ -8371,7 +13632,7 @@ module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) 
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\n#define NUM_SAMPLES 64\nin vec2 fragUV;\nout float ssao;\nuniform sampler2D normalTexture;\nuniform sampler2D depthTexture;\nuniform sampler2D noiseTexture;\nuniform float noiseSize;\nuniform vec3 samples[64];\nuniform mat4 proj;\nuniform mat4 projInverse;\nuniform float radius;\nuniform float bias;\nuniform bool enableSSAO;\nvec3 getViewPosition(vec2 texCoord) {\n    float depth = texture(depthTexture, texCoord).r;\n    vec2 ndc = texCoord * 2.0f - 1.0f;\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\n    vec4 viewSpacePos = projInverse * clipSpacePos;\n    return viewSpacePos.xyz / viewSpacePos.w;\n}\n\nvoid main() {\n    if(!enableSSAO) {\n        ssao = 1.0f;\n        return;\n    }\n    vec2 noiseScale = vec2(textureSize(depthTexture, 0)) / noiseSize;\n\n    vec3 fragPos = getViewPosition(fragUV);\n    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);\n    vec3 randomVec = normalize(texture(noiseTexture, fragUV * noiseScale).xyz);\n\n    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\n    vec3 bitangent = cross(normal, tangent);\n    mat3 TBN = mat3(tangent, bitangent, normal);\n\n    float occlusion = 0.0f;\n\n    for(int i = 0; i < NUM_SAMPLES; i++) {\n        vec3 samplePos = TBN * samples[i];\n        samplePos = fragPos + samplePos * radius;\n\n        vec4 offset = proj * vec4(samplePos, 1.0f);\n        offset.xyz /= offset.w;\n        offset.xyz = offset.xyz * 0.5f + 0.5f;\n\n        if(offset.x < 0.0f || offset.x > 1.0f || offset.y < 0.0f || offset.y > 1.0f) {\n            continue;\n        }\n\n        float sampleDepth = getViewPosition(offset.xy).z;\n        if(texture(depthTexture, offset.xy).r >= 1.0f)\n            continue;\n        float rangeCheck = abs(fragPos.z - sampleDepth) < radius ? 1.0f : 0.0f;\n        occlusion += (sampleDepth >= samplePos.z + bias ? 1.0f : 0.0f) * rangeCheck;\n    }\n\n    occlusion = 1.0f - (occlusion / float(NUM_SAMPLES));\n    ssao = occlusion;\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n#define NUM_SAMPLES 64\r\nin vec2 fragUV;\r\nout float ssao;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D noiseTexture;\r\nuniform float noiseSize;\r\nuniform vec3 samples[64];\r\nuniform mat4 proj;\r\nuniform mat4 projInverse;\r\nuniform float radius;\r\nuniform float bias;\r\nuniform bool enableSSAO;\r\nvec3 getViewPosition(vec2 texCoord) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvoid main() {\r\n    if(!enableSSAO) {\r\n        ssao = 1.0f;\r\n        return;\r\n    }\r\n    // Calculate noise scale to tile noise texture across screen\r\n    vec2 screenSize = vec2(textureSize(depthTexture, 0));\r\n    \r\n    vec3 fragPos = getViewPosition(fragUV);\r\n    \r\n    // Read normal directly from floating point texture\r\n    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);\r\n    \r\n    // Use pixel coordinates with modulo to avoid floating point precision issues and grid artifacts\r\n    // This ensures the noise texture tiles smoothly without visible patterns\r\n    ivec2 screenPos = ivec2(fragUV * screenSize);\r\n    vec3 randomVec = normalize(texture(noiseTexture, vec2(screenPos) / noiseSize).xyz);\r\n\r\n    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\r\n    vec3 bitangent = cross(normal, tangent);\r\n    mat3 TBN = mat3(tangent, bitangent, normal);\r\n\r\n    float occlusion = 0.0f;\r\n\r\n    for(int i = 0; i < NUM_SAMPLES; i++) {\r\n        vec3 samplePos = TBN * samples[i];\r\n        samplePos = fragPos + samplePos * radius;\r\n\r\n        vec4 offset = proj * vec4(samplePos, 1.0f);\r\n        offset.xyz /= offset.w;\r\n        offset.xyz = offset.xyz * 0.5f + 0.5f;\r\n\r\n        if(offset.x < 0.0f || offset.x > 1.0f || offset.y < 0.0f || offset.y > 1.0f) {\r\n            continue;\r\n        }\r\n\r\n        float sampleDepth = getViewPosition(offset.xy).z;\r\n        if(texture(depthTexture, offset.xy).r >= 1.0f)\r\n            continue;\r\n        float rangeCheck = abs(fragPos.z - sampleDepth) < radius ? 1.0f : 0.0f;\r\n        occlusion += (sampleDepth >= samplePos.z + bias ? 1.0f : 0.0f) * rangeCheck;\r\n    }\r\n\r\n    occlusion = 1.0f - (occlusion / float(NUM_SAMPLES));\r\n    ssao = occlusion;\r\n}";
 
 /***/ }),
 
@@ -8382,7 +13643,7 @@ module.exports = "#version 300 es\nprecision highp float;\n#define NUM_SAMPLES 6
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0f);\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
 
 /***/ }),
 
@@ -8393,7 +13654,7 @@ module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) 
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout float ssaoBlur;\nuniform sampler2D ssaoTexture;\nuniform sampler2D depthTexture;\n\nconst int KERNEL_RADIUS = 2;\nconst float sigma_spatial = 2.0f;\nconst float sigma_depth = 0.1f;\n\nvoid main() {\n\n    float centerDepth = texture(depthTexture, fragUV).r;\n    vec2 texelSize = 1.0f / vec2(textureSize(ssaoTexture, 0));\n\n    float sum = 0.0f;\n    float weightSum = 0.0f;\n\n    for(int y = -KERNEL_RADIUS; y <= KERNEL_RADIUS; ++y) {\n        for(int x = -KERNEL_RADIUS; x <= KERNEL_RADIUS; ++x) {\n            vec2 offset = vec2(float(x), float(y)) * texelSize;\n            float sampleSSAO = texture(ssaoTexture, fragUV + offset).r;\n            float sampleDepth = texture(depthTexture, fragUV + offset).r;\n\n            float spatialWeight = exp(-float(x * x + y * y) / (2.0f * sigma_spatial * sigma_spatial));\n            float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0f) / (2.0f * sigma_depth * sigma_depth));\n            float weight = spatialWeight * depthWeight;\n\n            sum += sampleSSAO * weight;\n            weightSum += weight;\n        }\n    }\n    ssaoBlur = sum / weightSum;\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r\nout float ssaoBlur;\r\nuniform sampler2D ssaoTexture;\r\nuniform sampler2D depthTexture;\r\n\r\nconst int KERNEL_RADIUS = 2;\r\nconst float sigma_spatial = 2.0f;\r\nconst float sigma_depth = 0.1f;\r\n\r\nvoid main() {\r\n\r\n    float centerDepth = texture(depthTexture, fragUV).r;\r\n    vec2 texelSize = 1.0f / vec2(textureSize(ssaoTexture, 0));\r\n\r\n    float sum = 0.0f;\r\n    float weightSum = 0.0f;\r\n\r\n    for(int y = -KERNEL_RADIUS; y <= KERNEL_RADIUS; ++y) {\r\n        for(int x = -KERNEL_RADIUS; x <= KERNEL_RADIUS; ++x) {\r\n            vec2 offset = vec2(float(x), float(y)) * texelSize;\r\n            float sampleSSAO = texture(ssaoTexture, fragUV + offset).r;\r\n            float sampleDepth = texture(depthTexture, fragUV + offset).r;\r\n\r\n            float spatialWeight = exp(-float(x * x + y * y) / (2.0f * sigma_spatial * sigma_spatial));\r\n            float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0f) / (2.0f * sigma_depth * sigma_depth));\r\n            float weight = spatialWeight * depthWeight;\r\n\r\n            sum += sampleSSAO * weight;\r\n            weightSum += weight;\r\n        }\r\n    }\r\n    ssaoBlur = sum / weightSum;\r\n}";
 
 /***/ }),
 
@@ -8404,7 +13665,139 @@ module.exports = "#version 300 es\nprecision highp float;\nin vec2 fragUV;\nout 
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) in vec3 position;\nlayout(location = 1) in vec2 uv;\nout vec2 fragUV;\nvoid main() {\n    fragUV = uv;\n    gl_Position = vec4(position, 1.0f);\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadowMask.frag":
+/*!***********************************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadowMask.frag ***!
+  \***********************************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\n#define MAX_SHADOWED_POINT_LIGHTS 5\r\n#define MAX_LIGHTS 100\r\n\r\nin vec2 fragUV;\r\nlayout(location = 0) out float shadowMaskA;\r\nlayout(location = 1) out float shadowMaskB;\r\nlayout(location = 2) out float shadowMaskC;\r\nlayout(location = 3) out float shadowMaskD;\r\nlayout(location = 4) out float shadowMaskE;\r\n\r\nstruct PointLight {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n    float range;\r\n};\r\nuniform PointLight pointLights[MAX_LIGHTS];\r\n\r\nuniform bool usingPCF;\r\nuniform float pointShadowBias;\r\nuniform int numShadowedLights;\r\nuniform int cubeMapSize;\r\nuniform bool cubeShadowsOn;\r\nuniform int jitterSize;\r\nuniform int filterSize;\r\nuniform float pcfRadius;\r\nuniform float slopeFactorClamp;\r\nuniform bool debugPauseMode;\r\n\r\nuniform mat4 pausedView;\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\n\r\n// Use samplerCubeShadow for hardware shadow filtering\r\nuniform highp samplerCubeShadow pointShadowTexture[MAX_SHADOWED_POINT_LIGHTS];\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D normalTexture;\r\nuniform highp sampler3D jitterTexture;\r\n\r\nvec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;  \r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projectionInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {\r\n    vec4 worldPos = viewInverseMatrix * vec4(viewPos, 1.0f);\r\n    return worldPos.xyz;\r\n}\r\n\r\n// Hardware shadow comparison sample - returns 0.0 (shadow) or 1.0 (lit), with LINEAR filtering\r\nfloat pointShadowSample(int lightIndex, vec3 direction, float refDepth) {\r\n    // samplerCubeShadow takes vec4(direction.xyz, refDepth) and returns comparison result\r\n    switch(lightIndex) {\r\n        case 0:\r\n            return texture(pointShadowTexture[0], vec4(direction, refDepth));\r\n        case 1:\r\n            return texture(pointShadowTexture[1], vec4(direction, refDepth));\r\n        case 2:\r\n            return texture(pointShadowTexture[2], vec4(direction, refDepth));\r\n        case 3:\r\n            return texture(pointShadowTexture[3], vec4(direction, refDepth));\r\n        case 4:\r\n            return texture(pointShadowTexture[4], vec4(direction, refDepth));\r\n        default:\r\n            return 1.0f;\r\n    }\r\n}\r\n\r\nfloat computePointShadow(vec3 worldPos, vec3 worldNormal, int lightIndex) {\r\n    if (lightIndex >= numShadowedLights) {\r\n        return 1.0f;\r\n    }\r\n    if(!cubeShadowsOn) {\r\n        return 1.0f;\r\n    }\r\n    vec3 toFrag = worldPos - pointLights[lightIndex].position;\r\n    float currentDist = length(toFrag);\r\n    float shadowMapRange = pointLights[lightIndex].range;\r\n    vec3 lightDir = normalize(-toFrag);\r\n    // Calculate slope-scaled bias using tan(angle) instead of cos\r\n    float ndotl = max(dot(worldNormal, lightDir), 0.0f);\r\n    float cosAngle = ndotl;\r\n    float sinAngle = sqrt(max(1.0f - cosAngle * cosAngle, 0.0f));\r\n    float tanAngle = (cosAngle > 0.001f) ? sinAngle / cosAngle : 1000.0f; // Avoid division by zero\r\n    float slopeFactor = clamp(tanAngle, 0.0f, slopeFactorClamp);\r\n    // Bias is applied to the normalized depth (0-1 range)\r\n    float depthBias = pointShadowBias * (1.0f + slopeFactor);\r\n    \r\n    if(currentDist > shadowMapRange) {\r\n        return 1.0f;\r\n    }\r\n    \r\n    // Reference depth for hardware comparison (normalized distance - bias)\r\n    float refDepth = (currentDist / shadowMapRange) - depthBias;\r\n\r\n    if(usingPCF) {\r\n        ivec3 offsetCoord;\r\n        vec2 f = mod(gl_FragCoord.xy, vec2(jitterSize));\r\n        offsetCoord.yz = ivec2(f);\r\n        float shadow = 0.0f;\r\n        int samplesDiv2 = (filterSize * filterSize) / 2;\r\n        // For cube maps, texel size in world space depends on distance from light\r\n        // Calculate world-space texel size based on current distance and cube map resolution\r\n        float texelSizeWorld = (currentDist / float(cubeMapSize)) * 2.0f;\r\n        \r\n        vec3 forward = normalize(toFrag);\r\n        vec3 right = cross(forward, vec3(0, 1, 0));\r\n        if(length(right) < 0.001f) {\r\n            // If forward is parallel to up vector, use different basis\r\n            right = cross(forward, vec3(1, 0, 0));\r\n        }\r\n        right = normalize(right);\r\n        vec3 up = normalize(cross(right, forward));\r\n\r\n        // First pass - initial samples (matches CSM pattern)\r\n        for(int i = 0; i < filterSize/2; i++) {\r\n            offsetCoord.x = i;\r\n            vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;\r\n            // Scale offsets by world-space texel size\r\n            vec3 offset = right * Offsets.r * texelSizeWorld + up * Offsets.g * texelSizeWorld;\r\n            vec3 sc = normalize(toFrag + offset);\r\n            // Hardware shadow comparison returns 0.0 or 1.0 (with LINEAR filtering interpolation)\r\n            shadow += pointShadowSample(lightIndex, sc, refDepth) / float(filterSize);\r\n\r\n            offset = right * Offsets.b * texelSizeWorld + up * Offsets.a * texelSizeWorld;\r\n            sc = normalize(toFrag + offset);\r\n            shadow += pointShadowSample(lightIndex, sc, refDepth) / float(filterSize);\r\n        }\r\n        \r\n        // Second pass - additional samples only if in penumbra (matches CSM pattern)\r\n        if((shadow - 1.0f) * shadow * ndotl != 0.0f) {\r\n            shadow *= 1.0f / float(filterSize);\r\n            for(int i = filterSize/2; i < samplesDiv2 - filterSize/2; i++) {\r\n                offsetCoord.x = i;\r\n                vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * pcfRadius;\r\n                vec3 offset = right * Offsets.r * texelSizeWorld + up * Offsets.g * texelSizeWorld;\r\n                vec3 sc = normalize(toFrag + offset);\r\n                shadow += pointShadowSample(lightIndex, sc, refDepth) / float(samplesDiv2 * 2);\r\n\r\n                offset = right * Offsets.b * texelSizeWorld + up * Offsets.a * texelSizeWorld;\r\n                sc = normalize(toFrag + offset);\r\n                shadow += pointShadowSample(lightIndex, sc, refDepth) / float(samplesDiv2 * 2);\r\n            }\r\n        }\r\n        return shadow;\r\n    }\r\n    \r\n    // Non-PCF path: single hardware shadow comparison sample\r\n    return pointShadowSample(lightIndex, toFrag, refDepth);\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV, projInverse);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);\r\n\r\n    // Compute world normal from normal texture (view space -> world space)\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n\r\n    shadowMaskA = computePointShadow(fragWorldPos, worldNormal, 0);\r\n    shadowMaskB = computePointShadow(fragWorldPos, worldNormal, 1);\r\n    shadowMaskC = computePointShadow(fragWorldPos, worldNormal, 2);\r\n    shadowMaskD = computePointShadow(fragWorldPos, worldNormal, 3);\r\n    shadowMaskE = computePointShadow(fragWorldPos, worldNormal, 4);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadowMask.vert":
+/*!***********************************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadowMask.vert ***!
+  \***********************************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(location = 0) in vec3 position;\r\nout vec2 fragUV;\r\n\r\nvoid main(){\r\n    fragUV = position.xy * 0.5 + 0.5;\r\n    gl_Position = vec4(position, 1.0);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.frag":
+/*!********************************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.frag ***!
+  \********************************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nuniform vec3 lightPos;\r\nuniform float lightRadius;\r\nuniform float lightRange;\r\n\r\nin vec3 fragPosition;\r\n\r\nvoid main(){\r\n    float distance = length(lightPos - fragPosition);\r\n    // Normalize by range to match the shadow map range\r\n    // This ensures shadows work correctly up to where light still has meaningful contribution\r\n    // Write to gl_FragDepth for hardware shadow comparison\r\n    gl_FragDepth = distance / lightRange;\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.vert":
+/*!********************************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.vert ***!
+  \********************************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nuniform mat4 lightSpaceMatrix;\r\nuniform mat4 model;\r\n\r\nlayout(location = 0) in vec3 position;\r\nout vec3 fragPosition;\r\n\r\nvoid main(){\r\n    vec4 worldPosition = model * vec4(position,1.0);\r\n    fragPosition = worldPosition.xyz;\r\n    gl_Position = lightSpaceMatrix * worldPosition;\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/ShadowBlur.frag":
+/*!*******************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/ShadowBlur.frag ***!
+  \*******************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nin vec2 fragUV;\r\nlayout (location = 0) out float blurredSunShadowMask;\r\nlayout (location = 1) out float blurredpointShadowMaskA;\r\nlayout (location = 2) out float blurredpointShadowMaskB;\r\nlayout (location = 3) out float blurredpointShadowMaskC;\r\nlayout (location = 4) out float blurredpointShadowMaskD;\r\nlayout (location = 5) out float blurredpointShadowMaskE;\r\n\r\nuniform sampler2D sunShadowMask;\r\nuniform sampler2D pointShadowMaskA;\r\nuniform sampler2D pointShadowMaskB;\r\nuniform sampler2D pointShadowMaskC;\r\nuniform sampler2D pointShadowMaskD;\r\nuniform sampler2D pointShadowMaskE;\r\nuniform sampler2D depthTexture;\r\n\r\n\r\nconst int KERNEL_RADIUS = 2;\r\nconst int level = 2;\r\nconst float sigma_spatial = 2.0f;\r\nconst float sigma_depth = 0.1f;\r\n\r\nvoid main() {\r\n    \r\n    float centerDepth = texture(depthTexture, fragUV).r;\r\n    vec2 texelSize = 1.0f / vec2(textureSize(sunShadowMask, level));\r\n\r\n    float sunShadowSum = 0.0f;\r\n    float pointShadowASum = 0.0f;\r\n    float pointShadowBSum = 0.0f;\r\n    float pointShadowCSum = 0.0f;\r\n    float pointShadowDSum = 0.0f;\r\n    float pointShadowESum = 0.0f;\r\n    float weightSum = 0.0f;\r\n\r\n    for(int y = -KERNEL_RADIUS; y <= KERNEL_RADIUS; ++y) {\r\n        for(int x = -KERNEL_RADIUS; x <= KERNEL_RADIUS; ++x) {\r\n            vec2 offset = vec2(float(x), float(y)) * texelSize;\r\n            float sampleSunShadowMask = textureLod(sunShadowMask, fragUV + offset, float(level)).r;\r\n            float samplePointShadowMaskA = textureLod(pointShadowMaskA, fragUV + offset, float(level)).r;\r\n            float samplePointShadowMaskB = textureLod(pointShadowMaskB, fragUV + offset, float(level)).r;\r\n            float samplePointShadowMaskC = textureLod(pointShadowMaskC, fragUV + offset, float(level)).r;\r\n            float samplePointShadowMaskD = textureLod(pointShadowMaskD, fragUV + offset, float(level)).r;\r\n            float samplePointShadowMaskE = textureLod(pointShadowMaskE, fragUV + offset, float(level)).r;\r\n\r\n            float sampleDepth = texture(depthTexture, fragUV + offset).r;\r\n\r\n            float spatialWeight = exp(-float(x * x + y * y) / (2.0f * sigma_spatial * sigma_spatial));\r\n            float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0f) / (2.0f * sigma_depth * sigma_depth));\r\n            float weight = spatialWeight * depthWeight;\r\n\r\n            sunShadowSum += sampleSunShadowMask * weight;\r\n            pointShadowASum += samplePointShadowMaskA * weight;\r\n            pointShadowBSum += samplePointShadowMaskB * weight;\r\n            pointShadowCSum += samplePointShadowMaskC * weight;\r\n            pointShadowDSum += samplePointShadowMaskD * weight;\r\n            pointShadowESum += samplePointShadowMaskE * weight;\r\n        \r\n            weightSum += weight;\r\n        }\r\n    }\r\n    blurredSunShadowMask = sunShadowSum / weightSum;\r\n    blurredpointShadowMaskA = pointShadowASum / weightSum;\r\n    blurredpointShadowMaskB = pointShadowBSum / weightSum;\r\n    blurredpointShadowMaskC = pointShadowCSum / weightSum;\r\n    blurredpointShadowMaskD = pointShadowDSum / weightSum;\r\n    blurredpointShadowMaskE = pointShadowESum / weightSum;\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/ShadowBlur.vert":
+/*!*******************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/ShadowBlur.vert ***!
+  \*******************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec2 uv;\r\nout vec2 fragUV;\r\nvoid main() {\r\n    fragUV = uv;\r\n    gl_Position = vec4(position, 1.0f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSM.frag":
+/*!**********************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSM.frag ***!
+  \**********************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nvoid main() {\r\n    //nothing, depth is automatically written\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSM.vert":
+/*!**********************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSM.vert ***!
+  \**********************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nuniform mat4 lightSpaceMatrix;\r\nuniform mat4 model;\r\n\r\nlayout(location = 0) in vec3 position;\r\n\r\nvoid main(){\r\n    gl_Position = lightSpaceMatrix * model * vec4(position,1.0);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSMShadowMask.frag":
+/*!********************************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSMShadowMask.frag ***!
+  \********************************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nin vec2 fragUV;\r\n// Output: R = shadow mask, G = primary cascade (normalized), B = secondary cascade (normalized), A = blend factor\r\nout vec4 shadowMaskData;\r\n\r\nuniform highp sampler2DArrayShadow shadowDepthTextureArray;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D normalTexture;\r\nuniform highp sampler3D jitterTexture;\r\n\r\nuniform mat4 lightSpaceMatrices[8];\r\nuniform float cascadeSplits[8];\r\nuniform float cascadeBlendWidth;\r\nuniform bool usingPCF;\r\nuniform float csmShadowBias[8];\r\nuniform float csmPcfBiasScale[8];\r\nuniform int csmShadowMapSize;\r\nuniform int numCascades;\r\nuniform bool csmEnabled;\r\n\r\nuniform int jitterSize;\r\nuniform int filterSize;\r\nuniform float pcfRadius;\r\nuniform float jitterScale;\r\nuniform float slopeFactorClamp;\r\nuniform bool debugPauseMode;\r\nuniform bool sunDisabled;\r\n\r\nuniform mat4 pausedView;\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\n\r\nstruct DirectionalLight {\r\n    vec3 direction;\r\n    vec3 color;\r\n    float intensity;\r\n};\r\nuniform DirectionalLight SunLight;\r\n\r\nvec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projectionInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {\r\n    vec4 worldPos = viewInverseMatrix * vec4(viewPos, 1.0f);\r\n    return worldPos.xyz;\r\n}\r\n\r\n// Cascade blend info structure\r\nstruct CascadeBlendInfo {\r\n    int primaryCascade;   // Main cascade to sample\r\n    int secondaryCascade; // Cascade to blend with (for smooth transitions)\r\n    float blendFactor;    // 0.0 = use primary only, 1.0 = use secondary only\r\n};\r\n\r\n// Choose cascade based on view depth with blending near split boundaries\r\nCascadeBlendInfo chooseCascadeWithBlend(float viewDepth) {\r\n    CascadeBlendInfo info;\r\n    float depth = abs(viewDepth);\r\n\r\n    info.primaryCascade = numCascades - 1;\r\n    info.secondaryCascade = numCascades - 1;\r\n    info.blendFactor = 0.0f;\r\n\r\n    for(int i = 0; i < 8; i++) {\r\n        if(i >= numCascades)\r\n            break;\r\n        if(depth < cascadeSplits[i]) {\r\n            info.primaryCascade = i;\r\n            info.secondaryCascade = min(i + 1, numCascades - 1);\r\n\r\n            // Calculate blend region near the split boundary\r\n            float splitDist = cascadeSplits[i];\r\n            float prevSplit = (i > 0) ? cascadeSplits[i - 1] : 0.0f;\r\n            float cascadeRange = splitDist - prevSplit;\r\n            float blendStart = splitDist - cascadeRange * cascadeBlendWidth;\r\n\r\n            if(depth > blendStart && i < numCascades - 1) {\r\n                info.blendFactor = smoothstep(blendStart, splitDist, depth);\r\n            }\r\n            return info;\r\n        }\r\n    }\r\n    return info;\r\n}\r\n\r\n\r\n\r\nfloat computeSunShadow(vec3 worldPos, vec3 worldNormal, int cascadeIndex) {\r\n    // If CSM is disabled, return no shadow\r\n    if(!csmEnabled) {\r\n        return 1.0f;\r\n    }\r\n\r\n    vec3 lightDir = normalize(-SunLight.direction);\r\n    float ndotl = max(dot(worldNormal, lightDir), 0.0f);\r\n    // Calculate slope-scaled bias using tan(angle) instead of cos\r\n    // tan(angle) = sin(angle) / cos(angle) = sqrt(1 - cos²(angle)) / cos(angle)\r\n    float cosAngle = ndotl;\r\n    float sinAngle = sqrt(max(1.0f - cosAngle * cosAngle, 0.0f));\r\n    float tanAngle = (cosAngle > 0.001f) ? sinAngle / cosAngle : 1000.0f; // Avoid division by zero\r\n    float slopeFactor = clamp(tanAngle, 0.0f, slopeFactorClamp);\r\n    float baseBias = csmShadowBias[cascadeIndex];\r\n    float cascadeBias = baseBias * (1.0f + slopeFactor);\r\n    if(usingPCF) {\r\n        // PCF bias only accounts for sampling offset, not slope (base bias already handles slope)\r\n        float texelSize = 1.0f / float(csmShadowMapSize);\r\n        float maxOffsetDistance = pcfRadius * 1.414213562f; \r\n        float pcfBias = maxOffsetDistance * texelSize * csmPcfBiasScale[cascadeIndex];\r\n        cascadeBias += pcfBias;\r\n    }\r\n    \r\n    //World Space to Light Space\r\n    vec4 lp = lightSpaceMatrices[cascadeIndex] * vec4(worldPos, 1.0f);\r\n    vec3 projCoords = lp.xyz / lp.w; // NDC\r\n\r\n    //NDC to UV\r\n    projCoords = projCoords * 0.5f + 0.5f;\r\n\r\n    // Check if fragment is outside the shadow map bounds\r\n    if(projCoords.x < 0.0f || projCoords.x > 1.0f ||\r\n        projCoords.y < 0.0f || projCoords.y > 1.0f ||\r\n        projCoords.z < 0.0f || projCoords.z > 1.0f) {\r\n        // Fragment is outside shadow map, consider it lit (or in shadow based on your preference)\r\n        return 1.0f; // Return lit for fragments outside the shadow frustum\r\n    }\r\n\r\n    if(usingPCF) {\r\n        ivec3 offsetCoord;\r\n        vec2 f = mod(vec2(gl_FragCoord.xy) * jitterScale, vec2(jitterSize));\r\n        offsetCoord.yz = ivec2(f);\r\n        float shadow = 0.0f;\r\n        int samplesDiv2 = (filterSize * filterSize) / 2;\r\n        float texelSize = 1.0f / float(csmShadowMapSize);\r\n\r\n        float cascadeScale = 1.0f;\r\n        if(cascadeIndex > 0 && cascadeSplits[0] > 0.0f) {\r\n            // Calculate the depth range of the first cascade (reference)\r\n            float firstCascadeRange = cascadeSplits[0];\r\n            // Calculate the depth range of the current cascade\r\n            float currentCascadeNear = cascadeSplits[cascadeIndex - 1];\r\n            float currentCascadeRange = cascadeSplits[cascadeIndex] - currentCascadeNear;\r\n            // Scale PCF radius inversely with relative cascade size\r\n            // Larger cascades (larger range) get smaller PCF radius to maintain same world-space filter size\r\n            cascadeScale = firstCascadeRange / max(currentCascadeRange, 0.001f);\r\n        }\r\n        float scaledPcfRadius = pcfRadius * cascadeScale;\r\n\r\n        vec2 sc;\r\n        float refDepth = projCoords.z - cascadeBias;\r\n        for(int i = 0; i < filterSize/2; i++) {\r\n            offsetCoord.x = i;\r\n            vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * scaledPcfRadius;\r\n            sc = projCoords.xy + Offsets.rg * texelSize;\r\n            shadow += texture(shadowDepthTextureArray, vec4(sc, float(cascadeIndex), refDepth)) / float(filterSize);\r\n            sc = projCoords.xy + Offsets.ba * texelSize;\r\n            shadow += texture(shadowDepthTextureArray, vec4(sc, float(cascadeIndex), refDepth)) / float(filterSize);\r\n        }\r\n        if((shadow - 1.0f) * shadow * ndotl != 0.0f) {\r\n            shadow *= 1.0f / float(filterSize);\r\n            for(int i = filterSize/2; i < samplesDiv2 - filterSize/2; i++) {\r\n                offsetCoord.x = i;\r\n                vec4 Offsets = texelFetch(jitterTexture, offsetCoord, 0) * scaledPcfRadius;\r\n                sc = projCoords.xy + Offsets.rg * texelSize;\r\n                shadow += texture(shadowDepthTextureArray, vec4(sc, float(cascadeIndex), refDepth)) / float(samplesDiv2 * 2);\r\n                sc = projCoords.xy + Offsets.ba * texelSize;\r\n                shadow += texture(shadowDepthTextureArray, vec4(sc, float(cascadeIndex), refDepth)) / float(samplesDiv2 * 2);\r\n            }\r\n        }\r\n        return shadow;\r\n    }\r\n\r\n    // Hardware shadow comparison: returns 0.0 (in shadow) or 1.0 (lit)\r\n    // With LINEAR filtering, this also does 2x2 PCF automatically\r\n    float refDepth = projCoords.z - cascadeBias;\r\n    return texture(shadowDepthTextureArray, vec4(projCoords.xy, float(cascadeIndex), refDepth));\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV, projInverse);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);\r\n\r\n    // Compute world normal from normal texture (view space -> world space)\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n\r\n    float cascadeViewDepth = abs(fragViewPos.z);\r\n    if(debugPauseMode) {\r\n        vec4 pausedViewPos = pausedView * vec4(fragWorldPos, 1.0f);\r\n        cascadeViewDepth = abs(pausedViewPos.z);\r\n    }\r\n\r\n    CascadeBlendInfo cascadeInfo = chooseCascadeWithBlend(cascadeViewDepth);\r\n    int cascadeIndex = cascadeInfo.primaryCascade;\r\n\r\n    // Compute sun shadow with optional blending between cascades\r\n    float sunShadow;\r\n    if(cascadeInfo.blendFactor > 0.0f && cascadeInfo.secondaryCascade != cascadeInfo.primaryCascade) {\r\n        // Blend shadows between two cascades for smooth transitions\r\n        float shadowPrimary = computeSunShadow(fragWorldPos, worldNormal, cascadeInfo.primaryCascade);\r\n        float shadowSecondary = computeSunShadow(fragWorldPos, worldNormal, cascadeInfo.secondaryCascade);\r\n        sunShadow = mix(shadowPrimary, shadowSecondary, cascadeInfo.blendFactor);\r\n    } else {\r\n        sunShadow = computeSunShadow(fragWorldPos, worldNormal, cascadeIndex);\r\n    }\r\n\r\n    // Output: R = shadow, G = primary cascade (normalized 0-1), B = secondary cascade (normalized 0-1), A = blend factor\r\n    shadowMaskData = vec4(\r\n        sunShadow,\r\n        float(cascadeInfo.primaryCascade) / 8.0f,\r\n        float(cascadeInfo.secondaryCascade) / 8.0f,\r\n        cascadeInfo.blendFactor\r\n    );\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSMShadowMask.vert":
+/*!********************************************************************************!*\
+  !*** ./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSMShadowMask.vert ***!
+  \********************************************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(location = 0) in vec3 position;\r\nout vec2 fragUV;\r\n\r\nvoid main(){\r\n    fragUV = position.xy * 0.5 + 0.5;\r\n    gl_Position = vec4(position, 1.0);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/Grass/GrassGeometry.frag":
+/*!**************************************************!*\
+  !*** ./src/render/glsl/Grass/GrassGeometry.frag ***!
+  \**************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision lowp float;\r\nin float vHeight;\r\nin vec3 vNormal;\r\nin float vCurveAngle;\r\nlayout(location = 0) out vec4 fragNormal;\r\nlayout(location = 1) out vec4 fragAlbedo;\r\nvoid main() {\r\n    fragNormal = vec4(normalize(vNormal), 1.0f);\r\n    fragAlbedo = vec4(vHeight, vCurveAngle, 0.0f, 0.5f);\r\n}";
+
+/***/ }),
+
+/***/ "./src/render/glsl/Grass/GrassGeometry.vert":
+/*!**************************************************!*\
+  !*** ./src/render/glsl/Grass/GrassGeometry.vert ***!
+  \**************************************************/
+/***/ ((module) => {
+
+"use strict";
+module.exports = "#version 300 es\r\nprecision lowp float;\r\n\r\nlayout(location = 0) in vec3 localPosition;\r\nlayout(location = 1) in vec3 basePosition;\r\nlayout(location = 2) in float randomLean;\r\nlayout(location = 3) in float rotAngle;\r\nuniform mat4 viewMatrix;\r\nuniform mat4 projMatrix;\r\nuniform mat4 modelMatrix;\r\nuniform sampler2D windStrengthNoiseTex;\r\nuniform sampler2D windDirectionNoiseTex;\r\nuniform float time;\r\nuniform float grassWindStrength;\r\nuniform float grassWindSpeed;\r\nuniform float grassWindFrequency;\r\nout float vHeight;\r\nout vec3 vNormal;\r\nout float vCurveAngle;\r\n\r\nconst float PI = 3.14159265359f;\r\nmat3 rotateAxisAngle(vec3 axis, float angle) {\r\n    float s = sin(angle);\r\n    float c = cos(angle);\r\n    float oc = 1.0f - c;\r\n\r\n    return mat3(oc * axis.x * axis.x + c, oc * axis.x * axis.y - axis.z * s, oc * axis.z * axis.x + axis.y * s, oc * axis.x * axis.y + axis.z * s, oc * axis.y * axis.y + c, oc * axis.y * axis.z - axis.x * s, oc * axis.z * axis.x - axis.y * s, oc * axis.y * axis.z + axis.x * s, oc * axis.z * axis.z + c);\r\n}\r\nfloat easeOut(float t, float power) {\r\n    return 1.0f - pow(1.0f - t, power);\r\n}\r\nfloat remap(float value, float min1, float max1, float min2, float max2) {\r\n    return min2 + (value - min1) * (max2 - min2) / (max1 - min1);\r\n}\r\nvoid main() {\r\n    float windSamplePos = basePosition.x * 0.1f + time * grassWindSpeed;\r\n    float windSamplePosZ = basePosition.z * 0.1f + time * grassWindSpeed;\r\n    float windStrengthSample = texture(windStrengthNoiseTex, vec2(windSamplePos, windSamplePosZ) * grassWindFrequency).r;\r\n    float windDir = texture(windDirectionNoiseTex, vec2(windSamplePos + 100.0f, windSamplePosZ + 100.0f) * grassWindFrequency).r * 2.0f * PI;\r\n    windDir = remap(windDir, 0.0f, 2.0f * PI, -PI, PI);\r\n    float windLeanAngle = remap(windStrengthSample, 0.0f, 1.0f, 0.0f, grassWindStrength);\r\n    windLeanAngle = easeOut(windLeanAngle, 2.0f);\r\n    vec3 windAxis = vec3(-sin(windDir), 0.0f, cos(windDir));\r\n    mat3 windRotation = rotateAxisAngle(windAxis, windLeanAngle);\r\n\r\n    // Rotate grass blade around Y-axis based on rotAngle\r\n    mat3 yRotation = rotateAxisAngle(vec3(0.0f, 1.0f, 0.0f), rotAngle);\r\n    vec3 rotatedLocal = yRotation * localPosition;\r\n\r\n    float curveAmount = randomLean * rotatedLocal.y;\r\n\r\n    float curveAngle = rotAngle + PI / 2.0f;\r\n    vec3 curveAxis = vec3(-sin(curveAngle), 0.0f, cos(curveAngle));\r\n    mat3 rotCurve = rotateAxisAngle(curveAxis, curveAmount) * windRotation;\r\n\r\n    vec3 Pos = rotCurve * rotatedLocal;\r\n\r\n    vec3 worldPosition = basePosition + Pos;\r\n    vHeight = rotatedLocal.y;\r\n    // Calculate normal\r\n    // Tangent along the blade (Y direction)\r\n    vec3 tangent = rotCurve * yRotation * vec3(0.0f, 1.0f, 0.0f);\r\n    // Bitangent perpendicular to the blade\r\n    vec3 bitangent = rotCurve * yRotation * vec3(1.0f, 0.0f, 0.0f);\r\n    // Normal is cross product\r\n    vNormal = normalize(cross(tangent, bitangent));\r\n\r\n    vCurveAngle = curveAngle;\r\n\r\n    gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(worldPosition, 1.0f);\r\n\r\n}";
 
 /***/ }),
 
@@ -8417,7 +13810,8 @@ module.exports = "#version 300 es\nprecision highp float;\nlayout(location = 0) 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   CloudsPass: () => (/* binding */ CloudsPass)
+/* harmony export */   CloudsPass: () => (/* binding */ CloudsPass),
+/* harmony export */   NoiseGenerator: () => (/* binding */ NoiseGenerator)
 /* harmony export */ });
 /* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../Settings */ "./src/Settings.ts");
 /* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
@@ -8425,24 +13819,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
 /* harmony import */ var _glsl_Clouds_Clouds_vert__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/Clouds/Clouds.vert */ "./src/render/glsl/Clouds/Clouds.vert");
 /* harmony import */ var _glsl_Clouds_Clouds_frag__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../glsl/Clouds/Clouds.frag */ "./src/render/glsl/Clouds/Clouds.frag");
-/* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
-/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-var __extends = (undefined && undefined.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
+/* harmony import */ var _map_Light__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../../map/Light */ "./src/map/Light.ts");
+/* harmony import */ var _assets_coverage_map_png__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ../../../assets/coverage map.png */ "./assets/coverage map.png");
 
 
 
@@ -8452,83 +13834,182 @@ var __extends = (undefined && undefined.__extends) || (function () {
 
 
 
-var CloudsPass = /** @class */ (function (_super) {
-    __extends(CloudsPass, _super);
-    function CloudsPass(gl, resourceCache, canvas, renderGraph) {
-        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
-        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.VAOInputType.FULLSCREENQUAD;
-        _this.pathtracerRender = true;
-        _this.settingsSection = null;
-        _this.noiseTexture = null;
-        _this.weatherMapTexture = null;
-        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__.RenderUtils.CreateProgram(gl, _glsl_Clouds_Clouds_vert__WEBPACK_IMPORTED_MODULE_4__, _glsl_Clouds_Clouds_frag__WEBPACK_IMPORTED_MODULE_5__);
-        _this.renderTarget = _this.initRenderTarget();
-        _this.InitSettings();
-        _this.noiseGenerator = new NoiseGenerator(gl);
-        _this.noiseTexture = _this.noiseGenerator.generateCloudNoiseTex(32);
-        _this.weatherMapTexture = _this.noiseGenerator.generateWeatherMap(128);
-        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_3__.getUniformLocations)(gl, _this.program, [
+
+class CloudsPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph) {
+        super(gl, resourceCache, canvas, renderGraph);
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.VAOInputType.FULLSCREENQUAD;
+        this.pathtracerRender = false;
+        this.noiseTexture = null;
+        this.weatherMapTexture = null;
+        this.previousView = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create();
+        this.previousCloudTexture = null;
+        this.cloudTextures = [];
+        this.pingPongIndex = 0;
+        this.frameCounter = 0;
+        this.previousCameraPosition = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
+        this.lastQuery = null;
+        this.lastExt = null;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__.RenderUtils.CreateProgram(gl, _glsl_Clouds_Clouds_vert__WEBPACK_IMPORTED_MODULE_4__, _glsl_Clouds_Clouds_frag__WEBPACK_IMPORTED_MODULE_5__);
+        this.renderTarget = this.initRenderTarget();
+        this.InitSettings();
+        this.noiseGenerator = new NoiseGenerator(gl);
+        this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(64);
+        const weatherMapPromise = this.noiseGenerator.generateWeatherMap(128);
+        weatherMapPromise.then((texture) => {
+            this.weatherMapTexture = texture;
+        });
+        this.noiseDetailTexture =
+            this.noiseGenerator.generateDetailedCloudNoiseTex(32);
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_3__.getUniformLocations)(gl, this.program, [
             "viewInverse",
             "projInverse",
-            "cameraPosition"
+            "matViewProj",
+            "cameraPosition",
+            "cubeMin",
+            "cubeMax",
+            "sunPos",
+            "sunColor",
+            "time",
+            "previousView",
+            "tanFovBy2",
+            "previousCloudTexture"
         ]);
-        return _this;
     }
-    CloudsPass.prototype.initRenderTarget = function () {
-        return { fbo: null, textures: {} };
-    };
-    CloudsPass.prototype.render = function (vao_info, pathtracerOn) {
-        var _a;
-        var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+    initRenderTarget() {
+        const fbo = this.gl.createFramebuffer();
+        // Use RGBA16F for HDR support (preserves emissive bloom values)
+        const colorTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT, null, this.gl.LINEAR, this.gl.LINEAR, this.gl.CLAMP_TO_EDGE, this.gl.CLAMP_TO_EDGE);
+        const colorTexture1 = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT, null, this.gl.LINEAR, this.gl.LINEAR, this.gl.CLAMP_TO_EDGE, this.gl.CLAMP_TO_EDGE);
+        this.cloudTextures = [colorTexture, colorTexture1];
+        this.previousCloudTexture = colorTexture1;
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, colorTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-        this.gl.enable(this.gl.BLEND);
-        this.gl.blendFunc(this.gl.ONE, this.gl.ONE_MINUS_SRC_ALPHA);
+        return {
+            fbo: fbo,
+            textures: {
+                cloudsTexture: colorTexture,
+            }
+        };
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        // --- Ping-pong logic ---
+        const writeIndex = this.pingPongIndex;
+        const readIndex = 1 - this.pingPongIndex;
+        const currentTexture = this.cloudTextures[writeIndex];
+        const previousTexture = this.cloudTextures[readIndex];
+        // Update render target textures
+        if (this.renderTarget) {
+            this.renderTarget.textures = {
+                cloudsTexture: currentTexture,
+            };
+        }
+        // --- Attach the correct texture to the framebuffer for writing ---
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, currentTexture, 0);
+        // --- State setup ---
+        this.gl.disable(this.gl.BLEND);
+        this.gl.clearColor(0, 0, 0, 0.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
         this.gl.depthMask(false);
         this.gl.disable(this.gl.DEPTH_TEST);
+        // --- Shader & VAO ---
         this.gl.useProgram(this.program);
         this.gl.bindVertexArray(vao.vao);
-        var gBuffer = this.renderGraph.getOutputs(this);
-        var depthTexture = gBuffer["depth"];
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "cubeMin"), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(-300, 100, -300));
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "cubeMax"), gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(300, 160, 300));
-        // Bind 3D texture
-        this.gl.activeTexture(this.gl.TEXTURE0);
-        this.gl.bindTexture(this.gl.TEXTURE_3D, this.noiseTexture);
-        this.gl.uniform1i(this.gl.getUniformLocation(this.program, "noiseTexture"), 0);
-        // Bind weather map texture
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.bindTex(this.gl, this.program, this.weatherMapTexture, "weatherMap", 1);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 2);
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "sunPos"), this.resourceCache.getData("lights")[0].position);
-        this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "sunColor"), this.resourceCache.getData("lights")[0].color.createVec3());
-        var cameraInfo = this.resourceCache.getData("CameraInfo");
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        // --- Uniforms & Textures ---
+        const gBuffer = this.renderGraph.getOutputs(this);
+        const depthTexture = gBuffer["depth"];
+        const cameraPosition = this.resourceCache.getData("cameraPosition") ?? gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(0, 0, 0);
+        const boxWidth = _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.getSetting("CLOUDS_boxWidth")?.value;
+        const boxHeight = _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.getSetting("CLOUDS_boxHeight")?.value;
+        const cloudBaseHeight = _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.getSetting("CLOUDS_height")?.value;
+        this.gl.uniform3fv(this.uniforms["cubeMin"], gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(-boxWidth / 2 + cameraPosition[0], cloudBaseHeight, -boxWidth / 2 + cameraPosition[2]));
+        this.gl.uniform3fv(this.uniforms["cubeMax"], gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(boxWidth / 2 + cameraPosition[0], cloudBaseHeight + boxHeight, boxWidth / 2 + cameraPosition[2]));
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.bindTex(this.gl, this.program, this.noiseTexture, "noiseTexture", 0, this.gl.TEXTURE_3D);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.bindTex(this.gl, this.program, this.noiseDetailTexture, "detailNoiseTexture", 1, this.gl.TEXTURE_3D);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.bindTex(this.gl, this.program, this.weatherMapTexture, "weatherMap", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 3);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.bindTex(this.gl, this.program, previousTexture, "previousCloudTexture", 4);
+        this.gl.uniform3fv(this.uniforms["cameraPosition"], cameraPosition);
+        const sunLight = this.resourceCache.getData("sunLight");
+        let sunPos, sunColor;
+        if (sunLight instanceof _map_Light__WEBPACK_IMPORTED_MODULE_7__.DirectionalLight && !this.resourceCache.getData("disableSun")) {
+            sunPos = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_10__.scale(sunPos, sunLight.direction, -1000.0);
+            sunColor = sunLight.color.createVec3();
+        }
+        else {
+            sunPos = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(0, 1000, 0);
+            sunColor = gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(1, 1, 1);
+        }
+        this.gl.uniform3fv(this.uniforms["sunPos"], sunPos);
+        this.gl.uniform3fv(this.uniforms["sunColor"], sunColor);
+        const cameraInfo = this.resourceCache.getData("CameraInfo");
         this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
         this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
-        this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getData("cameraPosition"));
-        this.gl.uniform1f(this.gl.getUniformLocation(this.program, "time"), performance.now() * 0.001 // Convert to seconds
-        );
-        (_a = this.settingsSection) === null || _a === void 0 ? void 0 : _a.updateUniforms(this.gl);
-        if (!pathtracerOn || this.pathtracerRender) {
-            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.uniformMatrix4fv(this.uniforms["matViewProj"], false, cameraInfo.matViewProj);
+        this.gl.uniformMatrix4fv(this.uniforms["previousView"], false, this.previousView);
+        this.gl.uniform2fv(this.uniforms["tanFovBy2"], gl_matrix__WEBPACK_IMPORTED_MODULE_11__.fromValues(Math.tan(this.resourceCache.getData("fovY") * 0.5) * this.resourceCache.getData("aspectRatio"), Math.tan(this.resourceCache.getData("fovY") * 0.5)));
+        this.gl.uniform1f(this.uniforms["time"], performance.now() * 0.001);
+        // Update all settings uniforms
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.updateProgramUniforms(this.gl, this.program);
+        // Update previous camera position and previousViewProj for reprojection
+        gl_matrix__WEBPACK_IMPORTED_MODULE_10__.copy(this.previousCameraPosition, cameraPosition);
+        this.previousView = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.clone(cameraInfo.matView);
+        // Update all settings uniforms
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.updateProgramUniforms(this.gl, this.program);
+        // --- GPU Timer Query ---
+        const ext = this.gl.getExtension("EXT_disjoint_timer_query_webgl2");
+        if (ext) {
+            const query = this.gl.createQuery();
+            this.gl.beginQuery(ext.TIME_ELAPSED_EXT, query);
+            if (!pathtracerOn || this.pathtracerRender) {
+                this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+            }
+            this.gl.endQuery(ext.TIME_ELAPSED_EXT);
+            // Check previous query result (from last frame)
+            if (this.lastQuery && this.lastExt) {
+                const available = this.gl.getQueryParameter(this.lastQuery, this.gl.QUERY_RESULT_AVAILABLE);
+                const disjoint = this.gl.getParameter(this.lastExt.GPU_DISJOINT_EXT);
+                if (available && !disjoint) {
+                    const timeElapsed = this.gl.getQueryParameter(this.lastQuery, this.gl.QUERY_RESULT);
+                    //console.log("Clouds Pass GPU Time: " + (timeElapsed / 1e6) + " ms");
+                    this.gl.deleteQuery(this.lastQuery);
+                    this.lastQuery = null;
+                }
+            }
+            // Save current query for next frame
+            this.lastQuery = query;
+            this.lastExt = ext;
         }
+        else {
+            // Fallback: just draw if extension not available
+            if (!pathtracerOn || this.pathtracerRender) {
+                this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+            }
+        }
+        // Unbind
         this.gl.bindVertexArray(null);
         this.gl.useProgram(null);
         this.gl.disable(this.gl.BLEND);
         this.gl.depthMask(true);
         this.gl.enable(this.gl.DEPTH_TEST);
-        this.gl.activeTexture(this.gl.TEXTURE0);
-        this.gl.bindTexture(this.gl.TEXTURE_3D, null);
-        this.gl.activeTexture(this.gl.TEXTURE1);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, null);
-    };
-    CloudsPass.prototype.InitSettings = function () {
-        this.settingsSection = new _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsSection(document.getElementById("settings-section"), "Clouds Settings", this.program);
-        this.settingsSection.addCheckbox({
-            id: "enableClouds",
+        // Advance ping-pong index for next frame
+        this.pingPongIndex = readIndex;
+    }
+    InitSettings() {
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "Clouds Settings");
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addCheckboxToSection("Clouds Settings", {
+            id: "CLOUDS_enableClouds",
             label: "Enable Clouds",
             defaultValue: true
         });
-        this.settingsSection.addSlider({
-            id: "MAX_STEPS",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_MAX_STEPS",
             label: "Cloud Ray Marching Max Steps",
             min: 8,
             max: 128,
@@ -8536,17 +14017,31 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 32,
             numType: "int"
         });
-        this.settingsSection.addSlider({
-            id: "MAX_STEPS_LIGHT",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_MAX_STEPS_LIGHT",
             label: "Cloud Light Ray Marching Max Steps",
             min: 4,
-            max: 32,
+            max: 64,
             step: 1,
-            defaultValue: 8,
+            defaultValue: 32,
             numType: "int"
         });
-        this.settingsSection.addSlider({
-            id: "absorption",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addColorPickerToSection("Clouds Settings", {
+            id: "CLOUDS_baseCloudColor",
+            label: "Base Cloud Color",
+            defaultValue: "#FFFFFF"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_skyContribution",
+            label: "Sky Color Contribution",
+            min: 0.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.1,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_absorption",
             label: "Cloud Absorption",
             min: 0,
             max: 2.0,
@@ -8554,35 +14049,80 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 1.0,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "densityThreshold",
-            label: "Cloud Density Threshold",
-            min: -2.0,
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_globalCoverage",
+            label: "Cloud Coverage",
+            min: 0.0,
             max: 1.0,
             step: 0.01,
-            defaultValue: 0.09,
+            defaultValue: 1,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "baseFrequency",
-            label: "Cloud Base Frequency",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_globalDensity",
+            label: "Cloud Density",
+            min: 0.0,
+            max: 1.0,
+            step: 0.001,
+            defaultValue: 0.2,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_baseNoiseFrequency",
+            label: "Cloud Base Noise Frequency",
             min: 0.01,
-            max: 0.5,
-            step: 0.001,
-            defaultValue: 0.45,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 2.28,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "detailFrequency",
-            label: "Cloud Detail Frequency",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_detailNoiseFrequency",
+            label: "Cloud Detail Noise Frequency",
+            min: 0.01,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 5,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_noiseWeights",
+            label: "Cloud Base Noise Weights",
+            min: [0.0, 0.0, 0.0],
+            max: [1.0, 1.0, 1.0],
+            step: [0.01, 0.01, 0.01],
+            defaultValue: [0.625, 0.25, 0.125],
+            numType: "vec3"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_detailWeights",
+            label: "Cloud Detail Noise Weight",
+            min: [0.0, 0.0, 0.0],
+            max: [1.0, 1.0, 1.0],
+            step: [0.01, 0.01, 0.01],
+            defaultValue: [0.625, 0.25, 0.125],
+            numType: "vec3"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_densityFalloffIntensity",
+            label: "Cloud Density Falloff Intensity",
             min: 0.1,
-            max: 0.5,
-            step: 0.001,
-            defaultValue: 0.46,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 1.0,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "lightAbsorption",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_distanceFalloffIntensity",
+            label: "Cloud Distance Falloff Intensity",
+            min: 0.1,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 1.0,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_lightAbsorption",
             label: "Cloud Light Absorption",
             min: 0,
             max: 2.0,
@@ -8590,17 +14130,17 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 1.0,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "lightIntensity",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_lightIntensity",
             label: "Cloud Light Intensity",
             min: 0,
             max: 5.0,
             step: 0.01,
-            defaultValue: 2.4,
+            defaultValue: 3,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "ambientIntensity",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_ambientIntensity",
             label: "Cloud Ambient Intensity",
             min: 0,
             max: 2.0,
@@ -8608,8 +14148,8 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 0.5,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "darknessThreshold",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_darknessThreshold",
             label: "Cloud Darkness Threshold",
             min: 0.0,
             max: 1.0,
@@ -8617,8 +14157,17 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 0.2,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "phaseG",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_lightDarkSharpness",
+            label: "Cloud Light/Dark Sharpness",
+            min: 0.1,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 1.0,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_phaseG",
             label: "Cloud Phase Function g",
             min: -1.0,
             max: 1.0,
@@ -8626,8 +14175,8 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 0.5,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "phaseMultiplier",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_phaseMultiplier",
             label: "Cloud Phase Function Multiplier",
             min: 0.0,
             max: 1.0,
@@ -8635,26 +14184,68 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 0.5,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "weatherMapOffsetX",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_blueNoiseAmplitude",
+            label: "Cloud Blue Noise Amplitude",
+            min: 0.0,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 4,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_boxWidth",
+            label: "Cloud Box Width",
+            min: 100,
+            max: 8000,
+            step: 10,
+            defaultValue: 1000
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_boxHeight",
+            label: "Cloud Box Height",
+            min: 100,
+            max: 2000,
+            step: 10,
+            defaultValue: 500
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_height",
+            label: "Cloud Base Height",
+            min: 50,
+            max: 500,
+            step: 5,
+            defaultValue: 100
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_weatherMapOffsetX",
             label: "Cloud Weather Map Offset X",
             min: 0.0,
-            max: 10.0,
+            max: 100.0,
             step: 0.01,
             defaultValue: 0.0,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "weatherMapOffsetY",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_weatherMapOffsetY",
             label: "Cloud Weather Map Offset Y",
             min: 0.0,
-            max: 10.0,
+            max: 100.0,
             step: 0.01,
             defaultValue: 0.0,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "windSpeed",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_weatherMapFrequency",
+            label: "Cloud Weather Map Frequency",
+            min: 0.001,
+            max: 0.1,
+            step: 0.001,
+            defaultValue: 0.08,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_windSpeed",
             label: "Cloud Wind Speed",
             min: 0.0,
             max: 10.0,
@@ -8662,8 +14253,8 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 3.0,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "windDirectionX",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_windDirectionX",
             label: "Cloud Wind Direction X",
             min: -1.0,
             max: 1.0,
@@ -8671,8 +14262,8 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 1.0,
             numType: "float"
         });
-        this.settingsSection.addSlider({
-            id: "windDirectionZ",
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addSliderToSection("Clouds Settings", {
+            id: "CLOUDS_windDirectionZ",
             label: "Cloud Wind Direction Z",
             min: -1.0,
             max: 1.0,
@@ -8680,43 +14271,90 @@ var CloudsPass = /** @class */ (function (_super) {
             defaultValue: 1.0,
             numType: "float"
         });
-    };
-    CloudsPass.prototype.resize = function (width, height) {
-        // LightingPass renders to default framebuffer, no resize needed
-        // But we need to update viewport
-        this.gl.viewport(0, 0, width, height);
-    };
-    return CloudsPass;
-}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.RenderPass));
-
-var NoiseGenerator = /** @class */ (function () {
-    function NoiseGenerator(gl) {
-        this.simplex = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_6__.createNoise3D)();
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.addCheckboxToSection("Clouds Settings", {
+            id: "CLOUDS_enableReprojection",
+            label: "Enable Cloud Reprojection",
+            defaultValue: false
+        });
+        // Attach program uniforms for all settings
+        _Settings__WEBPACK_IMPORTED_MODULE_0__.SettingsManager.instance.attatchProgram(this.program, [
+            "CLOUDS_enableClouds",
+            "CLOUDS_MAX_STEPS",
+            "CLOUDS_MAX_STEPS_LIGHT",
+            "CLOUDS_baseCloudColor",
+            "CLOUDS_skyContribution",
+            "CLOUDS_absorption",
+            "CLOUDS_baseNoiseFrequency",
+            "CLOUDS_detailNoiseFrequency",
+            "CLOUDS_noiseWeights",
+            "CLOUDS_detailWeights",
+            "CLOUDS_densityFalloffIntensity",
+            "CLOUDS_distanceFalloffIntensity",
+            "CLOUDS_globalCoverage",
+            "CLOUDS_globalDensity",
+            "CLOUDS_lightAbsorption",
+            "CLOUDS_lightIntensity",
+            "CLOUDS_ambientIntensity",
+            "CLOUDS_darknessThreshold",
+            "CLOUDS_lightDarkSharpness",
+            "CLOUDS_phaseG",
+            "CLOUDS_phaseMultiplier",
+            "CLOUDS_weatherMapOffsetX",
+            "CLOUDS_weatherMapOffsetY",
+            "CLOUDS_weatherMapFrequency",
+            "CLOUDS_windSpeed",
+            "CLOUDS_windDirectionX",
+            "CLOUDS_windDirectionZ",
+            "CLOUDS_blueNoiseAmplitude",
+            "CLOUDS_enableReprojection",
+        ]);
+    }
+    resize() {
+        // Delete old resources
+        if (this.renderTarget) {
+            if (this.renderTarget.fbo) {
+                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+            }
+            if (this.renderTarget.textures) {
+                for (const texture of Object.values(this.renderTarget.textures)) {
+                    this.gl.deleteTexture(texture);
+                }
+            }
+        }
+        this.cloudTextures.forEach((texture) => this.gl.deleteTexture(texture));
+        // Recreate render target with new dimensions
+        this.renderTarget = this.initRenderTarget();
+    }
+}
+class NoiseGenerator {
+    constructor(gl) {
         this.dataR = new Uint8Array();
         this.dataG = new Uint8Array();
         this.dataB = new Uint8Array();
         this.dataA = new Uint8Array();
+        this.detailR = new Uint8Array();
+        this.detailG = new Uint8Array();
+        this.detailB = new Uint8Array();
         this.coverageData = new Uint8Array();
+        this.heightData = new Uint8Array();
         this.densityData = new Uint8Array();
-        this.typeData = new Uint8Array();
+        //Temporary, will be replaced with a compute shader
+        // --- Perlin Noise Helpers ---
+        this.perlinPerm = [];
+        this.perlinSeeded = false;
         this.gl = gl;
     }
-    NoiseGenerator.prototype.worleyNoise3D = function (width, height, depth, gridSize, pointsPerCell) {
-        if (pointsPerCell === void 0) { pointsPerCell = 1; }
-        var gridCols = Math.ceil(width / gridSize);
-        var gridRows = Math.ceil(height / gridSize);
-        var gridDepts = Math.ceil(depth / gridSize);
+    worleyNoise3D(width, height, depth, gridSize, pointsPerCell = 1) {
+        const gridCols = Math.ceil(width / gridSize);
+        const gridRows = Math.ceil(height / gridSize);
+        const gridDepts = Math.ceil(depth / gridSize);
         // Store feature points by grid cell for fast lookup
-        var grid = Array.from({ length: gridCols }, function () {
-            return Array.from({ length: gridRows }, function () {
-                return Array.from({ length: gridDepts }, function () { return []; });
-            });
-        });
+        const grid = Array.from({ length: gridCols }, () => Array.from({ length: gridRows }, () => Array.from({ length: gridDepts }, () => [])));
         // Generate random feature points for each grid cell
-        for (var gx = 0; gx < gridCols; gx++) {
-            for (var gy = 0; gy < gridRows; gy++) {
-                for (var gz = 0; gz < gridDepts; gz++) {
-                    for (var i = 0; i < pointsPerCell; i++) {
+        for (let gx = 0; gx < gridCols; gx++) {
+            for (let gy = 0; gy < gridRows; gy++) {
+                for (let gz = 0; gz < gridDepts; gz++) {
+                    for (let i = 0; i < pointsPerCell; i++) {
                         grid[gx][gy][gz].push({
                             x: gx * gridSize + Math.random() * gridSize,
                             y: gy * gridSize + Math.random() * gridSize,
@@ -8727,40 +14365,39 @@ var NoiseGenerator = /** @class */ (function () {
             }
         }
         // Flattened Uint8Array for output
-        var data = new Uint8Array(width * height * depth);
-        var maxDist = 0;
-        var distArr = new Float32Array(width * height * depth);
+        const data = new Uint8Array(width * height * depth);
+        let maxDist = 0;
+        const distArr = new Float32Array(width * height * depth);
         // For each voxel, only consider feature points from neighboring cells
-        for (var z = 0; z < depth; z++) {
-            for (var y = 0; y < height; y++) {
-                for (var x = 0; x < width; x++) {
-                    var minDist = Infinity;
-                    var gx = Math.floor(x / gridSize);
-                    var gy = Math.floor(y / gridSize);
-                    var gz = Math.floor(z / gridSize);
+        for (let z = 0; z < depth; z++) {
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    let minDist = Infinity;
+                    const gx = Math.floor(x / gridSize);
+                    const gy = Math.floor(y / gridSize);
+                    const gz = Math.floor(z / gridSize);
                     // Check current cell and 26 neighbors (3x3x3 cube, with wrapping)
-                    for (var dx = -1; dx <= 1; dx++) {
-                        for (var dy = -1; dy <= 1; dy++) {
-                            for (var dz = -1; dz <= 1; dz++) {
-                                var ngx = (gx + dx + gridCols) % gridCols;
-                                var ngy = (gy + dy + gridRows) % gridRows;
-                                var ngz = (gz + dz + gridDepts) % gridDepts;
-                                for (var _i = 0, _a = grid[ngx][ngy][ngz]; _i < _a.length; _i++) {
-                                    var p = _a[_i];
-                                    var dxp = Math.abs(p.x - x);
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dz = -1; dz <= 1; dz++) {
+                                const ngx = (gx + dx + gridCols) % gridCols;
+                                const ngy = (gy + dy + gridRows) % gridRows;
+                                const ngz = (gz + dz + gridDepts) % gridDepts;
+                                for (const p of grid[ngx][ngy][ngz]) {
+                                    let dxp = Math.abs(p.x - x);
                                     dxp = Math.min(dxp, width - dxp);
-                                    var dyp = Math.abs(p.y - y);
+                                    let dyp = Math.abs(p.y - y);
                                     dyp = Math.min(dyp, height - dyp);
-                                    var dzp = Math.abs(p.z - z);
+                                    let dzp = Math.abs(p.z - z);
                                     dzp = Math.min(dzp, depth - dzp);
-                                    var dist = dxp * dxp + dyp * dyp + dzp * dzp;
+                                    const dist = dxp * dxp + dyp * dyp + dzp * dzp;
                                     if (dist < minDist)
                                         minDist = dist;
                                 }
                             }
                         }
                     }
-                    var idx = x + y * width + z * width * height;
+                    const idx = x + y * width + z * width * height;
                     distArr[idx] = minDist;
                     if (minDist > maxDist)
                         maxDist = minDist;
@@ -8768,69 +14405,77 @@ var NoiseGenerator = /** @class */ (function () {
             }
         }
         // Normalize distances and convert to Uint8
-        for (var z = 0; z < depth; z++) {
-            for (var y = 0; y < height; y++) {
-                for (var x = 0; x < width; x++) {
-                    var idx = x + y * width + z * width * height;
-                    var norm = (Math.sqrt(distArr[idx]) / Math.sqrt(maxDist)) * 255;
+        for (let z = 0; z < depth; z++) {
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = x + y * width + z * width * height;
+                    const norm = (Math.sqrt(distArr[idx]) / Math.sqrt(maxDist)) * 255;
                     data[idx] = Math.floor(norm);
                 }
             }
         }
         return data;
-    };
-    NoiseGenerator.prototype.simplexNoise3D = function (width, height, depth, frequency) {
-        var data = new Uint8Array(width * height * depth);
-        for (var z = 0; z < depth; z++) {
-            for (var y = 0; y < height; y++) {
-                for (var x = 0; x < width; x++) {
-                    var value = this.simplex(x * frequency, y * frequency, z * frequency);
-                    var normalized = Math.floor(((value + 1) / 2) * 255);
-                    data[x + y * width + z * width * height] = normalized;
-                }
+    }
+    fbmPerlinWorely3d(width, height, depth, frequency, worelyGridSize, octaves) {
+        const data = new Uint8Array(width * height * depth);
+        for (let o = 0; o < octaves; o++) {
+            const perlinData = this.perlinNoise3D(width, height, depth, frequency * Math.pow(2, o));
+            const worleyData = this.worleyNoise3D(width, height, depth, worelyGridSize * Math.pow(2, -o), 2);
+            for (let i = 0; i < width * height * depth; i++) {
+                const perlinValue = perlinData[i] / 255;
+                const worleyValue = 1.0 - worleyData[i] / 255;
+                const combinedValue = this.remap(perlinValue + worleyValue, 0, 2, 0, 1);
+                data[i] += Math.floor((combinedValue * 255) / octaves);
             }
         }
         return data;
-    };
-    NoiseGenerator.prototype.simplexWorleyNoise3D = function (width, height, depth, frequency) {
-        var worelyData = this.worleyNoise3D(width, height, depth, Math.min(width, height, depth) / frequency);
-        var simplexData = this.simplexNoise3D(width, height, depth, frequency);
-        var data = new Uint8Array(width * height * depth);
-        for (var i = 0; i < data.length; i++) {
-            var worleyNorm = worelyData[i] / 255.0;
-            var simplexNorm = simplexData[i] / 255.0;
-            var hybrid = 1.0 - Math.pow(1.0 - worleyNorm, simplexNorm);
-            data[i] = Math.floor(hybrid * 255);
-        }
-        return data;
-    };
-    NoiseGenerator.prototype.generateCloudNoiseTex = function (size) {
-        var frequency = 8;
-        this.dataR = this.simplexWorleyNoise3D(size, size, size, frequency);
-        this.dataG = this.worleyNoise3D(size, size, size, size / (frequency * 2));
-        this.dataB = this.worleyNoise3D(size, size, size, (frequency * 4) / 2);
-        this.dataA = this.worleyNoise3D(size, size, size, size / (frequency * 8));
-        // Interleave RGBA channels
-        var data = new Uint8Array(size * size * size * 4);
-        for (var i = 0; i < size * size * size; i++) {
+    }
+    smoothstep(edge0, edge1, x) {
+        const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+        return t * t * (3 - 2 * t);
+    }
+    // Helper remap function
+    remap(value, low1, high1, low2, high2) {
+        return low2 + ((value - low1) * (high2 - low2)) / (high1 - low1);
+    }
+    generateCloudNoiseTex(size) {
+        this.dataR = this.fbmPerlinWorely3d(size, size, size, 0.1, 64, 4);
+        this.dataG = this.worleyNoise3D(size, size, size, 8, 2);
+        this.dataB = this.worleyNoise3D(size, size, size, 6, 3);
+        this.dataA = this.worleyNoise3D(size, size, size, 4, 4);
+        const data = new Uint8Array(size * size * size * 4);
+        for (let i = 0; i < size * size * size; i++) {
             data[i * 4 + 0] = this.dataR[i];
-            data[i * 4 + 1] = this.dataG[i];
-            data[i * 4 + 2] = this.dataB[i];
-            data[i * 4 + 3] = this.dataA[i];
+            data[i * 4 + 1] = 255 - this.dataG[i];
+            data[i * 4 + 2] = 255 - this.dataB[i];
+            data[i * 4 + 3] = 255 - this.dataA[i];
         }
-        var texture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.createTexture3D(this.gl, size, size, size, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE, data, this.gl.LINEAR, this.gl.LINEAR, this.gl.REPEAT, this.gl.REPEAT, this.gl.REPEAT);
+        const texture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.createTexture3D(this.gl, size, size, size, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE, data, this.gl.LINEAR, this.gl.LINEAR, this.gl.REPEAT, this.gl.REPEAT, this.gl.REPEAT);
+        this.visualizeSlice(1, document.getElementById("noisePreview"), "R", false, 2);
         return texture;
-    };
-    NoiseGenerator.prototype.worleyNoise2D = function (width, height, gridSize, pointsPerCell) {
-        if (pointsPerCell === void 0) { pointsPerCell = 1; }
-        var gridCols = Math.ceil(width / gridSize);
-        var gridRows = Math.ceil(height / gridSize);
+    }
+    generateDetailedCloudNoiseTex(size) {
+        this.detailR = this.worleyNoise3D(size, size, size, 8, 2);
+        this.detailG = this.worleyNoise3D(size, size, size, 4, 2);
+        this.detailB = this.worleyNoise3D(size, size, size, 2, 2);
+        const data = new Uint8Array(size * size * size * 3);
+        for (let i = 0; i < size * size * size; i++) {
+            data[i * 3 + 0] = 255 - this.detailR[i];
+            data[i * 3 + 1] = 255 - this.detailG[i];
+            data[i * 3 + 2] = 255 - this.detailB[i];
+        }
+        const texture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.createTexture3D(this.gl, size, size, size, this.gl.RGB8, this.gl.RGB, this.gl.UNSIGNED_BYTE, data, this.gl.LINEAR, this.gl.LINEAR, this.gl.REPEAT, this.gl.REPEAT, this.gl.REPEAT);
+        return texture;
+    }
+    worleyNoise2D(width, height, gridSize, pointsPerCell = 1) {
+        const gridCols = Math.ceil(width / gridSize);
+        const gridRows = Math.ceil(height / gridSize);
         // Store feature points by grid cell for fast lookup
-        var grid = Array.from({ length: gridCols }, function () { return Array.from({ length: gridRows }, function () { return []; }); });
+        const grid = Array.from({ length: gridCols }, () => Array.from({ length: gridRows }, () => []));
         // Generate random feature points for each grid cell
-        for (var gx = 0; gx < gridCols; gx++) {
-            for (var gy = 0; gy < gridRows; gy++) {
-                for (var i = 0; i < pointsPerCell; i++) {
+        for (let gx = 0; gx < gridCols; gx++) {
+            for (let gy = 0; gy < gridRows; gy++) {
+                for (let i = 0; i < pointsPerCell; i++) {
                     grid[gx][gy].push({
                         x: gx * gridSize + Math.random() * gridSize,
                         y: gy * gridSize + Math.random() * gridSize
@@ -8839,101 +14484,109 @@ var NoiseGenerator = /** @class */ (function () {
             }
         }
         // Flattened Uint8Array for output
-        var data = new Uint8Array(width * height);
-        var maxDist = 0;
-        var distArr = new Float32Array(width * height);
+        const data = new Uint8Array(width * height);
+        let maxDist = 0;
+        const distArr = new Float32Array(width * height);
         // For each pixel, only consider feature points from neighboring cells
-        for (var y = 0; y < height; y++) {
-            for (var x = 0; x < width; x++) {
-                var minDist = Infinity;
-                var gx = Math.floor(x / gridSize);
-                var gy = Math.floor(y / gridSize);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let minDist = Infinity;
+                const gx = Math.floor(x / gridSize);
+                const gy = Math.floor(y / gridSize);
                 // Check current cell and 8 neighbors (3x3 grid, with wrapping)
-                for (var dx = -1; dx <= 1; dx++) {
-                    for (var dy = -1; dy <= 1; dy++) {
-                        var ngx = (gx + dx + gridCols) % gridCols;
-                        var ngy = (gy + dy + gridRows) % gridRows;
-                        for (var _i = 0, _a = grid[ngx][ngy]; _i < _a.length; _i++) {
-                            var p = _a[_i];
-                            var dxp = Math.abs(p.x - x);
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        const ngx = (gx + dx + gridCols) % gridCols;
+                        const ngy = (gy + dy + gridRows) % gridRows;
+                        for (const p of grid[ngx][ngy]) {
+                            let dxp = Math.abs(p.x - x);
                             dxp = Math.min(dxp, width - dxp);
-                            var dyp = Math.abs(p.y - y);
+                            let dyp = Math.abs(p.y - y);
                             dyp = Math.min(dyp, height - dyp);
-                            var dist = dxp * dxp + dyp * dyp;
+                            const dist = dxp * dxp + dyp * dyp;
                             if (dist < minDist)
                                 minDist = dist;
                         }
                     }
                 }
-                var idx = x + y * width;
+                const idx = x + y * width;
                 distArr[idx] = minDist;
                 if (minDist > maxDist)
                     maxDist = minDist;
             }
         }
         // Normalize distances and convert to Uint8
-        for (var y = 0; y < height; y++) {
-            for (var x = 0; x < width; x++) {
-                var idx = x + y * width;
-                var norm = (Math.sqrt(distArr[idx]) / Math.sqrt(maxDist)) * 255;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = x + y * width;
+                const norm = (Math.sqrt(distArr[idx]) / Math.sqrt(maxDist)) * 255;
                 data[idx] = Math.floor(norm);
             }
         }
         return data;
-    };
-    NoiseGenerator.prototype.simplexNoise2D = function (width, height, frequency) {
-        var data = new Uint8Array(width * height);
-        for (var y = 0; y < height; y++) {
-            for (var x = 0; x < width; x++) {
-                var value = this.simplex(x * frequency, y * frequency, 10);
-                var normalized = Math.floor(((value + 1) / 2) * 255);
-                data[x + y * width] = normalized;
-            }
-        }
-        return data;
-    };
-    NoiseGenerator.prototype.generateWeatherMap = function (size) {
-        var worely = this.worleyNoise2D(size, size, size / 4);
-        var simplex = this.simplexNoise2D(size, size, 0.08);
-        this.coverageData = new Uint8Array(size * size);
-        for (var i = 0; i < size * size; i++) {
-            var worelyNorm = 1 - worely[i] / 255.0;
-            var simplexNorm = simplex[i] / 255.0;
-            var coverage = Math.pow(worelyNorm, 1.2) - simplexNorm * 0.3;
-            coverage = Math.min(Math.max(coverage, 0.0), 1.0);
-            this.coverageData[i] = coverage * 255;
-        }
-        // Right now I have no idea what to put in density and type maps, so just fill with zeros
+    }
+    async loadCoverageFromPNG(path, size) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => {
+                // Draw image to canvas
+                const canvas = document.createElement("canvas");
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext("2d");
+                if (!ctx)
+                    return reject("No 2D context");
+                ctx.drawImage(img, 0, 0, size, size);
+                const imageData = ctx.getImageData(0, 0, size, size).data;
+                // Convert to grayscale Uint8Array (use red channel or average)
+                const arr = new Uint8Array(size * size);
+                for (let i = 0; i < size * size; i++) {
+                    // Use red channel for coverage, or average RGB for more general grayscale
+                    arr[i] = imageData[i * 4]; // Red channel
+                    // arr[i] = (imageData[i*4] + imageData[i*4+1] + imageData[i*4+2]) / 3;
+                }
+                resolve(arr);
+            };
+            img.onerror = reject;
+            img.src = path;
+        });
+    }
+    async generateWeatherMap(size) {
+        this.coverageData = await this.loadCoverageFromPNG(_assets_coverage_map_png__WEBPACK_IMPORTED_MODULE_8__, size);
+        this.highCoverageData = this.perlinNoise2D(size, size, 0.5);
+        this.heightData = new Uint8Array(size * size);
         this.densityData = new Uint8Array(size * size);
-        this.typeData = new Uint8Array(size * size);
-        // Interleave RGB channels
-        var data = new Uint8Array(size * size * 3);
-        for (var i = 0; i < size * size; i++) {
-            data[i * 3 + 0] = this.coverageData[i];
-            data[i * 3 + 1] = this.densityData[i];
-            data[i * 3 + 2] = this.typeData[i];
+        for (let i = 0; i < size * size; i++) {
+            this.heightData[i] = 255;
+            this.densityData[i] = 255;
         }
-        var texture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_7__.TextureUtils.createTexture2D(this.gl, size, size, this.gl.RGB8, this.gl.RGB, this.gl.UNSIGNED_BYTE, data, this.gl.LINEAR, this.gl.LINEAR, this.gl.REPEAT, this.gl.REPEAT);
-        this.visualizeWeatherMap(document.getElementById("noisePreview"), "R");
+        const data = new Uint8Array(size * size * 4);
+        for (let i = 0; i < size * size; i++) {
+            data[i * 4 + 0] = this.coverageData[i];
+            data[i * 4 + 1] = this.highCoverageData[i];
+            data[i * 4 + 2] = this.heightData[i];
+            data[i * 4 + 3] = this.densityData[i];
+        }
+        const texture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_6__.TextureUtils.createTexture2D(this.gl, size, size, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE, data, this.gl.LINEAR, this.gl.LINEAR, this.gl.REPEAT, this.gl.REPEAT);
         return texture;
-    };
-    NoiseGenerator.prototype.visualizeWeatherMap = function (canvas, channel) {
-        if (channel === void 0) { channel = "RGB"; }
-        var size = Math.sqrt(this.coverageData.length);
-        var ctx = canvas.getContext("2d");
+    }
+    visualizeWeatherMap(canvas, channel = "RGB") {
+        const size = Math.sqrt(this.coverageData.length);
+        const ctx = canvas.getContext("2d");
         if (!ctx)
             return;
-        var scale = canvas.width / size;
-        var imageData = ctx.createImageData(canvas.width, canvas.height);
-        for (var y = 0; y < canvas.height; y++) {
-            for (var x = 0; x < canvas.width; x++) {
-                var scaledX = ((Math.floor(x / scale) % size) + size) % size;
-                var scaledY = ((Math.floor(y / scale) % size) + size) % size;
-                var idx = scaledX + scaledY * size;
-                var idx2D = (x + y * canvas.width) * 4;
-                var r = this.coverageData[idx];
-                var g = this.densityData[idx];
-                var b = this.typeData[idx];
+        const scale = canvas.width / size;
+        const imageData = ctx.createImageData(canvas.width, canvas.height);
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                const scaledX = ((Math.floor(x / scale) % size) + size) % size;
+                const scaledY = ((Math.floor(y / scale) % size) + size) % size;
+                const idx = scaledX + scaledY * size;
+                const idx2D = (x + y * canvas.width) * 4;
+                let r = this.coverageData[idx];
+                let g = this.densityData[idx];
+                let b = this.heightData[idx];
                 if (channel === "R") {
                     g = b = r;
                 }
@@ -8950,36 +14603,50 @@ var NoiseGenerator = /** @class */ (function () {
             }
         }
         ctx.putImageData(imageData, 0, 0);
-    };
-    NoiseGenerator.prototype.visualizeSlice = function (sliceZ, canvas, channel) {
-        var size = Math.cbrt(this.dataR.length);
-        var ctx = canvas.getContext("2d");
-        var scale = canvas.width / size;
+    }
+    visualizeSliceUnscaled(sliceZ, canvas, channel, detail = false) {
+        const size = Math.cbrt(this.dataR.length);
+        const ctx = canvas.getContext("2d");
         if (!ctx)
             return;
-        var imageData = ctx.createImageData(canvas.width, canvas.height);
-        for (var y = 0; y < canvas.height; y++) {
-            for (var x = 0; x < canvas.width; x++) {
-                // Wrap and tile based on scale
-                var scaledX = ((Math.floor(x / scale) % size) + size) % size;
-                var scaledY = ((Math.floor(y / scale) % size) + size) % size;
-                var wrappedZ = ((sliceZ % size) + size) % size;
-                var idx3D = scaledX + scaledY * size + wrappedZ * size * size;
-                var idx2D = (x + y * canvas.width) * 4;
-                var value = 0;
-                switch (channel) {
-                    case "R":
-                        value = this.dataR[idx3D];
-                        break;
-                    case "G":
-                        value = this.dataG[idx3D];
-                        break;
-                    case "B":
-                        value = this.dataB[idx3D];
-                        break;
-                    case "A":
-                        value = this.dataA[idx3D];
-                        break;
+        const imageData = ctx.createImageData(size, size);
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const wrappedZ = ((sliceZ % size) + size) % size;
+                const idx3D = x + y * size + wrappedZ * size * size;
+                const idx2D = (x + y * size) * 4;
+                let value = 0;
+                if (detail) {
+                    switch (channel) {
+                        case "R":
+                            value = this.detailR[idx3D];
+                            break;
+                        case "G":
+                            value = this.detailG[idx3D];
+                            break;
+                        case "B":
+                            value = this.detailB[idx3D];
+                            break;
+                        case "A":
+                            value = 255;
+                            break;
+                    }
+                }
+                else {
+                    switch (channel) {
+                        case "R":
+                            value = this.dataR[idx3D];
+                            break;
+                        case "G":
+                            value = this.dataG[idx3D];
+                            break;
+                        case "B":
+                            value = this.dataB[idx3D];
+                            break;
+                        case "A":
+                            value = this.dataA[idx3D];
+                            break;
+                    }
                 }
                 imageData.data[idx2D + 0] = value;
                 imageData.data[idx2D + 1] = value;
@@ -8988,9 +14655,531 @@ var NoiseGenerator = /** @class */ (function () {
             }
         }
         ctx.putImageData(imageData, 0, 0);
-    };
-    return NoiseGenerator;
-}());
+    }
+    visualizeSlice(sliceZ, canvas, channel, detail = false, tileCount = 1 // NEW: how many times to tile in X/Y
+    ) {
+        const size = Math.cbrt(this.dataR.length);
+        const ctx = canvas.getContext("2d");
+        const scale = canvas.width / size / tileCount;
+        if (!ctx)
+            return;
+        const imageData = ctx.createImageData(canvas.width, canvas.height);
+        for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+                // Tile the slice tileCount times in X and Y
+                const scaledX = ((Math.floor(x / scale) % size) + size) % size;
+                const scaledY = ((Math.floor(y / scale) % size) + size) % size;
+                const wrappedZ = ((sliceZ % size) + size) % size;
+                const idx3D = scaledX + scaledY * size + wrappedZ * size * size;
+                const idx2D = (x + y * canvas.width) * 4;
+                let value = 0;
+                if (detail) {
+                    switch (channel) {
+                        case "R":
+                            value = this.detailR[idx3D];
+                            break;
+                        case "G":
+                            value = this.detailG[idx3D];
+                            break;
+                        case "B":
+                            value = this.detailB[idx3D];
+                            break;
+                        case "A":
+                            value = 255;
+                            break;
+                    }
+                }
+                else {
+                    switch (channel) {
+                        case "R":
+                            value = this.dataR[idx3D];
+                            break;
+                        case "G":
+                            value = this.dataG[idx3D];
+                            break;
+                        case "B":
+                            value = this.dataB[idx3D];
+                            break;
+                        case "A":
+                            value = this.dataA[idx3D];
+                            break;
+                    }
+                }
+                imageData.data[idx2D + 0] = value;
+                imageData.data[idx2D + 1] = value;
+                imageData.data[idx2D + 2] = value;
+                imageData.data[idx2D + 3] = 255;
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+    // Initialize permutation table for a given period (tile size)
+    initPerlinPerm(period) {
+        if (this.perlinSeeded && this.perlinPerm.length === period * 2)
+            return;
+        this.perlinPerm = [];
+        for (let i = 0; i < period; i++)
+            this.perlinPerm[i] = i;
+        // Fisher-Yates shuffle
+        for (let i = period - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.perlinPerm[i], this.perlinPerm[j]] = [this.perlinPerm[j], this.perlinPerm[i]];
+        }
+        // Repeat for overflow
+        for (let i = 0; i < period; i++)
+            this.perlinPerm[period + i] = this.perlinPerm[i];
+        this.perlinSeeded = true;
+    }
+    // Fade function for Perlin interpolation
+    perlinFade(t) {
+        return t * t * t * (t * (t * 6 - 15) + 10);
+    }
+    // Linear interpolation
+    perlinLerp(a, b, t) {
+        return a + t * (b - a);
+    }
+    // Gradient function for 2D
+    perlinGrad2(hash, x, y) {
+        // 8 directions
+        const h = hash & 7;
+        const u = h < 4 ? x : y;
+        const v = h < 4 ? y : x;
+        return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+    }
+    // Gradient function for 3D
+    perlinGrad3(hash, x, y, z) {
+        const h = hash & 15;
+        const u = h < 8 ? x : y;
+        const v = h < 4 ? y : h === 12 || h === 14 ? x : z;
+        return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+    }
+    // --- Tileable Perlin Noise 2D ---
+    perlinNoise2D(width, height, frequency) {
+        const basePeriod = Math.min(width, height);
+        const period = Math.max(1, Math.round(basePeriod * frequency)); // integer lattice period
+        this.initPerlinPerm(period);
+        const data = new Uint8Array(width * height);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                // Map (x, y) to [0, period)
+                const fx = (x / width) * period;
+                const fy = (y / height) * period;
+                const X0 = Math.floor(fx) % period;
+                const Y0 = Math.floor(fy) % period;
+                const X1 = (X0 + 1) % period;
+                const Y1 = (Y0 + 1) % period;
+                const dx = fx - Math.floor(fx);
+                const dy = fy - Math.floor(fy);
+                const perm = this.perlinPerm;
+                const aa = perm[perm[X0] + Y0];
+                const ab = perm[perm[X0] + Y1];
+                const ba = perm[perm[X1] + Y0];
+                const bb = perm[perm[X1] + Y1];
+                const g_aa = this.perlinGrad2(aa, dx, dy);
+                const g_ba = this.perlinGrad2(ba, dx - 1, dy);
+                const g_ab = this.perlinGrad2(ab, dx, dy - 1);
+                const g_bb = this.perlinGrad2(bb, dx - 1, dy - 1);
+                const u = this.perlinFade(dx);
+                const v = this.perlinFade(dy);
+                const lerpX1 = this.perlinLerp(g_aa, g_ba, u);
+                const lerpX2 = this.perlinLerp(g_ab, g_bb, u);
+                const value = this.perlinLerp(lerpX1, lerpX2, v);
+                const normalized = Math.floor(((value + 1) / 2) * 255);
+                data[x + y * width] = normalized;
+            }
+        }
+        return data;
+    }
+    // --- Tileable Perlin Noise 3D ---
+    perlinNoise3D(width, height, depth, frequency) {
+        const basePeriod = Math.min(width, height, depth);
+        const period = Math.max(1, Math.round(basePeriod * frequency)); // integer lattice period
+        this.initPerlinPerm(period);
+        const data = new Uint8Array(width * height * depth);
+        for (let z = 0; z < depth; z++) {
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    // Map to [0, period) so it wraps cleanly
+                    const fx = (x / width) * period;
+                    const fy = (y / height) * period;
+                    const fz = (z / depth) * period;
+                    const X0 = Math.floor(fx) % period;
+                    const Y0 = Math.floor(fy) % period;
+                    const Z0 = Math.floor(fz) % period;
+                    const X1 = (X0 + 1) % period;
+                    const Y1 = (Y0 + 1) % period;
+                    const Z1 = (Z0 + 1) % period;
+                    const dx = fx - Math.floor(fx);
+                    const dy = fy - Math.floor(fy);
+                    const dz = fz - Math.floor(fz);
+                    const perm = this.perlinPerm;
+                    const aaa = perm[perm[perm[X0] + Y0] + Z0];
+                    const aba = perm[perm[perm[X0] + Y1] + Z0];
+                    const aab = perm[perm[perm[X0] + Y0] + Z1];
+                    const abb = perm[perm[perm[X0] + Y1] + Z1];
+                    const baa = perm[perm[perm[X1] + Y0] + Z0];
+                    const bba = perm[perm[perm[X1] + Y1] + Z0];
+                    const bab = perm[perm[perm[X1] + Y0] + Z1];
+                    const bbb = perm[perm[perm[X1] + Y1] + Z1];
+                    const g_aaa = this.perlinGrad3(aaa, dx, dy, dz);
+                    const g_baa = this.perlinGrad3(baa, dx - 1, dy, dz);
+                    const g_aba = this.perlinGrad3(aba, dx, dy - 1, dz);
+                    const g_bba = this.perlinGrad3(bba, dx - 1, dy - 1, dz);
+                    const g_aab = this.perlinGrad3(aab, dx, dy, dz - 1);
+                    const g_bab = this.perlinGrad3(bab, dx - 1, dy, dz - 1);
+                    const g_abb = this.perlinGrad3(abb, dx, dy - 1, dz - 1);
+                    const g_bbb = this.perlinGrad3(bbb, dx - 1, dy - 1, dz - 1);
+                    const u = this.perlinFade(dx);
+                    const v = this.perlinFade(dy);
+                    const w = this.perlinFade(dz);
+                    const lerpX1 = this.perlinLerp(g_aaa, g_baa, u);
+                    const lerpX2 = this.perlinLerp(g_aba, g_bba, u);
+                    const lerpY1 = this.perlinLerp(lerpX1, lerpX2, v);
+                    const lerpX3 = this.perlinLerp(g_aab, g_bab, u);
+                    const lerpX4 = this.perlinLerp(g_abb, g_bbb, u);
+                    const lerpY2 = this.perlinLerp(lerpX3, lerpX4, v);
+                    const value = this.perlinLerp(lerpY1, lerpY2, w);
+                    const normalized = Math.floor(((value + 1) / 2) * 255);
+                    data[x + y * width + z * width * height] = normalized;
+                }
+            }
+        }
+        return data;
+    }
+}
+
+
+/***/ }),
+
+/***/ "./src/render/passes/CombineGeometryPass.ts":
+/*!**************************************************!*\
+  !*** ./src/render/passes/CombineGeometryPass.ts ***!
+  \**************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   CombineGeometryPass: () => (/* binding */ CombineGeometryPass)
+/* harmony export */ });
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _glsl_DeferredRendering_CombineGeometryPass_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/CombineGeometryPass.vert */ "./src/render/glsl/DeferredRendering/CombineGeometryPass.vert");
+/* harmony import */ var _glsl_DeferredRendering_CombineGeometryPass_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/CombineGeometryPass.frag */ "./src/render/glsl/DeferredRendering/CombineGeometryPass.frag");
+
+
+
+
+
+class CombineGeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph, name) {
+        super(gl, resourceCache, canvas, renderGraph, name);
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
+        this.pathtracerRender = true;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_CombineGeometryPass_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_CombineGeometryPass_frag__WEBPACK_IMPORTED_MODULE_4__);
+    }
+    initRenderTarget(width, height) {
+        const w = width || this.canvas.width;
+        const h = height || this.canvas.height;
+        // Check for floating point render target support
+        const floatExt = this.gl.getExtension("EXT_color_buffer_float");
+        const halfFloatExt = this.gl.getExtension("EXT_color_buffer_half_float");
+        let normalInternalFormat;
+        let normalFormat;
+        let normalType;
+        if (floatExt) {
+            // Use full float precision
+            normalInternalFormat = this.gl.RGBA16F;
+            normalFormat = this.gl.RGBA;
+            normalType = this.gl.FLOAT;
+        }
+        else if (halfFloatExt) {
+            // Use half float precision
+            normalInternalFormat = this.gl.RGBA16F;
+            normalFormat = this.gl.RGBA;
+            normalType = this.gl.HALF_FLOAT;
+        }
+        else {
+            throw new Error("[GeometryPass] Floating point render targets not supported. EXT_color_buffer_float or EXT_color_buffer_half_float required.");
+        }
+        const normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, normalInternalFormat, normalFormat, normalType);
+        const albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        const materialAttributesTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        const depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
+        const fbo = this.gl.createFramebuffer();
+        if (!fbo) {
+            throw new Error("Failed to create framebuffer");
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, normalTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, albedoTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, materialAttributesTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depthTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1, this.gl.COLOR_ATTACHMENT2]);
+        const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+        if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+            throw new Error("Framebuffer is not complete: " + status.toString());
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return {
+            fbo: fbo,
+            textures: {
+                normal: normalTexture,
+                albedo: albedoTexture,
+                materialAttributes: materialAttributesTexture,
+                depth: depthTexture
+            }
+        };
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        const gBuffer = this.renderGraph?.getOutputs(this);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.depthMask(true);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.program);
+        this.gl.bindVertexArray(vao.vao);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["normal"], "normalTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["albedo"], "albedoTexture", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["materialAttributes"], "materialAttributesTexture", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["depth"], "depthTexture", 3);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassNormal"], "grassNormalTexture", 4);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassAlbedo"], "grassAlbedoTexture", 5);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassDepth"], "grassDepthTexture", 6);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        }
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+    resize(width, height) {
+        // Delete old resources
+        if (this.renderTarget) {
+            if (this.renderTarget.fbo) {
+                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+            }
+            if (this.renderTarget.textures) {
+                for (const texture of Object.values(this.renderTarget.textures)) {
+                    this.gl.deleteTexture(texture);
+                }
+            }
+        }
+        // Recreate render target with new dimensions
+        this.renderTarget = this.initRenderTarget();
+    }
+}
+
+
+/***/ }),
+
+/***/ "./src/render/passes/FinalPass.ts":
+/*!****************************************!*\
+  !*** ./src/render/passes/FinalPass.ts ***!
+  \****************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   FinalPass: () => (/* binding */ FinalPass)
+/* harmony export */ });
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _glsl_DeferredRendering_FinalPass_vert__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../glsl/DeferredRendering/FinalPass.vert */ "./src/render/glsl/DeferredRendering/FinalPass.vert");
+/* harmony import */ var _glsl_DeferredRendering_FinalPass_frag__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/FinalPass.frag */ "./src/render/glsl/DeferredRendering/FinalPass.frag");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../../Settings */ "./src/Settings.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
+
+
+
+
+
+
+
+class FinalPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph) {
+        super(gl, resourceCache, canvas, renderGraph);
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.VAOInputType.FULLSCREENQUAD;
+        this.pathtracerRender = false;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_FinalPass_vert__WEBPACK_IMPORTED_MODULE_2__, _glsl_DeferredRendering_FinalPass_frag__WEBPACK_IMPORTED_MODULE_3__);
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_6__.getUniformLocations)(gl, this.program, ["resolution"]);
+        // Use SettingsManager for post-processing settings
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "Post Processing");
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addCheckboxToSection("Post Processing", {
+            id: "enableVignette",
+            label: "Enable Vignette",
+            defaultValue: true
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "vignetteStrength",
+            label: "Vignette Strength",
+            min: 0.0,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 0.5
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "vignetteRadius",
+            label: "Vignette Radius",
+            min: 0.1,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 0.8
+        });
+        // Chromatic Aberration settings
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addCheckboxToSection("Post Processing", {
+            id: "enableChromaticAberration",
+            label: "Enable Chromatic Aberration",
+            defaultValue: false
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "chromaticAberrationStrength",
+            label: "Chromatic Aberration Strength",
+            min: 0.0,
+            max: 0.05,
+            step: 0.001,
+            defaultValue: 0.005
+        });
+        // Film Grain settings
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addCheckboxToSection("Post Processing", {
+            id: "enableFilmGrain",
+            label: "Enable Film Grain",
+            defaultValue: false
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "filmGrainStrength",
+            label: "Film Grain Strength",
+            min: 0.0,
+            max: 0.5,
+            step: 0.01,
+            defaultValue: 0.1
+        });
+        // Bloom settings
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addCheckboxToSection("Post Processing", {
+            id: "enableBloom",
+            label: "Enable Bloom",
+            defaultValue: true
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "bloomThreshold",
+            label: "Bloom Threshold",
+            min: 0.0,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 1.5 // Only bloom HDR emissive objects (lights are at ~4.0 brightness)
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "bloomIntensity",
+            label: "Bloom Intensity",
+            min: 0.0,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 0.8 // Stronger bloom effect
+        });
+        // Tone Mapping settings
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addCheckboxToSection("Post Processing", {
+            id: "enableToneMapping",
+            label: "Enable Tone Mapping",
+            defaultValue: true
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addCheckboxToSection("Post Processing", {
+            id: "useACES",
+            label: "Use ACES Tone Mapping",
+            defaultValue: true
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "exposure",
+            label: "Exposure",
+            min: 0.1,
+            max: 5.0,
+            step: 0.1,
+            defaultValue: 1.0
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "gamma",
+            label: "Gamma",
+            min: 1.0,
+            max: 3.0,
+            step: 0.1,
+            defaultValue: 2.2
+        });
+        // Saturation settings
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "saturation",
+            label: "Saturation",
+            min: 0.0,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 1.0
+        });
+        // Contrast settings
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "contrast",
+            label: "Contrast",
+            min: 0.0,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 1.0
+        });
+        // Brightness settings
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Post Processing", {
+            id: "brightness",
+            label: "Brightness",
+            min: 0.0,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 1.0
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.attatchProgram(this.program, [
+            "enableVignette",
+            "vignetteStrength",
+            "vignetteRadius",
+            "enableChromaticAberration",
+            "chromaticAberrationStrength",
+            "enableFilmGrain",
+            "filmGrainStrength",
+            "enableBloom",
+            "bloomThreshold",
+            "bloomIntensity",
+            "enableToneMapping",
+            "useACES",
+            "exposure",
+            "gamma",
+            "saturation",
+            "contrast",
+            "brightness"
+        ]);
+    }
+    initRenderTarget() {
+        return { fbo: null, textures: {} };
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        const textures = this.renderGraph.getOutputs(this);
+        const sceneTexture = textures["sceneTexture"];
+        const cloudsTexture = textures["cloudsTexture"]; // <-- Add this line
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.useProgram(this.program);
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.updateProgramUniforms(this.gl, this.program);
+        // Set resolution uniform
+        this.gl.uniform2f(this.uniforms["resolution"], this.canvas.width, this.canvas.height);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, sceneTexture, "sceneTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, cloudsTexture, "cloudsTexture", 1);
+        this.gl.bindVertexArray(vao.vao);
+        if (!pathtracerOn || this.pathtracerRender) {
+            this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        }
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+}
 
 
 /***/ }),
@@ -9011,64 +15200,73 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
 /* harmony import */ var _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/Geometry.vert */ "./src/render/glsl/DeferredRendering/Geometry.vert");
 /* harmony import */ var _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/Geometry.frag */ "./src/render/glsl/DeferredRendering/Geometry.frag");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
 /* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
-var __extends = (undefined && undefined.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
+/* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../utils/WorldUtils */ "./src/utils/WorldUtils.ts");
 
 
 
 
 
 
-var GeometryPass = /** @class */ (function (_super) {
-    __extends(GeometryPass, _super);
-    function GeometryPass(gl, resourceCache, canvas, renderGraph) {
-        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
-        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.SCENE;
-        _this.pathtracerRender = false;
-        _this.canvas = canvas;
-        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__);
-        _this.renderTarget = _this.initRenderTarget();
-        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, [
+
+
+class GeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph, name) {
+        super(gl, resourceCache, canvas, renderGraph, name);
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.SCENE;
+        this.pathtracerRender = true;
+        this.canvas = canvas;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__);
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, this.program, [
             "view",
             "proj",
             "model"
         ]);
-        return _this;
     }
-    GeometryPass.prototype.initRenderTarget = function (width, height) {
-        var ext = this.gl.getExtension("EXT_color_buffer_float");
-        if (!ext) {
-            throw new Error("EXT_color_buffer_float is not supported on this device.");
+    initRenderTarget(width, height) {
+        const w = width || this.canvas.width;
+        const h = height || this.canvas.height;
+        // Check for floating point render target support
+        const floatExt = this.gl.getExtension("EXT_color_buffer_float");
+        const halfFloatExt = this.gl.getExtension("EXT_color_buffer_half_float");
+        let normalInternalFormat;
+        let normalFormat;
+        let normalType;
+        if (floatExt) {
+            // Use full float precision
+            normalInternalFormat = this.gl.RGBA16F;
+            normalFormat = this.gl.RGBA;
+            normalType = this.gl.FLOAT;
         }
-        var w = width || this.canvas.width;
-        var h = height || this.canvas.height;
-        var normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
-        var albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
-        var depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
-        var fbo = this.gl.createFramebuffer();
+        else if (halfFloatExt) {
+            // Use half float precision
+            normalInternalFormat = this.gl.RGBA16F;
+            normalFormat = this.gl.RGBA;
+            normalType = this.gl.HALF_FLOAT;
+        }
+        else {
+            throw new Error("[GeometryPass] Floating point render targets not supported. EXT_color_buffer_float or EXT_color_buffer_half_float required.");
+        }
+        const normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, normalInternalFormat, normalFormat, normalType);
+        const albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        const depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
+        const matieralAttributesTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        const fbo = this.gl.createFramebuffer();
         if (!fbo) {
             throw new Error("Failed to create framebuffer");
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, normalTexture, 0);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, albedoTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, matieralAttributesTexture, 0);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depthTexture, 0);
-        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
-        var status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+        this.gl.drawBuffers([
+            this.gl.COLOR_ATTACHMENT0,
+            this.gl.COLOR_ATTACHMENT1,
+            this.gl.COLOR_ATTACHMENT2
+        ]);
+        const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
         if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
             throw new Error("Framebuffer is not complete: " + status.toString());
         }
@@ -9078,26 +15276,34 @@ var GeometryPass = /** @class */ (function (_super) {
             textures: {
                 normal: normalTexture,
                 albedo: albedoTexture,
+                materialAttributes: matieralAttributesTexture,
                 depth: depthTexture
             }
         };
-    };
-    GeometryPass.prototype.render = function (vaosToRender, pathtracerOn) {
+    }
+    render(vaosToRender, pathtracerOn) {
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
-        if (!pathtracerOn || this.pathtracerRender) {
-            this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
-            this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-        }
+        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.depthFunc(this.gl.LESS);
         this.gl.depthMask(true);
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
-        var cameraInfo = this.resourceCache.getData("CameraInfo");
+        const cameraInfo = this.resourceCache.getData("CameraInfo");
         this.gl.uniformMatrix4fv(this.uniforms["view"], false, cameraInfo.matView);
         this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
-        for (var _i = 0, vaosToRender_1 = vaosToRender; _i < vaosToRender_1.length; _i++) {
-            var vaoInfo = vaosToRender_1[_i];
+        // Compute frustum planes
+        const viewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_7__.multiply(viewProj, cameraInfo.matProj, cameraInfo.matView);
+        const frustum = _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__.WorldUtils.extractFrustumPlanes(viewProj);
+        for (const vaoInfo of vaosToRender) {
+            // Frustum culling
+            if (vaoInfo.boundingBox && !_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__.WorldUtils.aabbInFrustum(vaoInfo.boundingBox, frustum, vaoInfo.modelMatrix)) {
+                continue;
+            }
             this.gl.bindVertexArray(vaoInfo.vao);
             this.gl.uniformMatrix4fv(this.uniforms["model"], false, vaoInfo.modelMatrix);
             if (!pathtracerOn || this.pathtracerRender) {
@@ -9106,26 +15312,324 @@ var GeometryPass = /** @class */ (function (_super) {
         }
         this.gl.bindVertexArray(null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    };
-    GeometryPass.prototype.resize = function (width, height) {
-        // Delete old resources
-        if (this.renderTarget) {
-            if (this.renderTarget.fbo) {
-                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+    }
+    resize(width, height) {
+        this.disposeRenderTarget();
+        this.renderTarget = this.initRenderTarget(width, height);
+    }
+}
+
+
+/***/ }),
+
+/***/ "./src/render/passes/GrassGeometryPass.ts":
+/*!************************************************!*\
+  !*** ./src/render/passes/GrassGeometryPass.ts ***!
+  \************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   GrassGeometryPass: () => (/* binding */ GrassGeometryPass)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../Settings */ "./src/Settings.ts");
+/* harmony import */ var _glsl_Grass_GrassGeometry_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/Grass/GrassGeometry.vert */ "./src/render/glsl/Grass/GrassGeometry.vert");
+/* harmony import */ var _glsl_Grass_GrassGeometry_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/Grass/GrassGeometry.frag */ "./src/render/glsl/Grass/GrassGeometry.frag");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var simplex_noise__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! simplex-noise */ "./node_modules/simplex-noise/dist/esm/simplex-noise.js");
+/* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../../utils/WorldUtils */ "./src/utils/WorldUtils.ts");
+
+
+
+
+
+
+
+
+
+class GrassGeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph, name) {
+        super(gl, resourceCache, canvas, renderGraph, name);
+        this.pathtracerRender = false;
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.VAOInputType.GRASS;
+        this.windStrengthNoiseTexture = null;
+        this.windDirectionNoiseTexture = null;
+        this.canvas = canvas;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_5__.RenderUtils.CreateProgram(gl, _glsl_Grass_GrassGeometry_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_Grass_GrassGeometry_frag__WEBPACK_IMPORTED_MODULE_4__);
+        this.windStrengthNoiseTexture = this.generateNoiseTexture(256);
+        this.windDirectionNoiseTexture = this.generateNoiseTexture(256);
+        // Initialize grass enabled state
+        this.resourceCache.setData("grassEnabled", true);
+        this.initSettings();
+    }
+    initRenderTarget() {
+        const fbo = this.gl.createFramebuffer();
+        if (!fbo)
+            throw new Error("Failed to create framebuffer for GrassGeometryPass");
+        const depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
+        const normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        const albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, normalTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, albedoTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depthTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return {
+            fbo,
+            textures: {
+                grassDepth: depthTexture,
+                grassNormal: normalTexture,
+                grassAlbedo: albedoTexture
             }
-            if (this.renderTarget.textures) {
-                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
-                    var texture = _a[_i];
-                    this.gl.deleteTexture(texture);
+        };
+    }
+    initSettings() {
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "Grass Settings");
+        // Enable/Disable grass
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addCheckboxToSection("Grass Settings", {
+            id: "grassEnabled",
+            label: "Enable Grass",
+            defaultValue: true,
+            onChange: (value) => {
+                this.resourceCache.setData("grassEnabled", value);
+            }
+        });
+        // Color settings
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addColorPickerToSection("Grass Settings", {
+            id: "grassBaseColor",
+            label: "Grass Base Color",
+            defaultValue: "#046204"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addColorPickerToSection("Grass Settings", {
+            id: "grassTipColor",
+            label: "Grass Tip Color",
+            defaultValue: "#00ff00"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addColorPickerToSection("Grass Settings", {
+            id: "grassSpecularColor",
+            label: "Grass Specular Color",
+            defaultValue: "#ffffff"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addColorPickerToSection("Grass Settings", {
+            id: "grassTranslucencyColor",
+            label: "Grass Translucency Color",
+            defaultValue: "#b3ff80"
+        });
+        // Lighting settings
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassDiffuseStrength",
+            label: "Grass Diffuse Strength",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.3
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassBaseDarkness",
+            label: "Grass Base Darkness",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.7
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassSpecularStrength",
+            label: "Grass Specular Strength",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.25
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassShininess",
+            label: "Grass Shininess",
+            min: 1,
+            max: 100,
+            step: 1,
+            defaultValue: 32
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassTranslucencyStrength",
+            label: "Grass Translucency Strength",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.7
+        });
+        // Transition settings
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassAmbientTransitionPower",
+            label: "Grass Ambient Transition Power",
+            min: 0.1,
+            max: 5,
+            step: 0.1,
+            defaultValue: 1
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassSpecularTransitionPower",
+            label: "Grass Specular Transition Power",
+            min: 0.1,
+            max: 5,
+            step: 0.1,
+            defaultValue: 2
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassTranslucencyTransitionPower",
+            label: "Grass Translucency Transition Power",
+            min: 0.1,
+            max: 5,
+            step: 0.1,
+            defaultValue: 0.7
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "sunShadowStrength",
+            label: "Sun Shadow Strength",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.3
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "pointLightShadowStrength",
+            label: "Point Light Shadow Strength",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.3
+        });
+        // Wind settings
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassWindStrength",
+            label: "Grass Wind Strength",
+            min: 0,
+            max: 5,
+            step: 0.1,
+            defaultValue: 0.5
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassWindFrequency",
+            label: "Grass Wind Frequency",
+            min: 0.1,
+            max: 5,
+            step: 0.1,
+            defaultValue: 0.13
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassWindSpeed",
+            label: "Grass Wind Speed",
+            min: 0,
+            max: 5,
+            step: 0.01,
+            defaultValue: 0.3
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassPointLightintensity",
+            label: "Grass Point Light Intensity",
+            min: 0,
+            max: 5,
+            step: 0.1,
+            defaultValue: 1.2
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.addSliderToSection("Grass Settings", {
+            id: "grassPointLightDiffuseSoftness",
+            label: "Grass Point Light Diffuse Softness",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.6
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.attatchProgram(this.program, [
+            "grassWindStrength",
+            "grassWindFrequency",
+            "grassWindSpeed"
+        ]);
+    }
+    generateNoiseTexture(size) {
+        const noiseFunction = (0,simplex_noise__WEBPACK_IMPORTED_MODULE_6__.createNoise2D)();
+        const data = new Uint8Array(size * size);
+        const octaves = 4;
+        const persistence = 0.5;
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                let value = 0;
+                let amplitude = 1;
+                let frequency = 1;
+                let maxValue = 0;
+                for (let i = 0; i < octaves; i++) {
+                    const nx = (x / size) * 10 * frequency;
+                    const ny = (y / size) * 10 * frequency;
+                    value += noiseFunction(nx, ny) * amplitude;
+                    maxValue += amplitude;
+                    amplitude *= persistence;
+                    frequency *= 2;
                 }
+                value /= maxValue;
+                value = 0.5 + value * 0.5;
+                const normalized = Math.floor(((value + 1) / 2) * 255);
+                data[y * size + x] = normalized;
             }
         }
-        // Recreate render target with new dimensions
-        this.renderTarget = this.initRenderTarget(width, height);
-    };
-    return GeometryPass;
-}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass));
-
+        const texture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, size, size, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE, data, this.gl.LINEAR, this.gl.LINEAR, this.gl.REPEAT, this.gl.REPEAT);
+        return texture;
+    }
+    render(vao_info, pathtracerOn) {
+        if (!this.program)
+            return;
+        const gl = this.gl;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.renderTarget.fbo);
+        gl.disable(gl.BLEND);
+        gl.disable(gl.CULL_FACE);
+        gl.enable(gl.DEPTH_TEST);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clearDepth(1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // Check if grass is enabled - if not, we've already cleared the buffers
+        // so the depth will be 1.0 (far plane), ensuring scene geometry is used
+        const grassEnabled = this.resourceCache.getData("grassEnabled") ?? true;
+        if (!grassEnabled) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+            return;
+        }
+        gl.useProgram(this.program);
+        const cameraInfo = this.resourceCache.getData("CameraInfo");
+        const cameraPos = this.resourceCache.getData("cameraPosition");
+        const gBuffer = this.renderGraph.getOutputs(this);
+        if (!cameraPos)
+            return;
+        if (cameraInfo) {
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.program, "viewMatrix"), false, cameraInfo.matView);
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.program, "projMatrix"), false, cameraInfo.matProj);
+        }
+        gl.uniform1f(gl.getUniformLocation(this.program, "time"), performance.now() / 1000);
+        gl.uniform1f(gl.getUniformLocation(this.program, "near"), this.resourceCache.getData("nearFarPlanes").near);
+        gl.uniform1f(gl.getUniformLocation(this.program, "far"), this.resourceCache.getData("nearFarPlanes").far);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.bindTex(gl, this.program, this.windStrengthNoiseTexture, "windStrengthNoiseTex", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.bindTex(gl, this.program, this.windDirectionNoiseTexture, "windDirectionNoiseTex", 1);
+        _Settings__WEBPACK_IMPORTED_MODULE_2__.SettingsManager.instance.updateProgramUniforms(gl, this.program);
+        // Compute frustum planes
+        const viewProj = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.multiply(viewProj, cameraInfo.matProj, cameraInfo.matView);
+        const frustum = _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_7__.WorldUtils.extractFrustumPlanes(viewProj);
+        const grassVAO = vao_info;
+        for (let i = 0; i < grassVAO.length; i++) {
+            const vao = grassVAO[i];
+            // Frustum culling
+            if (vao.boundingBox && !_utils_WorldUtils__WEBPACK_IMPORTED_MODULE_7__.WorldUtils.aabbInFrustum(vao.boundingBox, frustum, vao.modelMatrix)) {
+                continue;
+            }
+            gl.uniformMatrix4fv(gl.getUniformLocation(this.program, "modelMatrix"), false, vao.modelMatrix);
+            gl.bindVertexArray(vao.vao);
+            gl.drawElementsInstanced(gl.TRIANGLES, vao.indexCount, gl.UNSIGNED_SHORT, 0, vao.numInstances);
+        }
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindVertexArray(null);
+    }
+}
 
 
 /***/ }),
@@ -9148,21 +15652,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _glsl_DeferredRendering_Lighting_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/Lighting.frag */ "./src/render/glsl/DeferredRendering/Lighting.frag");
 /* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
 /* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../utils/WorldUtils */ "./src/utils/WorldUtils.ts");
-var __extends = (undefined && undefined.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../../Settings */ "./src/Settings.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ../../map/terrains */ "./src/map/terrains.ts");
 
 
 
@@ -9170,32 +15662,53 @@ var __extends = (undefined && undefined.__extends) || (function () {
 
 
 
-var LightingPass = /** @class */ (function (_super) {
-    __extends(LightingPass, _super);
-    function LightingPass(gl, resourceCache, canvas, renderGraph) {
-        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
-        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
-        _this.pathtracerRender = false;
-        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Lighting_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Lighting_frag__WEBPACK_IMPORTED_MODULE_4__);
-        _this.renderTarget = _this.initRenderTarget();
-        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, [
+
+
+
+class LightingPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph, name, updateSunDirection) {
+        super(gl, resourceCache, canvas, renderGraph, name);
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
+        this.pathtracerRender = false;
+        this.updateSunDirectionCallback = updateSunDirection;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Lighting_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Lighting_frag__WEBPACK_IMPORTED_MODULE_4__);
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, this.program, [
             "viewInverse",
             "projInverse",
-            "cameraPosition"
+            "cameraPosition",
+            "ambientLightIntensity",
+            "numShadowedLights",
         ]);
-        return _this;
+        this.InitSettings();
     }
-    LightingPass.prototype.initRenderTarget = function () {
-        return { fbo: null, textures: {} };
-    };
-    LightingPass.prototype.render = function (vao_info, pathtracerOn) {
-        var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
-        var textures = this.renderGraph.getOutputs(this);
-        var normalTexture = textures["normal"];
-        var albedoTexture = textures["albedo"];
-        var depthTexture = textures["depth"];
-        var ssaoTexture = textures["ssaoBlur"];
+    initRenderTarget() {
+        // Create framebuffer and texture for lit scene
+        const fbo = this.gl.createFramebuffer();
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        // Use RGBA16F for HDR support (bloom, emissive materials)
+        const sceneTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT, null, this.gl.LINEAR, this.gl.LINEAR, this.gl.CLAMP_TO_EDGE, this.gl.CLAMP_TO_EDGE);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, sceneTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return { fbo, textures: { sceneTexture } };
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        const textures = this.renderGraph.getOutputs(this);
+        const normalTexture = textures["normal"];
+        const albedoTexture = textures["albedo"];
+        const depthTexture = textures["depth"];
+        const ssaoTexture = textures["ssaoBlur"];
+        const materialAttributesTexture = textures["materialAttributes"];
+        // Shadow mask textures from dedicated shadow passes
+        const blurredSunShadowMask = textures["blurredSunShadowMask"];
+        const blurredPointShadowMaskA = textures["blurredPointShadowMaskA"];
+        const blurredPointShadowMaskB = textures["blurredPointShadowMaskB"];
+        const blurredPointShadowMaskC = textures["blurredPointShadowMaskC"];
+        const blurredPointShadowMaskD = textures["blurredPointShadowMaskD"];
+        const blurredPointShadowMaskE = textures["blurredPointShadowMaskE"];
+        // Bind lighting framebuffer
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         if (!pathtracerOn || this.pathtracerRender) {
             this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
@@ -9204,28 +15717,209 @@ var LightingPass = /** @class */ (function (_super) {
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
         this.gl.bindVertexArray(vao.vao);
+        // Bind G-buffer textures
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, normalTexture, "normalTexture", 0);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, albedoTexture, "albedoTexture", 1);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 2);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, ssaoTexture, "ssaoTexture", 3);
-        var cameraInfo = this.resourceCache.getData("CameraInfo");
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, materialAttributesTexture, "materialAttributesTexture", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 3);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, ssaoTexture, "ssaoTexture", 4);
+        // Bind shadow mask textures
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, blurredSunShadowMask, "blurredSunShadowMask", 5);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, blurredPointShadowMaskA, "blurredPointShadowMaskA", 6);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, blurredPointShadowMaskB, "blurredPointShadowMaskB", 7);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, blurredPointShadowMaskC, "blurredPointShadowMaskC", 8);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, blurredPointShadowMaskD, "blurredPointShadowMaskD", 9);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, blurredPointShadowMaskE, "blurredPointShadowMaskE", 10);
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.updateProgramUniforms(this.gl, this.program);
+        const cameraInfo = this.resourceCache.getData("CameraInfo");
         this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
         this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
         this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getData("cameraPosition"));
-        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__.WorldUtils.updateLights(this.gl, this.program, this.resourceCache.getData("lights"));
+        // Shadow uniforms
+        this.gl.uniform1i(this.uniforms["numShadowedLights"], this.resourceCache.getData("numShadowedLights") ?? 0);
+        const disableSun = this.resourceCache.getData("disableSun") ?? false;
+        this.gl.uniform1i(this.gl.getUniformLocation(this.program, "sunDisabled"), disableSun ? 1 : 0);
+        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_6__.WorldUtils.updateLights(this.gl, this.program, this.resourceCache.getData("lights"), disableSun
+            ? { direction: gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(0, -1, 0), color: new _map_terrains__WEBPACK_IMPORTED_MODULE_8__.Color(255, 255, 255), intensity: 0 }
+            : this.resourceCache.getData("sunLight"));
         if (!pathtracerOn || this.pathtracerRender) {
             this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
         }
         this.gl.bindVertexArray(null);
-    };
-    LightingPass.prototype.resize = function (width, height) {
-        // LightingPass renders to default framebuffer, no resize needed
-        // But we need to update viewport
-        this.gl.viewport(0, 0, width, height);
-    };
-    return LightingPass;
-}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass));
-
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+    resize(width, height) {
+        // Delete old resources
+        if (this.renderTarget) {
+            if (this.renderTarget.fbo) {
+                this.gl.deleteFramebuffer(this.renderTarget.fbo);
+            }
+            if (this.renderTarget.textures) {
+                for (const texture of Object.values(this.renderTarget.textures)) {
+                    this.gl.deleteTexture(texture);
+                }
+            }
+        }
+        // Recreate render target with new dimensions
+        this.renderTarget = this.initRenderTarget();
+    }
+    InitSettings() {
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addCheckboxToSection("Sky Settings", {
+            id: "disableSun",
+            label: "Disable Sun",
+            defaultValue: false,
+            onChange: (value) => {
+                this.resourceCache.setData("disableSun", value);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addColorPickerToSection("Sky Settings", {
+            id: "__SUNCOLOR__",
+            label: "Sun Color",
+            defaultValue: "#ffffffff",
+            onChange: (value) => {
+                const sunLight = this.resourceCache.getData("sunLight");
+                if (sunLight) {
+                    sunLight.color = _map_terrains__WEBPACK_IMPORTED_MODULE_8__.Color.fromHex(value);
+                    this.resourceCache.setData("sunLight", sunLight);
+                }
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "angularRadius",
+            label: "Sunlight Angular Radius",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.1,
+            numType: "float",
+            onChange: (value) => {
+                const sunLight = this.resourceCache.getData("sunLight");
+                if (sunLight) {
+                    sunLight.angularRadius = value;
+                    this.resourceCache.setData("sunLight", sunLight);
+                }
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "__SUN_INTENSITY__",
+            label: "Sunlight Intensity",
+            min: 0,
+            max: 20,
+            step: 0.1,
+            defaultValue: 4,
+            numType: "float",
+            onChange: (value) => {
+                const sunLight = this.resourceCache.getData("sunLight");
+                if (sunLight) {
+                    sunLight.intensity = value;
+                    this.resourceCache.setData("sunLight", sunLight);
+                }
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+            id: "ambientLightIntensity",
+            label: "Ambient Light Intensity",
+            min: 0,
+            max: 1,
+            step: 0.01,
+            defaultValue: 0.1,
+            numType: "float"
+        });
+        // Add sun direction sliders
+        if (this.updateSunDirectionCallback) {
+            // Get initial sun direction from sunLight
+            const sunLight = this.resourceCache.getData("sunLight");
+            let initialAzimuth = 180; // Default to south (180 degrees)
+            let initialElevation = -45; // Default to 45 degrees down
+            if (sunLight && sunLight.direction) {
+                const dir = sunLight.direction;
+                // Convert direction vector to spherical coordinates
+                // azimuth: angle in XZ plane (0-360)
+                // elevation: angle above/below horizon (-90 to 90)
+                const horizontalLength = Math.sqrt(dir[0] * dir[0] + dir[2] * dir[2]);
+                if (horizontalLength > 0.0001) {
+                    // Normal case: can compute azimuth
+                    initialAzimuth = Math.atan2(dir[0], dir[2]) * (180 / Math.PI);
+                    if (initialAzimuth < 0)
+                        initialAzimuth += 360;
+                    initialElevation =
+                        Math.atan2(dir[1], horizontalLength) * (180 / Math.PI);
+                }
+                else {
+                    // Edge case: direction is straight up or down
+                    // Azimuth doesn't matter, but elevation is ±90
+                    initialElevation = dir[1] > 0 ? 90 : -90;
+                    // Keep default azimuth of 180
+                }
+            }
+            // Function to convert spherical coordinates to direction vector
+            const updateSunDirection = (azimuth, elevation) => {
+                const azimuthRad = (azimuth * Math.PI) / 180;
+                const elevationRad = (elevation * Math.PI) / 180;
+                // Convert to direction vector
+                // X = sin(azimuth) * cos(elevation)
+                // Y = sin(elevation)
+                // Z = cos(azimuth) * cos(elevation)
+                const dir = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(Math.sin(azimuthRad) * Math.cos(elevationRad), Math.sin(elevationRad), Math.cos(azimuthRad) * Math.cos(elevationRad));
+                gl_matrix__WEBPACK_IMPORTED_MODULE_9__.normalize(dir, dir);
+                if (this.updateSunDirectionCallback) {
+                    this.updateSunDirectionCallback(dir);
+                }
+            };
+            // Store current values
+            let currentAzimuth = initialAzimuth;
+            let currentElevation = initialElevation;
+            // Sun azimuth slider (0-360 degrees)
+            _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+                id: "sunAzimuth",
+                label: "Sun Azimuth (degrees)",
+                min: 0,
+                max: 360,
+                step: 1,
+                defaultValue: initialAzimuth,
+                numType: "float",
+                onChange: (value) => {
+                    currentAzimuth = value;
+                    updateSunDirection(currentAzimuth, currentElevation);
+                }
+            });
+            // Sun elevation slider (-90 to 90 degrees)
+            _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
+                id: "sunElevation",
+                label: "Sun Elevation (degrees)",
+                min: -90,
+                max: 90,
+                step: 1,
+                defaultValue: initialElevation,
+                numType: "float",
+                onChange: (value) => {
+                    currentElevation = value;
+                    updateSunDirection(currentAzimuth, currentElevation);
+                }
+            });
+        }
+        _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.attatchProgram(this.program, [
+            "grassSpecularStrength",
+            "grassShininess",
+            "grassTranslucencyStrength",
+            "grassAmbientTransitionPower",
+            "grassSpecularTransitionPower",
+            "grassTranslucencyTransitionPower",
+            "grassDiffuseStrength",
+            "grassBaseDarkness",
+            "grassBaseColor",
+            "grassTipColor",
+            "grassSpecularColor",
+            "grassTranslucencyColor",
+            "grassPointLightintensity",
+            "grassPointLightDiffuseSoftness",
+            "sunShadowStrength",
+            "pointLightShadowStrength",
+            "ambientLightIntensity",
+            "cascadeDebug"
+        ]);
+    }
+}
 
 
 /***/ }),
@@ -9247,60 +15941,41 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _glsl_DeferredRendering_SSAOBlur_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../glsl/DeferredRendering/SSAOBlur.vert */ "./src/render/glsl/DeferredRendering/SSAOBlur.vert");
 /* harmony import */ var _glsl_DeferredRendering_SSAOBlur_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../glsl/DeferredRendering/SSAOBlur.frag */ "./src/render/glsl/DeferredRendering/SSAOBlur.frag");
 /* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
-var __extends = (undefined && undefined.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 
 
 
 
 
 
-var SSAOBlurPass = /** @class */ (function (_super) {
-    __extends(SSAOBlurPass, _super);
-    function SSAOBlurPass(gl, resourceCache, canvas, renderGraph) {
-        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
-        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
-        _this.pathtracerRender = false;
-        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_SSAOBlur_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_SSAOBlur_frag__WEBPACK_IMPORTED_MODULE_4__);
-        _this.renderTarget = _this.initRenderTarget();
-        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, ["enableBlur"]);
-        return _this;
+class SSAOBlurPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph, name) {
+        super(gl, resourceCache, canvas, renderGraph, name);
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
+        this.pathtracerRender = false;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_SSAOBlur_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_SSAOBlur_frag__WEBPACK_IMPORTED_MODULE_4__);
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, this.program, ["enableBlur"]);
     }
-    SSAOBlurPass.prototype.initRenderTarget = function (width, height) {
-        var w = width || this.canvas.width;
-        var h = height || this.canvas.height;
-        var framebuffer = this.gl.createFramebuffer();
+    initRenderTarget(width, height) {
+        const w = width || this.canvas.width;
+        const h = height || this.canvas.height;
+        const framebuffer = this.gl.createFramebuffer();
         if (!framebuffer) {
             throw new Error("Failed to create SSAO Blur framebuffer");
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-        var ssaoBlurTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        const ssaoBlurTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, ssaoBlurTexture, 0);
         this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
         return { fbo: framebuffer, textures: { ssaoBlur: ssaoBlurTexture } };
-    };
-    SSAOBlurPass.prototype.render = function (vao_info, pathtracerOn) {
-        var _a;
-        var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
         // Get textures from render graph
-        var textures = this.renderGraph.getOutputs(this);
+        const textures = this.renderGraph.getOutputs(this);
         // SSAO texture is from SSAO pass, depth is from geometry pass
-        var ssaoTexture = textures["ssao"];
-        var depthTexture = textures["depth"];
+        const ssaoTexture = textures["ssao"];
+        const depthTexture = textures["depth"];
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         if (!pathtracerOn || this.pathtracerRender) {
@@ -9312,32 +15987,28 @@ var SSAOBlurPass = /** @class */ (function (_super) {
         this.gl.bindVertexArray(vao.vao);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, ssaoTexture, "ssaoTexture", 0);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 1);
-        (_a = this.settingsSection) === null || _a === void 0 ? void 0 : _a.updateUniforms(this.gl);
         if (!pathtracerOn || this.pathtracerRender) {
             this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
         }
         this.gl.bindVertexArray(null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    };
-    SSAOBlurPass.prototype.resize = function (width, height) {
+    }
+    resize(width, height) {
         // Delete old resources
         if (this.renderTarget) {
             if (this.renderTarget.fbo) {
                 this.gl.deleteFramebuffer(this.renderTarget.fbo);
             }
             if (this.renderTarget.textures) {
-                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
-                    var texture = _a[_i];
+                for (const texture of Object.values(this.renderTarget.textures)) {
                     this.gl.deleteTexture(texture);
                 }
             }
         }
         // Recreate render target with new dimensions
         this.renderTarget = this.initRenderTarget(width, height);
-    };
-    return SSAOBlurPass;
-}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass));
-
+    }
+}
 
 
 /***/ }),
@@ -9361,21 +16032,6 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 /* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../Settings */ "./src/Settings.ts");
-var __extends = (undefined && undefined.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
 
 
 
@@ -9384,26 +16040,24 @@ var __extends = (undefined && undefined.__extends) || (function () {
 
 
 
-var SSAOPass = /** @class */ (function (_super) {
-    __extends(SSAOPass, _super);
-    function SSAOPass(gl, resourceCache, canvas, renderGraph) {
-        var _this = _super.call(this, gl, resourceCache, canvas, renderGraph) || this;
-        _this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.FULLSCREENQUAD;
-        _this.pathtracerRender = false;
-        _this.kernelSize = 64;
-        _this.noiseSize = 4;
-        _this.kernels = [];
-        _this.noiseTexture = null;
-        _this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_SSAO_vert__WEBPACK_IMPORTED_MODULE_0__, _glsl_DeferredRendering_SSAO_frag__WEBPACK_IMPORTED_MODULE_1__);
-        _this.renderTarget = _this.initRenderTarget();
-        _this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, _this.program, [
+class SSAOPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph, name) {
+        super(gl, resourceCache, canvas, renderGraph, name);
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.VAOInputType.FULLSCREENQUAD;
+        this.pathtracerRender = false;
+        this.kernelSize = 64;
+        this.noiseSize = 4;
+        this.kernels = [];
+        this.noiseTexture = null;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_SSAO_vert__WEBPACK_IMPORTED_MODULE_0__, _glsl_DeferredRendering_SSAO_frag__WEBPACK_IMPORTED_MODULE_1__);
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_5__.getUniformLocations)(gl, this.program, [
             "proj",
             "projInverse",
             "noiseSize"
         ]);
-        // Initialize settings manager for SSAO settings
-        _this.settingsSection = new _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsSection(document.getElementById("settings-section"), "SSAO Settings", _this.program);
-        _this.settingsSection.addSlider({
+        // Use SettingsManager instead of local SettingsSection
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "SSAO Settings");
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("SSAO Settings", {
             id: "radius",
             label: "SSAO Radius",
             min: 0.1,
@@ -9411,7 +16065,7 @@ var SSAOPass = /** @class */ (function (_super) {
             step: 0.01,
             defaultValue: 5.0
         });
-        _this.settingsSection.addSlider({
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("SSAO Settings", {
             id: "bias",
             label: "SSAO Bias",
             min: 0.0,
@@ -9419,20 +16073,24 @@ var SSAOPass = /** @class */ (function (_super) {
             step: 0.001,
             defaultValue: 0.025
         });
-        _this.settingsSection.addCheckbox({
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addCheckboxToSection("SSAO Settings", {
             id: "enableSSAO",
             label: "Enable SSAO",
             defaultValue: true
         });
-        _this.generateKernels();
-        _this.generateNoiseTexture();
-        return _this;
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.attatchProgram(this.program, [
+            "radius",
+            "bias",
+            "enableSSAO"
+        ]);
+        this.generateKernels();
+        this.generateNoiseTexture();
     }
-    SSAOPass.prototype.initRenderTarget = function (width, height) {
-        var w = width || this.canvas.width;
-        var h = height || this.canvas.height;
-        var ssaoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
-        var fbo = this.gl.createFramebuffer();
+    initRenderTarget(width, height) {
+        const w = width || this.canvas.width;
+        const h = height || this.canvas.height;
+        const ssaoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.R8, this.gl.RED, this.gl.UNSIGNED_BYTE);
+        const fbo = this.gl.createFramebuffer();
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, ssaoTexture, 0);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
@@ -9440,11 +16098,10 @@ var SSAOPass = /** @class */ (function (_super) {
             fbo: fbo,
             textures: { ssao: ssaoTexture }
         };
-    };
-    SSAOPass.prototype.render = function (vao_info, pathtracerOn) {
-        var _a;
-        var vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
-        var gBuffer = this.renderGraph.getOutputs(this);
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        const gBuffer = this.renderGraph.getOutputs(this);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
         if (!pathtracerOn || this.pathtracerRender) {
             this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
@@ -9455,67 +16112,1464 @@ var SSAOPass = /** @class */ (function (_super) {
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
         this.gl.bindVertexArray(vao.vao);
-        (_a = this.settingsSection) === null || _a === void 0 ? void 0 : _a.updateUniforms(this.gl);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.updateProgramUniforms(this.gl, this.program);
         // Get textures from geometry pass using named keys
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, gBuffer["normal"], "normalTexture", 0);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, gBuffer["depth"], "depthTexture", 1);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, this.noiseTexture, "noiseTexture", 2);
-        var cameraInfo = this.resourceCache.getData("CameraInfo");
+        const cameraInfo = this.resourceCache.getData("CameraInfo");
         this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
         this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
         this.gl.uniform1f(this.uniforms["noiseSize"], this.noiseSize);
         // Upload kernel samples
-        for (var i = 0; i < this.kernelSize; i++) {
-            this.gl.uniform3fv(this.gl.getUniformLocation(this.program, "samples[".concat(i, "]")), this.kernels[i]);
+        for (let i = 0; i < this.kernelSize; i++) {
+            this.gl.uniform3fv(this.gl.getUniformLocation(this.program, `samples[${i}]`), this.kernels[i]);
         }
         if (!pathtracerOn || this.pathtracerRender) {
             this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
         }
         this.gl.bindVertexArray(null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    };
-    SSAOPass.prototype.resize = function (width, height) {
+    }
+    resize(width, height) {
         // Delete old resources
         if (this.renderTarget) {
             if (this.renderTarget.fbo) {
                 this.gl.deleteFramebuffer(this.renderTarget.fbo);
             }
             if (this.renderTarget.textures) {
-                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
-                    var texture = _a[_i];
+                for (const texture of Object.values(this.renderTarget.textures)) {
                     this.gl.deleteTexture(texture);
                 }
             }
         }
         // Recreate render target with new dimensions
         this.renderTarget = this.initRenderTarget(width, height);
-    };
-    SSAOPass.prototype.generateKernels = function () {
+    }
+    generateKernels() {
         this.kernels = [];
-        for (var i = 0; i < this.kernelSize; i++) {
-            var sample = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(Math.random() * 2.0 - 1.0, Math.random() * 2.0 - 1.0, Math.random());
+        for (let i = 0; i < this.kernelSize; i++) {
+            let sample = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(Math.random() * 2.0 - 1.0, Math.random() * 2.0 - 1.0, Math.random());
             gl_matrix__WEBPACK_IMPORTED_MODULE_7__.normalize(sample, sample);
-            var scale = i / this.kernelSize;
+            let scale = i / this.kernelSize;
             scale = 0.1 + scale * scale * 0.9;
             gl_matrix__WEBPACK_IMPORTED_MODULE_7__.scale(sample, sample, scale);
             this.kernels.push(sample);
         }
-    };
-    SSAOPass.prototype.generateNoiseTexture = function () {
-        var noiseData = new Float32Array(this.noiseSize * this.noiseSize * 3);
-        for (var i = 0; i < this.noiseSize; i++) {
-            for (var j = 0; j < this.noiseSize; j++) {
-                var index = (i * this.noiseSize + j) * 3;
+    }
+    generateNoiseTexture() {
+        const noiseData = new Float32Array(this.noiseSize * this.noiseSize * 3);
+        for (let i = 0; i < this.noiseSize; i++) {
+            for (let j = 0; j < this.noiseSize; j++) {
+                const index = (i * this.noiseSize + j) * 3;
                 noiseData[index] = Math.random() * 2.0 - 1.0;
                 noiseData[index + 1] = Math.random() * 2.0 - 1.0;
                 noiseData[index + 2] = 0.0;
             }
         }
         this.noiseTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, this.noiseSize, this.noiseSize, this.gl.RGB32F, this.gl.RGB, this.gl.FLOAT, noiseData, this.gl.NEAREST, this.gl.NEAREST, this.gl.REPEAT, this.gl.REPEAT);
-    };
-    return SSAOPass;
-}(_renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_2__.RenderPass));
+    }
+}
 
+
+/***/ }),
+
+/***/ "./src/render/passes/Shadows/PointShadow/CubeShadowMaskPass.ts":
+/*!*********************************************************************!*\
+  !*** ./src/render/passes/Shadows/PointShadow/CubeShadowMaskPass.ts ***!
+  \*********************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   CubeShadowMaskPass: () => (/* binding */ CubeShadowMaskPass)
+/* harmony export */ });
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_PointShadow_CubeShadowMask_vert__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../../glsl/DeferredRendering/Shadows/PointShadow/CubeShadowMask.vert */ "./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadowMask.vert");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_PointShadow_CubeShadowMask_frag__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../../../glsl/DeferredRendering/Shadows/PointShadow/CubeShadowMask.frag */ "./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadowMask.frag");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../../../Settings */ "./src/Settings.ts");
+/* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../../../../utils/WorldUtils */ "./src/utils/WorldUtils.ts");
+
+
+
+
+
+
+
+
+class CubeShadowMaskPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph) {
+        super(gl, resourceCache, canvas, renderGraph);
+        this.pathtracerRender = false;
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
+        this.jitterTexture = null;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Shadows_PointShadow_CubeShadowMask_vert__WEBPACK_IMPORTED_MODULE_4__, _glsl_DeferredRendering_Shadows_PointShadow_CubeShadowMask_frag__WEBPACK_IMPORTED_MODULE_5__);
+        this.renderTarget = this.initRenderTarget();
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_1__.getUniformLocations)(gl, this.program, [
+            "viewInverse",
+            "projInverse",
+            "pausedView",
+            "usingPCF",
+            "pointShadowBias",
+            "numShadowedLights",
+            "cubeMapSize",
+            "cubeShadowsOn",
+            "jitterSize",
+            "filterSize",
+            "pcfRadius",
+            "debugPauseMode"
+        ]);
+        // Get or create jitter texture (shared with CSM pass)
+        this.jitterTexture = this.resourceCache.getData("jitterTexture");
+        if (!this.jitterTexture) {
+            // Use the same jitter texture creation logic as CSMShadowMaskPass
+            const jitterSize = this.resourceCache.getData("jitterSize") ?? 16;
+            const filterSize = this.resourceCache.getData("filterSize") ?? 4;
+            this.jitterTexture = this.createJitterTexture(jitterSize, filterSize);
+            this.resourceCache.setData("jitterTexture", this.jitterTexture);
+        }
+        // Attach program to settings for automatic uniform updates
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.attatchProgram(this.program, [
+            "usingPCF",
+            "pointShadowBias",
+            "pcfRadius",
+            "jitterSize",
+            "filterSize",
+            "slopeFactorClamp",
+            "debugPauseMode"
+        ]);
+    }
+    createJitterTexture(size, filterSize) {
+        const data = new Float32Array(size * size * filterSize * filterSize * 2);
+        const totalSamples = filterSize * filterSize;
+        let index = 0;
+        for (let texY = 0; texY < size; texY++) {
+            for (let texX = 0; texX < size; texX++) {
+                for (let i = 0; i < 8; i++) {
+                    const angle = (i + Math.random()) / 8;
+                    const radius = 1.0 - Math.random() * (1.0 / filterSize);
+                    data[index] = Math.sqrt(radius) * Math.cos(angle * 2 * Math.PI);
+                    data[index + 1] = Math.sqrt(radius) * Math.sin(angle * 2 * Math.PI);
+                    index += 2;
+                }
+                const remainingSamples = totalSamples - 8;
+                for (let i = 0; i < remainingSamples; i++) {
+                    const sampleIdx = i + 8;
+                    const filterX = sampleIdx % filterSize;
+                    const filterY = filterSize - 1 - Math.floor(sampleIdx / filterSize);
+                    const angle = (filterX + Math.random()) / filterSize;
+                    const radius = (filterY + Math.random()) / filterSize;
+                    data[index] = Math.sqrt(radius) * Math.cos(angle * 2 * Math.PI);
+                    data[index + 1] = Math.sqrt(radius) * Math.sin(angle * 2 * Math.PI);
+                    index += 2;
+                }
+            }
+        }
+        const texture = this.gl.createTexture();
+        const layers = (filterSize * filterSize) / 2;
+        this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
+        this.gl.texImage3D(this.gl.TEXTURE_3D, 0, this.gl.RGBA32F, layers, size, size, 0, this.gl.RGBA, this.gl.FLOAT, data);
+        this.gl.texParameteri(this.gl.TEXTURE_3D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+        this.gl.texParameteri(this.gl.TEXTURE_3D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+        this.gl.bindTexture(this.gl.TEXTURE_3D, null);
+        return texture;
+    }
+    initRenderTarget() {
+        const fbo = this.gl.createFramebuffer();
+        if (!fbo) {
+            throw new Error("Failed to create framebuffer");
+        }
+        // Create 5 R32F textures for 5 point light shadow masks
+        const pointShadowMaskA = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        const pointShadowMaskB = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        const pointShadowMaskC = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        const pointShadowMaskD = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        const pointShadowMaskE = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, pointShadowMaskA, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, pointShadowMaskB, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, pointShadowMaskC, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT3, this.gl.TEXTURE_2D, pointShadowMaskD, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT4, this.gl.TEXTURE_2D, pointShadowMaskE, 0);
+        this.gl.drawBuffers([
+            this.gl.COLOR_ATTACHMENT0,
+            this.gl.COLOR_ATTACHMENT1,
+            this.gl.COLOR_ATTACHMENT2,
+            this.gl.COLOR_ATTACHMENT3,
+            this.gl.COLOR_ATTACHMENT4
+        ]);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return {
+            fbo,
+            textures: {
+                pointShadowMaskA,
+                pointShadowMaskB,
+                pointShadowMaskC,
+                pointShadowMaskD,
+                pointShadowMaskE
+            }
+        };
+    }
+    resize(width, height) {
+        this.disposeRenderTarget();
+        this.renderTarget = this.initRenderTarget();
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        const textures = this.renderGraph.getOutputs(this);
+        const depthTexture = textures["depth"];
+        const normalTexture = textures["normal"];
+        const pointShadowTextures = textures["pointShadowTextures"];
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        // Clear to 1.0 (fully lit) so unshadowed lights show correctly
+        this.gl.clearColor(1.0, 1.0, 1.0, 1.0);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.program);
+        this.gl.bindVertexArray(vao.vao);
+        // Bind G-buffer textures
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.bindTex(this.gl, this.program, normalTexture, "normalTexture", 1);
+        // Bind point shadow cube maps (up to 5)
+        const numShadowedLights = this.resourceCache.getData("numShadowedLights") ?? 0;
+        if (pointShadowTextures && pointShadowTextures.length > 0) {
+            for (let i = 0; i < Math.min(numShadowedLights, 5); i++) {
+                this.gl.activeTexture(this.gl.TEXTURE2 + i);
+                this.gl.bindTexture(this.gl.TEXTURE_CUBE_MAP, pointShadowTextures[i]);
+                this.gl.uniform1i(this.gl.getUniformLocation(this.program, `pointShadowTexture[${i}]`), 2 + i);
+            }
+        }
+        // Bind jitter texture
+        this.gl.activeTexture(this.gl.TEXTURE7);
+        this.gl.bindTexture(this.gl.TEXTURE_3D, this.jitterTexture);
+        this.gl.uniform1i(this.gl.getUniformLocation(this.program, "jitterTexture"), 7);
+        // Camera uniforms
+        const cameraInfo = this.resourceCache.getData("CameraInfo");
+        const pausedCameraInfo = this.resourceCache.getData("pausedCameraInfo") ?? cameraInfo;
+        this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
+        this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
+        this.gl.uniformMatrix4fv(this.uniforms["pausedView"], false, pausedCameraInfo.matView);
+        // Shadow uniforms
+        this.gl.uniform1i(this.uniforms["numShadowedLights"], numShadowedLights);
+        this.gl.uniform1i(this.uniforms["cubeMapSize"], this.resourceCache.getData("CubeShadowsMapSize") ?? 1024);
+        this.gl.uniform1i(this.uniforms["cubeShadowsOn"], this.resourceCache.getData("cubeShadowsOn") ? 1 : 0);
+        // Update settings-driven uniforms
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.updateProgramUniforms(this.gl, this.program);
+        // Update point lights uniforms
+        const lights = this.resourceCache.getData("lights");
+        _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_7__.WorldUtils.updateLights(this.gl, this.program, lights);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+}
+
+
+/***/ }),
+
+/***/ "./src/render/passes/Shadows/PointShadow/CubeShadowsPass.ts":
+/*!******************************************************************!*\
+  !*** ./src/render/passes/Shadows/PointShadow/CubeShadowsPass.ts ***!
+  \******************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   CubeShadowsPass: () => (/* binding */ CubeShadowsPass)
+/* harmony export */ });
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_PointShadow_CubeShadows_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../../glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.vert */ "./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.vert");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_PointShadow_CubeShadows_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../../glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.frag */ "./src/render/glsl/DeferredRendering/Shadows/PointShadow/CubeShadows.frag");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../../../../Settings */ "./src/Settings.ts");
+
+
+
+
+
+
+
+class CubeShadowsPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph) {
+        super(gl, resourceCache, canvas, renderGraph);
+        this.pathtracerRender = false;
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.SCENE;
+        this.currentLightIndex = 0;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Shadows_PointShadow_CubeShadows_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Shadows_PointShadow_CubeShadows_frag__WEBPACK_IMPORTED_MODULE_4__);
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_1__.getUniformLocations)(gl, this.program, [
+            "lightSpaceMatrix",
+            "model",
+            "lightPos",
+            "lightRadius",
+            "lightRange"
+        ]);
+        this.renderTarget = this.initRenderTarget();
+        this.InitSettings();
+    }
+    getInvocationCount() {
+        return this.resourceCache.getData("numShadowedLights") ?? 0;
+    }
+    setInvocationIndex(index) {
+        this.currentLightIndex = index;
+    }
+    initRenderTarget() {
+        let size = this.resourceCache.getData("CubeShadowsMapSize") ?? 1024;
+        // Store the default value if it wasn't set
+        if (!this.resourceCache.getData("CubeShadowsMapSize")) {
+            this.resourceCache.setData("CubeShadowsMapSize", size);
+        }
+        const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
+        // Clamp shadow map size to maximum supported texture size
+        if (size > maxTextureSize) {
+            console.warn(`[Cube Shadows] Shadow map size ${size} exceeds maximum texture size ${maxTextureSize}. Clamping to ${maxTextureSize}.`);
+            size = maxTextureSize;
+            this.resourceCache.setData("CubeShadowsMapSize", size);
+        }
+        const cubeMaps = [];
+        const fbo = this.gl.createFramebuffer();
+        if (!fbo) {
+            throw new Error("Failed to create framebuffer");
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        // Create depth cube map textures for each light with hardware shadow comparison
+        for (let lightIndex = 0; lightIndex < this.resourceCache.getData("numShadowedLights"); lightIndex++) {
+            const cubeMap = this.gl.createTexture();
+            if (!cubeMap) {
+                throw new Error("Failed to create cube map texture");
+            }
+            this.gl.bindTexture(this.gl.TEXTURE_CUBE_MAP, cubeMap);
+            for (let i = 0; i < 6; i++) {
+                this.gl.texImage2D(this.gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, this.gl.DEPTH_COMPONENT32F, size, size, 0, this.gl.DEPTH_COMPONENT, this.gl.FLOAT, null);
+            }
+            // Use LINEAR filtering for hardware shadow filtering
+            this.gl.texParameteri(this.gl.TEXTURE_CUBE_MAP, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+            this.gl.texParameteri(this.gl.TEXTURE_CUBE_MAP, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+            this.gl.texParameteri(this.gl.TEXTURE_CUBE_MAP, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+            this.gl.texParameteri(this.gl.TEXTURE_CUBE_MAP, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+            this.gl.texParameteri(this.gl.TEXTURE_CUBE_MAP, this.gl.TEXTURE_WRAP_R, this.gl.CLAMP_TO_EDGE);
+            // Enable hardware shadow comparison
+            this.gl.texParameteri(this.gl.TEXTURE_CUBE_MAP, this.gl.TEXTURE_COMPARE_MODE, this.gl.COMPARE_REF_TO_TEXTURE);
+            this.gl.texParameteri(this.gl.TEXTURE_CUBE_MAP, this.gl.TEXTURE_COMPARE_FUNC, this.gl.LEQUAL);
+            cubeMaps.push(cubeMap);
+        }
+        this.gl.bindTexture(this.gl.TEXTURE_CUBE_MAP, null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return {
+            fbo: fbo,
+            textures: {
+                pointShadowTextures: cubeMaps
+            }
+        };
+    }
+    render(vaosToRender) {
+        if (!this.resourceCache.getData("cubeShadowsOn")) {
+            return;
+        }
+        const cubeMaps = this.renderTarget.textures
+            .pointShadowTextures;
+        const currentCubeMap = cubeMaps[this.currentLightIndex];
+        const shadowMapSize = this.resourceCache.getData("CubeShadowsMapSize");
+        // Set up render state once
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.depthFunc(this.gl.LEQUAL);
+        this.gl.enable(this.gl.CULL_FACE);
+        this.gl.disable(this.gl.SCISSOR_TEST); // Disable scissor test to ensure full rendering
+        this.gl.useProgram(this.program);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        // No color output - depth-only rendering
+        this.gl.drawBuffers([this.gl.NONE]);
+        this.gl.colorMask(false, false, false, false);
+        // Set clear values
+        this.gl.clearDepth(1.0);
+        for (let i = 0; i < 6; i++) {
+            if (this.resourceCache.getData("lights").length <= this.currentLightIndex) {
+                continue;
+            }
+            // Set viewport for this face
+            this.gl.viewport(0, 0, shadowMapSize, shadowMapSize);
+            // Attach the cube map face to the framebuffer as depth attachment
+            this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, currentCubeMap, 0);
+            // Verify framebuffer is complete before clearing
+            const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+            if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+                console.error(`Framebuffer incomplete for face ${i}: ${status}`);
+                continue;
+            }
+            // Clear depth for this face
+            this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
+            // Set up uniforms for this face
+            const lightSpaceMatrix = getLightSpaceMatrix(this.resourceCache, this.resourceCache.getData("lights")[this.currentLightIndex], i);
+            this.gl.uniformMatrix4fv(this.uniforms["lightSpaceMatrix"], false, lightSpaceMatrix);
+            this.gl.uniform3fv(this.uniforms["lightPos"], this.resourceCache.getData("lights")[this.currentLightIndex].position);
+            this.gl.uniform1f(this.uniforms["lightRadius"], this.resourceCache.getData("lights")[this.currentLightIndex].radius);
+            this.gl.uniform1f(this.uniforms["lightRange"], this.resourceCache.getData("lights")[this.currentLightIndex].range);
+            // Render all geometry for this face
+            for (const vaoInfo of vaosToRender) {
+                // Skip rendering this light's own sphere (prevent self-shadowing)
+                if (vaoInfo.isLight && vaoInfo.lightIndex === this.currentLightIndex) {
+                    continue;
+                }
+                this.gl.bindVertexArray(vaoInfo.vao);
+                this.gl.uniformMatrix4fv(this.uniforms["model"], false, vaoInfo.modelMatrix);
+                this.gl.drawElements(this.gl.TRIANGLES, vaoInfo.indexCount, this.gl.UNSIGNED_INT, 0);
+            }
+            this.gl.bindVertexArray(null);
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.colorMask(true, true, true, true);
+    }
+    InitSettings() {
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "Cube Shadows Settings");
+        this.resourceCache.setData("cubeShadowsOn", true);
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addCheckboxToSection("Cube Shadows Settings", {
+            id: "cubeShadowsOn",
+            label: "Cube Shadows On",
+            defaultValue: true,
+            onChange: (value) => {
+                this.resourceCache.setData("cubeShadowsOn", value);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Cube Shadows Settings", {
+            id: "CubeShadowsMapSize",
+            label: "Point Light Shadow Map Size",
+            min: 256,
+            max: 4096,
+            step: 256,
+            defaultValue: 1024,
+            numType: "int",
+            onChange: (value) => {
+                const newSize = Math.floor(value);
+                this.resourceCache.setData("CubeShadowsMapSize", newSize);
+                this.disposeRenderTarget();
+                this.renderTarget = this.initRenderTarget();
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_5__.SettingsManager.instance.addSliderToSection("Cube Shadows Settings", {
+            id: "pointShadowBias",
+            label: "Point Light Shadow Bias",
+            min: 0.0,
+            max: 0.1,
+            step: 0.001,
+            defaultValue: 0.05,
+            numType: "float",
+            fineTuner: true,
+        });
+    }
+}
+function getLightSpaceMatrix(resourceCache, light, face) {
+    const lightSpaceMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
+    const lightViewMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
+    let target = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+    let up = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+    switch (face) {
+        case 0:
+            target = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(light.position[0] + 1, light.position[1], light.position[2]);
+            up = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0.0, -1.0, 0.0);
+            break;
+        case 1:
+            target = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(light.position[0] - 1, light.position[1], light.position[2]);
+            up = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0.0, -1.0, 0.0);
+            break;
+        case 2:
+            target = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(light.position[0], light.position[1] + 1, light.position[2]);
+            up = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0.0, 0.0, 1.0);
+            break;
+        case 3:
+            target = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(light.position[0], light.position[1] - 1, light.position[2]);
+            up = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0.0, 0.0, -1.0);
+            break;
+        case 4:
+            target = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(light.position[0], light.position[1], light.position[2] + 1);
+            up = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0.0, -1.0, 0.0);
+            break;
+        case 5:
+            target = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(light.position[0], light.position[1], light.position[2] - 1);
+            up = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0.0, -1.0, 0.0);
+            break;
+    }
+    gl_matrix__WEBPACK_IMPORTED_MODULE_6__.lookAt(lightViewMatrix, light.position, target, up);
+    const lightProjectionMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
+    // Use the light's range for shadow map far plane
+    const shadowMapFar = light.range;
+    gl_matrix__WEBPACK_IMPORTED_MODULE_6__.perspective(lightProjectionMatrix, Math.PI / 2, 1.0, 0.1, shadowMapFar);
+    gl_matrix__WEBPACK_IMPORTED_MODULE_6__.multiply(lightSpaceMatrix, lightProjectionMatrix, lightViewMatrix);
+    return lightSpaceMatrix;
+}
+
+
+/***/ }),
+
+/***/ "./src/render/passes/Shadows/ShadowBlurPass.ts":
+/*!*****************************************************!*\
+  !*** ./src/render/passes/Shadows/ShadowBlurPass.ts ***!
+  \*****************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   ShadowBlurPass: () => (/* binding */ ShadowBlurPass)
+/* harmony export */ });
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_ShadowBlur_vert__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../glsl/DeferredRendering/Shadows/ShadowBlur.vert */ "./src/render/glsl/DeferredRendering/Shadows/ShadowBlur.vert");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_ShadowBlur_frag__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../glsl/DeferredRendering/Shadows/ShadowBlur.frag */ "./src/render/glsl/DeferredRendering/Shadows/ShadowBlur.frag");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+
+
+
+
+
+class ShadowBlurPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph) {
+        super(gl, resourceCache, canvas, renderGraph);
+        this.pathtracerRender = false;
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_1__.VAOInputType.FULLSCREENQUAD;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Shadows_ShadowBlur_vert__WEBPACK_IMPORTED_MODULE_2__, _glsl_DeferredRendering_Shadows_ShadowBlur_frag__WEBPACK_IMPORTED_MODULE_3__);
+    }
+    initRenderTarget() {
+        const fbo = this.gl.createFramebuffer();
+        if (!fbo) {
+            throw new Error("Failed to create framebuffer");
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        const blurredSunShadowMaskTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        const blurredPointShadowMaskATexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        const blurredPointShadowMaskBTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        const blurredPointShadowMaskCTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        const blurredPointShadowMaskDTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        const blurredPointShadowMaskETexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32F, this.gl.RED, this.gl.FLOAT);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, blurredSunShadowMaskTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, blurredPointShadowMaskATexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, blurredPointShadowMaskBTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT3, this.gl.TEXTURE_2D, blurredPointShadowMaskCTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT4, this.gl.TEXTURE_2D, blurredPointShadowMaskDTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT5, this.gl.TEXTURE_2D, blurredPointShadowMaskETexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1, this.gl.COLOR_ATTACHMENT2, this.gl.COLOR_ATTACHMENT3, this.gl.COLOR_ATTACHMENT4, this.gl.COLOR_ATTACHMENT5]);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return { fbo, textures: { blurredSunShadowMask: blurredSunShadowMaskTexture, blurredPointShadowMaskA: blurredPointShadowMaskATexture, blurredPointShadowMaskB: blurredPointShadowMaskBTexture, blurredPointShadowMaskC: blurredPointShadowMaskCTexture, blurredPointShadowMaskD: blurredPointShadowMaskDTexture, blurredPointShadowMaskE: blurredPointShadowMaskETexture } };
+    }
+    resize(width, height) {
+        this.disposeRenderTarget();
+        this.renderTarget = this.initRenderTarget();
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        // Get INPUT textures from dependencies (unblurred shadow masks)
+        const textures = this.renderGraph.getOutputs(this);
+        const sunShadowMask = textures["sunShadowMask"];
+        const pointShadowMaskA = textures["pointShadowMaskA"];
+        const pointShadowMaskB = textures["pointShadowMaskB"];
+        const pointShadowMaskC = textures["pointShadowMaskC"];
+        const pointShadowMaskD = textures["pointShadowMaskD"];
+        const pointShadowMaskE = textures["pointShadowMaskE"];
+        const depthTexture = textures["depth"];
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.program);
+        this.gl.bindVertexArray(vao.vao);
+        // Bind input textures with shader uniform names
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, sunShadowMask, "sunShadowMask", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, pointShadowMaskA, "pointShadowMaskA", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, pointShadowMaskB, "pointShadowMaskB", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, pointShadowMaskC, "pointShadowMaskC", 3);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, pointShadowMaskD, "pointShadowMaskD", 4);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, pointShadowMaskE, "pointShadowMaskE", 5);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_4__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 6);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+}
+
+
+/***/ }),
+
+/***/ "./src/render/passes/Shadows/SunShadow/CSMPass.ts":
+/*!********************************************************!*\
+  !*** ./src/render/passes/Shadows/SunShadow/CSMPass.ts ***!
+  \********************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   CSMPass: () => (/* binding */ CSMPass)
+/* harmony export */ });
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_SunShadow_CSM_vert__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../../glsl/DeferredRendering/Shadows/SunShadow/CSM.vert */ "./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSM.vert");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_SunShadow_CSM_frag__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../../../glsl/DeferredRendering/Shadows/SunShadow/CSM.frag */ "./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSM.frag");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../../../Settings */ "./src/Settings.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+
+
+
+
+
+
+
+
+// Simple in-memory cache for cascade radii (keyed by quantized params).
+const cascadeRadiiCache = new Map();
+class CSMPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph) {
+        super(gl, resourceCache, canvas, renderGraph);
+        this.pathtracerRender = false;
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.SCENE;
+        this.currentCascadeIndex = 0;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_3__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Shadows_SunShadow_CSM_vert__WEBPACK_IMPORTED_MODULE_4__, _glsl_DeferredRendering_Shadows_SunShadow_CSM_frag__WEBPACK_IMPORTED_MODULE_5__);
+        this.renderTarget = this.initRenderTarget();
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_1__.getUniformLocations)(gl, this.program, [
+            "lightSpaceMatrix",
+            "model"
+        ]);
+        this.InitSettings();
+    }
+    getInvocationCount() {
+        const numCascades = this.resourceCache.getData("numCascades") ?? 3;
+        return numCascades;
+    }
+    setInvocationIndex(index) {
+        this.currentCascadeIndex = index;
+    }
+    initRenderTarget() {
+        // Use DEPTH_COMPONENT32F for float depth, or DEPTH_COMPONENT24 with UNSIGNED_INT
+        // For shadow maps, DEPTH_COMPONENT32F with FLOAT is more reliable
+        let csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize") ?? 2048; // Default to 2048 if not set
+        // Store the default value if it wasn't set
+        if (!this.resourceCache.getData("csmShadowMapSize")) {
+            this.resourceCache.setData("csmShadowMapSize", csmShadowMapSize);
+        }
+        const numCascades = this.resourceCache.getData("numCascades") ?? 3;
+        const maxTextureSize = this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE);
+        // Clamp shadow map size to maximum supported texture size
+        if (csmShadowMapSize > maxTextureSize) {
+            console.warn(`[CSM] Shadow map size ${csmShadowMapSize} exceeds maximum texture size ${maxTextureSize}. Clamping to ${maxTextureSize}.`);
+            csmShadowMapSize = maxTextureSize;
+            this.resourceCache.setData("csmShadowMapSize", csmShadowMapSize);
+        }
+        // Calculate memory requirements for texture array
+        // DEPTH_COMPONENT32F with FLOAT uses 4 bytes per pixel
+        const bytesPerPixel = 4;
+        const totalMemoryBytes = csmShadowMapSize * csmShadowMapSize * numCascades * bytesPerPixel;
+        // Conservative memory limit: 512MB (536,870,912 bytes)
+        // Many GPUs, especially integrated or older ones, can't allocate more than this for a single texture
+        const maxSafeMemoryBytes = 512 * 1024 * 1024; // 512 MB
+        if (totalMemoryBytes > maxSafeMemoryBytes) {
+            // Calculate the maximum safe size based on memory limit
+            const maxSafeTexelsPerLayer = Math.floor(maxSafeMemoryBytes / (numCascades * bytesPerPixel));
+            const maxSafeSize = Math.floor(Math.sqrt(maxSafeTexelsPerLayer));
+            // Ensure we don't exceed MAX_TEXTURE_SIZE
+            const clampedSize = Math.min(maxSafeSize, maxTextureSize);
+            if (clampedSize < csmShadowMapSize) {
+                console.warn(`[CSM] Shadow map size ${csmShadowMapSize} would require ${(totalMemoryBytes / (1024 * 1024)).toFixed(2)}MB ` +
+                    `(${csmShadowMapSize}×${csmShadowMapSize}×${numCascades}×4 bytes), exceeding safe limit of ${(maxSafeMemoryBytes / (1024 * 1024)).toFixed(0)}MB. ` +
+                    `Clamping to ${clampedSize}×${clampedSize} (${((clampedSize * clampedSize * numCascades * bytesPerPixel) / (1024 * 1024)).toFixed(2)}MB).`);
+                csmShadowMapSize = clampedSize;
+                this.resourceCache.setData("csmShadowMapSize", csmShadowMapSize);
+            }
+        }
+        const depthInternalFormat = this.gl.DEPTH_COMPONENT32F;
+        const depthFormat = this.gl.DEPTH_COMPONENT;
+        const depthType = this.gl.FLOAT;
+        // Create a single texture array instead of individual textures
+        const shadowDepthTextureArray = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2DArray(this.gl, csmShadowMapSize, csmShadowMapSize, numCascades, depthInternalFormat, depthFormat, depthType);
+        // Set texture parameters for the array
+        this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, shadowDepthTextureArray);
+        this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+        this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_COMPARE_MODE, this.gl.COMPARE_REF_TO_TEXTURE);
+        this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_COMPARE_FUNC, this.gl.LESS);
+        this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, null);
+        const fbo = this.gl.createFramebuffer();
+        if (!fbo) {
+            throw new Error("Failed to create framebuffer");
+        }
+        // Attachments are switched per-cascade during render() using framebufferTextureLayer
+        return {
+            fbo: fbo,
+            textures: {
+                shadowDepthTextureArray: shadowDepthTextureArray
+            }
+        };
+    }
+    render(vaosToRender) {
+        if (this.resourceCache.getData("disableSun")) {
+            return;
+        }
+        // Check if CSM is enabled
+        const csmEnabled = this.resourceCache.getData("csmEnabled") ?? true;
+        if (!csmEnabled) {
+            console.log("[CSM] CSM is disabled");
+            return;
+        }
+        if (!this.renderTarget) {
+            console.error("[CSM] No render target!");
+            return;
+        }
+        const textures = this.renderTarget.textures;
+        const shadowDepthTextureArray = textures["shadowDepthTextureArray"];
+        if (!shadowDepthTextureArray) {
+            console.error(`[CSM] Shadow depth texture array not found!`);
+            return;
+        }
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        // Use framebufferTextureLayer to attach a specific layer of the texture array
+        this.gl.framebufferTextureLayer(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, shadowDepthTextureArray, 0, this.currentCascadeIndex);
+        // Check framebuffer completeness
+        const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+        if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+            console.error(`Framebuffer not complete: ${status}`);
+        }
+        this.gl.drawBuffers([this.gl.NONE]);
+        if (this.gl.readBuffer) {
+            this.gl.readBuffer(this.gl.NONE);
+        }
+        this.gl.colorMask(false, false, false, false);
+        const csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize");
+        this.gl.viewport(0, 0, csmShadowMapSize, csmShadowMapSize);
+        this.gl.clearDepth(1.0);
+        this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
+        this.gl.enable(this.gl.DEPTH_TEST);
+        this.gl.depthFunc(this.gl.LESS);
+        this.gl.depthMask(true);
+        this.gl.useProgram(this.program);
+        const sunLight = this.resourceCache.getData("sunLight");
+        if (!sunLight) {
+            console.error("[CSM] No sun light found in resource cache!");
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+            this.gl.colorMask(true, true, true, true);
+            return;
+        }
+        const lightSpaceMatrices = getLightSpaceMatrices(this.resourceCache, sunLight, _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.getSetting("lambda")?.value || 0.7, _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.getSetting("zMultiplier")?.value ||
+            10.0);
+        const lightSpaceMatrix = lightSpaceMatrices[this.currentCascadeIndex];
+        this.gl.uniformMatrix4fv(this.uniforms["lightSpaceMatrix"], false, lightSpaceMatrix);
+        for (const vaoInfo of vaosToRender) {
+            this.gl.bindVertexArray(vaoInfo.vao);
+            this.gl.uniformMatrix4fv(this.uniforms["model"], false, vaoInfo.modelMatrix);
+            this.gl.drawElements(this.gl.TRIANGLES, vaoInfo.indexCount, this.gl.UNSIGNED_INT, 0);
+        }
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        this.gl.colorMask(true, true, true, true);
+    }
+    /**
+     * Returns hardcoded shadow bias values tuned for each cascade.
+     * Values: 0.00031, 0.000087, 0.000076 for cascades 0, 1, 2
+     */
+    calculateCascadeBias(cascadeIndex) {
+        // Hardcoded tuned bias values
+        const hardcodedBias = [
+            0.00031,
+            0.000087,
+            0.000076,
+            0.0001,
+            0.00005,
+            0.00001,
+            0.000005,
+            0.000001
+        ];
+        if (cascadeIndex < hardcodedBias.length) {
+            return hardcodedBias[cascadeIndex];
+        }
+        // Fallback for additional cascades: use very small value
+        return 0.000001;
+    }
+    /**
+     * Returns hardcoded PCF-only bias scale values tuned for each cascade.
+     * Used as a multiplier on the additional bias applied only when PCF is enabled.
+     */
+    calculateCascadePcfBiasScale(cascadeIndex) {
+        const hardcodedScale = [0.2, 0.15, 0.009, 0.009, 0.009, 0.009, 0.009, 0.009];
+        if (cascadeIndex < hardcodedScale.length) {
+            return hardcodedScale[cascadeIndex];
+        }
+        return 0.009;
+    }
+    InitSettings() {
+        // Use SettingsManager instead of local SettingsSection
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.createSection(document.getElementById("settings-section"), "CSM Settings");
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addCheckboxToSection("CSM Settings", {
+            id: "csmEnabled",
+            label: "Enable CSM",
+            defaultValue: true,
+            onChange: (value) => {
+                this.resourceCache.setData("csmEnabled", value);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "numCascades",
+            label: "Number of Cascades",
+            min: 1,
+            max: 8,
+            step: 1,
+            defaultValue: 3,
+            numType: "int",
+            onChange: (value) => {
+                const newNumCascades = Math.floor(value);
+                this.resourceCache.setData("numCascades", newNumCascades);
+                // Update csmShadowBias array to match new number of cascades
+                const currentBiasArray = this.resourceCache.getData("csmShadowBias");
+                const newBiasArray = Array.from({ length: newNumCascades }, (_, i) => {
+                    if (currentBiasArray && i < currentBiasArray.length) {
+                        // Keep existing values if available
+                        return currentBiasArray[i];
+                    }
+                    // Calculate bias based on cascade's far plane
+                    return this.calculateCascadeBias(i);
+                });
+                this.resourceCache.setData("csmShadowBias", newBiasArray);
+                // Update csmPcfBiasScale array to match new number of cascades
+                const currentPcfBiasScaleArray = this.resourceCache.getData("csmPcfBiasScale");
+                const newPcfBiasScaleArray = Array.from({ length: newNumCascades }, (_, i) => {
+                    if (currentPcfBiasScaleArray && i < currentPcfBiasScaleArray.length) {
+                        return currentPcfBiasScaleArray[i];
+                    }
+                    return this.calculateCascadePcfBiasScale(i);
+                });
+                this.resourceCache.setData("csmPcfBiasScale", newPcfBiasScaleArray);
+                // Update the csmShadowBias slider array length if it exists
+                const shadowBiasSetting = _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.getSetting("csmShadowBias");
+                if (shadowBiasSetting &&
+                    shadowBiasSetting.type === "slider" &&
+                    shadowBiasSetting.isArray) {
+                    // We need to recreate the slider with new array length
+                    // For now, just update the array length property
+                    shadowBiasSetting.arrayLength = newNumCascades;
+                    shadowBiasSetting.value = newBiasArray;
+                }
+                const pcfBiasScaleSetting = _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.getSetting("csmPcfBiasScale");
+                if (pcfBiasScaleSetting &&
+                    pcfBiasScaleSetting.type === "slider" &&
+                    pcfBiasScaleSetting.isArray) {
+                    pcfBiasScaleSetting.arrayLength = newNumCascades;
+                    pcfBiasScaleSetting.value = newPcfBiasScaleArray;
+                }
+                this.disposeRenderTarget();
+                this.renderTarget = this.initRenderTarget();
+            }
+        });
+        // Initialize the default value in resource cache
+        this.resourceCache.setData("numCascades", 3);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "csmShadowMapSize",
+            label: "CSM Shadow Map Size",
+            min: 1024,
+            max: 6000,
+            step: 1,
+            defaultValue: 2048,
+            numType: "int",
+            onChange: (value) => {
+                this.resourceCache.setData("csmShadowMapSize", value);
+                this.disposeRenderTarget();
+                this.renderTarget = this.initRenderTarget();
+            }
+        });
+        // Initialize the default value in resource cache since onChange is only called on user interaction
+        this.resourceCache.setData("csmShadowMapSize", 2048);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "lambda",
+            label: "Lambda",
+            min: 0.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.7,
+            numType: "float",
+            onChange: (value) => {
+                this.resourceCache.setData("lambda", value);
+                // Recalculate bias array since lambda affects cascade splits
+                const numCascades = this.resourceCache.getData("numCascades") ?? 3;
+                const updatedBiasArray = Array.from({ length: numCascades }, (_, i) => {
+                    return this.calculateCascadeBias(i);
+                });
+                this.resourceCache.setData("csmShadowBias", updatedBiasArray);
+                // Update the slider array if it exists
+                const shadowBiasSetting = _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.getSetting("csmShadowBias");
+                if (shadowBiasSetting &&
+                    shadowBiasSetting.type === "slider" &&
+                    shadowBiasSetting.isArray) {
+                    shadowBiasSetting.value = updatedBiasArray;
+                }
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "zMultiplier",
+            label: "Z Multiplier",
+            min: 0.0,
+            max: 15.0,
+            step: 0.1,
+            defaultValue: 10.0,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "pcfRadius",
+            label: "PCF Radius",
+            min: 0.0,
+            max: 15.0,
+            step: 0.1,
+            defaultValue: 3.0,
+            numType: "float"
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "jitterSize",
+            label: "Jitter Size",
+            min: 5,
+            max: 128,
+            step: 1,
+            defaultValue: 16,
+            numType: "int",
+            onChange: (value) => {
+                this.resourceCache.setData("jitterSize", value);
+                this.requestJitterTextureUpdate();
+            }
+        });
+        this.resourceCache.setData("jitterSize", 16);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "filterSize",
+            label: "Filter Size",
+            min: 2,
+            max: 16,
+            step: 2,
+            defaultValue: 4,
+            numType: "int",
+            onChange: (value) => {
+                this.resourceCache.setData("filterSize", value);
+                this.requestJitterTextureUpdate();
+            }
+        });
+        this.resourceCache.setData("filterSize", 4);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "jitterScale",
+            label: "Jitter Scale",
+            min: 0.1,
+            max: 2.0,
+            step: 0.01,
+            defaultValue: 1.0,
+            numType: "float"
+        });
+        this.resourceCache.setData("jitterScale", 1.0);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "slopeFactorClamp",
+            label: "Slope Factor Clamp",
+            min: 0.0,
+            max: 20.0,
+            step: 0.1,
+            defaultValue: 3.0,
+            numType: "float",
+            fineTuner: true,
+        });
+        this.resourceCache.setData("slopeFactorClamp", 3.0);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addCheckboxToSection("CSM Settings", {
+            id: "usingPCF",
+            label: "Using PCF",
+            defaultValue: true
+        });
+        const numCascades = this.resourceCache.getData("numCascades") ?? 3;
+        // Initialize csmShadowBias array with hardcoded tuned values
+        const defaultBiasArray = Array.from({ length: numCascades }, (_, i) => {
+            return this.calculateCascadeBias(i);
+        });
+        this.resourceCache.setData("csmShadowBias", defaultBiasArray);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "csmShadowBias",
+            label: "CSM Shadow Bias",
+            min: 0.0, // Same min for all cascades
+            max: 0.01, // Same max for all cascades
+            step: 0.000001, // Fine step for precise tuning
+            defaultValue: defaultBiasArray, // Array of default values - each cascade gets its own default
+            numType: "float",
+            isArray: true,
+            arrayLength: numCascades,
+            arrayIndex: 0,
+            fineTuner: true,
+        });
+        // Per-cascade scale for the additional bias applied only when PCF is enabled.
+        // Keep this small; it multiplies a term based on (pcfRadius * texelSize) and slope.
+        const defaultPcfBiasScaleArray = Array.from({ length: numCascades }, (_, i) => this.calculateCascadePcfBiasScale(i));
+        this.resourceCache.setData("csmPcfBiasScale", defaultPcfBiasScaleArray);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "csmPcfBiasScale",
+            label: "CSM PCF Bias Scale",
+            min: 0.0,
+            max: 2.0,
+            step: 0.001,
+            defaultValue: defaultPcfBiasScaleArray,
+            numType: "float",
+            isArray: true,
+            arrayLength: numCascades,
+            arrayIndex: 0,
+            fineTuner: true,
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addSliderToSection("CSM Settings", {
+            id: "cascadeBlendWidth",
+            label: "Cascade Blend Width",
+            min: 0.0,
+            max: 0.5,
+            step: 0.01,
+            defaultValue: 0.5,
+            numType: "float",
+            onChange: (value) => {
+                this.resourceCache.setData("cascadeBlendWidth", value);
+            }
+        });
+        // Initialize default blend width
+        this.resourceCache.setData("cascadeBlendWidth", 0.5);
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addCheckboxToSection("CSM Settings", {
+            id: "cascadeDebug",
+            label: "Cascade Debug",
+            defaultValue: false,
+            onChange: (value) => {
+                this.resourceCache.setData("cascadeDebug", value);
+            }
+        });
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.addCheckboxToSection("CSM Settings", {
+            id: "debugPauseMode",
+            label: "Debug Pause Mode",
+            defaultValue: false,
+            onChange: (value) => {
+                this.resourceCache.setData("debugPauseMode", value);
+            }
+        });
+    }
+    requestJitterTextureUpdate() {
+        const updateJitterTexture = this.resourceCache.getData("updateJitterTexture");
+        if (typeof updateJitterTexture !== "function") {
+            return;
+        }
+        const jitterSetting = _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.getSetting("jitterSize");
+        const filterSetting = _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.getSetting("filterSize");
+        const jitterSize = jitterSetting?.value ??
+            this.resourceCache.getData("jitterSize") ??
+            64;
+        const filterSize = filterSetting?.value ??
+            this.resourceCache.getData("filterSize") ??
+            4;
+        updateJitterTexture(jitterSize, filterSize);
+    }
+}
+function getCascadeSplits(resourceCache, lambda) {
+    const cascadeSplits = [];
+    const numCascades = resourceCache.getData("numCascades") ?? 3;
+    const nearFarPlanes = resourceCache.getData("pausedNearFarPlanes");
+    const nearPlane = nearFarPlanes.near;
+    const farPlane = nearFarPlanes.far;
+    const clipRange = farPlane - nearPlane;
+    const ratio = farPlane / nearPlane;
+    for (let i = 0; i < numCascades; ++i) {
+        const p = (i + 1) / numCascades;
+        const logSplit = nearPlane * Math.pow(ratio, p);
+        const uniSplit = nearPlane + clipRange * p;
+        cascadeSplits[i] = uniSplit * (1.0 - lambda) + logSplit * lambda;
+    }
+    resourceCache.setData("cascadeSplits", cascadeSplits);
+    return cascadeSplits;
+}
+// Helper function to compute frustum corners from a view-projection matrix
+function computeFrustumCornersFromViewProj(invViewProjMatrix) {
+    const frustumCorners = [];
+    // Generate all 8 corners of the NDC frustum cube [-1, 1]^3
+    for (let x = 0; x < 2; ++x) {
+        for (let y = 0; y < 2; ++y) {
+            for (let z = 0; z < 2; ++z) {
+                // NDC coordinates: (2*x-1, 2*y-1, 2*z-1) maps [0,1] to [-1,1]
+                // where z=0 corresponds to near plane (NDC z=-1) and z=1 to far plane (NDC z=1)
+                const ndcPoint = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(2.0 * x - 1.0, 2.0 * y - 1.0, 2.0 * z - 1.0, 1.0);
+                // Transform from NDC/clip space to world space (homogeneous coordinates)
+                const pt = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+                gl_matrix__WEBPACK_IMPORTED_MODULE_7__.transformMat4(pt, ndcPoint, invViewProjMatrix);
+                // Perspective divide: divide x, y, z by w to get world space coordinates
+                // vec4.divide performs component-wise division: (x/w, y/w, z/w, w/w)
+                frustumCorners.push(gl_matrix__WEBPACK_IMPORTED_MODULE_7__.divide(gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create(), pt, gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(pt[3], pt[3], pt[3], pt[3])));
+            }
+        }
+    }
+    return frustumCorners;
+}
+function getWorldSpaceFrustumCorners(resourceCache) {
+    const cameraInfo = resourceCache.getData("pausedCameraInfo");
+    const invViewProjMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
+    gl_matrix__WEBPACK_IMPORTED_MODULE_8__.invert(invViewProjMatrix, cameraInfo.matViewProj);
+    const corners = computeFrustumCornersFromViewProj(invViewProjMatrix);
+    const serialized = corners.map((corner) => Array.from(corner));
+    resourceCache.setData("cameraFrustumCorners", serialized);
+    return corners;
+}
+function getSubfrustumCorners(resourceCache, lambda) {
+    const subFrustumCorners = [];
+    const numCascades = resourceCache.getData("numCascades") ?? 3;
+    const nearFarPlanes = resourceCache.getData("pausedNearFarPlanes");
+    const cascadeSplits = getCascadeSplits(resourceCache, lambda);
+    const nearPlane = nearFarPlanes.near;
+    const farPlane = nearFarPlanes.far;
+    // Get the full camera frustum corners in world space (order: x, y, then z)
+    const fullFrustumCorners = getWorldSpaceFrustumCorners(resourceCache);
+    for (let i = 0; i < numCascades; i++) {
+        // Determine near and far distances for this cascade
+        const cascadeNear = i === 0 ? nearPlane : cascadeSplits[i - 1];
+        const cascadeFar = cascadeSplits[i];
+        // Interpolation factors are identical for all rays (proof from plane-ray intersection)
+        const tNear = (cascadeNear - nearPlane) / (farPlane - nearPlane);
+        const tFar = (cascadeFar - nearPlane) / (farPlane - nearPlane);
+        // Generate 8 corners for this cascade matching the original ordering (x, y, then z)
+        const cascadeCorners = [];
+        for (let x = 0; x < 2; ++x) {
+            for (let y = 0; y < 2; ++y) {
+                // Near index for this (x,y), far index is nearIdx + 1
+                const nearIdx = 4 * x + 2 * y; // 0,2,4,6
+                const farIdx = nearIdx + 1; // 1,3,5,7
+                const nearCorner = fullFrustumCorners[nearIdx];
+                const farCorner = fullFrustumCorners[farIdx];
+                // z = 0 (cascade near), then z = 1 (cascade far)
+                const cascadeNearCorner = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+                gl_matrix__WEBPACK_IMPORTED_MODULE_7__.lerp(cascadeNearCorner, nearCorner, farCorner, tNear);
+                cascadeCorners.push(cascadeNearCorner);
+                const cascadeFarCorner = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.create();
+                gl_matrix__WEBPACK_IMPORTED_MODULE_7__.lerp(cascadeFarCorner, nearCorner, farCorner, tFar);
+                cascadeCorners.push(cascadeFarCorner);
+            }
+        }
+        subFrustumCorners.push(cascadeCorners);
+    }
+    const serialized = subFrustumCorners.map((cascadeCorners) => cascadeCorners.map((corner) => Array.from(corner)));
+    resourceCache.setData("cameraSubFrusta", serialized);
+    return subFrustumCorners;
+}
+function getLightSpaceMatrices(resourceCache, light, lambda, zMultiplier) {
+    const lightSpaceMatrices = [];
+    const numCascades = resourceCache.getData("numCascades") ?? 3;
+    const normalizedLightDir = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), light.direction);
+    const parallelThreshold = 0.99;
+    const subFrustumCorners = getSubfrustumCorners(resourceCache, lambda);
+    const cascadeRadii = getCascadeRadii(resourceCache, lambda, subFrustumCorners);
+    const shadowMapResolution = resourceCache.getData("csmShadowMapSize") ?? 2048;
+    // Build a STABLE light view matrix that only depends on light direction.
+    // This matches the lookAt convention where zAxis = -viewDirection (back vector).
+    let upDirection = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(0.0, 1.0, 0.0);
+    if (Math.abs(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.dot(normalizedLightDir, upDirection)) > parallelThreshold) {
+        upDirection = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(1.0, 0.0, 0.0);
+        if (Math.abs(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.dot(normalizedLightDir, upDirection)) > parallelThreshold) {
+            upDirection = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(0.0, 0.0, 1.0);
+        }
+    }
+    // Match lookAt convention: zAxis points OPPOSITE to viewing direction
+    // In original code: zAxis = lightEye - center = -light.direction
+    const zAxis = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.negate(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), normalizedLightDir);
+    // xAxis = normalize(cross(up, zAxis))
+    const xAxis = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.cross(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), upDirection, zAxis);
+    gl_matrix__WEBPACK_IMPORTED_MODULE_9__.normalize(xAxis, xAxis);
+    // yAxis = cross(zAxis, xAxis) - ensures orthogonality
+    const yAxis = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.cross(gl_matrix__WEBPACK_IMPORTED_MODULE_9__.create(), zAxis, xAxis);
+    gl_matrix__WEBPACK_IMPORTED_MODULE_9__.normalize(yAxis, yAxis);
+    // Build stable view rotation matrix (matches lookAt structure, column-major)
+    // lookAt puts: column0=xAxis, column1=yAxis, column2=zAxis for the rotation part
+    const stableLightRotation = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.fromValues(xAxis[0], yAxis[0], zAxis[0], 0, xAxis[1], yAxis[1], zAxis[1], 0, xAxis[2], yAxis[2], zAxis[2], 0, 0, 0, 0, 1);
+    for (let i = 0; i < numCascades; i++) {
+        // Compute frustum center in world space
+        const center = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(0.0, 0.0, 0.0);
+        for (const cornerWS of subFrustumCorners[i]) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.add(center, center, gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(cornerWS[0], cornerWS[1], cornerWS[2]));
+        }
+        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scale(center, center, 1.0 / subFrustumCorners[i].length);
+        // Transform center to stable light space for computing bounds
+        const centerLS = gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(center[0], center[1], center[2], 1.0);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_7__.transformMat4(centerLS, centerLS, stableLightRotation);
+        // Use bounding sphere radius for stable square frustum
+        const radius = cascadeRadii[i] ?? 0.0;
+        // Calculate texel size and snap center to texel grid
+        const worldUnitsPerTexel = (2.0 * radius) / shadowMapResolution;
+        const snappedCenterX = Math.floor(centerLS[0] / worldUnitsPerTexel) * worldUnitsPerTexel;
+        const snappedCenterY = Math.floor(centerLS[1] / worldUnitsPerTexel) * worldUnitsPerTexel;
+        // Build snapped ortho bounds (square, centered on snapped position)
+        const orthoMinX = snappedCenterX - radius;
+        const orthoMaxX = snappedCenterX + radius;
+        const orthoMinY = snappedCenterY - radius;
+        const orthoMaxY = snappedCenterY + radius;
+        // Z bounds: start from sphere center in light space, apply zMultiplier
+        let minZ = centerLS[2] - radius;
+        let maxZ = centerLS[2] + radius;
+        if (minZ < 0) {
+            minZ *= zMultiplier;
+        }
+        else {
+            minZ /= zMultiplier;
+        }
+        if (maxZ < 0) {
+            maxZ /= zMultiplier;
+        }
+        else {
+            maxZ *= zMultiplier;
+        }
+        // For ortho projection: near/far are distances along -Z axis
+        // Objects at Z=minZ should map to near, Z=maxZ to far
+        // gl-matrix ortho expects: near < far, and maps -near to NDC -1, -far to NDC +1
+        // So we negate and swap: near = -maxZ, far = -minZ
+        const orthoNear = -maxZ;
+        const orthoFar = -minZ;
+        // Build the ortho projection
+        const LightProjectionMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create();
+        gl_matrix__WEBPACK_IMPORTED_MODULE_8__.ortho(LightProjectionMatrix, orthoMinX, orthoMaxX, orthoMinY, orthoMaxY, orthoNear, orthoFar);
+        // Use the stable rotation as view matrix
+        const LightViewMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_8__.clone(stableLightRotation);
+        lightSpaceMatrices.push(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.multiply(gl_matrix__WEBPACK_IMPORTED_MODULE_8__.create(), LightProjectionMatrix, LightViewMatrix));
+    }
+    resourceCache.setData("lightSpaceMatrices", lightSpaceMatrices);
+    return lightSpaceMatrices;
+}
+function getCascadeRadii(resourceCache, lambda, subFrustumCorners) {
+    const numCascades = resourceCache.getData("numCascades") ?? 3;
+    const nearFarPlanes = resourceCache.getData("pausedNearFarPlanes");
+    const near = nearFarPlanes?.near ?? 0.0;
+    const far = nearFarPlanes?.far ?? 0.0;
+    const vp = resourceCache.getData("pausedViewportSize") ??
+        resourceCache.getData("viewportSize") ?? { width: 0, height: 0 };
+    const vw = vp?.width ?? 0;
+    const vh = vp?.height ?? 0;
+    const shadowMapResolution = resourceCache.getData("csmShadowMapSize") ?? 2048;
+    const key = [
+        `nc:${numCascades}`,
+        `lam:${q(lambda, 1e-4)}`,
+        `near:${q(near, 1e-4)}`,
+        `far:${q(far, 1e-3)}`,
+        `vw:${vw}`,
+        `vh:${vh}`,
+        `sm:${shadowMapResolution}`
+    ].join("|");
+    const cached = cascadeRadiiCache.get(key);
+    if (cached && Array.isArray(cached.radii) && cached.radii.length === numCascades) {
+        return cached.radii;
+    }
+    const corners = subFrustumCorners ?? getSubfrustumCorners(resourceCache, lambda);
+    const radii = [];
+    for (let i = 0; i < numCascades; i++) {
+        const center = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(0.0, 0.0, 0.0);
+        for (const cornerWS of corners[i]) {
+            gl_matrix__WEBPACK_IMPORTED_MODULE_9__.add(center, center, gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(cornerWS[0], cornerWS[1], cornerWS[2]));
+        }
+        gl_matrix__WEBPACK_IMPORTED_MODULE_9__.scale(center, center, 1.0 / corners[i].length);
+        let radius = 0.0;
+        for (const cornerWS of corners[i]) {
+            const cornerWS3 = gl_matrix__WEBPACK_IMPORTED_MODULE_9__.fromValues(cornerWS[0], cornerWS[1], cornerWS[2]);
+            radius = Math.max(radius, gl_matrix__WEBPACK_IMPORTED_MODULE_9__.distance(center, cornerWS3));
+        }
+        radii.push(radius);
+    }
+    cascadeRadiiCache.set(key, { radii });
+    return radii;
+}
+function q(x, step) {
+    if (!Number.isFinite(x) || step <= 0)
+        return x;
+    return Math.round(x / step) * step;
+}
+
+
+/***/ }),
+
+/***/ "./src/render/passes/Shadows/SunShadow/CSMShadowMaskPass.ts":
+/*!******************************************************************!*\
+  !*** ./src/render/passes/Shadows/SunShadow/CSMShadowMaskPass.ts ***!
+  \******************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   CSMShadowMaskPass: () => (/* binding */ CSMShadowMaskPass)
+/* harmony export */ });
+/* harmony import */ var _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../renderSystem/RenderPass */ "./src/render/renderSystem/RenderPass.ts");
+/* harmony import */ var _renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../renderSystem/managers/ResourceCache */ "./src/render/renderSystem/managers/ResourceCache.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../../../utils/TextureUtils */ "./src/utils/TextureUtils.ts");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_SunShadow_CSMShadowMask_vert__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../../glsl/DeferredRendering/Shadows/SunShadow/CSMShadowMask.vert */ "./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSMShadowMask.vert");
+/* harmony import */ var _glsl_DeferredRendering_Shadows_SunShadow_CSMShadowMask_frag__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../../../glsl/DeferredRendering/Shadows/SunShadow/CSMShadowMask.frag */ "./src/render/glsl/DeferredRendering/Shadows/SunShadow/CSMShadowMask.frag");
+/* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../../../../Settings */ "./src/Settings.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+
+
+
+
+
+
+
+
+class CSMShadowMaskPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph) {
+        super(gl, resourceCache, canvas, renderGraph);
+        this.pathtracerRender = false;
+        this.VAOInputType = _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__.VAOInputType.FULLSCREENQUAD;
+        this.jitterTexture = null;
+        this.program = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_2__.RenderUtils.CreateProgram(gl, _glsl_DeferredRendering_Shadows_SunShadow_CSMShadowMask_vert__WEBPACK_IMPORTED_MODULE_4__, _glsl_DeferredRendering_Shadows_SunShadow_CSMShadowMask_frag__WEBPACK_IMPORTED_MODULE_5__);
+        this.renderTarget = this.initRenderTarget();
+        this.uniforms = (0,_renderSystem_managers_ResourceCache__WEBPACK_IMPORTED_MODULE_1__.getUniformLocations)(gl, this.program, [
+            "lightSpaceMatrices",
+            "cameraPosition",
+            "viewInverse",
+            "projInverse",
+            "pausedView",
+            "cascadeSplits",
+            "cascadeBlendWidth",
+            "usingPCF",
+            "csmShadowBias",
+            "csmEnabled",
+            "cascadeDebug",
+            "debugPauseMode",
+            "csmShadowMapSize",
+            "pcfRadius",
+            "jitterSize",
+            "filterSize",
+            "sunDisabled",
+            "numCascades"
+        ]);
+        this.jitterTexture = createJitterTexture(gl, this.resourceCache.getData("jitterSize") ?? 16, this.resourceCache.getData("filterSize") ?? 4);
+        this.resourceCache.setData("updateJitterTexture", (jitterSize, filterSize) => {
+            this.updateJitterTexture(jitterSize, filterSize);
+        });
+        // Attach program to settings for automatic uniform updates
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.attatchProgram(this.program, [
+            "usingPCF",
+            "csmShadowBias",
+            "csmPcfBiasScale",
+            "pcfRadius",
+            "jitterSize",
+            "filterSize",
+            "jitterScale",
+            "slopeFactorClamp",
+            "debugPauseMode"
+        ]);
+    }
+    initRenderTarget() {
+        const fbo = this.gl.createFramebuffer();
+        if (!fbo) {
+            throw new Error("Failed to create framebuffer");
+        }
+        // RGBA16F: R = shadow mask, G = primary cascade, B = secondary cascade, A = blend factor
+        const CSMshadowMaskTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, CSMshadowMaskTexture, 0);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0]);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        return { fbo, textures: { sunShadowMask: CSMshadowMaskTexture } };
+    }
+    resize(width, height) {
+        this.disposeRenderTarget();
+        this.renderTarget = this.initRenderTarget();
+    }
+    render(vao_info, pathtracerOn) {
+        const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
+        const textures = this.renderGraph.getOutputs(this);
+        const shadowDepthTextureArray = textures["shadowDepthTextureArray"];
+        const depthTexture = textures["depth"];
+        const normalTexture = textures["normal"];
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.disable(this.gl.DEPTH_TEST);
+        this.gl.disable(this.gl.BLEND);
+        this.gl.useProgram(this.program);
+        this.gl.bindVertexArray(vao.vao);
+        // Bind textures
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 0);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.bindTex(this.gl, this.program, normalTexture, "normalTexture", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_3__.TextureUtils.bindTex(this.gl, this.program, shadowDepthTextureArray, "shadowDepthTextureArray", 2, this.gl.TEXTURE_2D_ARRAY);
+        // Bind jitter texture
+        this.gl.activeTexture(this.gl.TEXTURE3);
+        this.gl.bindTexture(this.gl.TEXTURE_3D, this.jitterTexture);
+        this.gl.uniform1i(this.gl.getUniformLocation(this.program, "jitterTexture"), 3);
+        // Camera uniforms
+        const cameraInfo = this.resourceCache.getData("CameraInfo");
+        const pausedCameraInfo = this.resourceCache.getData("pausedCameraInfo") ?? cameraInfo;
+        this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
+        this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
+        this.gl.uniformMatrix4fv(this.uniforms["pausedView"], false, pausedCameraInfo.matView);
+        // CSM uniforms
+        const numCascades = this.resourceCache.getData("numCascades") ?? 3;
+        const lightSpaceMatrices = this.resourceCache.getData("lightSpaceMatrices");
+        if (lightSpaceMatrices && Array.isArray(lightSpaceMatrices) && lightSpaceMatrices.length === numCascades) {
+            const flattened = new Float32Array(numCascades * 16);
+            for (let i = 0; i < numCascades; i++) {
+                flattened.set(lightSpaceMatrices[i], i * 16);
+            }
+            this.gl.uniformMatrix4fv(this.uniforms["lightSpaceMatrices"], false, flattened);
+        }
+        const cascadeSplits = this.resourceCache.getData("cascadeSplits");
+        if (cascadeSplits && Array.isArray(cascadeSplits) && cascadeSplits.length === numCascades) {
+            this.gl.uniform1fv(this.uniforms["cascadeSplits"], cascadeSplits);
+        }
+        const cascadeBlendWidth = this.resourceCache.getData("cascadeBlendWidth") ?? 0.5;
+        const csmEnabled = this.resourceCache.getData("csmEnabled") ?? true;
+        const csmShadowMapSize = this.resourceCache.getData("csmShadowMapSize");
+        const disableSun = this.resourceCache.getData("disableSun") ?? false;
+        this.gl.uniform1f(this.uniforms["cascadeBlendWidth"], cascadeBlendWidth);
+        this.gl.uniform1i(this.uniforms["csmEnabled"], csmEnabled ? 1 : 0);
+        this.gl.uniform1i(this.uniforms["csmShadowMapSize"], csmShadowMapSize);
+        this.gl.uniform1i(this.uniforms["numCascades"], numCascades);
+        this.gl.uniform1i(this.uniforms["sunDisabled"], disableSun ? 1 : 0);
+        // Update settings-driven uniforms
+        _Settings__WEBPACK_IMPORTED_MODULE_6__.SettingsManager.instance.updateProgramUniforms(this.gl, this.program);
+        // Sun light direction
+        const sunLight = this.resourceCache.getData("sunLight");
+        if (sunLight && !disableSun) {
+            const dirLoc = this.gl.getUniformLocation(this.program, "SunLight.direction");
+            if (dirLoc)
+                this.gl.uniform3fv(dirLoc, sunLight.direction);
+        }
+        else {
+            const dirLoc = this.gl.getUniformLocation(this.program, "SunLight.direction");
+            if (dirLoc)
+                this.gl.uniform3fv(dirLoc, gl_matrix__WEBPACK_IMPORTED_MODULE_7__.fromValues(0, -1, 0));
+        }
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        this.gl.bindVertexArray(null);
+        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+    updateJitterTexture(jitterSize, filterSize) {
+        this.jitterTexture = createJitterTexture(this.gl, jitterSize, filterSize);
+    }
+}
+function createJitterTexture(gl, size, filterSize) {
+    const data = new Float32Array(size * size * filterSize * filterSize * 2);
+    let index = 0;
+    for (let texY = 0; texY < size; texY++) {
+        for (let texX = 0; texX < size; texX++) {
+            for (let filterY = filterSize - 1; filterY >= 0; filterY--) {
+                for (let filterX = 0; filterX < filterSize; filterX++) {
+                    const x = (filterX + Math.random()) / filterSize;
+                    const y = (filterY + Math.random()) / filterSize;
+                    data[index] = Math.sqrt(y) * Math.cos(x * 2 * Math.PI);
+                    data[index + 1] = Math.sqrt(y) * Math.sin(x * 2 * Math.PI);
+                    index += 2;
+                }
+            }
+        }
+    }
+    const texture = gl.createTexture();
+    const layers = (filterSize * filterSize) / 2;
+    gl.bindTexture(gl.TEXTURE_3D, texture);
+    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA32F, layers, size, size, 0, gl.RGBA, gl.FLOAT, data);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_3D, null);
+    return texture;
+}
 
 
 /***/ }),
@@ -9531,8 +17585,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   RenderGraph: () => (/* binding */ RenderGraph)
 /* harmony export */ });
-var RenderGraph = /** @class */ (function () {
-    function RenderGraph() {
+class RenderGraph {
+    constructor() {
         this.roots = new Set();
         this.dependencies = new Map();
         this.children = new Map();
@@ -9540,7 +17594,7 @@ var RenderGraph = /** @class */ (function () {
     /**
      * Add a root pass that has no dependencies
      */
-    RenderGraph.prototype.addRoot = function (pass) {
+    addRoot(pass) {
         this.roots.add(pass);
         if (!this.dependencies.has(pass)) {
             this.dependencies.set(pass, new Set());
@@ -9548,39 +17602,33 @@ var RenderGraph = /** @class */ (function () {
         if (!this.children.has(pass)) {
             this.children.set(pass, new Set());
         }
-    };
+    }
     /**
      * Add a pass that depends on one or more parent passes
      */
-    RenderGraph.prototype.add = function (childPass) {
-        var parentPasses = [];
-        for (var _i = 1; _i < arguments.length; _i++) {
-            parentPasses[_i - 1] = arguments[_i];
-        }
+    add(childPass, ...parentPasses) {
         if (!this.dependencies.has(childPass)) {
             this.dependencies.set(childPass, new Set());
         }
         if (!this.children.has(childPass)) {
             this.children.set(childPass, new Set());
         }
-        for (var _a = 0, parentPasses_1 = parentPasses; _a < parentPasses_1.length; _a++) {
-            var parent_1 = parentPasses_1[_a];
-            this.dependencies.get(childPass).add(parent_1);
-            if (!this.children.has(parent_1)) {
-                this.children.set(parent_1, new Set());
+        for (const parent of parentPasses) {
+            this.dependencies.get(childPass).add(parent);
+            if (!this.children.has(parent)) {
+                this.children.set(parent, new Set());
             }
-            this.children.get(parent_1).add(childPass);
+            this.children.get(parent).add(childPass);
         }
-    };
+    }
     /**
      * Get all passes in topologically sorted order
      */
-    RenderGraph.prototype.getSortedPasses = function () {
-        var _this = this;
-        var sorted = [];
-        var visited = new Set();
-        var temp = new Set();
-        var visit = function (pass) {
+    getSortedPasses() {
+        const sorted = [];
+        const visited = new Set();
+        const temp = new Set();
+        const visit = (pass) => {
             if (temp.has(pass)) {
                 throw new Error("Circular dependency detected in render graph");
             }
@@ -9588,7 +17636,7 @@ var RenderGraph = /** @class */ (function () {
                 return;
             }
             temp.add(pass);
-            var deps = _this.dependencies.get(pass) || new Set();
+            const deps = this.dependencies.get(pass) || new Set();
             deps.forEach(visit);
             temp.delete(pass);
             visited.add(pass);
@@ -9597,34 +17645,43 @@ var RenderGraph = /** @class */ (function () {
         // Visit all roots first
         this.roots.forEach(visit);
         // Visit any remaining passes (shouldn't happen in well-formed graph)
-        this.dependencies.forEach(function (_, pass) {
+        this.dependencies.forEach((_, pass) => {
             if (!visited.has(pass))
                 visit(pass);
         });
         return sorted;
-    };
-    RenderGraph.prototype.getOutputs = function (renderPass) {
-        var deps = this.dependencies.get(renderPass);
+    }
+    getOutputs(renderPass) {
+        const deps = this.dependencies.get(renderPass);
         if (!deps || deps.size === 0) {
             return {};
         }
         // Merge texture dictionaries from all dependencies
-        var mergedTextures = {};
-        deps.forEach(function (pass) {
-            var _a;
-            var passTextures = (_a = pass.getRenderTarget()) === null || _a === void 0 ? void 0 : _a.textures;
+        const mergedTextures = {};
+        deps.forEach((pass) => {
+            const passTextures = pass.getRenderTarget()?.textures;
             if (passTextures) {
                 Object.assign(mergedTextures, passTextures);
             }
         });
         return mergedTextures;
-    };
-    RenderGraph.prototype.getRoots = function () {
+    }
+    getRoots() {
         return Array.from(this.roots);
-    };
-    return RenderGraph;
-}());
-
+    }
+    /** Get a pass by its name */
+    getPass(name) {
+        for (const pass of Array.from(this.dependencies.keys())) {
+            if (pass.name === name)
+                return pass;
+        }
+        for (const pass of Array.from(this.roots.keys())) {
+            if (pass.name === name)
+                return pass;
+        }
+        return undefined;
+    }
+}
 
 
 /***/ }),
@@ -9645,57 +17702,73 @@ var VAOInputType;
 (function (VAOInputType) {
     VAOInputType[VAOInputType["SCENE"] = 0] = "SCENE";
     VAOInputType[VAOInputType["FULLSCREENQUAD"] = 1] = "FULLSCREENQUAD";
+    VAOInputType[VAOInputType["GRASS"] = 2] = "GRASS";
+    VAOInputType[VAOInputType["NONE"] = 3] = "NONE";
 })(VAOInputType || (VAOInputType = {}));
-var RenderPass = /** @class */ (function () {
-    function RenderPass(gl, resourceCache, canvas, renderGraph) {
+class RenderPass {
+    constructor(gl, resourceCache, canvas, renderGraph, name) {
         this.uniforms = {};
-        this.settingsSection = null;
         this.gl = gl;
         this.canvas = canvas;
-        this.program = null;
-        this.renderTarget = null;
-        this.uniforms = {};
         this.resourceCache = resourceCache;
-        this.renderGraph = renderGraph;
-    }
-    RenderPass.prototype.getRenderTarget = function () {
-        return this.renderTarget;
-    };
-    RenderPass.prototype.resize = function (width, height) {
-        // Delete old resources
-        if (this.renderTarget) {
-            if (this.renderTarget.fbo) {
-                this.gl.deleteFramebuffer(this.renderTarget.fbo);
-            }
-            if (this.renderTarget.textures) {
-                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
-                    var texture = _a[_i];
-                    this.gl.deleteTexture(texture);
-                }
-            }
-        }
-        // Recreate render target with new dimensions
+        this.program = null;
         this.renderTarget = this.initRenderTarget();
-    };
-    RenderPass.prototype.dispose = function () {
+        this.uniforms = {};
+        this.renderGraph = renderGraph;
+        this.name = name;
+    }
+    /**
+     * Number of times this pass should execute per frame. Override in subclasses as needed.
+     */
+    getInvocationCount() {
+        return 1;
+    }
+    /**
+     * Optional hook to inform the pass about the current invocation index (0..count-1).
+     * Subclasses can override to adjust state between invocations.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setInvocationIndex(_index) { }
+    getRenderTarget() {
+        return this.renderTarget;
+    }
+    resize(width, height) {
+        this.disposeRenderTarget();
+        this.renderTarget = this.initRenderTarget();
+    }
+    disposeRenderTarget() {
         if (this.renderTarget) {
             if (this.renderTarget.fbo) {
                 this.gl.deleteFramebuffer(this.renderTarget.fbo);
             }
             if (this.renderTarget.textures) {
-                for (var _i = 0, _a = Object.values(this.renderTarget.textures); _i < _a.length; _i++) {
-                    var texture = _a[_i];
-                    this.gl.deleteTexture(texture);
+                for (const texture of Object.values(this.renderTarget.textures)) {
+                    if (Array.isArray(texture)) {
+                        // Handle array of textures
+                        for (const tex of texture) {
+                            if (tex) {
+                                this.gl.deleteTexture(tex);
+                            }
+                        }
+                    }
+                    else {
+                        // Handle single texture
+                        if (texture) {
+                            this.gl.deleteTexture(texture);
+                        }
+                    }
                 }
             }
+            this.renderTarget = null;
         }
+    }
+    dispose() {
+        this.disposeRenderTarget();
         if (this.program) {
             this.gl.deleteProgram(this.program);
         }
-    };
-    return RenderPass;
-}());
-
+    }
+}
 
 
 /***/ }),
@@ -9712,26 +17785,29 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   ResourceCache: () => (/* binding */ ResourceCache),
 /* harmony export */   getUniformLocations: () => (/* binding */ getUniformLocations)
 /* harmony export */ });
-var ResourceCache = /** @class */ (function () {
-    function ResourceCache(gl) {
+class ResourceCache {
+    constructor(gl) {
         this.uniformsCache = new Map();
+        this.warnedKeys = new Set();
     }
-    ResourceCache.prototype.getData = function (key) {
+    getData(key, warnIfMissing = true) {
+        if (warnIfMissing && !this.uniformsCache.has(key) && !this.warnedKeys.has(key)) {
+            this.warnedKeys.add(key);
+            const availableKeys = Array.from(this.uniformsCache.keys()).join(", ") || "none";
+            console.warn(`[ResourceCache] Uniform data key "${key}" not found in cache. Available keys: ${availableKeys}`);
+        }
         return this.uniformsCache.get(key);
-    };
-    ResourceCache.prototype.setUniformData = function (key, value) {
+    }
+    setData(key, value) {
         this.uniformsCache.set(key, value);
-    };
-    return ResourceCache;
-}());
-
+    }
+}
 function getUniformLocations(gl, program, names) {
-    var locations = {};
-    for (var _i = 0, names_1 = names; _i < names_1.length; _i++) {
-        var name_1 = names_1[_i];
-        var loc = gl.getUniformLocation(program, name_1);
-        if (loc)
-            locations[name_1] = loc;
+    const locations = {};
+    for (const name of names) {
+        const loc = gl.getUniformLocation(program, name);
+        if (loc !== null)
+            locations[name] = loc;
     }
     return locations;
 }
@@ -9748,144 +17824,622 @@ function getUniformLocations(gl, program, names) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   GrassManager: () => (/* binding */ GrassManager),
 /* harmony export */   VAOManager: () => (/* binding */ VAOManager)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
-/* harmony import */ var _map_cubes_utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../map/cubes_utils */ "./src/map/cubes_utils.ts");
-/* harmony import */ var _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../glsl/DeferredRendering/Geometry.vert */ "./src/render/glsl/DeferredRendering/Geometry.vert");
-/* harmony import */ var _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../glsl/DeferredRendering/Geometry.frag */ "./src/render/glsl/DeferredRendering/Geometry.frag");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../map/Mesh */ "./src/map/Mesh.ts");
+/* harmony import */ var _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../../../utils/RenderUtils */ "./src/utils/RenderUtils.ts");
+/* harmony import */ var _map_cubes_utils__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../../../map/cubes_utils */ "./src/map/cubes_utils.ts");
+/* harmony import */ var _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../../glsl/DeferredRendering/Geometry.vert */ "./src/render/glsl/DeferredRendering/Geometry.vert");
+/* harmony import */ var _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../../glsl/DeferredRendering/Geometry.frag */ "./src/render/glsl/DeferredRendering/Geometry.frag");
 
 
 
 
 
-var VAOManager = /** @class */ (function () {
-    function VAOManager(gl) {
-        this.terrainVAOInfo = null;
+
+function packEmissivityToUint8(emissivity) {
+    const r = Math.min(3, Math.floor(emissivity[0] * 3)); // 2 bits
+    const g = Math.min(3, Math.floor(emissivity[1] * 3)); // 2 bits
+    const b = Math.min(3, Math.floor(emissivity[2] * 3)); // 2 bits
+    return (b << 4) | (g << 2) | r;
+}
+class VAOManager {
+    constructor(gl) {
+        this.terrainVAOInfos = {};
         this.screenQuadVAOInfo = null;
         // Keep references to buffers so we can delete them later
         this.terrainBuffers = null;
         this.screenQuadBuffers = null;
         this.geometryProgram = null;
+        this.grassVAOInfos = {};
+        this.instanceVBO = null;
         this.gl = gl;
         this.vaoCache = new Map();
-        this.geometryProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateProgram(this.gl, _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_2__, _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_3__);
+        this.geometryProgram = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateProgram(this.gl, _glsl_DeferredRendering_Geometry_vert__WEBPACK_IMPORTED_MODULE_3__, _glsl_DeferredRendering_Geometry_frag__WEBPACK_IMPORTED_MODULE_4__);
         this.initializeScreenQuad();
     }
-    VAOManager.prototype.createTerrainVAO = function (triangleMeshes) {
-        var trianglePositions = [];
-        var triangleNormals = [];
-        var triangleColors = [];
-        var triangleIndices = [];
-        var indexOffset = 0;
-        for (var i = 0; i < triangleMeshes.length; i++) {
-            var mesh = triangleMeshes[i];
-            var vertexData = (0,_map_cubes_utils__WEBPACK_IMPORTED_MODULE_1__.meshToNonInterleavedVerticesAndIndices)(mesh);
-            trianglePositions = trianglePositions.concat(Array.from(vertexData.positions));
-            triangleNormals = triangleNormals.concat(Array.from(vertexData.normals));
-            triangleColors = triangleColors.concat(Array.from(vertexData.colors));
-            var adjustedIndices = Array.from(vertexData.indices).map(function (index) { return index + indexOffset; });
-            triangleIndices = triangleIndices.concat(adjustedIndices);
-            indexOffset += vertexData.positions.length / 3;
-        }
-        var TerrainMeshSize = triangleIndices.length;
-        var TerrainTriangleBuffer = {
+    createTerrainVAO(chunk, chunkKey) {
+        const triangleMesh = chunk.Mesh;
+        const vertexData = (0,_map_cubes_utils__WEBPACK_IMPORTED_MODULE_2__.meshToNonInterleavedVerticesAndIndices)(triangleMesh);
+        const TerrainTriangleBuffer = {
             vertex: {
-                position: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateAttributeBuffer(this.gl, new Float32Array(trianglePositions)),
-                normal: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleNormals)),
-                color: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateAttributeBuffer(this.gl, new Float32Array(triangleColors))
+                position: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.positions),
+                normal: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.normals),
+                color: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.colors),
+                reflectiveness: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.reflectiveness),
+                metalicity: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.metallicity),
+                roughness: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.roughness),
+                emissivity: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.emissivity)
             },
-            indices: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.CreateIndexBuffer(this.gl, triangleIndices)
+            indices: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices))
         };
-        // Save buffers so we can delete them later
-        this.terrainBuffers = {
-            vertex: TerrainTriangleBuffer.vertex.position,
-            normal: TerrainTriangleBuffer.vertex.normal,
-            color: TerrainTriangleBuffer.vertex.color,
-            indices: TerrainTriangleBuffer.indices
-        };
-        var terrainVAO = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.createNonInterleavedVao(this.gl, {
+        const terrainVAO = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.createNonInterleavedVao(this.gl, {
             position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
             normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
-            color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 }
+            color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 },
+            reflectiveness: {
+                buffer: TerrainTriangleBuffer.vertex.reflectiveness,
+                size: 1
+            },
+            metalicity: {
+                buffer: TerrainTriangleBuffer.vertex.metalicity,
+                size: 1
+            },
+            roughness: { buffer: TerrainTriangleBuffer.vertex.roughness, size: 1 },
+            emissivity: { buffer: TerrainTriangleBuffer.vertex.emissivity, size: 1 }
         }, TerrainTriangleBuffer.indices, this.geometryProgram);
-        this.terrainVAOInfo = {
+        const modelMatrix = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(chunk.ChunkPosition[0], chunk.ChunkPosition[1], chunk.ChunkPosition[2]), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(1, 1, 1));
+        this.terrainVAOInfos[chunkKey] = {
             vao: terrainVAO,
-            indexCount: TerrainMeshSize,
-            modelMatrix: gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create()
+            indexCount: vertexData.indices.length,
+            modelMatrix,
+            boundingBox: this.computeBoundingBox(vertexData.positions)
         };
-    };
-    VAOManager.prototype.createWorldObjectVAOs = function (worldObjects) {
-        for (var _i = 0, worldObjects_1 = worldObjects; _i < worldObjects_1.length; _i++) {
-            var worldObject = worldObjects_1[_i];
-            var vao = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_0__.RenderUtils.createInterleavedVao(this.gl, worldObject.buffer.vertex, worldObject.buffer.indices, {
+        this.grassVAOInfos[chunkKey] = this.createGrassVAO(vertexData.positions, vertexData.normals, vertexData.terrainId, Array.from(vertexData.indices), modelMatrix);
+    }
+    createGrassVAO(terrainVertices, terrainNormals, terrainId, triangleIndices, modelMatrix) {
+        const numBlades = 20000;
+        const grassThickness = 0.1;
+        const numTriangles = triangleIndices.length / 3;
+        const instanceData = new Float32Array(numBlades * 5); // basePos(3) + randomLean(1) + rotAngle(1)
+        let bladesPlaced = 0;
+        for (let i = 0; i < numBlades; i++) {
+            // Pick a random triangle
+            const triIdx = Math.floor(Math.random() * numTriangles) * 3;
+            const i0 = triangleIndices[triIdx + 0] * 3;
+            const i1 = triangleIndices[triIdx + 1] * 3;
+            const i2 = triangleIndices[triIdx + 2] * 3;
+            // Random barycentric coordinates
+            let u = Math.random();
+            let v = Math.random();
+            if (u + v > 1) {
+                u = 1 - u;
+                v = 1 - v;
+            }
+            const w = 1 - u - v;
+            // Check terrain type at this triangle (all three vertices should have the same type)
+            const type0 = terrainId[triangleIndices[triIdx + 0]];
+            if (type0 !== 0)
+                continue; // Only place grass on terrain type 0 (grass)
+            const type1 = terrainId[triangleIndices[triIdx + 1]];
+            if (type1 !== 0)
+                continue;
+            const type2 = terrainId[triangleIndices[triIdx + 2]];
+            if (type2 !== 0)
+                continue;
+            // Interpolate position
+            const x = terrainVertices[i0] * u +
+                terrainVertices[i1] * v +
+                terrainVertices[i2] * w;
+            const y = terrainVertices[i0 + 1] * u +
+                terrainVertices[i1 + 1] * v +
+                terrainVertices[i2 + 1] * w;
+            const z = terrainVertices[i0 + 2] * u +
+                terrainVertices[i1 + 2] * v +
+                terrainVertices[i2 + 2] * w;
+            // Interpolate normal
+            const ny = terrainNormals[i0 + 1] * u +
+                terrainNormals[i1 + 1] * v +
+                terrainNormals[i2 + 1] * w;
+            // Only place grass if normal is not too steep
+            if (ny < 0.7)
+                continue;
+            const offset = bladesPlaced * 5;
+            instanceData[offset + 0] = x;
+            instanceData[offset + 1] = y;
+            instanceData[offset + 2] = z;
+            instanceData[offset + 3] = (Math.random() - 0.5) * 0.5; // Random lean
+            instanceData[offset + 4] = Math.random() * Math.PI * 2; // Rotation angle
+            bladesPlaced++;
+            if (bladesPlaced >= numBlades)
+                break;
+        }
+        // Create instance VBO
+        this.instanceVBO = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceVBO);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, instanceData, this.gl.STATIC_DRAW);
+        // Generate grass blade mesh (single level)
+        const { vertices, indices } = this.generateGrassBladeMesh(4, 1, grassThickness, 0.1);
+        const vao = this.gl.createVertexArray();
+        this.gl.bindVertexArray(vao);
+        // Vertex buffer (local positions only)
+        const vbo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.STATIC_DRAW);
+        // Local position attribute (location 0)
+        this.gl.enableVertexAttribArray(0);
+        this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 12, 0);
+        // Instance buffer
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.instanceVBO);
+        // Base position (location 1)
+        this.gl.enableVertexAttribArray(1);
+        this.gl.vertexAttribPointer(1, 3, this.gl.FLOAT, false, 20, 0);
+        this.gl.vertexAttribDivisor(1, 1);
+        // Random lean (location 2)
+        this.gl.enableVertexAttribArray(2);
+        this.gl.vertexAttribPointer(2, 1, this.gl.FLOAT, false, 20, 12);
+        this.gl.vertexAttribDivisor(2, 1);
+        // Rotation angle (location 3)
+        this.gl.enableVertexAttribArray(3);
+        this.gl.vertexAttribPointer(3, 1, this.gl.FLOAT, false, 20, 16);
+        this.gl.vertexAttribDivisor(3, 1);
+        // Index buffer
+        const ebo = this.gl.createBuffer();
+        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
+        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), this.gl.STATIC_DRAW);
+        this.gl.bindVertexArray(null);
+        return {
+            vao: vao,
+            indexCount: indices.length,
+            modelMatrix,
+            numInstances: bladesPlaced,
+            boundingBox: this.computeBoundingBox(terrainVertices)
+        };
+    }
+    deleteTerrainVao(chunkKey) {
+        const vaoInfo = this.terrainVAOInfos[chunkKey];
+        if (vaoInfo) {
+            this.gl.deleteVertexArray(vaoInfo.vao);
+            delete this.terrainVAOInfos[chunkKey];
+        }
+        const grassVaoInfo = this.grassVAOInfos[chunkKey];
+        if (grassVaoInfo) {
+            this.gl.deleteVertexArray(grassVaoInfo.vao);
+            delete this.grassVAOInfos[chunkKey];
+        }
+    }
+    computeBoundingBox(positions) {
+        const min = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+        const max = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+        for (let i = 0; i < positions.length; i += 3) {
+            min[0] = Math.min(min[0], positions[i]);
+            min[1] = Math.min(min[1], positions[i + 1]);
+            min[2] = Math.min(min[2], positions[i + 2]);
+            max[0] = Math.max(max[0], positions[i]);
+            max[1] = Math.max(max[1], positions[i + 1]);
+            max[2] = Math.max(max[2], positions[i + 2]);
+        }
+        return { min, max };
+    }
+    generateGrassBladeMesh(segments, height, width, tipLength) {
+        const vertsPerQuad = (segments + 1) * 2 + 1;
+        const vertsPerBlade = vertsPerQuad * 2;
+        const vertices = new Float32Array(vertsPerBlade * 3); // Only positions
+        const indices = [];
+        let vertexOffset = 0;
+        for (let quadIdx = 0; quadIdx < 2; quadIdx++) {
+            const angle = (quadIdx * Math.PI) / 2;
+            for (let s = 0; s <= segments; s++) {
+                for (const side of [-1, 1]) {
+                    const t = s / segments;
+                    const y = t * height;
+                    const w = width * (1 - t);
+                    const x = Math.cos(angle) * w * side;
+                    const z = Math.sin(angle) * w * side;
+                    const vertexIdx = vertexOffset + s * 2 + (side === -1 ? 0 : 1);
+                    const offset = vertexIdx * 3;
+                    vertices.set([x, y, z], offset);
+                }
+            }
+            const tipIdx = vertexOffset + (segments + 1) * 2;
+            const offset = tipIdx * 3;
+            vertices.set([0, height + tipLength, 0], offset);
+            for (let s = 0; s < segments; s++) {
+                const i0 = vertexOffset + s * 2;
+                const i1 = vertexOffset + s * 2 + 1;
+                const i2 = vertexOffset + (s + 1) * 2;
+                const i3 = vertexOffset + (s + 1) * 2 + 1;
+                indices.push(i0, i2, i1, i1, i2, i3);
+                indices.push(i1, i2, i0, i3, i2, i1);
+            }
+            const lastLeft = vertexOffset + segments * 2;
+            const lastRight = vertexOffset + segments * 2 + 1;
+            const tipVertex = vertexOffset + segments * 2 + 2;
+            indices.push(lastLeft, tipVertex, lastRight);
+            indices.push(lastRight, tipVertex, lastLeft);
+            vertexOffset += vertsPerQuad;
+        }
+        return { vertices, indices };
+    }
+    getGrassBVHTriangle() {
+        const triangles = [];
+        // 1. Calculate total instances across all chunks to allocate primitives array
+        let totalInstances = 0;
+        for (const key in this.grassVAOInfos) {
+            totalInstances += this.grassVAOInfos[key].numInstances;
+        }
+        const primitives = new Float32Array(totalInstances * 8); // minX,minY,minZ,maxX,maxY,maxZ,lean,angle
+        const height = 1.0;
+        const width = 0.1;
+        let globalInstanceIndex = 0;
+        // 2. Iterate over every chunk
+        for (const key in this.grassVAOInfos) {
+            const info = this.grassVAOInfos[key];
+            if (info.numInstances === 0)
+                continue;
+            // We need to retrieve the instance buffer for this specific chunk.
+            // Since we don't store the buffer reference in GrassVAOInfo, we query it from the VAO.
+            // In createGrassVAO, Attribute 1 is bound to the instance buffer.
+            this.gl.bindVertexArray(info.vao);
+            const buffer = this.gl.getVertexAttrib(1, this.gl.VERTEX_ATTRIB_ARRAY_BUFFER_BINDING);
+            if (!buffer) {
+                this.gl.bindVertexArray(null);
+                continue;
+            }
+            // Read the data back from GPU
+            const instanceData = new Float32Array(info.numInstances * 5);
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+            this.gl.getBufferSubData(this.gl.ARRAY_BUFFER, 0, instanceData);
+            // Get chunk translation from model matrix (Column-major: indices 12, 13, 14)
+            const chunkX = info.modelMatrix[12];
+            const chunkY = info.modelMatrix[13];
+            const chunkZ = info.modelMatrix[14];
+            for (let i = 0; i < info.numInstances; i++) {
+                const offset = i * 5;
+                // Local positions
+                const lx = instanceData[offset + 0];
+                const ly = instanceData[offset + 1];
+                const lz = instanceData[offset + 2];
+                const lean = instanceData[offset + 3];
+                const angle = instanceData[offset + 4];
+                // Transform to World Space
+                const x = lx + chunkX;
+                const y = ly + chunkY;
+                const z = lz + chunkZ;
+                // Calculate tip displacement
+                const tipOffsetX = Math.cos(angle) * (lean * height);
+                const tipOffsetZ = Math.sin(angle) * (lean * height);
+                // Define Min and Max bounds
+                const minX = Math.min(x, x + tipOffsetX) - width;
+                const maxX = Math.max(x, x + tipOffsetX) + width;
+                const minY = y;
+                const maxY = y + height;
+                const minZ = Math.min(z, z + tipOffsetZ) - width;
+                const maxZ = Math.max(z, z + tipOffsetZ) + width;
+                // Center for BVH sorting
+                const centerX = (minX + maxX) * 0.5;
+                const centerY = (minY + maxY) * 0.5;
+                const centerZ = (minZ + maxZ) * 0.5;
+                // Fill primitives array
+                const primOffset = globalInstanceIndex * 8;
+                primitives[primOffset + 0] = minX;
+                primitives[primOffset + 1] = minY;
+                primitives[primOffset + 2] = minZ;
+                primitives[primOffset + 3] = maxX;
+                primitives[primOffset + 4] = maxY;
+                primitives[primOffset + 5] = maxZ;
+                primitives[primOffset + 6] = lean;
+                primitives[primOffset + 7] = angle;
+                triangles.push({
+                    boundingBox: { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] },
+                    triangle: [
+                        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(minX, minY, minY),
+                        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(maxX, maxY, maxZ),
+                        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(minX, minY, minZ + 0.01)
+                    ],
+                    index: -2 - globalInstanceIndex, // Unique negative ID for each grass blade
+                    vertexNormals: [
+                        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, 0, 0),
+                        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(1, 1, 1),
+                        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, 1, 0)
+                    ],
+                    center: [centerX, centerY, centerZ],
+                });
+                globalInstanceIndex++;
+            }
+        }
+        // Cleanup WebGL state
+        this.gl.bindVertexArray(null);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, null);
+        return { triangles: triangles, primitives: primitives };
+    }
+    createSphericalMesh(radius, showColor) {
+        const mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+        const subdivisions = 2; // Reduced to 2 (320 tris) for stability
+        // Golden ratio for icosahedron
+        const phi = (1 + Math.sqrt(5)) / 2;
+        // Create initial icosahedron vertices (normalized to unit sphere)
+        const initialVertices = [
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(-1, phi, 0)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(1, phi, 0)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(-1, -phi, 0)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(1, -phi, 0)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, -1, phi)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, 1, phi)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, -1, -phi)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, 1, -phi)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(phi, 0, -1)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(phi, 0, 1)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(-phi, 0, -1)),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(-phi, 0, 1))
+        ];
+        // Icosahedron faces (20 triangles)
+        const faces = [
+            // 5 faces around point 0
+            [0, 11, 5],
+            [0, 5, 1],
+            [0, 1, 7],
+            [0, 7, 10],
+            [0, 10, 11],
+            // 5 adjacent faces
+            [1, 5, 9],
+            [5, 11, 4],
+            [11, 10, 2],
+            [10, 7, 6],
+            [7, 1, 8],
+            // 5 faces around point 3
+            [3, 9, 4],
+            [3, 4, 2],
+            [3, 2, 6],
+            [3, 6, 8],
+            [3, 8, 9],
+            // 5 adjacent faces
+            [4, 9, 5],
+            [2, 4, 11],
+            [6, 2, 10],
+            [8, 6, 7],
+            [9, 8, 1]
+        ];
+        // Midpoint cache for subdivision
+        const midpointCache = new Map();
+        let vertices = [...initialVertices];
+        const getMidpoint = (v1, v2) => {
+            const key = v1 < v2 ? `${v1}_${v2}` : `${v2}_${v1}`;
+            if (midpointCache.has(key)) {
+                return midpointCache.get(key);
+            }
+            const p1 = vertices[v1];
+            const p2 = vertices[v2];
+            const mid = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.add(mid, p1, p2);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.scale(mid, mid, 0.5);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.normalize(mid, mid); // Project onto unit sphere
+            const index = vertices.length;
+            vertices.push(mid);
+            midpointCache.set(key, index);
+            return index;
+        };
+        let currentFaces = faces;
+        // Subdivide faces
+        for (let i = 0; i < subdivisions; i++) {
+            const newFaces = [];
+            for (const [v1, v2, v3] of currentFaces) {
+                const a = getMidpoint(v1, v2);
+                const b = getMidpoint(v2, v3);
+                const c = getMidpoint(v3, v1);
+                newFaces.push([v1, a, c]);
+                newFaces.push([v2, b, a]);
+                newFaces.push([v3, c, b]);
+                newFaces.push([a, b, c]);
+            }
+            currentFaces = newFaces;
+        }
+        // Create triangles with the given radius
+        for (const [i1, i2, i3] of currentFaces) {
+            const v1 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.scale(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), vertices[i1], radius);
+            const v2 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.scale(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), vertices[i2], radius);
+            const v3 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.scale(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), vertices[i3], radius);
+            // For a sphere, vertex normals are the normalized positions (pointing outward)
+            const n1 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.clone(vertices[i1]);
+            const n2 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.clone(vertices[i2]);
+            const n3 = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.clone(vertices[i3]);
+            const triangle = [v1, v2, v3];
+            const normal = [n1, n2, n3];
+            // Add triangle with default terrain type 0
+            mesh.addTriangle(triangle, normal, [0, 0, 0]);
+        }
+        return mesh;
+    }
+    createPointLightVAOs(pointLights) {
+        // Clear any existing light VAOs from cache
+        const keysToDelete = [];
+        this.vaoCache.forEach((vaoInfo, key) => {
+            if (vaoInfo.isLight) {
+                this.gl.deleteVertexArray(vaoInfo.vao);
+                keysToDelete.push(key);
+            }
+        });
+        keysToDelete.forEach((key) => this.vaoCache.delete(key));
+        // Create a sphere VAO for each point light
+        for (let i = 0; i < pointLights.length; i++) {
+            const light = pointLights[i];
+            const showColor = light.showColor || light.color;
+            // Create icosphere mesh for this light (using spheres again)
+            const sphereMesh = this.createSphericalMesh(light.radius, showColor);
+            // Flatten mesh to simple arrays
+            const triangles = sphereMesh.getVertices();
+            const triNormals = sphereMesh.getNormals();
+            const numVerts = triangles.length * 3;
+            const positions = new Float32Array(numVerts * 3);
+            const normals = new Float32Array(numVerts * 3);
+            const colors = new Float32Array(numVerts * 3);
+            const indices = new Uint32Array(numVerts);
+            const colorVec = showColor.createVec3();
+            // Standard color for albedo
+            const cr = colorVec[0];
+            const cg = colorVec[1];
+            const cb = colorVec[2];
+            // Pack emissivity to make the light sphere glow with its color
+            // Normalize to 0-1 range for RGBA8 texture storage (max packed value is 63)
+            const packedEmissivity = packEmissivityToUint8([cr, cg, cb]) / 63.0;
+            // Material attributes for each vertex
+            const reflectiveness = new Float32Array(numVerts);
+            const metalicity = new Float32Array(numVerts);
+            const roughness = new Float32Array(numVerts);
+            const emissivity = new Float32Array(numVerts);
+            for (let j = 0; j < triangles.length; j++) {
+                const tri = triangles[j];
+                const norm = triNormals[j];
+                for (let k = 0; k < 3; k++) {
+                    const idx = j * 3 + k;
+                    // Position
+                    positions[idx * 3 + 0] = tri[k][0];
+                    positions[idx * 3 + 1] = tri[k][1];
+                    positions[idx * 3 + 2] = tri[k][2];
+                    // Normal
+                    normals[idx * 3 + 0] = norm[k][0];
+                    normals[idx * 3 + 1] = norm[k][1];
+                    normals[idx * 3 + 2] = norm[k][2];
+                    // Color
+                    colors[idx * 3 + 0] = cr;
+                    colors[idx * 3 + 1] = cg;
+                    colors[idx * 3 + 2] = cb;
+                    // Material attributes - default values for light spheres
+                    reflectiveness[idx] = 0.04; // Low reflectivity (dielectric), allows albedo color to show
+                    metalicity[idx] = 0.0; // Non-metallic
+                    roughness[idx] = 0.8; // Higher roughness for matte look
+                    emissivity[idx] = packedEmissivity; // Glow with the light's color
+                    indices[idx] = idx;
+                }
+            }
+            // Create buffers
+            const lightBuffers = {
+                position: {
+                    buffer: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, positions),
+                    size: 3
+                },
+                normal: {
+                    buffer: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, normals),
+                    size: 3
+                },
+                color: {
+                    buffer: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, colors),
+                    size: 3
+                },
+                reflectiveness: {
+                    buffer: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, reflectiveness),
+                    size: 1
+                },
+                metalicity: {
+                    buffer: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, metalicity),
+                    size: 1
+                },
+                roughness: {
+                    buffer: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, roughness),
+                    size: 1
+                },
+                emissivity: {
+                    buffer: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, emissivity),
+                    size: 1
+                }
+            };
+            const indexBuffer = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateIndexBuffer(this.gl, Array.from(indices) // RenderUtils expects number[]
+            );
+            // Create VAO with Non-Interleaved layout (safer)
+            const lightVAO = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.createNonInterleavedVao(this.gl, lightBuffers, indexBuffer, this.geometryProgram);
+            // Create model matrix with translation to light position
+            const modelMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_6__.translate(modelMatrix, modelMatrix, light.position);
+            // Use a unique ID for light VAOs (negative to avoid collision with world objects)
+            const lightId = -(i + 1);
+            this.vaoCache.set(lightId, {
+                vao: lightVAO,
+                indexCount: indices.length,
+                modelMatrix: modelMatrix,
+                isLight: true,
+                lightIndex: i
+            });
+        }
+    }
+    createWorldObjectVAOs(worldObjects) {
+        for (const worldObject of worldObjects) {
+            const vao = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.createInterleavedVao(this.gl, worldObject.buffer.vertex, worldObject.buffer.indices, {
                 position: { offset: 0, size: 3, stride: 36 },
                 normal: { offset: 12, size: 3, stride: 36 },
                 color: { offset: 24, size: 3, stride: 36 }
             }, this.geometryProgram);
             this.vaoCache.set(worldObject.id, {
-                vao: vao,
+                vao,
                 indexCount: worldObject.meshSize,
                 modelMatrix: worldObject.position
             });
         }
-    };
-    VAOManager.prototype.initializeScreenQuad = function () {
-        var _a = __webpack_require__(/*! ../../../map/geometry */ "./src/map/geometry.ts"), quadVertices = _a.quadVertices, quadIndices = _a.quadIndices;
-        var vao = this.gl.createVertexArray();
+    }
+    initializeScreenQuad() {
+        const { quadVertices, quadIndices } = __webpack_require__(/*! ../../../map/geometry */ "./src/map/geometry.ts");
+        const vao = this.gl.createVertexArray();
         this.gl.bindVertexArray(vao);
-        var vbo = this.gl.createBuffer();
+        const vbo = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vbo);
         this.gl.bufferData(this.gl.ARRAY_BUFFER, quadVertices, this.gl.STATIC_DRAW);
-        var ebo = this.gl.createBuffer();
+        const ebo = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, ebo);
         this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, quadIndices, this.gl.STATIC_DRAW);
         // store quad buffers for cleanup
-        this.screenQuadBuffers = { vbo: vbo, ebo: ebo };
+        this.screenQuadBuffers = { vbo, ebo };
         this.gl.enableVertexAttribArray(0);
         this.gl.vertexAttribPointer(0, 3, this.gl.FLOAT, false, 20, 0);
         this.gl.enableVertexAttribArray(1);
         this.gl.vertexAttribPointer(1, 2, this.gl.FLOAT, false, 20, 12);
         this.gl.bindVertexArray(null);
         this.screenQuadVAOInfo = {
-            vao: vao,
+            vao,
             indexCount: quadIndices.length,
-            modelMatrix: gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create()
+            modelMatrix: gl_matrix__WEBPACK_IMPORTED_MODULE_6__.create()
         };
-    };
-    VAOManager.prototype.getVaosToRender = function () {
-        var vaosToRender = [];
-        if (this.terrainVAOInfo) {
-            vaosToRender.push(this.terrainVAOInfo);
+    }
+    getVaosToRender() {
+        const vaosToRender = [];
+        if (this.terrainVAOInfos) {
+            for (const key in this.terrainVAOInfos) {
+                vaosToRender.push(this.terrainVAOInfos[key]);
+            }
         }
-        this.vaoCache.forEach(function (vao) {
+        this.vaoCache.forEach((vao) => {
             vaosToRender.push(vao);
         });
         return vaosToRender;
-    };
-    VAOManager.prototype.getScreenQuadVAO = function () {
+    }
+    getScreenQuadVAO() {
         return this.screenQuadVAOInfo;
-    };
+    }
     /**
      * Remove VAO for a world object and delete the vertex array.
      */
-    VAOManager.prototype.removeWorldObjectVAO = function (id) {
-        var info = this.vaoCache.get(id);
+    removeWorldObjectVAO(id) {
+        const info = this.vaoCache.get(id);
         if (info) {
             this.gl.deleteVertexArray(info.vao);
             this.vaoCache.delete(id);
         }
-    };
-    VAOManager.prototype.dispose = function () {
-        var _this = this;
-        if (this.terrainVAOInfo) {
-            this.gl.deleteVertexArray(this.terrainVAOInfo.vao);
-            this.terrainVAOInfo = null;
+    }
+    getGrassVAO() {
+        return Object.values(this.grassVAOInfos);
+    }
+    dispose() {
+        if (this.terrainVAOInfos) {
+            for (const key in this.terrainVAOInfos) {
+                const vaoInfo = this.terrainVAOInfos[key];
+                this.gl.deleteVertexArray(vaoInfo.vao);
+            }
+            this.terrainVAOInfos = {};
         }
-        this.vaoCache.forEach(function (vao) {
+        this.vaoCache.forEach((vao) => {
             // vao is VaoInfo
-            _this.gl.deleteVertexArray(vao.vao);
+            this.gl.deleteVertexArray(vao.vao);
         });
         this.vaoCache.clear();
         // delete terrain attribute/index buffers if present
@@ -9908,10 +18462,25 @@ var VAOManager = /** @class */ (function () {
                 this.gl.deleteBuffer(this.screenQuadBuffers.ebo);
             this.screenQuadBuffers = null;
         }
-    };
-    return VAOManager;
-}());
-
+        if (this.grassVAOInfos) {
+            for (const key in this.grassVAOInfos) {
+                const vaoInfo = this.grassVAOInfos[key];
+                this.gl.deleteVertexArray(vaoInfo.vao);
+            }
+            this.grassVAOInfos = {};
+        }
+        if (this.instanceVBO) {
+            this.gl.deleteBuffer(this.instanceVBO);
+            this.instanceVBO = null;
+        }
+    }
+}
+class GrassManager {
+    constructor(gl, grassProgram) {
+        this.gl = gl;
+        this.grassProgram = grassProgram;
+    }
+}
 
 
 /***/ }),
@@ -9929,9 +18498,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
 
-var RenderUtils = /** @class */ (function () {
-    function RenderUtils() {
-    }
+class RenderUtils {
     ///////////////////////Rendering Utilities/////////////////////
     /**
      * Creates a WebGL program with the given vertex and fragment shader code.
@@ -9941,20 +18508,20 @@ var RenderUtils = /** @class */ (function () {
      * @returns The created WebGLProgram or undefined if linking failed.
      * @throws Error if shader compilation fails.
      */
-    RenderUtils.CreateProgram = function (gl, VertexShaderCode, FragmentShaderCode) {
-        var VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
-        var FragmentShader = this.CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
-        var Program = gl.createProgram();
+    static CreateProgram(gl, VertexShaderCode, FragmentShaderCode) {
+        const VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
+        const FragmentShader = this.CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
+        const Program = gl.createProgram();
         gl.attachShader(Program, VertexShader);
         gl.attachShader(Program, FragmentShader);
         gl.linkProgram(Program);
         if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
-            var errorMessage = gl.getProgramInfoLog(Program);
-            console.error("Failed to link GPU program: ".concat(errorMessage));
+            const errorMessage = gl.getProgramInfoLog(Program);
+            console.error(`Failed to link GPU program: ${errorMessage}`);
             return null;
         }
         return Program;
-    };
+    }
     /**
      * Creates a WebGL shader of the specified type with the given GLSL code.
      * @param gl The WebGL2RenderingContext to use for creating the shader.
@@ -9963,8 +18530,8 @@ var RenderUtils = /** @class */ (function () {
      * @returns The created WebGLShader.
      * @throws Error if shader compilation fails.
      */
-    RenderUtils.CreateShader = function (gl, ShaderType, ShaderCode) {
-        var Shader = gl.createShader(ShaderType);
+    static CreateShader(gl, ShaderType, ShaderCode) {
+        const Shader = gl.createShader(ShaderType);
         if (!Shader) {
             throw new Error("Failed to create WebGL shader.");
         }
@@ -9976,7 +18543,7 @@ var RenderUtils = /** @class */ (function () {
             throw new Error("Shader compilation failed.");
         }
         return Shader;
-    };
+    }
     /**
      * Creates a static buffer for vertices and indices.
      * @param gl The WebGL2RenderingContext to use for creating the buffer.
@@ -9985,42 +18552,42 @@ var RenderUtils = /** @class */ (function () {
      * @returns An object containing the vertex buffer and index buffer.
      * @throws Error if buffer creation fails.
      */
-    RenderUtils.CreateStaticBuffer = function (gl, CPUVertexBuffer, CPUIndexBuffer) {
-        var buffer = gl.createBuffer();
+    static CreateStaticBuffer(gl, CPUVertexBuffer, CPUIndexBuffer) {
+        const buffer = gl.createBuffer();
         if (!buffer) {
             throw new Error("Failed to create buffer");
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, CPUVertexBuffer, gl.STATIC_DRAW);
-        var IndexBuffer = this.CreateIndexBuffer(gl, CPUIndexBuffer);
+        const IndexBuffer = this.CreateIndexBuffer(gl, CPUIndexBuffer);
         return {
             vertex: buffer,
             // color: colorBuffer,
             indices: IndexBuffer
         };
-    };
+    }
     /**
      * Creates a buffer for vertex attributes.
      * @param gl The WebGL2RenderingContext to use for creating the buffer.
      * @param data The Float32Array containing attribute data.
      * @returns WebGLBuffer containing the attribute data.
      */
-    RenderUtils.CreateAttributeBuffer = function (gl, data) {
-        var buffer = gl.createBuffer();
+    static CreateAttributeBuffer(gl, data) {
+        const buffer = gl.createBuffer();
         if (!buffer)
             throw new Error("Failed to create attribute buffer");
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
         return buffer;
-    };
+    }
     /**
      * Creates an index buffer for the given indices.
      * @param gl The WebGL2RenderingContext to use for creating the buffer.
      * @param indices The array of indices to be stored in the buffer.
      * @returns The created WebGLBuffer containing the indices.
      */
-    RenderUtils.CreateIndexBuffer = function (gl, indices) {
-        var indexBuffer = gl.createBuffer();
+    static CreateIndexBuffer(gl, indices) {
+        const indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         // This array defines each face as two triangles, using the
         // indices into the vertex array to specify each triangle's
@@ -10028,7 +18595,7 @@ var RenderUtils = /** @class */ (function () {
         // Now send the element array to GL
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
         return indexBuffer;
-    };
+    }
     /**
      * Creates a Vertex Array Object (VAO) for interleaved vertex attributes.
      * @param gl The WebGL2RenderingContext to use for creating the VAO.
@@ -10038,26 +18605,24 @@ var RenderUtils = /** @class */ (function () {
      * @param locations Optional object mapping attribute names to their locations.
      * @returns The created VAO.
      */
-    RenderUtils.createInterleavedVao = function (gl, vertexBuffer, indexBuffer, layout, program) {
-        var _a, _b;
-        var vao = gl.createVertexArray();
+    static createInterleavedVao(gl, vertexBuffer, indexBuffer, layout, program) {
+        const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        for (var _i = 0, _c = Object.entries(layout); _i < _c.length; _i++) {
-            var _d = _c[_i], name_1 = _d[0], layoutInfo = _d[1];
-            var location_1 = (_a = layoutInfo.location) !== null && _a !== void 0 ? _a : gl.getAttribLocation(program, name_1);
-            if (location_1 === -1) {
-                console.warn("Attribute ".concat(name_1, " not found in shader program."));
+        for (const [name, layoutInfo] of Object.entries(layout)) {
+            const location = layoutInfo.location ?? gl.getAttribLocation(program, name);
+            if (location === -1) {
+                console.warn(`Attribute ${name} not found in shader program.`);
                 continue;
             }
-            var size = (_b = layoutInfo.sizeOverride) !== null && _b !== void 0 ? _b : layoutInfo.size;
-            gl.enableVertexAttribArray(location_1);
-            gl.vertexAttribPointer(location_1, size, gl.FLOAT, false, layoutInfo.stride, layoutInfo.offset);
+            const size = layoutInfo.sizeOverride ?? layoutInfo.size;
+            gl.enableVertexAttribArray(location);
+            gl.vertexAttribPointer(location, size, gl.FLOAT, false, layoutInfo.stride, layoutInfo.offset);
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         return vao;
-    };
+    }
     /**
      * Creates a Vertex Array Object (VAO) for non-interleaved vertex attributes.
      * @param gl WebGL2RenderingContext
@@ -10066,20 +18631,19 @@ var RenderUtils = /** @class */ (function () {
      * @param shader Shader containing attribute locations
      * @returns WebGLVertexArrayObject
      */
-    RenderUtils.createNonInterleavedVao = function (gl, attributeBuffers, indexBuffer, program) {
-        var vao = gl.createVertexArray();
+    static createNonInterleavedVao(gl, attributeBuffers, indexBuffer, program) {
+        const vao = gl.createVertexArray();
         if (!vao)
             throw new Error("Failed to create VAO");
         gl.bindVertexArray(vao);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        for (var _i = 0, _a = Object.entries(attributeBuffers); _i < _a.length; _i++) {
-            var _b = _a[_i], attribName = _b[0], bufferInfo = _b[1];
-            var attribLocation = gl.getAttribLocation(program, attribName);
+        for (const [attribName, bufferInfo] of Object.entries(attributeBuffers)) {
+            const attribLocation = gl.getAttribLocation(program, attribName);
             if (attribLocation === -1) {
-                console.warn("Attribute ".concat(attribName, " not found in shader program."));
+                console.warn(`Attribute ${attribName} not found in shader program.`);
                 continue;
             }
-            var buffer = bufferInfo.buffer, size = bufferInfo.size, _c = bufferInfo.type, type = _c === void 0 ? gl.FLOAT : _c;
+            const { buffer, size, type = gl.FLOAT } = bufferInfo;
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
             gl.enableVertexAttribArray(attribLocation);
             gl.vertexAttribPointer(attribLocation, size, type, false, 0, 0);
@@ -10088,7 +18652,7 @@ var RenderUtils = /** @class */ (function () {
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         return vao;
-    };
+    }
     ///////////////////////Matrix Utilities/////////////////////
     /**
      * Creates a transformation matrix based on translation, rotation, and scale. Translate, rotate, then scale.
@@ -10097,8 +18661,8 @@ var RenderUtils = /** @class */ (function () {
      * @param scale A vec3 representing the scale (x, y, z).
      * @returns A mat4 transformation matrix.
      */
-    RenderUtils.CreateTransformations = function (translation, rotation, scale) {
-        var transformMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_0__.create();
+    static CreateTransformations(translation, rotation, scale) {
+        let transformMatrix = gl_matrix__WEBPACK_IMPORTED_MODULE_0__.create();
         if (translation) {
             gl_matrix__WEBPACK_IMPORTED_MODULE_0__.translate(transformMatrix, transformMatrix, translation);
         }
@@ -10111,10 +18675,8 @@ var RenderUtils = /** @class */ (function () {
             gl_matrix__WEBPACK_IMPORTED_MODULE_0__.scale(transformMatrix, transformMatrix, scale);
         }
         return transformMatrix;
-    };
-    return RenderUtils;
-}());
-
+    }
+}
 
 
 /***/ }),
@@ -10130,57 +18692,65 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   TextureUtils: () => (/* binding */ TextureUtils)
 /* harmony export */ });
-var TextureUtils = /** @class */ (function () {
-    function TextureUtils() {
-    }
+class TextureUtils {
     /**
      * Binds a given WebGL texture to texture unit 0 and sets the corresponding sampler uniform in the shader program.
      *
      * @param gl - The WebGL2RenderingContext to use for binding.
      * @param program - The WebGLProgram to bind the texture to.
      * @param tex - The WebGLTexture to bind.
-     * @param key - The name of the sampler uniform in the shader program to associate with the texture.
+     * @param key - The name of the sampler uniform orthe sampler location in the shader program to associate with the texture.
      * @param unit - The texture unit to bind the texture to (0-15 for WebGL2).
      *
      * @remarks
      * If the specified uniform cannot be found in the shader program, a warning is logged to the console.
      */
-    TextureUtils.bindTex = function (gl, program, tex, key, unit) {
-        var loc = gl.getUniformLocation(program, key);
+    static bindTex(gl, program, tex, key, unit, target = gl.TEXTURE_2D) {
+        if (!tex) {
+            console.warn(`[TextureUtils] Attempted to bind null/undefined texture to sampler "${key}" at texture unit ${unit}`);
+            return;
+        }
+        var loc;
+        if (typeof key === "string") {
+            loc = gl.getUniformLocation(program, key);
+        }
+        else {
+            loc = key;
+        }
         if (loc === null) {
-            console.warn("Cannot find ".concat(key, " in fragmentShader"));
+            console.warn(`[TextureUtils] Cannot find sampler uniform "${key}" in shader program`);
             return;
         }
         // Bind to the specified texture unit
         gl.activeTexture(gl.TEXTURE0 + unit);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.bindTexture(target, tex);
         // Tell the shader's sampler to use this texture unit
         gl.uniform1i(loc, unit);
-    };
+    }
     /**
      * Uploads a Float32Array to GPU as a 2D RGBA32F texture.
      * Each texel stores 4 floats (R, G, B, A).
      * (totally not vibecoded)
      * @param gl         - WebGL2RenderingContext
-     * @param data       - Float32Array containing your raw float data
+     * @param data       - Float32Array, Float16Array, or Int8Array containing your raw data
      * @param widthHint  - Optional: manual texture width (default auto-calculated)
      * @returns texture: WebGLTexture
      */
-    TextureUtils.packFloatArrayToTexture = function (gl, data, widthHint) {
+    static packFloatArrayToTexture(gl, data, widthHint) {
         if (data.length % 4 !== 0) {
-            console.warn("[packFloatArrayToTexture] Padding input from ".concat(data.length, " to multiple of 4"));
-            var padded = new Float32Array(Math.ceil(data.length / 4) * 4);
+            console.warn(`[packFloatArrayToTexture] Padding input from ${data.length} to multiple of 4`);
+            const padded = new Float32Array(Math.ceil(data.length / 4) * 4);
             padded.set(data);
             data = padded;
         }
-        var totalTexels = data.length / 4;
-        var width = widthHint || Math.ceil(Math.sqrt(totalTexels));
-        var height = Math.ceil(totalTexels / width);
-        var texture = gl.createTexture();
+        const totalTexels = data.length / 4;
+        const width = widthHint || Math.ceil(Math.sqrt(totalTexels));
+        const height = Math.ceil(totalTexels / width);
+        const texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, // Internal format
+        gl.texImage2D(gl.TEXTURE_2D, 0, (data instanceof Float32Array) ? gl.RGBA32F : ((data instanceof Float16Array) ? gl.RGBA16F : gl.RGBA8_SNORM), // Internal format
         width, height, 0, gl.RGBA, // Format of incoming data
-        gl.FLOAT, new Float32Array(width * height * 4).fill(0).map(function (_, i) { var _a; return (_a = data[i]) !== null && _a !== void 0 ? _a : 0; }) // Fill/pad if needed
+        (data instanceof Int8Array) ? gl.BYTE : gl.FLOAT, new Float32Array(width * height * 4).fill(0).map((_, i) => data[i] ?? 0) // Fill/pad if needed
         );
         // NEAREST = no filtering/interpolation
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -10188,7 +18758,7 @@ var TextureUtils = /** @class */ (function () {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         return texture;
-    };
+    }
     /**
      * Creates and initializes a WebGL 2D texture with the specified parameters.
      *
@@ -10201,13 +18771,8 @@ var TextureUtils = /** @class */ (function () {
      * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
      * @returns The created WebGLTexture object.
      */
-    TextureUtils.createTexture2D = function (gl, width, height, internalFormat, format, type, data, minFilter, magFilter, wrapS, wrapT) {
-        if (data === void 0) { data = null; }
-        if (minFilter === void 0) { minFilter = gl.NEAREST; }
-        if (magFilter === void 0) { magFilter = gl.NEAREST; }
-        if (wrapS === void 0) { wrapS = gl.CLAMP_TO_EDGE; }
-        if (wrapT === void 0) { wrapT = gl.CLAMP_TO_EDGE; }
-        var texture = gl.createTexture();
+    static createTexture2D(gl, width, height, internalFormat, format, type, data = null, minFilter = gl.NEAREST, magFilter = gl.NEAREST, wrapS = gl.CLAMP_TO_EDGE, wrapT = gl.CLAMP_TO_EDGE) {
+        const texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
         gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, width, height, 0, format, type, data);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, minFilter);
@@ -10216,7 +18781,7 @@ var TextureUtils = /** @class */ (function () {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrapT);
         gl.bindTexture(gl.TEXTURE_2D, null);
         return texture;
-    };
+    }
     /**
      * Creates and initializes a WebGL 2D texture with the specified parameters.
      *
@@ -10229,14 +18794,8 @@ var TextureUtils = /** @class */ (function () {
      * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
      * @returns The created WebGLTexture object.
      */
-    TextureUtils.createTexture3D = function (gl, width, height, depth, internalFormat, format, type, data, minFilter, magFilter, wrapS, wrapT, wrapR) {
-        if (data === void 0) { data = null; }
-        if (minFilter === void 0) { minFilter = gl.NEAREST; }
-        if (magFilter === void 0) { magFilter = gl.NEAREST; }
-        if (wrapS === void 0) { wrapS = gl.CLAMP_TO_EDGE; }
-        if (wrapT === void 0) { wrapT = gl.CLAMP_TO_EDGE; }
-        if (wrapR === void 0) { wrapR = gl.CLAMP_TO_EDGE; }
-        var texture = gl.createTexture();
+    static createTexture3D(gl, width, height, depth, internalFormat, format, type, data = null, minFilter = gl.NEAREST, magFilter = gl.NEAREST, wrapS = gl.CLAMP_TO_EDGE, wrapT = gl.CLAMP_TO_EDGE, wrapR = gl.CLAMP_TO_EDGE) {
+        const texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_3D, texture);
         gl.texImage3D(gl.TEXTURE_3D, 0, internalFormat, width, height, depth, 0, format, type, data);
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, minFilter);
@@ -10247,10 +18806,39 @@ var TextureUtils = /** @class */ (function () {
         gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, wrapR);
         gl.bindTexture(gl.TEXTURE_3D, null);
         return texture;
-    };
-    return TextureUtils;
-}());
-
+    }
+    /**
+     * Creates and initializes a WebGL 2D array texture with the specified parameters.
+     *
+     * @param gl - The WebGL2 rendering context.
+     * @param width - The width of each layer in pixels.
+     * @param height - The height of each layer in pixels.
+     * @param layers - The number of layers in the array.
+     * @param internalFormat - The internal format of the texture (e.g., `gl.DEPTH_COMPONENT32F`).
+     * @param format - The format of the pixel data (e.g., `gl.DEPTH_COMPONENT`).
+     * @param type - The data type of the pixel data (e.g., `gl.FLOAT`).
+     * @param data - Optional. The pixel data to initialize the texture with. If `null`, the texture is initialized with empty data.
+     * @param minFilter - The minification filter (default: gl.NEAREST).
+     * @param magFilter - The magnification filter (default: gl.NEAREST).
+     * @param wrapS - The wrap mode for S coordinate (default: gl.CLAMP_TO_EDGE).
+     * @param wrapT - The wrap mode for T coordinate (default: gl.CLAMP_TO_EDGE).
+     * @returns The created WebGLTexture object.
+     */
+    static createTexture2DArray(gl, width, height, layers, internalFormat, format, type, data = null, minFilter = gl.NEAREST, magFilter = gl.NEAREST, wrapS = gl.CLAMP_TO_EDGE, wrapT = gl.CLAMP_TO_EDGE) {
+        const texture = gl.createTexture();
+        if (!texture) {
+            throw new Error("Failed to create texture");
+        }
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, texture);
+        gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, internalFormat, width, height, layers, 0, format, type, data);
+        gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, minFilter);
+        gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, magFilter);
+        gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, wrapS);
+        gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, wrapT);
+        gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
+        return texture;
+    }
+}
 
 
 /***/ }),
@@ -10267,55 +18855,225 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   WorldUtils: () => (/* binding */ WorldUtils)
 /* harmony export */ });
 /* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
 
 
-var WorldUtils = /** @class */ (function () {
-    function WorldUtils() {
-    }
+class WorldUtils {
     /**
      * Calculates the necessary vertices, normals, and wireframes for cubes for our world
      * @param world The world we are rendering
      * @returns { List of triangle meshes }
      */
-    WorldUtils.genTerrainVertices = function (world) {
-        var triangleMeshes = []; // Store all chunks' meshes
-        var mainMesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
-        for (var _i = 0, _a = world.chunks; _i < _a.length; _i++) {
-            var chunk = _a[_i];
-            var triangleMesh = chunk.Mesh;
-            triangleMesh.translate(gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(chunk.ChunkPosition[0], 0, chunk.ChunkPosition[1]));
+    static genTerrainVertices(world) {
+        const triangleMeshes = []; // Store all chunks' meshes
+        let mainMesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+        for (const chunk of Object.values(world.chunks)) {
+            const triangleMesh = chunk.Mesh;
+            triangleMesh.translate(chunk.ChunkPosition);
             mainMesh.merge(triangleMesh);
             triangleMeshes.push(triangleMesh); // Store the chunk's mesh
         }
         return triangleMeshes;
-    };
-    WorldUtils.updateLights = function (gl, program, lights, camera) {
-        // Set number of active lights
-        var numLightsLocation = gl.getUniformLocation(program, "numActiveLights");
-        gl.uniform1i(numLightsLocation, lights.length);
-        // Update each light's data
-        lights.forEach(function (light, index) {
-            var baseUniform = "lights[".concat(index, "]");
-            var posLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".position"));
-            var colorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".color"));
-            var intensityLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".intensity"));
-            var radiusLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".radius"));
-            var showColorLocation = gl.getUniformLocation(program, "".concat(baseUniform, ".showColor"));
-            gl.uniform3fv(posLocation, light.position);
-            gl.uniform3fv(colorLocation, light.color.createVec3());
-            gl.uniform3fv(showColorLocation, light.showColor.createVec3());
-            gl.uniform1f(intensityLocation, light.intensity);
-            gl.uniform1f(radiusLocation, light.radius);
-        });
-        if (camera) {
-            var viewPositionLocation = gl.getUniformLocation(program, "viewPosition");
-            gl.uniform3fv(viewPositionLocation, camera.getPosition());
+    }
+    static addChunkGears(world, gearMesh) {
+        for (const chunk of Object.values(world.chunks)) {
+            for (const gearPos of chunk.gearObjects) {
+                let position = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.create();
+                gl_matrix__WEBPACK_IMPORTED_MODULE_1__.translate(position, position, gearPos);
+                gl_matrix__WEBPACK_IMPORTED_MODULE_1__.scale(position, position, gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(0.1, 0.1, 0.1));
+                world.addObject(gearMesh, position, "Gear (from chunk)");
+            }
         }
-    };
-    return WorldUtils;
-}());
-
+    }
+    static updateLights(gl, program, pointLights, sun, camera) {
+        // Check if this is for pathtracer (has lights[] and numActiveLights uniforms)
+        const numActiveLightsLocation = gl.getUniformLocation(program, "numActiveLights");
+        const isPathtracer = numActiveLightsLocation !== null;
+        if (isPathtracer) {
+            // Pathtracer mode: convert sun to PointLight and use lights[] array
+            const lights = pointLights || [];
+            // Convert sun (directional light) to a PointLight for pathtracer
+            if (sun) {
+                /*
+                gl.uniform1f(gl.getUniformLocation(program,"sunDirX"),sun.direction[0]);
+                gl.uniform1f(gl.getUniformLocation(program,"sunDirY"),sun.direction[1]);
+                gl.uniform1f(gl.getUniformLocation(program,"sunDirZ"),sun.direction[2]);*/
+                gl.uniform3fv(gl.getUniformLocation(program, "u_sunDirection"), sun.direction);
+                gl.uniform1f(gl.getUniformLocation(program, "u_sunIntensity"), sun.intensity);
+                gl.uniform1f(gl.getUniformLocation(program, "u_sunAngularRadius"), sun.angularRadius);
+                gl.uniform3fv(gl.getUniformLocation(program, "u_sunColor"), sun.color.createVec3());
+            }
+            // Combine sun with existing point lights
+            const numLights = Math.min(lights.length, 100); // MAX_LIGHTS is 100
+            // Set number of active lights
+            gl.uniform1i(numActiveLightsLocation, numLights);
+            // Update each light
+            for (let i = 0; i < numLights; i++) {
+                const light = lights[i];
+                const baseUniform = `lights[${i}]`;
+                const posLocation = gl.getUniformLocation(program, `${baseUniform}.position`);
+                const colorLocation = gl.getUniformLocation(program, `${baseUniform}.color`);
+                const showColorLocation = gl.getUniformLocation(program, `${baseUniform}.showColor`);
+                const intensityLocation = gl.getUniformLocation(program, `${baseUniform}.intensity`);
+                const radiusLocation = gl.getUniformLocation(program, `${baseUniform}.radius`);
+                const rangeLocation = gl.getUniformLocation(program, `${baseUniform}.range`);
+                if (posLocation !== null) {
+                    gl.uniform3fv(posLocation, light.position);
+                }
+                if (colorLocation !== null) {
+                    gl.uniform3fv(colorLocation, light.color.createVec3());
+                }
+                if (showColorLocation !== null) {
+                    const showColor = light.showColor || light.color;
+                    gl.uniform3fv(showColorLocation, showColor.createVec3());
+                }
+                if (intensityLocation !== null) {
+                    gl.uniform1f(intensityLocation, light.intensity);
+                }
+                if (radiusLocation !== null) {
+                    gl.uniform1f(radiusLocation, light.radius);
+                }
+                if (rangeLocation !== null) {
+                    gl.uniform1f(rangeLocation, light.range);
+                }
+            }
+        }
+        else {
+            // Deferred renderer mode: use pointLights[] and SunLight
+            // Note: The sun is the only directional light and is handled separately via the sun parameter
+            const lights = pointLights || [];
+            // Set number of active point lights
+            const numPointLightsLocation = gl.getUniformLocation(program, "numActivePointLights");
+            if (numPointLightsLocation !== null) {
+                gl.uniform1i(numPointLightsLocation, lights.length);
+            }
+            // Update point lights
+            lights.forEach((light, index) => {
+                const baseUniform = `pointLights[${index}]`;
+                const posLocation = gl.getUniformLocation(program, `${baseUniform}.position`);
+                const colorLocation = gl.getUniformLocation(program, `${baseUniform}.color`);
+                const intensityLocation = gl.getUniformLocation(program, `${baseUniform}.intensity`);
+                const radiusLocation = gl.getUniformLocation(program, `${baseUniform}.radius`);
+                const rangeLocation = gl.getUniformLocation(program, `${baseUniform}.range`);
+                const showColorLocation = gl.getUniformLocation(program, `${baseUniform}.showColor`);
+                if (posLocation !== null)
+                    gl.uniform3fv(posLocation, light.position);
+                if (colorLocation !== null)
+                    gl.uniform3fv(colorLocation, light.color.createVec3());
+                if (showColorLocation !== null)
+                    gl.uniform3fv(showColorLocation, light.showColor.createVec3());
+                if (intensityLocation !== null)
+                    gl.uniform1f(intensityLocation, light.intensity);
+                if (radiusLocation !== null)
+                    gl.uniform1f(radiusLocation, light.radius);
+                if (rangeLocation !== null)
+                    gl.uniform1f(rangeLocation, light.range);
+            });
+            // Update point light shadow map visualization flags
+            const showShadowMapArray = lights.map((light) => light.showShadowMap ? 1 : 0);
+            const showShadowMapLocation = gl.getUniformLocation(program, "pointLightShowShadowMap");
+            if (showShadowMapLocation !== null) {
+                gl.uniform1iv(showShadowMapLocation, showShadowMapArray);
+            }
+            // Update sun (the only directional light in the system)
+            if (sun) {
+                const directionLocation = gl.getUniformLocation(program, "SunLight.direction");
+                const colorLocation = gl.getUniformLocation(program, "SunLight.color");
+                const intensityLocation = gl.getUniformLocation(program, "SunLight.intensity");
+                if (directionLocation)
+                    gl.uniform3fv(directionLocation, sun.direction);
+                if (colorLocation)
+                    gl.uniform3fv(colorLocation, sun.color.createVec3());
+                if (intensityLocation)
+                    gl.uniform1f(intensityLocation, sun.intensity);
+            }
+        }
+        if (camera) {
+            const cameraPositionLocation = gl.getUniformLocation(program, "cameraPosition");
+            if (cameraPositionLocation !== null) {
+                gl.uniform3fv(cameraPositionLocation, camera.getPosition());
+            }
+        }
+    }
+    static chunkKeyFromPosition(position, world) {
+        const chunkX = Math.floor(position[0] / world.resolution) * world.resolution;
+        const chunkY = Math.floor(position[1] / world.height) * world.height;
+        const chunkZ = Math.floor(position[2] / world.resolution) * world.resolution;
+        return `${chunkX},${chunkY},${chunkZ}`;
+    }
+    static chunkKeyToPosition(chunkKey) {
+        const [chunkX, chunkY, chunkZ] = chunkKey.split(",").map(Number);
+        return gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(chunkX, chunkY, chunkZ);
+    }
+    static extractFrustumPlanes(viewProj) {
+        // Extract planes from the combined view-projection matrix
+        // Each plane: [normal, distance]
+        const m = viewProj;
+        const planes = [];
+        // Left
+        planes.push([
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(m[3] + m[0], m[7] + m[4], m[11] + m[8]),
+            m[15] + m[12]
+        ]);
+        // Right
+        planes.push([
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(m[3] - m[0], m[7] - m[4], m[11] - m[8]),
+            m[15] - m[12]
+        ]);
+        // Bottom
+        planes.push([
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(m[3] + m[1], m[7] + m[5], m[11] + m[9]),
+            m[15] + m[13]
+        ]);
+        // Top
+        planes.push([
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(m[3] - m[1], m[7] - m[5], m[11] - m[9]),
+            m[15] - m[13]
+        ]);
+        // Near
+        planes.push([
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(m[3] + m[2], m[7] + m[6], m[11] + m[10]),
+            m[15] + m[14]
+        ]);
+        // Far
+        planes.push([
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(m[3] - m[2], m[7] - m[6], m[11] - m[10]),
+            m[15] - m[14]
+        ]);
+        // Normalize planes
+        for (const plane of planes) {
+            const n = plane[0];
+            const l = gl_matrix__WEBPACK_IMPORTED_MODULE_2__.length(n);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.scale(n, n, 1 / l);
+            plane[1] /= l;
+        }
+        return { planes };
+    }
+    static aabbInFrustum(box, frustum, modelMatrix) {
+        // Transform AABB corners by modelMatrix
+        const corners = [
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.transformMat4(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(box.min[0], box.min[1], box.min[2]), modelMatrix),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.transformMat4(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(box.max[0], box.min[1], box.min[2]), modelMatrix),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.transformMat4(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(box.min[0], box.max[1], box.min[2]), modelMatrix),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.transformMat4(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(box.max[0], box.max[1], box.min[2]), modelMatrix),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.transformMat4(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(box.min[0], box.min[1], box.max[2]), modelMatrix),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.transformMat4(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(box.max[0], box.min[1], box.max[2]), modelMatrix),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.transformMat4(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(box.min[0], box.max[1], box.max[2]), modelMatrix),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_2__.transformMat4(gl_matrix__WEBPACK_IMPORTED_MODULE_2__.create(), gl_matrix__WEBPACK_IMPORTED_MODULE_2__.fromValues(box.max[0], box.max[1], box.max[2]), modelMatrix),
+        ];
+        for (const [normal, d] of frustum.planes) {
+            let out = 0;
+            for (const c of corners) {
+                if (gl_matrix__WEBPACK_IMPORTED_MODULE_2__.dot(normal, c) + d < 0)
+                    out++;
+            }
+            if (out === 8)
+                return false; // All corners outside this plane
+        }
+        return true;
+    }
+}
 
 
 /***/ })
@@ -10389,15 +19147,6 @@ var WorldUtils = /** @class */ (function () {
 /******/ 		};
 /******/ 	})();
 /******/ 	
-/******/ 	/* webpack/runtime/get javascript chunk filename */
-/******/ 	(() => {
-/******/ 		// This function allow to reference async chunks
-/******/ 		__webpack_require__.u = (chunkId) => {
-/******/ 			// return url for filenames based on template
-/******/ 			return "" + chunkId + ".index.js";
-/******/ 		};
-/******/ 	})();
-/******/ 	
 /******/ 	/* webpack/runtime/get javascript update chunk filename */
 /******/ 	(() => {
 /******/ 		// This function allow to reference all chunks
@@ -10414,7 +19163,7 @@ var WorldUtils = /** @class */ (function () {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("da2ece15a2ea2fcf6868")
+/******/ 		__webpack_require__.h = () => ("9522fc5ac36472b62b2b")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
@@ -10889,7 +19638,7 @@ var WorldUtils = /** @class */ (function () {
 /******/ 	
 /******/ 	/* webpack/runtime/jsonp chunk loading */
 /******/ 	(() => {
-/******/ 		__webpack_require__.b = document.baseURI || self.location.href;
+/******/ 		// no baseURI
 /******/ 		
 /******/ 		// object to store loaded and loading chunks
 /******/ 		// undefined = chunk not loaded, null = chunk preloaded/prefetched
