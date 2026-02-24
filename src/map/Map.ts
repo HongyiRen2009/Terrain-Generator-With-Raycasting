@@ -464,30 +464,37 @@ private async generateChunkStrip(
 
     // Determine which chunk this triangle belongs to based on first vertex
     // The vertex position is in strip-local space, so divide by resolution to get chunk index
-    const localX = tri[0][0];
-    const localZ = tri[0][2];
-    
-    // Calculate chunk indices within the strip (0, 1, 2, ...)
-    const chunkIdxX = Math.floor(localX / this.resolution);
-    const chunkIdxZ = Math.floor(localZ / this.resolution);
-    
+    const PADDING_OFFSET = 1.0;
+    const EPSILON = 1e-6;
+
+    const centroidX = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0;
+    const centroidZ = (tri[0][2] + tri[1][2] + tri[2][2]) / 3.0;
+
+    // Convert padded local coords -> voxel coords in strip space
+    const voxelX = Math.floor(centroidX - PADDING_OFFSET - EPSILON);
+    const voxelZ = Math.floor(centroidZ - PADDING_OFFSET - EPSILON);
+
+    // Map voxel coords to chunk indices
+    const chunkIdxX = Math.floor(voxelX / this.resolution);
+    const chunkIdxZ = Math.floor(voxelZ / this.resolution);
+
     // Clamp to valid chunk indices
     const clampedChunkIdxX = Math.max(0, Math.min(numberOfChunksX - 1, chunkIdxX));
     const clampedChunkIdxZ = Math.max(0, Math.min(numberOfChunksZ - 1, chunkIdxZ));
-    
+
     // Calculate world chunk position
     const chunkWorldX = chunkStartPos[0] + clampedChunkIdxX * this.resolution;
     const chunkWorldY = chunkStartPos[1];
     const chunkWorldZ = chunkStartPos[2] + clampedChunkIdxZ * this.resolution;
-    
+
     const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
     const mesh = chunkMeshes[key];
     if (!mesh) continue;
 
-    // Convert to chunk-local coordinates by subtracting the chunk's offset within the strip
+    // Convert to chunk-local coordinates
     const chunkOffsetX = clampedChunkIdxX * this.resolution;
     const chunkOffsetZ = clampedChunkIdxZ * this.resolution;
-    
+
     const localTri: Triangle = [
       vec3.fromValues(tri[0][0] - chunkOffsetX, tri[0][1], tri[0][2] - chunkOffsetZ),
       vec3.fromValues(tri[1][0] - chunkOffsetX, tri[1][1], tri[1][2] - chunkOffsetZ),
