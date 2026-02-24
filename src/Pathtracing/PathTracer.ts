@@ -29,7 +29,6 @@ export class PathTracer {
   private frameNumber = 0; // The accumulation counter
   //Shaders
   private meshProgram: WebGLProgram;
-  private copyProgram: WebGLProgram;
 
   private fullscreenVAO: WebGLVertexArrayObject | null = null;
   private fullscreenVBO: WebGLBuffer | null = null;
@@ -79,8 +78,8 @@ export class PathTracer {
     resolution: null as WebGLUniformLocation | null,
     lastFrame: null as WebGLUniformLocation | null,
     frameNum: null as WebGLUniformLocation | null,
-    COPYPROGRAM_sourceTex: null as WebGLUniformLocation | null,
     grassBB: null as WebGLUniformLocation | null,
+    copyBoolean: null as WebGLUniformLocation | null,
   };
 
   public constructor(
@@ -112,11 +111,6 @@ export class PathTracer {
       this.gl,
       pathTracingVertexShaderCode,
       pathTracingFragmentShaderCode
-    )!;
-    this.copyProgram = RenderUtils.CreateProgram(
-      this.gl,
-      copyVertexShader,
-      copyFragmentShader
     )!;
 
     this.initSettingsSection();
@@ -168,9 +162,12 @@ export class PathTracer {
   }
 
   public drawMesh() {
+    console.time("Pathtracer Total Frame Time");
+    console.time("Pathtracer CPU overhead");
     this.setupFrame();
 
     //Put camera position, direction in shader
+    this.gl.uniform1i(this.uniforms.copyBoolean, 0);
     this.gl.uniform3fv(
       this.uniforms.camera,
       this.camera.position
@@ -216,20 +213,23 @@ export class PathTracer {
       this.frameNumber
     ); // Send as a float for seeding
 
+    console.timeEnd("Pathtracer CPU overhead");
     // Draw
+    console.time("Pathtracer GPU render time");
     this.gl.bindFramebuffer(
       this.gl.FRAMEBUFFER,
       this.framebuffers[nextFrameIndex]
     );
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-
+    console.timeEnd("Pathtracer GPU render time");
+    console.time("Pathtracer Copy CPU");
     //Ping Pong
     this.currentFrame = nextFrameIndex;
 
     //Draw to canvas using copy shader
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
-    this.gl.useProgram(this.copyProgram);
+    /*this.gl.useProgram(this.copyProgram);
 
     TextureUtils.bindTex(
       this.gl,
@@ -237,13 +237,23 @@ export class PathTracer {
       this.accumulationTextures[nextFrameIndex],
       this.uniforms.COPYPROGRAM_sourceTex!,
       0
+    );*/
+    this.gl.uniform1i(this.uniforms.copyBoolean, 1);
+    this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
+    this.gl.bindTexture(
+      this.gl.TEXTURE_2D,
+      this.accumulationTextures[nextFrameIndex]
     );
-
+    this.gl.uniform1i(this.uniforms.lastFrame, 8);
+    console.timeEnd("Pathtracer Copy CPU");
+    console.time("Pathtracer Copy GPU");
     // We can reuse the same fullscreen triangle VAO
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-    this.gl.bindVertexArray(null);
+    this.gl.bindVertexArray(null); 
+    console.timeEnd("Pathtracer Copy GPU");
+    console.timeEnd("Pathtracer Total Frame Time");
   }
 
   public makeVao() {
@@ -286,38 +296,17 @@ export class PathTracer {
     this.uniforms.lastFrame = this.gl.getUniformLocation(this.meshProgram, "u_lastFrame");
     this.uniforms.frameNum = this.gl.getUniformLocation(this.meshProgram, "u_frameNumber");
     this.uniforms.grassBB = this.gl.getUniformLocation(this.meshProgram,"u_grassBB");
-    this.uniforms.COPYPROGRAM_sourceTex = this.gl.getUniformLocation(this.copyProgram, "u_sourceTexture");
+    this.uniforms.copyBoolean = this.gl.getUniformLocation(this.meshProgram,"u_copyMode");
 
 
     this.initBVHTextures();
     this.setupFrame();
     this.makeVao();
     this.resetAccumulation();
-  }
-  public leave() {
-    this.debug.removeElement("Accumulation Frame");
-    this.camera.farPlane = this.camera.rayTracingFarPlane;
-  }
-  private initBVHTextures() {
-    this.vertexTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
-    this.terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
-    this.boundingBoxesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
-    this.nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
-    this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
-    this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
-    this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
-    this.grassTexture = TextureUtils.packFloatArrayToTexture(this.gl,this.grassBB);
-
-    //clouds
-    this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
-    this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
+    this.bindBVH();
   }
 
-  private setupFrame() {
-    this.gl.useProgram(this.meshProgram);
-    const ext = this.gl.getExtension("EXT_color_buffer_float");
-    if (!ext) console.warn("No float render targets available.");
-    //Textures
+  private bindBVH(){
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexTex!, this.uniforms.vertices!, 0);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTex!, this.uniforms.terrains!, 1);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.boundingBoxesTex!, this.uniforms.boundindingBoxes!, 2);
@@ -325,10 +314,8 @@ export class PathTracer {
     TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex!, this.uniforms.leafs!, 4);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex!, this.uniforms.terrainTypes!, 5);
     TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex!, this.uniforms.vertexNormal!, 6);
-    if(SettingsManager.instance.getSetting("grassEnabled")?.value){
-      TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture!, this.uniforms.grassBB!, 9);
-    }
-    
+    TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture!, this.uniforms.grassBB!, 9);
+
 
     //NOTE: When we fix natively pathtraced clouds we will put this back.
     /*
@@ -354,6 +341,32 @@ export class PathTracer {
       this.uniforms.numTerrains,
       Object.keys(Terrains).length
     );
+  }
+
+  public leave() {
+    this.debug.removeElement("Accumulation Frame");
+    this.camera.farPlane = this.camera.rayTracingFarPlane;
+  }
+  private initBVHTextures() {
+    this.vertexTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
+    this.terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
+    this.boundingBoxesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
+    this.nodesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.nodes);
+    this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
+    this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
+    this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
+    this.grassTexture = TextureUtils.packFloatArrayToTexture(this.gl,this.grassBB);
+
+    //clouds
+    this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
+    this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
+  }
+
+  private setupFrame() {
+    this.gl.useProgram(this.meshProgram);
+    const ext = this.gl.getExtension("EXT_color_buffer_float");
+    if (!ext) console.warn("No float render targets available.");
+    
     //VAO
     this.gl.bindVertexArray(this.fullscreenVAO);
   }
@@ -434,7 +447,6 @@ export class PathTracer {
     }
     // delete programs
     if (this.meshProgram) this.gl.deleteProgram(this.meshProgram);
-    if (this.copyProgram) this.gl.deleteProgram(this.copyProgram);
     // delete fullscreen VAO/VBO
     if (this.fullscreenVAO) {
       this.gl.deleteVertexArray(this.fullscreenVAO);

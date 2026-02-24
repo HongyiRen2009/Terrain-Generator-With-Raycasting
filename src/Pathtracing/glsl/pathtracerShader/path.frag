@@ -1244,7 +1244,31 @@ vec3 PathTrace(Ray OGRay, inout uint rng_state) {
     return min(color, vec3(10.0));
 }
 
-void main() {
+uniform int u_copyMode; // If true, we copy from sourceTexture to output without modification
+
+// ACES Filmic Tone Mapping Curve
+vec3 ACESFilmic(vec3 x) {
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
+void copyCode() {
+    vec3 sumColor = texture(u_lastFrame, v_uv).rgb;
+
+    float exposure = 1.0;
+    vec3 tonedColor = ACESFilmic(sumColor * exposure);
+    
+    float gamma = 2.2;
+    vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));
+
+    fragColor = vec4(finalColor, 1.0);
+}
+
+void runCode() {
     int pixelX = int(v_uv.x * u_resolution.x);
     int pixelY = int(v_uv.y * u_resolution.y);
     int patternIndex = pixelX + pixelY * 199;
@@ -1300,4 +1324,12 @@ void main() {
     }
 
     fragColor = vec4(newSum,1.0); 
+}
+
+void main(){
+    if(u_copyMode==1){
+        copyCode();
+        return;
+    }
+    runCode();
 }
