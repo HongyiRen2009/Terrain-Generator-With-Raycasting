@@ -56,10 +56,18 @@
 
         <!-- File Upload -->
         <label>
-          Upload .ply, .3mf, or .obj file:
-          <input type="file" id="ply-file" accept=".ply, .3mf, .obj" />
+          Upload .ply, .3mf, .obj, or .stl file:
+          <input type="file" id="ply-file" accept=".ply, .3mf, .obj, .stl" />
           <br/>
-          Note: We only support .ply files in ASCII format for now.
+          Note: .ply (ASCII), .3mf, .obj, and .stl (ASCII and binary) are supported.
+          <br/>
+          <small style="color: #888;">
+            For large <code>.stl</code> files, consider simplifying first using
+            <a href="https://www.nano3dtech.com/simplify-reduce-3d-stl/" target="_blank" rel="noopener noreferrer">
+              Nano3Dtech's online STL simplifier
+            </a>
+            before importing.
+          </small>
         </label>
         <br/>
 

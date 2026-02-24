@@ -1,6 +1,7 @@
 import { mat4, vec3 } from "gl-matrix";
-import { threemfToMesh } from "../modelLoader/3fmreader";
+import { threemfToMesh } from "../modelLoader/3mfreader";
 import { loadPLYToMesh, objSourceToMesh } from "../modelLoader/objreader";
+import { stlFileToMesh } from "../modelLoader/stlreader";
 import { Mesh } from "./Mesh";
 import { Color, Terrains } from "./terrains";
 import { WorldMap } from "./Map";
@@ -131,10 +132,11 @@ export class ObjectUI {
         !(
           file.name.endsWith(".ply") ||
           file.name.endsWith(".3mf") ||
-          file.name.endsWith(".obj")
+          file.name.endsWith(".obj") ||
+          file.name.endsWith(".stl")
         )
       ) {
-        alert("Please upload a valid .ply, .3mf, or .obj file.");
+        alert("Please upload a valid .ply, .3mf, .obj, or .stl file.");
         return;
       }
       if (!nameInput.value.trim()) {
@@ -215,6 +217,15 @@ export class ObjectUI {
             return;
           }
           mesh = objSourceToMesh(await file.text());
+        } else if (file.name.endsWith(".stl")) {
+          if (Object.keys(importMap).length != 0) {
+            alert("STL import with color mapping is not yet supported.");
+            document.body.removeChild(loadingMsg);
+            return;
+          }
+          mesh = await stlFileToMesh(file, {
+            quality: qualityValue
+          });
         } else {
           throw new Error("Unsupported file type.");
         }

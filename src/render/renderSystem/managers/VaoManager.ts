@@ -718,9 +718,13 @@ export class VAOManager {
         worldObject.buffer.vertex,
         worldObject.buffer.indices,
         {
-          position: { offset: 0, size: 3, stride: 36 },
-          normal: { offset: 12, size: 3, stride: 36 },
-          color: { offset: 24, size: 3, stride: 36 }
+          position: { offset: 0, size: 3, stride: 52 },
+          normal: { offset: 12, size: 3, stride: 52 },
+          color: { offset: 24, size: 3, stride: 52 },
+          reflectiveness: { offset: 36, size: 1, stride: 52 },
+          metalicity: { offset: 40, size: 1, stride: 52 },
+          roughness: { offset: 44, size: 1, stride: 52 },
+          emissivity: { offset: 48, size: 1, stride: 52 }
         },
         this.geometryProgram!
       );
