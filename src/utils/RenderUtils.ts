@@ -15,6 +15,8 @@ export class RenderUtils {
     VertexShaderCode: string,
     FragmentShaderCode: string
   ): WebGLProgram | null {
+    const ext = gl.getExtension('KHR_parallel_shader_compile');
+
     const VertexShader = this.CreateShader(
       gl,
       gl.VERTEX_SHADER,
@@ -37,6 +39,46 @@ export class RenderUtils {
     }
     return Program;
   }
+  /**
+ * Creates a WebGL program asynchronously using parallel compilation.
+ */
+static async CreateProgramAsync(
+  gl: WebGL2RenderingContext,
+  VertexShaderCode: string,
+  FragmentShaderCode: string
+): Promise<WebGLProgram | null> {
+  const ext = gl.getExtension('KHR_parallel_shader_compile');
+
+  const VertexShader = this.CreateShader(gl, gl.VERTEX_SHADER, VertexShaderCode);
+  const FragmentShader = this.CreateShader(gl, gl.FRAGMENT_SHADER, FragmentShaderCode);
+  
+  const Program = gl.createProgram();
+  if (!Program) return null;
+
+  gl.attachShader(Program, VertexShader);
+  gl.attachShader(Program, FragmentShader);
+  gl.linkProgram(Program);
+
+  // --- Non-Blocking Logic Starts Here ---
+
+  // If the extension exists, we poll until completion
+  if (ext) {
+    while (!gl.getProgramParameter(Program, ext.COMPLETION_STATUS_KHR)) {
+      // Yield control back to the browser so it doesn't freeze
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+  }
+
+  // Once we reach here, either the extension finished OR 
+  // the extension wasn't supported (so we just check normally).
+  if (!gl.getProgramParameter(Program, gl.LINK_STATUS)) {
+    const errorMessage = gl.getProgramInfoLog(Program);
+    console.error(`Failed to link GPU program: ${errorMessage}`);
+    return null;
+  }
+
+  return Program;
+}
   /**
    * Creates a WebGL shader of the specified type with the given GLSL code.
    * @param gl The WebGL2RenderingContext to use for creating the shader.

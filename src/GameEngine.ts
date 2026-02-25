@@ -150,7 +150,15 @@ export class GameEngine {
     };
     rayBtn.addEventListener("click", this.boundRayClick);
 
-    this.boundPathClick = () => {
+    this.boundPathClick = async () => {
+      if (!this.pathTracer.meshProgram) {
+          // Source - https://stackoverflow.com/a/303735
+          // Posted by Aaron Powell, modified by community. See post 'Timeline' for change history
+          // Retrieved 2026-02-24, License - CC BY-SA 2.5
+          //setTimeout(function() { alert('hello world'); }, 1);
+          setTimeout(function() { alert('Shader is still building in the background...'); }, 1);
+          return;
+      }
       pathBtn.classList.add("active");
       rayBtn.classList.remove("active");
       this.mode = 1; // Set to pathtracing
