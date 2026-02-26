@@ -174,32 +174,29 @@ export class ObjectUI {
         // Collect import map entries
         const importMap: { [id: string]: number } = {};
         document.querySelectorAll(".map-entry").forEach((entry) => {
-          const inputs = entry.querySelectorAll("input, select") as NodeListOf<
-            HTMLInputElement | HTMLSelectElement
-          >;
-          const name = (inputs[0] as HTMLInputElement).value.trim();
-          const color = Color.fromHex((inputs[1] as HTMLInputElement).value);
-          const type = parseInt((inputs[2] as HTMLSelectElement).value) as
-            | 1
-            | 2
-            | 3
-            | 4
-            | 5;
+          const inputs = entry.querySelectorAll("input, select") as NodeListOf<HTMLInputElement | HTMLSelectElement>;
+          // Correct Index Mapping:
+          // 0: Color (Input)
+          // 1: Terrain Type (Select)
+          // 2: Metallic/Reflectiveness (Input)
+          // 3: Roughness (Input)
+
+          const colorHex = (inputs[0] as HTMLInputElement).value;
+          const color = Color.fromHex(colorHex);
+          const type = parseInt((inputs[1] as HTMLSelectElement).value) as 1 | 2 | 3 | 4 | 5;
+          const reflectiveness = Math.min(1, Math.max(0, parseFloat((inputs[2] as HTMLInputElement).value)));
+          const roughness = Math.min(1, Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value)));
+
           Terrains[Object.keys(Terrains).length] = {
-            name: name || `Terrain ${Object.keys(Terrains).length}`,
+            name: `Terrain ${Object.keys(Terrains).length}`, // Name isn't an input in your UI
             color: color,
-            reflectiveness: Math.min(
-              1,
-              Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value))
-            ),
-            roughness: Math.min(
-              1,
-              Math.max(0, parseFloat((inputs[4] as HTMLInputElement).value))
-            ),
+            reflectiveness: reflectiveness,
+            roughness: roughness,
             type: type,
             emissivity: vec3.fromValues(0, 0, 0),
-          metallicity: 0
+            metallicity: 0 
           };
+          
           importMap[color.toString()] = Object.keys(Terrains).length - 1;
         });
 

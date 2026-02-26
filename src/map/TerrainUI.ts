@@ -224,10 +224,10 @@ export class TerrainUI {
       // First notify the world so it can regenerate geometry/state,
       // then ask the tracer/renderer to rebuild resources (uses regenerated mesh).
       try {
-        const res = this.world.onTerrainChanged?.();
+        /*const res = this.world.onTerrainChanged?.();
         if (res && typeof (res as any).then === "function") {
           await res;
-        }
+        }*/
       } catch (e) {
         // log and continue to attempt updater
         // eslint-disable-next-line no-console
