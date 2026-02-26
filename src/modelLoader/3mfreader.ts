@@ -3,16 +3,24 @@ import { mat4, vec2, vec3 } from "gl-matrix";
 import { Mesh, Triangle } from "../map/Mesh";
 import { Color, Terrains } from "../map/terrains";
 import { XMLParser } from "fast-xml-parser";
+import type { ThreeMFWorkerResponse } from "./ThreeMFWorker";
 
 export async function threemfToMesh(
   url: string,
   importMap: { [id: string]: number } | null = null,
   quality: number = 1.0
 ): Promise<{ mesh: Mesh; transform: mat4 } | null> {
+  const modelData =
+    typeof Worker !== "undefined" ? await load3MFViaWorker(url) : await load3MF(url);
+  return buildMeshFromExtracted(modelData, importMap, quality);
+}
+
+function buildMeshFromExtracted(
+  modelData: Extracted3MFData,
+  importMap: { [id: string]: number } | null,
+  quality: number
+): { mesh: Mesh; transform: mat4 } | null {
   const mesh = new Mesh();
-  const modelData: Extracted3MFData = await load3MF(url);
-  
-  // Create mesh from extracted data
   const totalTriangles = modelData.triangles.length;
   
   for (let i = 0; i < totalTriangles; i++) {
@@ -68,7 +76,9 @@ export async function threemfToMesh(
             color: col,
             reflectiveness: material.metallic,
             roughness: material.roughness,
-            type: terrainType
+            type: terrainType,
+            emissivity: vec3.fromValues(0, 0, 0),
+            metallicity: 0
           };
           types[j] = Object.keys(Terrains).length - 1;
         }
@@ -83,56 +93,199 @@ export async function threemfToMesh(
   }
 
   const originalTriangleCount = mesh.mesh.length;
-  
+
   // Apply decimation if quality < 1.0
-  // For very large meshes (>500k triangles), automatically reduce quality if user hasn't set it
+  // For very large meshes (>500k triangles), optionally suggest reducing quality.
   const LARGE_MESH_THRESHOLD = 500000;
-  let finalQuality = quality;
-  
-  if (quality >= 1.0 && originalTriangleCount > LARGE_MESH_THRESHOLD) {
-    // Auto-reduce quality for extremely large meshes to maintain performance
-    // Keep minimum at 30% to avoid severe visual artifacts
-    let recommendedQuality = Math.max(0.3, Math.min(0.7, 500000 / originalTriangleCount));
-    let proceed = window.confirm(`⚠️ The imported model is very large (${originalTriangleCount.toLocaleString()} triangles). We recomend adjusting quality to ${recommendedQuality.toFixed(2)}. If you would like to proceed with the current quality, confirm.`)
-    if(!proceed){
-      let newQuality = null;
+  let effectiveQuality = quality;
+
+  if (
+    typeof window !== "undefined" &&
+    quality >= 1.0 &&
+    originalTriangleCount > LARGE_MESH_THRESHOLD
+  ) {
+    // Auto-recommend reduced quality for extremely large meshes
+    const recommendedQuality = Math.max(
+      0.3,
+      Math.min(0.7, 500000 / originalTriangleCount)
+    );
+    const proceedWithRecommended = window.confirm(
+      `⚠️ The imported model is very large (${originalTriangleCount.toLocaleString()} triangles).\n\n` +
+        `Click OK to use a reduced quality of ${recommendedQuality.toFixed(
+          2
+        )} for better performance,\n` +
+        `or Cancel to enter a custom quality value.`
+    );
+
+    if (proceedWithRecommended) {
+      effectiveQuality = recommendedQuality;
+    } else {
       while (true) {
         const input = window.prompt(
           `Enter a quality value between 0.0 and 1.0\n` +
-          `(Recommended: ${recommendedQuality.toFixed(2)})\n\n` +
-          `Press Cancel to quit.`,recommendedQuality.toFixed(2).toString()
+            `(Recommended: ${recommendedQuality.toFixed(2)})\n\n` +
+            `Press Cancel to abort import.`,
+          recommendedQuality.toFixed(2)
         );
 
-        // User chose to quit
         if (input === null) {
-          return null; // or throw / abort import
+          return null;
         }
 
         const value = Number(input);
-
         if (!Number.isNaN(value) && value >= 0.0 && value <= 1.0) {
-          newQuality = value;
+          effectiveQuality = value;
           break;
         }
 
-        window.alert("Invalid input. Quality must be a number between 0.0 and 1.0.");
+        window.alert(
+          "Invalid input. Quality must be a number between 0.0 and 1.0."
+        );
       }
-
-      quality = newQuality;
-    } else {
-      quality = recommendedQuality;
     }
-    
-  } else if (quality < 0.3) {
-    alert(`⚠️ Quality setting below 30% (${(quality * 100).toFixed(0)}%) may cause significant visual artifacts. Consider using 30-50% for better results.`);
+  } else if (quality < 0.3 && typeof window !== "undefined") {
+    window.alert(
+      `⚠️ Quality setting below 30% (${(quality * 100).toFixed(
+        0
+      )}%) may cause significant visual artifacts. Consider using 30-50% for better results.`
+    );
   }
-  
-  if (finalQuality < 1.0) {
-    const decimatedMesh = mesh.decimate(finalQuality);
+
+  if (effectiveQuality < 1.0) {
+    const clampedQuality = Math.max(0.05, Math.min(1.0, effectiveQuality));
+    const decimatedMesh = mesh.decimate(clampedQuality);
     return { mesh: decimatedMesh, transform: modelData.transform };
   }
-  
+
   return { mesh, transform: modelData.transform };
+}
+
+let threeMFWorker: Worker | null = null;
+let threeMFWorkerRequestId = 0;
+const threeMFWorkerPending = new Map<
+  string,
+  { resolve: (value: ThreeMFWorkerResponse) => void; reject: (reason?: any) => void }
+>();
+
+function getThreeMFWorker(): Worker {
+  if (!threeMFWorker) {
+    threeMFWorker = new Worker(new URL("./ThreeMFWorker.ts", import.meta.url));
+    threeMFWorker.onmessage = (event: MessageEvent<ThreeMFWorkerResponse>) => {
+      const { id } = event.data;
+      const pending = threeMFWorkerPending.get(id);
+      if (!pending) return;
+      threeMFWorkerPending.delete(id);
+      pending.resolve(event.data);
+    };
+    threeMFWorker.onerror = (err) => {
+      threeMFWorkerPending.forEach(({ reject }) => reject(err));
+      threeMFWorkerPending.clear();
+    };
+  }
+  return threeMFWorker;
+}
+
+async function load3MFViaWorker(url: string): Promise<Extracted3MFData> {
+  if (typeof Worker === "undefined") {
+    return load3MF(url);
+  }
+
+  const worker = getThreeMFWorker();
+  const id = String(++threeMFWorkerRequestId);
+
+  const response = await new Promise<ThreeMFWorkerResponse>((resolve, reject) => {
+    threeMFWorkerPending.set(id, { resolve, reject });
+    worker.postMessage({ id, url });
+  });
+
+  if (response.error) {
+    throw new Error(response.error);
+  }
+
+  if (
+    !response.vertices ||
+    !response.colors ||
+    !response.triangles ||
+    !response.metallic ||
+    !response.roughness ||
+    !response.specular ||
+    !response.transform
+  ) {
+    throw new Error("3MF worker returned incomplete data.");
+  }
+
+  const vertices: vec3[] = [];
+  const colors: vec3[] = [];
+  const materials: MaterialProperties[] = [];
+  const triangles: [number, number, number][] = [];
+
+  for (let i = 0; i < response.vertices.length; i += 3) {
+    vertices.push(
+      vec3.fromValues(
+        response.vertices[i],
+        response.vertices[i + 1],
+        response.vertices[i + 2]
+      )
+    );
+  }
+
+  for (let i = 0; i < response.colors.length; i += 3) {
+    colors.push(
+      vec3.fromValues(
+        response.colors[i],
+        response.colors[i + 1],
+        response.colors[i + 2]
+      )
+    );
+  }
+
+  for (let i = 0; i < response.metallic.length; i++) {
+    materials.push({
+      metallic: response.metallic[i],
+      roughness: response.roughness[i],
+      specular: response.specular[i]
+    });
+  }
+
+  for (let i = 0; i < response.triangles.length; i += 3) {
+    triangles.push([
+      response.triangles[i],
+      response.triangles[i + 1],
+      response.triangles[i + 2]
+    ]);
+  }
+
+  const transform = mat4.fromValues(
+    response.transform[0],
+    response.transform[1],
+    response.transform[2],
+    response.transform[3],
+    response.transform[4],
+    response.transform[5],
+    response.transform[6],
+    response.transform[7],
+    response.transform[8],
+    response.transform[9],
+    response.transform[10],
+    response.transform[11],
+    response.transform[12],
+    response.transform[13],
+    response.transform[14],
+    response.transform[15]
+  );
+
+  const normals = calculateNormals(vertices, triangles);
+
+  return {
+    vertices,
+    normals,
+    colors,
+    uvs: [],
+    triangles,
+    materials,
+    textures: new Map(),
+    transform
+  };
 }
 
 export interface Extracted3MFData {

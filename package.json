@@ -17,6 +17,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@webgpu/types": "^0.1.67",
     "alea": "^1.0.1",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",

@@ -1105,10 +1105,12 @@ vec3 PathTrace(Ray OGRay, inout uint rng_state) {
         // Create the next bounce ray
         if(isGrassBlade){
             //Do something cool 
-            //pretend diffuse for now
-            type = 1;
+            //pretend microfascet for now
+            type = 3;
             smoothNormal = tri.triNormal;
             matColor =  mix(grassBaseColor,grassTipColor, tri.normals[0].x);
+            reflectiveness=0.04;
+            matRoughness=0.75;
         }
         if(type != 4) //Transmission goes through
             ourRay.origin = hitPoint + geometricNormal * 0.1;

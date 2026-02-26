@@ -85,6 +85,8 @@ export interface Terrain {
   color: Color;
   reflectiveness: number; // Decimal 0-1
   roughness: number; // Decimal 0-1
+  metallicity: number; // Decimal 0-1
+  emissivity:vec3; // RGB Emissive color (out of 1)
   type: 1 | 2 | 3 | 4 | 5; //look below
   /* Note about type (if no like search it up)
   Here is a list of types of surfaces (from chatgpt)
@@ -118,6 +120,8 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#6BAA3A"),
     reflectiveness: 0.02,
     roughness: 0.9,
+    metallicity: 0,
+    emissivity: vec3.fromValues(0,0,0),
     type: 3
   },
   // 1: Dirt
@@ -126,6 +130,8 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#7A5229"),
     reflectiveness: 0.03,
     roughness: 0.9,
+    metallicity: 0,
+    emissivity: vec3.fromValues(0,0,0),
     type: 3
   },
   // 2: Rock
@@ -134,6 +140,8 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#8B8F91"),
     reflectiveness: 0.04,
     roughness: 0.85,
+    metallicity: 0,
+    emissivity: vec3.fromValues(0,0,0),
     type: 3
   },
   // 3: Snow
@@ -142,6 +150,8 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#F7FBFF"),
     reflectiveness: 0.06,
     roughness: 0.95,
+    metallicity: 0,
+    emissivity: vec3.fromValues(0,0,0),
     type: 3
   },
   // 4: Water (slightly transmissive)
@@ -150,6 +160,8 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#2F86D1"),
     reflectiveness: 0.2,
     roughness: 0.1,
+    metallicity: 0,
+    emissivity: vec3.fromValues(0,0,0),
     type: 4
   },
   // 5: Sand / Beach
@@ -158,6 +170,8 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#E3D2A3"),
     reflectiveness: 0.02,
     roughness: 0.92,
+    metallicity: 0,
+    emissivity: vec3.fromValues(0,0,0),
     type: 3
   }
 };

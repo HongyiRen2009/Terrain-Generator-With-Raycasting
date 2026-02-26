@@ -157,7 +157,9 @@ export function loadPLYToMesh(
                 color: col,
                 reflectiveness: 0.2,
                 roughness: 0.8,
-                type: 1
+                type: 1,
+                emissivity: vec3.fromValues(0, 0, 0),
+                metallicity: 0
               };
               types[j] = Object.keys(Terrains).length - 1;
             }
@@ -184,7 +186,9 @@ export function loadPLYToMesh(
               color: col,
               reflectiveness: 0.2,
               roughness: 0.8,
-              type: 1
+              type: 1,
+              emissivity: vec3.fromValues(0, 0, 0),
+              metallicity: 0
             };
             types[j] = Object.keys(Terrains).length - 1;
           }
