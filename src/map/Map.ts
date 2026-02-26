@@ -1,13 +1,14 @@
 import { mat4, vec2, vec3, vec4 } from "gl-matrix";
 import { PointLight, DirectionalLight } from "./Light";
 
-import { Color, Terrain, Terrains } from "./terrains";
+import { Color, Terrain } from "./terrains";
 import { Mesh, Triangle } from "./Mesh";
 import { RenderUtils } from "../utils/RenderUtils";
 import { WorldObject } from "./WorldObject";
 import { meshToInterleavedVerticesAndIndices } from "./cubes_utils";
 import { ObjectUI } from "./ObjectUI";
 import { LightUI } from "./LightUI";
+import { TerrainUI } from "./TerrainUI";
 import { SettingsManager } from "../Settings";
 
 interface ImportMapEntry {
@@ -58,12 +59,14 @@ export class WorldMap {
 
   private nextWorldObjectId: number = 0;
 
-  private tracerUpdateSupplier: () => () => void;
+  private tracerUpdateSupplier: () => (terrainTypesOnly?: boolean) => void;
   private TotalTimings: Timing;
   private chunksGenerated: number = 0;
   public objectUI: ObjectUI;
   public computeShader: ComputeShader;
   public lightUI: LightUI;
+  public terrainUI: TerrainUI;
+
   private chunkLoadQueue: { pos: vec3, key: string, then: ((chunk: Chunk) => void) | null }[] = [];
   private chunkStripQueue: { 
     startPos: vec3, 
@@ -84,7 +87,7 @@ export class WorldMap {
     height: number,
     length: number,
     gl: WebGL2RenderingContext,
-    updateTracer: () => () => void
+    updateTracer: () => (terrainTypesOnly?: boolean) => void
   ) {
     this.tracerUpdateSupplier = updateTracer;
     console.log(this.seed);
@@ -98,6 +101,7 @@ export class WorldMap {
     this.computeShader = new ComputeShader();
     this.computeShader.init();
     this.lightUI = new LightUI(this, this.tracerUpdateSupplier);
+    this.terrainUI = new TerrainUI(this, this.tracerUpdateSupplier);
     this.initSettings();
     this.TotalTimings = {
       noise: 0,
@@ -145,7 +149,7 @@ export class WorldMap {
       defaultValue: 0.022*2,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_MIE",
       label: "Mie (whiteness at sea level)",
       min: 0,
@@ -154,7 +158,7 @@ export class WorldMap {
       defaultValue: 0.021,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_haloSize",
       label: "Mie Anisotropy (Lower = larger halo)",
       min: 0,
@@ -163,7 +167,7 @@ export class WorldMap {
       defaultValue: 0.76,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_skyGradientQuality",
       label: "Sky Gradient Quality",
       min: 1,
@@ -173,7 +177,7 @@ export class WorldMap {
       numType: "int"
     });
 
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_sunsetQuality",
       label: "Sunset Quality",
       min: 1,
@@ -183,17 +187,15 @@ export class WorldMap {
       numType: "int"
     });
 
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_skyBrightnessBoost",
-      label: "Sky Brighness Coefficient",
+      label: "Sky Brightness Coefficient",
       min: 0,
       max: 10,
       step: 0.01,
       defaultValue: 1.0,
       numType: "float"
     });
-
-
   }
   public loadChunk(pos: vec3, then: ((chunk: Chunk) => void) | null = null) {
     if (this.chunkQueueHasKey(`${pos[0]},${pos[1]},${pos[2]}`)) {
@@ -654,6 +656,11 @@ private async generateChunkStrip(
         const obj = this.worldObjects[objIdx];
         if(!obj.mesh) continue;
 
+        if (!obj?.mesh?.mesh) {
+          console.warn("Skipping WorldObject with null mesh", obj);
+          continue;
+        }
+
         // Create a simple hash of the transform matrix to detect changes
         const transformHash = obj.position.join(",");
         const needsRetransform =
@@ -731,6 +738,11 @@ private async generateChunkStrip(
    * Add an object to the game world
    */
   public addObject(objectData: Mesh, objectLocation: mat4, name: string) {
+    if (!objectData || !objectData.mesh) {
+      console.error("Cannot add object: mesh is null", name);
+      return;
+    }
+
     const { vertices, indices } =
       meshToInterleavedVerticesAndIndices(objectData);
     const meshSize = indices.length;

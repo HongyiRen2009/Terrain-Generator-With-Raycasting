@@ -116,7 +116,11 @@ export class GameEngine {
       this.pathTracer
     );
 
-    this.updatePathracing = () => {
+    this.updatePathracing = (terrainTypesOnly: boolean = false) => {
+      if(terrainTypesOnly){
+        this.pathTracer.reloadTerrainData();
+        return;
+      }
       if (!this.pathtracerUpdated) {
         this.pathtracerUpdated = true;
         this.pathTracer.initBVH(this.world.combinedMesh());
@@ -161,8 +165,44 @@ export class GameEngine {
 
     //Initialize menu
     const menuButton = document.getElementById("menu-toggle")!;
-    const sidebar = document.getElementById("sidebar")!;
     const topBar = document.getElementById("topBarWrapper")!;
+    const sidebar = document.getElementById("sidebar")!;
+    const handle = document.getElementById("drag-handle")!;
+
+    let x = 0;
+    let width = 0;
+
+    handle.addEventListener("pointerdown", (e: PointerEvent) => {
+      x = e.clientX;
+      width = sidebar.offsetWidth;
+
+      sidebar.style.transition = "none";
+      topBar.style.transition = "none";
+
+      handle.setPointerCapture(e.pointerId);
+
+      const onPointerMove = (e: PointerEvent) => {
+        const dx = x - e.clientX;
+        const newWidth = width + dx;
+
+        const clampedWidth = Math.min(400, Math.max(200, newWidth));
+
+        sidebar.style.width = `${clampedWidth}px`;
+        topBar.style.right = `${clampedWidth + 10}px`;
+      };
+
+      const onPointerUp = () => {
+        handle.releasePointerCapture(e.pointerId);
+        sidebar.style.transition = "width 0.2s ease";
+        topBar.style.transition = "right 0.2s ease";
+
+        document.removeEventListener("pointermove", onPointerMove);
+        document.removeEventListener("pointerup", onPointerUp);
+      };
+
+      document.addEventListener("pointermove", onPointerMove);
+      document.addEventListener("pointerup", onPointerUp);
+    });
 
     this.boundMenuClick = () => {
       sidebar.classList.toggle("open");

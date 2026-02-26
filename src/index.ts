@@ -1,7 +1,7 @@
 //The idea is YOU SHOULD NEVER EDIT THIS FILE, Edit GameEngine.ts - Abstraction is fun or whatever.
 import { GameEngine } from "./GameEngine";
 
-const kMainCanvasId = "#MainCanvas";
+const kMainCanvasId = "MainCanvas";
 const mainCanvas = document.getElementById(kMainCanvasId)! as HTMLCanvasElement
 var rafId: number | null = null;
 function setup(){

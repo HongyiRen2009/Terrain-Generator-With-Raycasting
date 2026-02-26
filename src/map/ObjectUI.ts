@@ -8,14 +8,14 @@ import { WorldMap } from "./Map";
 import { WorldObject } from "./WorldObject";
 
 export class ObjectUI {
-  private tracerUpdateSupplier: () => () => void;
+  private tracerUpdateSupplier: () => (terrainTypesOnly?: boolean) => void;
   private nextSpawnPosition: vec3 = vec3.fromValues(0, 50, 0);
   private camera?: { position: vec3 }; // Optional camera reference
   private transformUpdateTimeout: number | null = null; // For debouncing transform updates
 
   constructor(
     map: WorldMap,
-    updateTracer: () => () => void,
+    updateTracer: () => (terrainTypesOnly?: boolean) => void,
     camera?: { position: vec3 }
   ) {
     this.tracerUpdateSupplier = updateTracer;
@@ -60,15 +60,25 @@ export class ObjectUI {
 
     closeBtn.addEventListener("click", () => popup.classList.add("hidden"));
 
+    const createLabelFragment = (text: string, input: HTMLElement) => {
+      const span = document.createElement("span");
+      span.classList.add("map-entry-field");
+      span.append(text, input);
+      return span;
+    };
+
     // Add mapping UI
     addMapEntryBtn.addEventListener("click", () => {
       const wrapper = document.createElement("div");
-      wrapper.className = "map-entry";
+      wrapper.classList.add("map-entry");
 
       const colorInput = document.createElement("input");
       colorInput.type = "color";
+      colorInput.classList.add("map-color-input");
 
       const terrainSelect = document.createElement("select");
+      terrainSelect.classList.add("map-terrain-select");
+
       const terrainTypes = [
         { value: 1, label: "Diffuse (Matte)" },
         { value: 2, label: "Specular (Mirror)" },
@@ -91,6 +101,7 @@ export class ObjectUI {
       reflectInput.max = "1";
       reflectInput.value = "0.5";
       reflectInput.placeholder = "Metallic";
+      reflectInput.classList.add("map-number-input");
 
       const roughInput = document.createElement("input");
       roughInput.type = "number";
@@ -99,24 +110,21 @@ export class ObjectUI {
       roughInput.max = "1";
       roughInput.value = "0.5";
       roughInput.placeholder = "Roughness";
+      roughInput.classList.add("map-number-input");
 
       const deleteBtn = document.createElement("button");
       deleteBtn.textContent = "Remove";
-      deleteBtn.style.marginLeft = "10px";
+      deleteBtn.classList.add("map-entry-delete");
 
       deleteBtn.addEventListener("click", () => {
         wrapper.remove();
       });
 
       wrapper.append(
-        "Color: ",
-        colorInput,
-        " Terrain: ",
-        terrainSelect,
-        " Metallic: ",
-        reflectInput,
-        " Rough: ",
-        roughInput,
+        createLabelFragment("Color: ", colorInput),
+        createLabelFragment("Terrain: ", terrainSelect),
+        createLabelFragment("Metallic: ", reflectInput),
+        createLabelFragment("Rough: ", roughInput),
         deleteBtn
       );
 
@@ -153,39 +161,42 @@ export class ObjectUI {
 
       // Show loading indicator
       const loadingMsg = document.createElement("div");
-      loadingMsg.textContent = "Loading model...";
-      loadingMsg.style.cssText =
-        "position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px; border-radius: 8px; z-index: 10000; font-family: monospace;";
+      loadingMsg.className = "loading-overlay";
+
+      const box = document.createElement("div");
+      box.className = "loading-box-ui";
+      box.textContent = "Loading model...";
+
+      loadingMsg.appendChild(box);
       document.body.appendChild(loadingMsg);
 
       try {
         // Collect import map entries
         const importMap: { [id: string]: number } = {};
         document.querySelectorAll(".map-entry").forEach((entry) => {
-          const inputs = entry.querySelectorAll("input, select") as NodeListOf<
-            HTMLInputElement | HTMLSelectElement
-          >;
-          const color = Color.fromHex((inputs[0] as HTMLInputElement).value);
-          const type = parseInt((inputs[1] as HTMLSelectElement).value) as
-            | 1
-            | 2
-            | 3
-            | 4
-            | 5;
+          const inputs = entry.querySelectorAll("input, select") as NodeListOf<HTMLInputElement | HTMLSelectElement>;
+          // Correct Index Mapping:
+          // 0: Color (Input)
+          // 1: Terrain Type (Select)
+          // 2: Metallic/Reflectiveness (Input)
+          // 3: Roughness (Input)
+
+          const colorHex = (inputs[0] as HTMLInputElement).value;
+          const color = Color.fromHex(colorHex);
+          const type = parseInt((inputs[1] as HTMLSelectElement).value) as 1 | 2 | 3 | 4 | 5;
+          const reflectiveness = Math.min(1, Math.max(0, parseFloat((inputs[2] as HTMLInputElement).value)));
+          const roughness = Math.min(1, Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value)));
+
           Terrains[Object.keys(Terrains).length] = {
+            name: `Terrain ${Object.keys(Terrains).length}`, // Name isn't an input in your UI
             color: color,
-            reflectiveness: Math.min(
-              1,
-              Math.max(0, parseFloat((inputs[2] as HTMLInputElement).value))
-            ),
-            roughness: Math.min(
-              1,
-              Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value))
-            ),
+            reflectiveness: reflectiveness,
+            roughness: roughness,
             type: type,
             emissivity: vec3.fromValues(0, 0, 0),
-          metallicity: 0
+            metallicity: 0 
           };
+          
           importMap[color.toString()] = Object.keys(Terrains).length - 1;
         });
 
@@ -295,7 +306,7 @@ export class ObjectUI {
           `Successfully loaded ${file.name} at position [${spawnPos[0].toFixed(1)}, ${spawnPos[1].toFixed(1)}, ${spawnPos[2].toFixed(1)}]!`
         );
       } catch (error) {
-        console.error("❌ Error loading model:", error);
+        console.error("Error loading model:", error);
         const errorMsg = error instanceof Error ? error.message : String(error);
         alert(`Error loading model: ${errorMsg}\n\nCheck console for details.`);
       } finally {
@@ -309,83 +320,67 @@ export class ObjectUI {
    */
   private addPositionControls() {
     const popup = document.getElementById("popup");
-    if (!popup) {
-      console.error("Could not find popup element");
-      return;
-    }
+    if (!popup) return;
 
-    // Check if position controls already exist
-    if (document.getElementById("spawn-position-section")) {
-      return; // Already added
-    }
+    if (document.getElementById("spawn-position-section")) return;
 
-    // Create position control section
     const positionSection = document.createElement("div");
     positionSection.id = "spawn-position-section";
-    positionSection.style.cssText =
-      "margin: 15px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5;";
+    positionSection.classList.add("popup-section");
 
     const positionTitle = document.createElement("h3");
     positionTitle.textContent = "Spawn Position";
-    positionTitle.style.margin = "0 0 10px 0";
     positionSection.appendChild(positionTitle);
 
-    // X, Y, Z position inputs
     const axes = ["X", "Y", "Z"];
     axes.forEach((axis, index) => {
       const label = document.createElement("label");
-      label.style.display = "block";
-      label.style.marginBottom = "8px";
-      label.innerHTML = `${axis}: `;
+      label.classList.add("vector-label");
+      label.textContent = `${axis}: `;
 
       const input = document.createElement("input");
       input.type = "number";
       input.id = `spawn-${axis.toLowerCase()}`;
       input.value = this.nextSpawnPosition[index].toString();
       input.step = "1";
-      input.style.width = "100px";
-      input.style.marginLeft = "10px";
+      input.classList.add("vector-input");
 
       label.appendChild(input);
       positionSection.appendChild(label);
     });
 
-    // Add "Use Camera Position" button
     const useCameraBtn = document.createElement("button");
-    useCameraBtn.textContent = "📷 Use Camera Position";
     useCameraBtn.type = "button";
-    useCameraBtn.style.cssText =
-      "margin-top: 10px; width: 100%; padding: 5px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;";
+    useCameraBtn.textContent = "Use Camera Position";
+    useCameraBtn.classList.add("popup-button", "primary");
     useCameraBtn.addEventListener("click", () => {
-      if (this.camera && this.camera.position) {
-        (document.getElementById("spawn-x") as HTMLInputElement).value =
-          this.camera.position[0].toFixed(1);
-        (document.getElementById("spawn-y") as HTMLInputElement).value =
-          this.camera.position[1].toFixed(1);
-        (document.getElementById("spawn-z") as HTMLInputElement).value =
-          this.camera.position[2].toFixed(1);
+      if (this.camera?.position) {
+        ["x", "y", "z"].forEach((axis, i) => {
+          (document.getElementById(`spawn-${axis}`) as HTMLInputElement).value =
+            this.camera!.position[i].toFixed(1);
+        });
       } else {
         alert(
           "Camera position not available. Please enter coordinates manually."
         );
       }
     });
-    positionSection.appendChild(useCameraBtn);
 
-    // Add "Reset to Default" button
     const resetBtn = document.createElement("button");
-    resetBtn.textContent = "↺ Reset to Default";
     resetBtn.type = "button";
-    resetBtn.style.cssText =
-      "margin-top: 5px; width: 100%; padding: 5px; background: #666; color: white; border: none; border-radius: 3px; cursor: pointer;";
+    resetBtn.textContent = "Reset to Default";
+    resetBtn.classList.add("popup-button", "destructive");
     resetBtn.addEventListener("click", () => {
-      (document.getElementById("spawn-x") as HTMLInputElement).value = "0";
-      (document.getElementById("spawn-y") as HTMLInputElement).value = "50";
-      (document.getElementById("spawn-z") as HTMLInputElement).value = "0";
+      ["x", "y", "z"].forEach((axis, i) => {
+        const defaultVals = [0, 50, 0];
+        (document.getElementById(`spawn-${axis}`) as HTMLInputElement).value =
+          defaultVals[i].toString();
+      });
     });
+
+    positionSection.appendChild(useCameraBtn);
     positionSection.appendChild(resetBtn);
 
-    // Append to popup at the end (will appear before submit button if that's the last element)
     popup.appendChild(positionSection);
   }
 
@@ -431,34 +426,22 @@ export class ObjectUI {
     UI: ObjectUI
   ) {
     const wrapper = document.createElement("div");
-    wrapper.className = "world-object";
-    wrapper.style.cssText =
-      "margin-bottom: 15px; padding: 0; border: 1px solid #444; border-radius: 8px; background: rgba(50, 50, 50, 0.8); overflow: hidden;";
+    wrapper.className = "object-card";
 
     // Header section with name and delete button
     const header = document.createElement("div");
-    header.style.cssText =
-      "padding: 12px 15px; background: rgba(60, 60, 60, 0.9); border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;";
+    header.className = "object-card__header";
 
     const nameEl = document.createElement("h3");
+    nameEl.className = "object-card__title";
     nameEl.textContent = obj.name;
-    nameEl.style.cssText =
-      "margin: 0; font-size: 1.1em; font-weight: 600; color: #fff;";
     header.appendChild(nameEl);
 
     const deleteBtn = document.createElement("button");
-    deleteBtn.textContent = "🗑️";
-    deleteBtn.title = "Delete Object";
-    deleteBtn.style.cssText =
-      "background-color: #dc3545; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: background-color 0.2s;";
-    deleteBtn.addEventListener(
-      "mouseenter",
-      () => (deleteBtn.style.backgroundColor = "#c82333")
-    );
-    deleteBtn.addEventListener(
-      "mouseleave",
-      () => (deleteBtn.style.backgroundColor = "#dc3545")
-    );
+    deleteBtn.className = "object-card__delete";
+    deleteBtn.textContent = "Delete Object";
+
+    // Delete handler
     deleteBtn.addEventListener("click", () => {
       if (!confirm(`Delete "${obj.name}"?`)) return;
 
@@ -489,25 +472,23 @@ export class ObjectUI {
 
     // Content section
     const content = document.createElement("div");
-    content.style.cssText = "padding: 15px;";
+    content.className = "object-card__content";
 
     // Info section
     const infoSection = document.createElement("div");
-    infoSection.style.cssText =
-      "margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #555;";
+    infoSection.className = "object-card__info";
 
     const infoRow = (label: string, value: string) => {
       const row = document.createElement("div");
-      row.style.cssText =
-        "display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9em;";
+      row.className = "object-card__row";
 
       const labelSpan = document.createElement("span");
+      labelSpan.className = "object-card__label";
       labelSpan.textContent = label + ":";
-      labelSpan.style.cssText = "color: #aaa; font-weight: 500;";
 
       const valueSpan = document.createElement("span");
+      valueSpan.className = "object-card__value object-card__mono";
       valueSpan.textContent = value;
-      valueSpan.style.cssText = "color: #fff; font-family: monospace;";
 
       row.appendChild(labelSpan);
       row.appendChild(valueSpan);
@@ -521,19 +502,24 @@ export class ObjectUI {
       infoRow("Triangles", triangleCount.toLocaleString())
     );
 
-    const posEl = document.createElement("div");
-    posEl.style.cssText =
-      "display: flex; justify-content: space-between; font-size: 0.9em;";
-    const posLabel = document.createElement("span");
-    posLabel.textContent = "Position:";
-    posLabel.style.cssText = "color: #aaa; font-weight: 500;";
-    const posValue = document.createElement("span");
-    posValue.style.cssText = "color: #fff; font-family: monospace;";
-    posEl.appendChild(posLabel);
-    posEl.appendChild(posValue);
-    infoSection.appendChild(posEl);
+    // Position row
+    const posRow = document.createElement("div");
+    posRow.className = "object-card__row";
 
+    const posLabel = document.createElement("span");
+    posLabel.className = "object-card__label";
+    posLabel.textContent = "Position:";
+
+    const posValue = document.createElement("span");
+    posValue.className = "object-card__value object-card__mono";
+
+    posRow.appendChild(posLabel);
+    posRow.appendChild(posValue);
+
+    infoSection.appendChild(posRow);
     content.appendChild(infoSection);
+    wrapper.appendChild(content);
+    container.appendChild(wrapper);
 
     // Calculate and cache mesh center (for rotation/scale pivot)
     // IMPORTANT: Center must be in LOCAL space (from mesh vertices, not world space)
@@ -664,54 +650,43 @@ export class ObjectUI {
       onChange: (axis: number, value: number) => void
     ) => {
       const section = document.createElement("div");
-      section.style.cssText = "margin-bottom: 15px;";
+      section.className = "transform-section";
 
       const sectionTitle = document.createElement("div");
+      sectionTitle.className = "transform-section-title";
       sectionTitle.textContent = title;
-      sectionTitle.style.cssText =
-        "font-size: 0.85em; font-weight: 600; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px;";
       section.appendChild(sectionTitle);
 
       const inputsContainer = document.createElement("div");
-      inputsContainer.style.cssText =
-        "display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;";
+      inputsContainer.className = "transform-inputs";
 
       axes.forEach((axis, i) => {
-        const inputGroup = document.createElement("div");
-        inputGroup.style.cssText = "display: flex; flex-direction: column;";
+        const column = document.createElement("div");
+        column.className = "transform-column";
 
         const label = document.createElement("label");
+        label.className = "transform-label";
         label.textContent = axis;
-        label.style.cssText =
-          "font-size: 0.8em; color: #aaa; margin-bottom: 4px; font-weight: 500;";
 
         const input = document.createElement("input");
+        input.className = "transform-input";
         input.type = "number";
         input.value = values[i].toString();
         input.step = axis === "Rotation" ? "1" : "0.1";
-        input.style.cssText =
-          "padding: 6px 8px; background: #333; border: 1px solid #555; border-radius: 4px; color: #fff; font-size: 0.9em; font-family: monospace; width: 100%; box-sizing: border-box;";
+
         input.addEventListener("input", () => {
           const val = input.value === "" ? 0 : parseFloat(input.value);
           values[i] = val;
           onChange(i, val);
           updatePosDisplay();
         });
-        input.addEventListener(
-          "focus",
-          () => (input.style.borderColor = "#666")
-        );
-        input.addEventListener(
-          "blur",
-          () => (input.style.borderColor = "#555")
-        );
 
-        inputGroup.appendChild(label);
-        inputGroup.appendChild(input);
-        inputsContainer.appendChild(inputGroup);
+        column.append(label, input);
+        inputsContainer.appendChild(column);
       });
 
       section.appendChild(inputsContainer);
+
       return section;
     };
 

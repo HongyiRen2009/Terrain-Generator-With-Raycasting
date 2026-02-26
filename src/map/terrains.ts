@@ -81,6 +81,7 @@ export class Color {
  * Our terrain!
  */
 export interface Terrain {
+  name: string;
   color: Color;
   reflectiveness: number; // Decimal 0-1
   roughness: number; // Decimal 0-1
@@ -115,6 +116,7 @@ export const Terrains: { [id: number]: Terrain } = {
   //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
   // 0: Grass
   0: {
+    name: "Grass",
     color: Color.fromHex("#6BAA3A"),
     reflectiveness: 0.02,
     roughness: 0.9,
@@ -124,6 +126,7 @@ export const Terrains: { [id: number]: Terrain } = {
   },
   // 1: Dirt
   1: {
+    name: "Dirt",
     color: Color.fromHex("#7A5229"),
     reflectiveness: 0.03,
     roughness: 0.9,
@@ -133,6 +136,7 @@ export const Terrains: { [id: number]: Terrain } = {
   },
   // 2: Rock
   2: {
+    name: "Rock",
     color: Color.fromHex("#8B8F91"),
     reflectiveness: 0.04,
     roughness: 0.85,
@@ -142,6 +146,7 @@ export const Terrains: { [id: number]: Terrain } = {
   },
   // 3: Snow
   3: {
+    name: "Snow",
     color: Color.fromHex("#F7FBFF"),
     reflectiveness: 0.06,
     roughness: 0.95,
@@ -151,6 +156,7 @@ export const Terrains: { [id: number]: Terrain } = {
   },
   // 4: Water (slightly transmissive)
   4: {
+    name: "Water",
     color: Color.fromHex("#2F86D1"),
     reflectiveness: 0.2,
     roughness: 0.1,
@@ -160,6 +166,7 @@ export const Terrains: { [id: number]: Terrain } = {
   },
   // 5: Sand / Beach
   5: {
+    name: "Sand",
     color: Color.fromHex("#E3D2A3"),
     reflectiveness: 0.02,
     roughness: 0.92,

@@ -19,6 +19,7 @@
   "dependencies": {
     "@webgpu/types": "^0.1.67",
     "alea": "^1.0.1",
+    "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "fast-xml-parser": "^5.2.5",
     "gl-matrix": "^3.4.3",
@@ -27,7 +28,6 @@
     "three": "^0.182.0"
   },
   "devDependencies": {
-    "@types/three": "^0.182.0",
     "prettier": "^3.5.3",
     "simplex-noise": "^4.0.3",
     "ts-loader": "^9.5.2",

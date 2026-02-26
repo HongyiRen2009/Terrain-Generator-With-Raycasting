@@ -7,10 +7,10 @@ export class LightUI {
   private container: HTMLElement;
   private addButton: HTMLButtonElement;
   private world: WorldMap;
-  private tracerUpdateSupplier: () => () => void;
+  private tracerUpdateSupplier: () => (terrainTypesOnly?: boolean) => void;
   private displayOrder: PointLight[] = []; // Maintains stable display order
 
-  constructor(world: WorldMap, updateTracer: () => () => void) {
+  constructor(world: WorldMap, updateTracer: () => (terrainTypesOnly?: boolean) => void) {
     this.world = world;
     this.tracerUpdateSupplier = updateTracer;
 
@@ -35,7 +35,7 @@ export class LightUI {
       existingSection.remove();
     }
 
-    const sidebar = document.getElementById("sidebar");
+    const sidebar = document.getElementById("sidebar-content");
     if (!sidebar) {
       throw new Error("Sidebar element not found for LightUI");
     }
@@ -59,6 +59,10 @@ export class LightUI {
 
     sidebar.appendChild(section);
 
+    const spacer = document.createElement("div");
+    spacer.style.height = "40px";
+    sidebar.appendChild(spacer);
+
     return { container, addButton };
   }
 
@@ -75,7 +79,7 @@ export class LightUI {
     this.world.lights.push(newLight);
     this.displayOrder.push(newLight); // Add to display order
     this.createLightCard(newLight);
-    this.requestPathTracerUpdate();
+    this.requestLightChanges();
   }
 
   private createLightCard(light: PointLight) {
@@ -104,7 +108,7 @@ export class LightUI {
       const updatedColor = Color.fromHex(colorInput.value);
       light.color = updatedColor;
       light.showColor = updatedColor;
-      this.requestPathTracerUpdate();
+      this.requestLightChanges();
     });
     wrapper.appendChild(this.createLabeledInput("Color", colorInput));
 
@@ -114,7 +118,7 @@ export class LightUI {
         light.position,
         (axis, value) => {
           light.position[axis] = value;
-          this.requestPathTracerUpdate();
+          this.requestLightChanges();
         }
       )
     );
@@ -128,7 +132,7 @@ export class LightUI {
     const commitIntensity = () => {
       const val = intensityInput.value === "" ? 0 : parseFloat(intensityInput.value);
       light.intensity = Math.max(0, val);
-      this.requestPathTracerUpdate();
+      this.requestLightChanges();
     };
     intensityInput.addEventListener("change", commitIntensity);
     intensityInput.addEventListener("blur", commitIntensity);
@@ -143,7 +147,7 @@ export class LightUI {
     const commitRadius = () => {
       const val = radiusInput.value === "" ? 0 : parseFloat(radiusInput.value);
       light.radius = Math.max(0, val);
-      this.requestPathTracerUpdate();
+      this.requestLightChanges();
     };
     radiusInput.addEventListener("change", commitRadius);
     radiusInput.addEventListener("blur", commitRadius);
@@ -172,7 +176,7 @@ export class LightUI {
         this.world.numShadowedLights = result.numShadowedLights;
       }
       this.refreshLightCards();
-      this.requestPathTracerUpdate();
+      this.requestLightChanges();
     });
     wrapper.appendChild(this.createLabeledInput("Shadow", shadowInput));
 
@@ -206,7 +210,7 @@ export class LightUI {
     this.displayOrder = this.displayOrder.filter((l) => l !== light);
     wrapper.remove();
     this.refreshLightCards();
-    this.requestPathTracerUpdate();
+    this.requestLightChanges();
     });
     wrapper.appendChild(deleteButton);
 
@@ -276,11 +280,7 @@ export class LightUI {
     this.displayOrder.forEach((light) => this.createLightCard(light));
   }
 
-  private requestPathTracerUpdate() {
-    if (this.tracerUpdateSupplier) {
-      const updater = this.tracerUpdateSupplier();
-      if (updater) updater();
-    }
+  private requestLightChanges() {
     // Notify that lights have changed (for VAO updates, etc.) 
     // Technically, pathtracer doesn't even use lights, but it would be the same update function so it is used anyway
     if (this.world.onLightsChanged) {
