@@ -175,8 +175,6 @@ export class PathTracer {
   }
 
   public drawMesh() {
-    console.time("Pathtracer Total Frame Time");
-    console.time("Pathtracer CPU overhead");
     this.setupFrame();
 
     //Put camera position, direction in shader
@@ -226,18 +224,13 @@ export class PathTracer {
       this.frameNumber
     ); // Send as a float for seeding
 
-    console.timeEnd("Pathtracer CPU overhead");
     // Draw
-    console.time("Pathtracer GPU render time");
     this.gl.bindFramebuffer(
       this.gl.FRAMEBUFFER,
       this.framebuffers[nextFrameIndex]
     );
-    console.log(this.gl.getParameter(this.gl.CURRENT_PROGRAM) === this.meshProgram);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
-    console.timeEnd("Pathtracer GPU render time");
-    console.time("Pathtracer Copy CPU");
     //Ping Pong
     this.currentFrame = nextFrameIndex;
 
@@ -259,15 +252,11 @@ export class PathTracer {
       this.accumulationTextures[nextFrameIndex]
     );
     this.gl.uniform1i(this.uniforms.lastFrame, 8);
-    console.timeEnd("Pathtracer Copy CPU");
-    console.time("Pathtracer Copy GPU");
     // We can reuse the same fullscreen triangle VAO
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
     this.gl.bindVertexArray(null); 
-    console.timeEnd("Pathtracer Copy GPU");
-    console.timeEnd("Pathtracer Total Frame Time");
   }
 
   public makeVao() {
