@@ -64,6 +64,9 @@ export class PathTracer {
   private noiseTexture?: WebGLTexture;
   private weatherMapTexture?: WebGLTexture;
 
+  private totalTime = 0;
+  private startTime = Date.now();
+
   private uniforms = {
     vertices: null as WebGLUniformLocation | null,
     terrains: null as WebGLUniformLocation | null,
@@ -127,6 +130,13 @@ export class PathTracer {
       }
     });
 
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        // User came back
+        this.startTime = Date.now();
+      }
+    });
   }
   public initBVH(mainMesh: Mesh) {
     ////////////////////// build flat BVH structure
@@ -257,6 +267,9 @@ export class PathTracer {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
     this.gl.bindVertexArray(null); 
+
+    this.totalTime += Date.now() - this.startTime;
+    this.startTime = Date.now();
   }
 
   public makeVao() {
@@ -283,6 +296,8 @@ export class PathTracer {
   public init(showAccumulation: boolean = true) {
     if (showAccumulation){
       this.debug.addElement("Accumulation Frame", () => this.frameNumber);
+      this.debug.addElement("Accumulation Time (s)", () => Math.round(this.totalTime/1000));
+      this.debug.addElement("Resolution", () => this.canvas.width + "x" + this.canvas.height);
       this.camera.farPlane = this.camera.pathtracingFarPlane;
     }
     this.uniforms.vertices = this.gl.getUniformLocation(this.meshProgram!, "u_vertices");
@@ -348,6 +363,8 @@ export class PathTracer {
 
   public leave() {
     this.debug.removeElement("Accumulation Frame");
+    this.debug.removeElement("Accumulation Time (s)");
+    this.debug.removeElement("Resolution");
     this.camera.farPlane = this.camera.rayTracingFarPlane;
   }
   private initBVHTextures() {
@@ -431,6 +448,8 @@ export class PathTracer {
 
   public resetAccumulation() {
     this.frameNumber = 1;
+    this.totalTime = 0;
+    this.startTime = Date.now();
     this.initBuffers();
   }
 
