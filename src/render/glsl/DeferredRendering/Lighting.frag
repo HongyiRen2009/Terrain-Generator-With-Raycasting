@@ -294,6 +294,17 @@ void main() {
     vec3 albedo;
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
+    // Check if this is an emissive light (blockId == 69)
+    if(blockId == 69u) {
+        float packedEmissivity = uv.x;
+        float packed = packedEmissivity * 63.0;
+        float r = mod(packed, 4.0) / 3.0;
+        float g = mod(floor(packed / 4.0), 4.0) / 3.0;
+        float b = mod(floor(packed / 16.0), 4.0) / 3.0;
+        outputColor = vec4(vec3(r, g, b), 1.0f);
+        return;
+    }
+
     // Sample pre-computed sun shadow mask data
     // R = shadow, G = primary cascade (normalized), B = secondary cascade (normalized), A = blend factor
     vec4 sunShadowData = texture(blurredSunShadowMask, fragUV);

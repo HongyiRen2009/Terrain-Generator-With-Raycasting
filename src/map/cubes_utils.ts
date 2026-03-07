@@ -34,8 +34,6 @@ export const meshToInterleavedVerticesAndIndices = (
       const key = vertexKey(vertex);
       if (!vertexMap.has(key)) {
         const terrain = Terrains[types[j]];
-        const color = terrain.color;
-        const metallicity = terrain.type === 2 ? 1 : 0; // specular mirror
         vertices.push(
           vertex[0],
           vertex[1],
@@ -43,13 +41,9 @@ export const meshToInterleavedVerticesAndIndices = (
           normal[0],
           normal[1],
           normal[2],
-          color.r / 255,
-          color.g / 255,
-          color.b / 255,
-          terrain.reflectiveness,
-          metallicity,
-          terrain.roughness,
-          packEmissivity(terrain)
+          0.0, // Placeholder for uv
+          0.0,
+          0, // Placeholder for block id
         );
         vertexMap.set(key, vertexIndex);
         vertexIndex++;
@@ -63,12 +57,6 @@ export const meshToInterleavedVerticesAndIndices = (
     indices: new Uint32Array(indices)
   };
 };
-function packEmissivityToUint8(emissivity:vec3): number {
-  const r = Math.min(3, Math.floor(emissivity[0] * 3)); // 2 bits
-  const g = Math.min(3, Math.floor(emissivity[1] * 3)); // 2 bits
-  const b = Math.min(3, Math.floor(emissivity[2] * 3)); // 2 bits
-  return (b << 4) | (g << 2) | r;
-}
 export const meshToNonInterleavedVerticesAndIndices = (
   mesh: Mesh
 ): {

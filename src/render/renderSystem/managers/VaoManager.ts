@@ -9,6 +9,7 @@ import e from "express";
 import { Color, Terrains } from "../../../map/terrains";
 import { PointLight } from "../../../map/Light";
 import { Chunk } from "../../../map/Map";
+import { uv } from "three/tsl";
 export interface VaoInfo {
   vao: WebGLVertexArrayObject;
   indexCount: number;
@@ -578,8 +579,9 @@ export class VAOManager {
 
       const positions = new Float32Array(numVerts * 3);
       const normals = new Float32Array(numVerts * 3);
-      const colors = new Float32Array(numVerts * 3);
-      const indices = new Uint32Array(numVerts);
+      const uvs = new Float32Array(numVerts * 2); // fill in with emissivity data
+      const blockIds = new Uint32Array(numVerts);
+      const indices: number[] = [];
 
       const colorVec = showColor.createVec3();
       // Standard color for albedo
@@ -590,13 +592,6 @@ export class VAOManager {
       // Pack emissivity to make the light sphere glow with its color
       // Normalize to 0-1 range for RGBA8 texture storage (max packed value is 63)
       const packedEmissivity = packEmissivityToUint8([cr, cg, cb]) / 63.0;
-
-      // Material attributes for each vertex
-      const reflectiveness = new Float32Array(numVerts);
-      const metallicity = new Float32Array(numVerts);
-      const roughness = new Float32Array(numVerts);
-      const emissivity = new Float32Array(numVerts);
-
       for (let j = 0; j < triangles.length; j++) {
         const tri = triangles[j];
         const norm = triNormals[j];
@@ -613,19 +608,10 @@ export class VAOManager {
           normals[idx * 3 + 0] = norm[k][0];
           normals[idx * 3 + 1] = norm[k][1];
           normals[idx * 3 + 2] = norm[k][2];
-
-          // Color
-          colors[idx * 3 + 0] = cr;
-          colors[idx * 3 + 1] = cg;
-          colors[idx * 3 + 2] = cb;
-
-          // Material attributes - default values for light spheres
-          reflectiveness[idx] = 0.04; // Low reflectivity (dielectric), allows albedo color to show
-          metallicity[idx] = 0.0; // Non-metallic
-          roughness[idx] = 0.8; // Higher roughness for matte look
-          emissivity[idx] = packedEmissivity; // Glow with the light's color
-
-          indices[idx] = idx;
+          uvs[idx * 2 + 0] = packedEmissivity; // Store emissivity in UV.x
+          uvs[idx * 2 + 1] = 0; // Unused
+          blockIds[idx] = 69;
+          indices.push(idx);
         }
       }
 
@@ -639,31 +625,21 @@ export class VAOManager {
           buffer: RenderUtils.CreateAttributeBuffer(this.gl, normals),
           size: 3
         },
-        color: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, colors),
-          size: 3
+        uv: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, uvs),
+          size: 2
         },
-        reflectiveness: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, reflectiveness),
-          size: 1
-        },
-        metallicity: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, metallicity),
-          size: 1
-        },
-        roughness: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, roughness),
-          size: 1
-        },
-        emissivity: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, emissivity),
-          size: 1
+        blockId: {
+          buffer: RenderUtils.CreateIntegerBuffer(this.gl, blockIds),
+          size: 1,
+          type: this.gl.UNSIGNED_INT
         }
+
       };
 
       const indexBuffer = RenderUtils.CreateIndexBuffer(
         this.gl,
-        Array.from(indices) // RenderUtils expects number[]
+        indices
       );
 
       // Create VAO with Non-Interleaved layout (safer)
@@ -700,10 +676,8 @@ export class VAOManager {
           position: { offset: 0, size: 3, stride: 52 },
           normal: { offset: 12, size: 3, stride: 52 },
           color: { offset: 24, size: 3, stride: 52 },
-          reflectiveness: { offset: 36, size: 1, stride: 52 },
-          metallicity: { offset: 40, size: 1, stride: 52 },
-          roughness: { offset: 44, size: 1, stride: 52 },
-          emissivity: { offset: 48, size: 1, stride: 52 }
+          uv: { offset: 36, size: 2, stride: 52 },
+          blockId: { offset: 44, size: 1, stride: 52, type: this.gl.UNSIGNED_INT }
         },
         this.geometryProgram!
       );

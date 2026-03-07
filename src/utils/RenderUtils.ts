@@ -167,6 +167,7 @@ export class RenderUtils {
         size: number;
         sizeOverride?: number; //For example, positions are vec4 but only use 3 components
         location?: number; // Optional location override
+        type?: GLenum; // Optional type override (default is gl.FLOAT)
       };
     },
     program: WebGLProgram
@@ -189,7 +190,7 @@ export class RenderUtils {
       gl.vertexAttribPointer(
         location,
         size,
-        gl.FLOAT,
+        layoutInfo.type ?? gl.FLOAT,
         false,
         layoutInfo.stride,
         layoutInfo.offset
