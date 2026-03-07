@@ -83,7 +83,6 @@ export class LightingPass extends RenderPass {
     const albedoTexture = textures["albedo"];
     const depthTexture = textures["depth"];
     const ssaoTexture = textures["ssaoBlur"];
-    const materialAttributesTexture = textures["materialAttributes"];
     
     // Shadow mask textures from dedicated shadow passes
     const blurredSunShadowMask = textures["blurredSunShadowMask"];
@@ -108,7 +107,7 @@ export class LightingPass extends RenderPass {
     // Bind G-buffer textures
     TextureUtils.bindTex(this.gl, this.program!, normalTexture, "normalTexture", 0);
     TextureUtils.bindTex(this.gl, this.program!, albedoTexture, "albedoTexture", 1);
-    TextureUtils.bindTex(this.gl, this.program!, materialAttributesTexture, "materialAttributesTexture", 2);
+    // No materialAttributesTexture binding
     TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 3);
     TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 4);
     

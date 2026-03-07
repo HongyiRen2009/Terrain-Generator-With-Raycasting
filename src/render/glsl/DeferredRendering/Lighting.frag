@@ -7,7 +7,6 @@ in vec2 fragUV;
 out vec4 outputColor;
 uniform sampler2D normalTexture;
 uniform sampler2D albedoTexture;
-uniform sampler2D materialAttributesTexture;
 uniform sampler2D depthTexture;
 uniform sampler2D ssaoTexture;
 // Shadow mask textures from dedicated shadow passes
@@ -146,12 +145,12 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
 
     return ggx1 * ggx2;
 }
-vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metalicity, float roughness) {
+vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metallicity, float roughness) {
     vec3 viewDir = normalize(cameraPosition - worldPos);
     vec3 lightDir = normalize(-SunLight.direction);
     vec3 halfWay = normalize(viewDir + lightDir);
     float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);
-    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metalicity);
+    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metallicity);
     vec3 diffuse = diffuseCoefficient * albedo / PI;
 
     // Cook-Torrance BRDF
@@ -167,15 +166,6 @@ vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float
 
     return (diffuse + specular) * radiance * diffuseFactor;
 }
-vec3 unpackEmissivity(float normalizedPacked) {
-    // Denormalize from 0-1 range back to 0-63 (stored normalized for RGBA8 texture)
-    int packed = int(normalizedPacked * 63.0f + 0.5f); // +0.5 for rounding
-    float r = float(packed & 0x3) / 3.0f;
-    float g = float((packed >> 2) & 0x3) / 3.0f;
-    float b = float((packed >> 4) & 0x3) / 3.0f;
-    return vec3(r, g, b);
-}
-
 float calculateAttenuation(float d, float r, float range) {
     if(d > range) {
         return 0.0f;
@@ -183,12 +173,12 @@ float calculateAttenuation(float d, float r, float range) {
     return 2.0f * (1.0f - d / sqrt(d * d + r * r));
 }
 
-vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metalicity, float roughness, int lightIndex) {
+vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metallicity, float roughness, int lightIndex) {
     vec3 viewDir = normalize(cameraPosition - worldPos);
     vec3 lightDir = normalize(pointLights[lightIndex].position - worldPos);
     vec3 halfWay = normalize(viewDir + lightDir);
     float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);
-    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metalicity);
+    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metallicity);
     vec3 diffuse = diffuseCoefficient * albedo / PI;
 
     // Cook-Torrance BRDF
@@ -206,16 +196,9 @@ vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, flo
 
     return (diffuse + specular) * radiance * diffuseFactor * attenuation;
 }
-vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float ambientOcclusion, float sunShadow) {
+vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metallicity, float roughness, float ambientOcclusion, float sunShadow) {
     vec3 ambient = (vec3(ambientLightIntensity) * albedo) * ambientOcclusion;
     vec3 lighting = ambient;
-
-    // Material attributes
-    vec4 materialData = texture(materialAttributesTexture, fragUV);
-    float baseReflectivity = materialData.r;
-    float metallicity = materialData.g;
-    float roughness = materialData.b;
-    vec3 emissivity = unpackEmissivity(materialData.a);
 
     // Sun PBR lighting
     if(!sunDisabled) {
@@ -227,12 +210,6 @@ vec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float 
         float pointLightShadow = (i < numShadowedLights) ? getPointShadowMask(i) : 1.0f;
         lighting += calculatePointPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, i) * pointLightShadow;
     }
-
-    // Add emissivity ONCE at the end, unaffected by shadows
-    // This makes emissive materials glow regardless of lighting conditions
-    // Multiply by 4.0 to make emissive objects bright enough to trigger bloom (threshold 1.5)
-    lighting += emissivity * 4.0f;
-
     return lighting;
 }
 
@@ -310,7 +287,9 @@ void main() {
 
     vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);
 
-    vec3 albedo = texture(albedoTexture, fragUV).rgb;
+    vec4 albedoData = texture(albedoTexture, fragUV);
+    vec3 albedo = albedoData.rgb;
+    float blockId = albedoData.a;
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
     // Sample pre-computed sun shadow mask data
@@ -321,9 +300,8 @@ void main() {
     int secondaryCascade = int(sunShadowData.b * 8.0f + 0.5f);
     float cascadeBlendFactor = sunShadowData.a;
 
-    // Check if this is a grass material (material ID = 0.5 in alpha channel)
-    float materialId = texture(albedoTexture, fragUV).a;
-    bool isGrass = abs(materialId - 0.5f) < 0.01f;
+    // Check if this is a grass material (blockId == 1)
+    bool isGrass = abs(blockId - 1.0f) < 0.01f;
 
     // Apply cascade debug colors to albedo when enabled
     if(cascadeDebug && !isGrass) {
@@ -338,8 +316,12 @@ void main() {
         float curveAngle = albedo.g;
         lighting = computeGrassLighting(fragWorldPos, worldNormal, vHeight, curveAngle, sunShadow);
     } else {
-        // Standard PBR lighting for terrain
-        lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, ambientOcclusion, sunShadow);
+        // Standard PBR lighting for terrain (use placeholder values)
+        float baseReflectivity = 0.04f;
+        float metallicity = 0.0f;
+        float roughness = 0.8f;
+        albedo = vec3(1.0,0.0,1.0);
+        lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, ambientOcclusion, sunShadow);
     }
 
     if(texture(depthTexture, fragUV).r >= 1.0f) {

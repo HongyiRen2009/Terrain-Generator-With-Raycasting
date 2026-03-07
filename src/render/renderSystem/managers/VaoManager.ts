@@ -72,26 +72,9 @@ export class VAOManager {
           this.gl,
           vertexData.normals
         ),
-        color: RenderUtils.CreateAttributeBuffer(
+        albedoBlockId: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          vertexData.colors
-        ),
-        reflectiveness: RenderUtils.CreateAttributeBuffer(
-          this.gl,
-          vertexData.reflectiveness
-        ),
-        metalicity: RenderUtils.CreateAttributeBuffer(
-          this.gl,
-
-          vertexData.metallicity
-        ),
-        roughness: RenderUtils.CreateAttributeBuffer(
-          this.gl,
-          vertexData.roughness
-        ),
-        emissivity: RenderUtils.CreateAttributeBuffer(
-          this.gl,
-          vertexData.emissivity
+          vertexData.albedoBlockId // Should be Float32Array of length 4*N, with .a = blockId
         )
       },
       indices: RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices))
@@ -101,17 +84,7 @@ export class VAOManager {
       {
         position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
         normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
-        color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 },
-        reflectiveness: {
-          buffer: TerrainTriangleBuffer.vertex.reflectiveness,
-          size: 1
-        },
-        metalicity: {
-          buffer: TerrainTriangleBuffer.vertex.metalicity,
-          size: 1
-        },
-        roughness: { buffer: TerrainTriangleBuffer.vertex.roughness, size: 1 },
-        emissivity: { buffer: TerrainTriangleBuffer.vertex.emissivity, size: 1 }
+        albedoBlockId: { buffer: TerrainTriangleBuffer.vertex.albedoBlockId, size: 4 }
       },
       TerrainTriangleBuffer.indices,
       this.geometryProgram!
@@ -130,7 +103,7 @@ export class VAOManager {
     this.grassVAOInfos[chunkKey] = this.createGrassVAO(
       vertexData.positions,
       vertexData.normals,
-      vertexData.terrainId,
+      vertexData.albedoBlockId,
       Array.from(vertexData.indices),
       modelMatrix,
     );
@@ -140,7 +113,7 @@ export class VAOManager {
   createGrassVAO(
     terrainVertices: Float32Array,
     terrainNormals: Float32Array,
-    terrainId: Uint8Array,
+    albedoBlockId: Float32Array,
     triangleIndices: number[],
     modelMatrix: mat4
   ): GrassVAOInfo {
@@ -167,12 +140,15 @@ export class VAOManager {
       const w = 1 - u - v;
       // Check terrain type at this triangle (all three vertices should have the same type)
       
-      const type0 = terrainId[triangleIndices[triIdx + 0]];
-      if (type0 !== 0) continue; // Only place grass on terrain type 0 (grass)
-      const type1 = terrainId[triangleIndices[triIdx + 1]];
-      if (type1 !== 0) continue;
-      const type2 = terrainId[triangleIndices[triIdx + 2]];
-      if (type2 !== 0) continue;
+      const v0 = i0 / 3;
+      const v1 = i1 / 3;
+      const v2 = i2 / 3;
+      const blockId0 = albedoBlockId[v0 * 4 + 3];
+      const blockId1 = albedoBlockId[v1 * 4 + 3];
+      const blockId2 = albedoBlockId[v2 * 4 + 3];
+      if (blockId0 !== 0 || blockId1 !== 0 || blockId2 !== 0) {
+        continue; // Skip if not grass
+      }
       // Interpolate position
       const x =
         terrainVertices[i0] * u +
@@ -613,7 +589,7 @@ export class VAOManager {
 
       // Material attributes for each vertex
       const reflectiveness = new Float32Array(numVerts);
-      const metalicity = new Float32Array(numVerts);
+      const metallicity = new Float32Array(numVerts);
       const roughness = new Float32Array(numVerts);
       const emissivity = new Float32Array(numVerts);
 
@@ -641,7 +617,7 @@ export class VAOManager {
 
           // Material attributes - default values for light spheres
           reflectiveness[idx] = 0.04; // Low reflectivity (dielectric), allows albedo color to show
-          metalicity[idx] = 0.0; // Non-metallic
+          metallicity[idx] = 0.0; // Non-metallic
           roughness[idx] = 0.8; // Higher roughness for matte look
           emissivity[idx] = packedEmissivity; // Glow with the light's color
 
@@ -667,8 +643,8 @@ export class VAOManager {
           buffer: RenderUtils.CreateAttributeBuffer(this.gl, reflectiveness),
           size: 1
         },
-        metalicity: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, metalicity),
+        metallicity: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, metallicity),
           size: 1
         },
         roughness: {
@@ -721,7 +697,7 @@ export class VAOManager {
           normal: { offset: 12, size: 3, stride: 52 },
           color: { offset: 24, size: 3, stride: 52 },
           reflectiveness: { offset: 36, size: 1, stride: 52 },
-          metalicity: { offset: 40, size: 1, stride: 52 },
+          metallicity: { offset: 40, size: 1, stride: 52 },
           roughness: { offset: 44, size: 1, stride: 52 },
           emissivity: { offset: 48, size: 1, stride: 52 }
         },

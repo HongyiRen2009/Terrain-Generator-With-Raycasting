@@ -168,3 +168,4 @@ export const Terrains: { [id: number]: Terrain } = {
     type: 3
   }
 };
+export const TerrainNorm = Object.values(Terrains).length*2;

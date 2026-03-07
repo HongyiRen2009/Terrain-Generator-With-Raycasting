@@ -1,6 +1,6 @@
 import { vec3 } from "gl-matrix";
 import { Mesh } from "./Mesh";
-import { Terrains } from "./terrains";
+import { TerrainNorm, Terrains } from "./terrains";
 
 const roundToPrecision = (value: number, precision: number): number =>
   Math.round(value * precision) / precision;
@@ -20,7 +20,7 @@ function packEmissivity(terrain: (typeof Terrains)[number]): number {
 export const meshToInterleavedVerticesAndIndices = (
   mesh: Mesh
 ): { vertices: Float32Array; indices: Uint32Array } => {
-  // Per vertex: position(3), normal(3), color(3), reflectiveness(1), metalicity(1), roughness(1), emissivity(1) = 13 floats
+  // Per vertex: position(3), normal(3), color(3), reflectiveness(1), metallicity(1), roughness(1), emissivity(1) = 13 floats
   const vertexMap = new Map<string, number>();
   const vertices: number[] = [];
   const indices: number[] = [];
@@ -35,7 +35,7 @@ export const meshToInterleavedVerticesAndIndices = (
       if (!vertexMap.has(key)) {
         const terrain = Terrains[types[j]];
         const color = terrain.color;
-        const metalicity = terrain.type === 2 ? 1 : 0; // specular mirror
+        const metallicity = terrain.type === 2 ? 1 : 0; // specular mirror
         vertices.push(
           vertex[0],
           vertex[1],
@@ -47,7 +47,7 @@ export const meshToInterleavedVerticesAndIndices = (
           color.g / 255,
           color.b / 255,
           terrain.reflectiveness,
-          metalicity,
+          metallicity,
           terrain.roughness,
           packEmissivity(terrain)
         );
@@ -74,24 +74,14 @@ export const meshToNonInterleavedVerticesAndIndices = (
 ): {
   positions: Float32Array;
   normals: Float32Array;
-  colors: Float32Array;
-  reflectiveness: Float32Array;
-  roughness: Float32Array;
-  metallicity: Float32Array;
-  emissivity: Float32Array;
-  terrainId: Uint8Array;
+  albedoBlockId: Float32Array;
   indices: Uint32Array;
 } => {
   const vertexMap = new Map<string, number>();
   const positions: number[] = [];
   const normals: number[] = [];
-  const colors: number[] = [];
+  const albedoBlockId: number[] = [];
   const indices: number[] = [];
-  const reflectiveness: number[] = [];
-  const roughness: number[] = [];
-  const metallicity: number[] = [];
-  const emissivity: number[] = [];
-  const terrainId: number[] = [];
   let vertexIndex = 0;
 
   for (let i = 0; i < mesh.mesh.length; i++) {
@@ -105,15 +95,12 @@ export const meshToNonInterleavedVerticesAndIndices = (
       if (!vertexMap.has(key)) {
         const type = Terrains[types[j]];
         const color = type.color;
-
         positions.push(vertex[0], vertex[1], vertex[2]);
         normals.push(normal[0], normal[1], normal[2]);
-        colors.push(color.r / 255, color.g / 255, color.b / 255);
-        reflectiveness.push(type.reflectiveness);
-        roughness.push(type.roughness);
-        metallicity.push(type.metallicity);
-        emissivity.push(packEmissivityToUint8(type.emissivity) / 63.0);
-        terrainId.push(types[j]);
+        albedoBlockId.push(
+          0.0,0.0,0.0,
+          types[j]/TerrainNorm // block id in .a
+        );
         vertexMap.set(key, vertexIndex++);
       }
 
@@ -124,12 +111,7 @@ export const meshToNonInterleavedVerticesAndIndices = (
   return {
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
-    colors: new Float32Array(colors),
+    albedoBlockId: new Float32Array(albedoBlockId),
     indices: new Uint32Array(indices),
-    reflectiveness: new Float32Array(reflectiveness),
-    roughness: new Float32Array(roughness),
-    metallicity: new Float32Array(metallicity),
-    emissivity: new Float32Array(emissivity),
-    terrainId: new Uint8Array(terrainId),
   };
 };
