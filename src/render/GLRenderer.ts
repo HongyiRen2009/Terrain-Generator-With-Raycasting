@@ -193,10 +193,6 @@ export class GLRenderer {
   }
 
   public render(time: number, pathtracerOn: boolean = false): void {
-    if (!pathtracerOn) {
-      this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
-      this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    }
     //Run Pathtracer
     if(pathtracerOn){
       this.pathtracer.render(time);

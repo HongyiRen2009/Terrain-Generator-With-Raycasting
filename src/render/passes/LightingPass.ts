@@ -80,7 +80,8 @@ export class LightingPass extends RenderPass {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const textures = this.renderGraph!.getOutputs(this);
     const normalTexture = textures["normal"];
-    const albedoTexture = textures["albedo"];
+    const uvTexture = textures["uv"];
+    const blockIdTexture = textures["blockId"];
     const depthTexture = textures["depth"];
     const ssaoTexture = textures["ssaoBlur"];
     
@@ -95,9 +96,8 @@ export class LightingPass extends RenderPass {
     // Bind lighting framebuffer
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    if (!pathtracerOn || this.pathtracerRender) {
-      this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    }
+    this.gl.clearDepth(1.0);
+    this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
     this.gl.disable(this.gl.DEPTH_TEST);
     this.gl.disable(this.gl.BLEND);
 
@@ -106,7 +106,8 @@ export class LightingPass extends RenderPass {
 
     // Bind G-buffer textures
     TextureUtils.bindTex(this.gl, this.program!, normalTexture, "normalTexture", 0);
-    TextureUtils.bindTex(this.gl, this.program!, albedoTexture, "albedoTexture", 1);
+    TextureUtils.bindTex(this.gl, this.program!, uvTexture, "uvTexture", 1);
+    TextureUtils.bindTex(this.gl, this.program!, blockIdTexture, "blockIdTexture", 2);
     // No materialAttributesTexture binding
     TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 3);
     TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 4);

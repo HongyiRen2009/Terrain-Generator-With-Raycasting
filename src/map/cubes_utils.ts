@@ -74,13 +74,15 @@ export const meshToNonInterleavedVerticesAndIndices = (
 ): {
   positions: Float32Array;
   normals: Float32Array;
-  albedoBlockId: Float32Array;
+  uvs: Float32Array;
+  blockIds: Uint32Array;
   indices: Uint32Array;
 } => {
   const vertexMap = new Map<string, number>();
   const positions: number[] = [];
   const normals: number[] = [];
-  const albedoBlockId: number[] = [];
+  const uvs: number[] = [];
+  const blockIds: number[] = [];
   const indices: number[] = [];
   let vertexIndex = 0;
 
@@ -93,14 +95,10 @@ export const meshToNonInterleavedVerticesAndIndices = (
       const key = vertexKey(vertex);
 
       if (!vertexMap.has(key)) {
-        const type = Terrains[types[j]];
-        const color = type.color;
         positions.push(vertex[0], vertex[1], vertex[2]);
         normals.push(normal[0], normal[1], normal[2]);
-        albedoBlockId.push(
-          0.0,0.0,0.0,
-          types[j]/TerrainNorm // block id in .a
-        );
+        uvs.push(0.0, 0.0); // Placeholder for UVs
+        blockIds.push(types[j]); // block id as float
         vertexMap.set(key, vertexIndex++);
       }
 
@@ -111,7 +109,8 @@ export const meshToNonInterleavedVerticesAndIndices = (
   return {
     positions: new Float32Array(positions),
     normals: new Float32Array(normals),
-    albedoBlockId: new Float32Array(albedoBlockId),
+    uvs: new Float32Array(uvs),
+    blockIds: new Uint32Array(blockIds),
     indices: new Uint32Array(indices),
   };
 };

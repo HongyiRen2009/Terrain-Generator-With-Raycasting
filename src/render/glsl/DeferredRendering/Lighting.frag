@@ -1,12 +1,13 @@
 #version 300 es
 precision highp float;
-
+precision lowp usampler2D;
 #define MAX_LIGHTS 100
 #define MAX_SHADOWED_POINT_LIGHTS 5
 in vec2 fragUV;
 out vec4 outputColor;
 uniform sampler2D normalTexture;
-uniform sampler2D albedoTexture;
+uniform sampler2D uvTexture;
+uniform usampler2D blockIdTexture;
 uniform sampler2D depthTexture;
 uniform sampler2D ssaoTexture;
 // Shadow mask textures from dedicated shadow passes
@@ -287,9 +288,10 @@ void main() {
 
     vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);
 
-    vec4 albedoData = texture(albedoTexture, fragUV);
-    vec3 albedo = albedoData.rgb;
-    float blockId = albedoData.a;
+    vec4 uvBlockIdData = texture(uvTexture, fragUV);
+    vec2 uv = uvBlockIdData.xy;
+    uint blockId = texture(blockIdTexture, fragUV).r;
+    vec3 albedo;
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
     // Sample pre-computed sun shadow mask data
@@ -301,7 +303,7 @@ void main() {
     float cascadeBlendFactor = sunShadowData.a;
 
     // Check if this is a grass material (blockId == 1)
-    bool isGrass = abs(blockId - 1.0f) < 0.01f;
+    bool isGrass = (blockId == 67u);
 
     // Apply cascade debug colors to albedo when enabled
     if(cascadeDebug && !isGrass) {
@@ -311,16 +313,17 @@ void main() {
     vec3 lighting;
 
     if(isGrass) {
-        // For grass: albedo.rg contains (height, curveAngle)
-        float vHeight = albedo.r;
-        float curveAngle = albedo.g;
+        // For grass: uvBlockIdData.x = vHeight, uvBlockIdData.y = curveAngle
+        float vHeight = uvBlockIdData.x;
+        float curveAngle = uvBlockIdData.y;
         lighting = computeGrassLighting(fragWorldPos, worldNormal, vHeight, curveAngle, sunShadow);
     } else {
         // Standard PBR lighting for terrain (use placeholder values)
         float baseReflectivity = 0.04f;
         float metallicity = 0.0f;
         float roughness = 0.8f;
-        albedo = vec3(1.0,0.0,1.0);
+        // TODO: Sample albedo from texture using uv
+        albedo = vec3(1.0, 0.0, 1.0); // Placeholder
         lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, ambientOcclusion, sunShadow);
     }
 

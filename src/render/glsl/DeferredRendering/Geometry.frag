@@ -2,12 +2,14 @@
 precision highp float;
 
 in vec3 viewNormal;
-in vec4 albedo;
-in vec4 viewPos;
+in vec2 fragUV;
+flat in uint fragBlockId;
 layout(location = 0) out vec4 outNormal;
-layout(location = 1) out vec4 outAlbedo;
+layout(location = 1) out vec2 outUV;
+layout(location = 2) out uint outBlockId;
 void main() {
     vec3 normal = normalize(viewNormal);
     outNormal = vec4(normal, 1.0f);
-    outAlbedo = albedo;
+    outUV = fragUV;
+    outBlockId = fragBlockId;
 }

@@ -175,8 +175,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let n2 = get_normal(v2);
 
         let t0 = get_terrain_type(v0, n0);
-        let t1 = get_terrain_type(v1, n1);
-        let t2 = get_terrain_type(v2, n2);
+        let t1 = t0;
+        let t2 = t0;
 
         let vtx_idx = base_vertex + written;
         

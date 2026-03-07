@@ -72,10 +72,15 @@ export class VAOManager {
           this.gl,
           vertexData.normals
         ),
-        albedoBlockId: RenderUtils.CreateAttributeBuffer(
+        uv: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          vertexData.albedoBlockId // Should be Float32Array of length 4*N, with .a = blockId
+          vertexData.uvs
+        ),
+        blockId: RenderUtils.CreateIntegerBuffer(
+          this.gl,
+          vertexData.blockIds
         )
+
       },
       indices: RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices))
     };
@@ -84,7 +89,8 @@ export class VAOManager {
       {
         position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
         normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
-        albedoBlockId: { buffer: TerrainTriangleBuffer.vertex.albedoBlockId, size: 4 }
+        uv: { buffer: TerrainTriangleBuffer.vertex.uv, size: 2 },
+        blockId: { buffer: TerrainTriangleBuffer.vertex.blockId, size: 1, type: this.gl.UNSIGNED_INT }
       },
       TerrainTriangleBuffer.indices,
       this.geometryProgram!
@@ -100,10 +106,11 @@ export class VAOManager {
       modelMatrix,
       boundingBox: this.computeBoundingBox(vertexData.positions)
     };
+    debugger;
     this.grassVAOInfos[chunkKey] = this.createGrassVAO(
       vertexData.positions,
       vertexData.normals,
-      vertexData.albedoBlockId,
+      vertexData.blockIds,
       Array.from(vertexData.indices),
       modelMatrix,
     );
@@ -113,7 +120,7 @@ export class VAOManager {
   createGrassVAO(
     terrainVertices: Float32Array,
     terrainNormals: Float32Array,
-    albedoBlockId: Float32Array,
+    blockIds: Uint32Array,
     triangleIndices: number[],
     modelMatrix: mat4
   ): GrassVAOInfo {
@@ -139,13 +146,10 @@ export class VAOManager {
       }
       const w = 1 - u - v;
       // Check terrain type at this triangle (all three vertices should have the same type)
-      
-      const v0 = i0 / 3;
-      const v1 = i1 / 3;
-      const v2 = i2 / 3;
-      const blockId0 = albedoBlockId[v0 * 4 + 3];
-      const blockId1 = albedoBlockId[v1 * 4 + 3];
-      const blockId2 = albedoBlockId[v2 * 4 + 3];
+      const blockId0 = blockIds[triangleIndices[triIdx + 0]];
+      const blockId1 = blockIds[triangleIndices[triIdx + 1]];
+      const blockId2 = blockIds[triangleIndices[triIdx + 2]];
+
       if (blockId0 !== 0 || blockId1 !== 0 || blockId2 !== 0) {
         continue; // Skip if not grass
       }

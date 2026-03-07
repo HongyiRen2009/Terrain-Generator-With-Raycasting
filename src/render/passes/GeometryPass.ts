@@ -71,13 +71,21 @@ export class GeometryPass extends RenderPass {
       normalFormat,
       normalType
     );
-    const albedoTexture = TextureUtils.createTexture2D(
+    const uvTexture = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
-      this.gl.RGBA8,
-      this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE
+      this.gl.RG16F,
+      this.gl.RG,
+      this.gl.FLOAT
+    );
+    const blockIdTexture = TextureUtils.createTexture2D(
+      this.gl,
+      w,
+      h,
+      this.gl.R32UI,
+      this.gl.RED_INTEGER,
+      this.gl.UNSIGNED_INT
     );
     const depthTexture = TextureUtils.createTexture2D(
       this.gl,
@@ -105,7 +113,14 @@ export class GeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT1,
       this.gl.TEXTURE_2D,
-      albedoTexture,
+      uvTexture,
+      0
+    );
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT2,
+      this.gl.TEXTURE_2D,
+      blockIdTexture,
       0
     );
     // No materialAttributes texture needed anymore
@@ -118,7 +133,8 @@ export class GeometryPass extends RenderPass {
     );
     this.gl.drawBuffers([
       this.gl.COLOR_ATTACHMENT0,
-      this.gl.COLOR_ATTACHMENT1
+      this.gl.COLOR_ATTACHMENT1,
+      this.gl.COLOR_ATTACHMENT2
     ]);
 
     const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
@@ -132,17 +148,20 @@ export class GeometryPass extends RenderPass {
       fbo: fbo,
       textures: {
         normal: normalTexture,
-        albedo: albedoTexture,
-        depth: depthTexture
+        depth: depthTexture,
+        uv: uvTexture,
+        blockId: blockIdTexture
       }
     };
   }
 
   public render(vaosToRender: VaoInfo[], pathtracerOn: boolean): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
-    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    this.gl.clearBufferfv(this.gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
+    this.gl.clearBufferfv(this.gl.COLOR, 1, [0.0, 0.0, 0.0, 1.0]);
+    this.gl.clearBufferuiv(this.gl.COLOR, 2, [0, 0, 0, 0]);
     this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.enable(this.gl.DEPTH_TEST);
     this.gl.depthFunc(this.gl.LESS);

@@ -59,13 +59,21 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.RGBA,
       this.gl.FLOAT
     );
-    const albedoTexture = TextureUtils.createTexture2D(
+    const grassDataTexture = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
       this.canvas.height,
-      this.gl.RGBA16F,
-      this.gl.RGBA,
+      this.gl.RG16F,
+      this.gl.RG,
       this.gl.FLOAT
+    );
+    const blockIdTexture = TextureUtils.createTexture2D(
+      this.gl,
+      this.canvas.width,
+      this.canvas.height,
+      this.gl.R32UI,
+      this.gl.RED_INTEGER,
+      this.gl.UNSIGNED_INT
     );
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
     this.gl.framebufferTexture2D(
@@ -79,7 +87,15 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT1,
       this.gl.TEXTURE_2D,
-      albedoTexture,
+      grassDataTexture,
+      0
+    );
+
+    this.gl.framebufferTexture2D(
+      this.gl.FRAMEBUFFER,
+      this.gl.COLOR_ATTACHMENT2,
+      this.gl.TEXTURE_2D,
+      blockIdTexture,
       0
     );
 
@@ -90,14 +106,15 @@ export class GrassGeometryPass extends RenderPass {
       depthTexture,
       0
     );
-    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
+    this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1, this.gl.COLOR_ATTACHMENT2]);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     return {
       fbo,
       textures: {
         grassDepth: depthTexture,
         grassNormal: normalTexture,
-        grassAlbedo: albedoTexture
+        grassData: grassDataTexture,
+        grassBlockId: blockIdTexture
       }
     };
   }
@@ -327,9 +344,11 @@ export class GrassGeometryPass extends RenderPass {
     gl.disable(gl.BLEND);
     gl.disable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
-    gl.clearColor(0, 0, 0, 1);
+    this.gl.clearBufferfv(this.gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
+    this.gl.clearBufferfv(this.gl.COLOR, 1, [0.0, 0.0, 0.0, 1.0]);
+    this.gl.clearBufferuiv(this.gl.COLOR, 2, [0, 0, 0, 0]);
     gl.clearDepth(1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
 
     // Check if grass is enabled - if not, we've already cleared the buffers
     // so the depth will be 1.0 (far plane), ensuring scene geometry is used

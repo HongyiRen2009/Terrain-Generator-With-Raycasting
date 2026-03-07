@@ -6977,7 +6977,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./Pathtracing/PathTracer */ "./src/Pathtracing/PathTracer.ts");
 /* harmony import */ var _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./utils/WorldUtils */ "./src/utils/WorldUtils.ts");
 /* harmony import */ var _models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../models/stand.3mf */ "./models/stand.3mf");
-/* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
+/* harmony import */ var _modelLoader_3mfreader__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./modelLoader/3mfreader */ "./src/modelLoader/3mfreader.ts");
 /* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./map/terrains */ "./src/map/terrains.ts");
 /* harmony import */ var _Settings__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./Settings */ "./src/Settings.ts");
 
@@ -7045,7 +7045,7 @@ class GameEngine {
         // Increase world height to allow taller mountains (was 64)
         this.world = new _map_Map__WEBPACK_IMPORTED_MODULE_1__.WorldMap(1000, 160, 1000, this.gl, () => this.updatePathracing);
         //Initialize Camera
-        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(500, 50, 500));
+        this.mainCamera = new _render_Camera__WEBPACK_IMPORTED_MODULE_2__.Camera(gl_matrix__WEBPACK_IMPORTED_MODULE_10__.fromValues(500, 50, 500), this.debug);
         this.lastCameraChunk = this.world.getChunkCoordsFromPosition(this.mainCamera.position);
         //Initial pathTracer
         this.pathTracer = new _Pathtracing_PathTracer__WEBPACK_IMPORTED_MODULE_4__.PathTracer(this.canvas, this.gl, this.world, this.mainCamera, this.debug);
@@ -7166,7 +7166,7 @@ class GameEngine {
         };
         this.renderer.vaoManager.createPointLightVAOs(this.world.lights);
         // Add a gear object
-        const gearResult = await (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__);
+        const gearResult = await (0,_modelLoader_3mfreader__WEBPACK_IMPORTED_MODULE_7__.threemfToMesh)(_models_stand_3mf__WEBPACK_IMPORTED_MODULE_6__);
         const gearMesh = gearResult.mesh;
         // Note: gearResult.transform could be applied if needed, but addChunkGears applies its own transforms
         _utils_WorldUtils__WEBPACK_IMPORTED_MODULE_5__.WorldUtils.addChunkGears(this.world, gearMesh);
@@ -7611,7 +7611,9 @@ class PathTracer {
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.leafsTex, this.uniforms.leafs, 4);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.terrainTypeTex, this.uniforms.terrainTypes, 5);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.vertexNormalsTex, this.uniforms.vertexNormal, 6);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture, this.uniforms.grassBB, 9);
+        if (_Settings__WEBPACK_IMPORTED_MODULE_11__.SettingsManager.instance.getSetting("grassEnabled")?.value) {
+            _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.meshProgram, this.grassTexture, this.uniforms.grassBB, 9);
+        }
         //NOTE: When we fix natively pathtraced clouds we will put this back.
         /*
         this.gl.activeTexture(this.gl.TEXTURE7);
@@ -7785,7 +7787,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\n// Input: A h
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\n\r\n//Sources:\r\n//Gemini/Chatgpt (GOATS) - Written most of the funky low level code (texture reading)\r\n//Hongyi Ren - Cloud sampling functions\r\n//https://www.reddit.com/r/GraphicsProgramming/comments/pjssze/directional_lighting_in_a_path_tracer/ - More specifically the two stackoverflow links in the comments - NEE implementation\r\n//https://www.cg.tuwien.ac.at/sites/default/files/course/4854/attachments/12_3_next%20event%20estimation_notes.pdf - NEE theory\r\n\r\nprecision highp float;\r\nprecision highp sampler3D;\r\nprecision highp int;\r\n#define MAX_LIGHTS 100\r\n#define PI 3.1415926\r\n#define BVH_DEPTH 64\r\n#define NUM_TERRAINS 50 \r\n#define MAX_FLOAT 1e20\r\n\r\n//Note: \r\nuniform sampler2D u_lastFrame;\r\nuniform int u_frameNumber;\r\nuniform int numBounces;\r\nuniform int u_skips;\r\n\r\nuniform sampler2D u_vertices;\r\nuniform sampler2D u_terrains;\r\nuniform sampler2D u_normals;\r\nuniform sampler2D u_boundingBox;\r\nuniform sampler2D u_nodesTex;\r\nuniform sampler2D u_leafsTex;\r\nuniform sampler2D u_terrainTypes;\r\nuniform sampler2D u_grassBB;\r\nuniform sampler3D u_CloudNoise;\r\nuniform sampler2D u_WeatherMap;\r\n\r\nuniform vec3 u_cameraPos;\r\nuniform mat4 u_invViewProjMatrix;\r\nuniform vec2 u_resolution;\r\n\r\nuniform vec3 u_cloudsCubeMin;\r\nuniform vec3 u_cloudsCubeMax;\r\n\r\n//Cloud settings\r\nuniform bool CLOUDS_enableClouds;\r\nuniform float CLOUDS_absorption;\r\nuniform float CLOUDS_densityThreshold;\r\nuniform float CLOUDS_baseFrequency;\r\nuniform float CLOUDS_detailFrequency;\r\nuniform float CLOUDS_lightAbsorption;\r\nuniform float CLOUDS_lightIntensity;\r\nuniform float CLOUDS_darknessThreshold;\r\nuniform float CLOUDS_ambientIntensity;\r\nuniform float CLOUDS_phaseG;\r\nuniform float CLOUDS_phaseMultiplier;\r\nuniform float CLOUDS_weatherMapOffsetX;\r\nuniform float CLOUDS_weatherMapOffsetY;\r\nuniform int CLOUDS_MAX_STEPS;\r\nuniform int CLOUDS_MAX_STEPS_LIGHT;\r\nuniform float CLOUDS_blueNoiseAmplitude;\r\nuniform vec3 CLOUDS_baseCloudColor;\r\nuniform float CLOUDS_skyContribution;\r\nuniform float CLOUDS_lightDarkSharpness;\r\nuniform float CLOUDS_simplexMultiplier;\r\nconst float CLOUDS_DENSITY_THRESHOLD_SKIP = 0.01f;\r\nconst float CLOUDS_ALPHA_THRESHOLD = 0.99f;\r\n\r\n//Grass\r\nuniform vec3 grassBaseColor;\r\nuniform vec3 grassTipColor;\r\nuniform bool grassEnabled;\r\n\r\n//Light/Sun\r\nstruct Light {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n};\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\n\r\n\r\n/*uniform float sunDirX;\r\nuniform float sunDirY;\r\nuniform float sunDirZ;*/\r\nuniform vec3 u_sunDirection;\r\n\r\nuniform float u_sunIntensity;    // Sun intensity (controls brightness)\r\nuniform float u_sunAngularRadius; // Angular radius of the sun in radians (approx 0.00465 radians or 0.266 degrees)\r\nuniform vec3 u_sunColor;\r\nuniform float u_blueScatter;\r\nuniform float u_redScatter;\r\nuniform float u_greenScatter;\r\nuniform float u_haloSize;\r\nuniform int u_skyGradientQuality;\r\nuniform int u_sunsetQuality; \r\nuniform float u_MIE;\r\nuniform float ambientLightIntensity;\r\nuniform float u_skyBrightnessBoost; \r\n\r\nin vec2 v_uv;\r\nout vec4 fragColor;\r\n\r\nstruct BVH{\r\n    vec3 min;\r\n    vec3 max;\r\n    int right;\r\n    int left;\r\n    int[4] triangles;\r\n};\r\n\r\nstruct Triangle{\r\n    vec3[3] vertices; \r\n    int[3] types;\r\n    vec3 min;\r\n    vec3 max;\r\n    vec3 center;\r\n    vec3 triNormal;\r\n    vec3[3] normals;\r\n};\r\n\r\nstruct TerrainType{\r\n    vec3 color;\r\n    float reflectiveness; // Decimal 0-1   \r\n    float roughness; // Decimal 0-1\r\n    int type; //Type. See terrains.ts\r\n};\r\n\r\nstruct Ray{\r\n    vec3 origin;\r\n    vec3 dir;\r\n};\r\n\r\nTerrainType[NUM_TERRAINS] Terrains;\r\nuniform int u_numTerrains;\r\n\r\n// Provides a high quality 32-bit hash function to generate pseudo-random numbers\r\n// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins\r\nuint hash(uint state) {\r\n    state ^= 2747636419u;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    return state;\r\n}\r\n\r\n// Generates a random float in the [0, 1] range\r\nfloat rand(inout uint state) {\r\n    state = hash(state);\r\n    return float(state) / 4294967295.0; // 2^32 - 1\r\n}\r\n\r\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\r\n    ivec2 size = textureSize(tex, 0);\r\n    int texWidth = size.x;\r\n    \r\n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\r\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\r\n\r\n    // Calculate 2D coordinates of the texel\r\n    int y_coord = texelIndex / texWidth;\r\n    int x_coord = texelIndex % texWidth;\r\n\r\n    // Convert to UV coordinates [0, 1] for sampling\r\n    // Add 0.5 to sample the center of the texel\r\n    float u = (float(x_coord) + 0.5) / float(texWidth);\r\n    float v = (float(y_coord) + 0.5) / float(size.y);\r\n\r\n    vec4 texel = textureLod(tex, vec2(u, v), 0.0);//texture(tex, vec2(u, v));\r\n\r\n    if (componentIndex == 0) return texel.r;\r\n    else if (componentIndex == 1) return texel.g;\r\n    else if (componentIndex == 2) return texel.b;\r\n    else return texel.a;\r\n}\r\n\r\nBVH getBVH(int i){\r\n    BVH r;\r\n    int bbBoxSize = 6;\r\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\r\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\r\n\r\n    int nodeSize = 2;\r\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\r\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\r\n\r\n    int leafSize = 4;\r\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\r\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\r\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\r\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\r\n    \r\n    return r;\r\n}\r\n\r\nTriangle getTriangle(int i){\r\n    Triangle tri;\r\n    int triVertexSize = 9;\r\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\r\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\r\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\r\n\r\n    int typeSize = 3;\r\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\r\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\r\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\r\n\r\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.center = (tri.min + tri.max) * 0.5;\r\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\r\n\r\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\r\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\r\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\r\n\r\n    return tri;\r\n}\r\n\r\nTerrainType getTerrainType(int i){\r\n    TerrainType t;\r\n    int terrainTypeSize = 6;\r\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\r\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \r\n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \r\n    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));\r\n\r\n    return t;\r\n}\r\n\r\nbool intersectAABB(Ray mainRay, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\r\n    vec3 invDir = 1.0 / mainRay.dir;\r\n    vec3 t0s = (boxMin - mainRay.origin) * invDir;\r\n    vec3 t1s = (boxMax - mainRay.origin) * invDir;\r\n\r\n    vec3 tSmalls = min(t0s, t1s);\r\n    vec3 tBigs = max(t0s, t1s);\r\n\r\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\r\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\r\n\r\n    return tMax >= max(tMin, 0.0);\r\n}\r\n\r\n//AI written; Returns distance to intersection with triangle\r\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\r\n    const float EPSILON = 0.000001;\r\n    vec3 v0 = tri.vertices[0];\r\n    vec3 v1 = tri.vertices[1];\r\n    vec3 v2 = tri.vertices[2];\r\n\r\n    vec3 edge1 = v1 - v0;\r\n    vec3 edge2 = v2 - v0;\r\n\r\n    vec3 h = cross(rayDir, edge2);\r\n    float a = dot(edge1, h);\r\n\r\n    if (a > -EPSILON && a < EPSILON) {\r\n        return -1.0; // Ray is parallel to the triangle\r\n    }\r\n\r\n    float f = 1.0 / a;\r\n    vec3 s = rayOrigin - v0;\r\n    float u = f * dot(s, h);\r\n\r\n    if (u < 0.0 || u > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    vec3 q = cross(s, edge1);\r\n    float v = f * dot(rayDir, q);\r\n\r\n    if (v < 0.0 || u + v > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    // At this stage we can compute t to find out where the intersection point is on the line.\r\n    float t = f * dot(edge2, q);\r\n    if (t > EPSILON) { // ray intersection\r\n        barycentric = vec3(1.0 - u - v, u, v);\r\n        return t;\r\n    }\r\n    \r\n    return -1.0; // This means that there is a line intersection but not a ray intersection.\r\n}\r\n\r\nvec3 rotateY(vec3 v, float angle) {\r\n    float c = cos(angle);\r\n    float s = sin(angle);\r\n    return vec3(c * v.x - s * v.z, v.y, s * v.x + c * v.z);\r\n}\r\n\r\n// --- Intersection Function ---\r\n// Returns true if hit, writes distance to 'dist' and fills 'result' struct\r\nbool intersectGrassBlade(Ray mainRay,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) {\r\n    // ------------------------------------\r\n    \r\n    // 1. TRANSFORM RAY TO LOCAL SPACE\r\n    vec3 localOrigin = mainRay.origin - instancePos;\r\n    vec3 localDir = mainRay.dir;\r\n    float hitY = 0.0;\r\n\r\n    // Inverse Rotation (Rotate by -rotation)\r\n    localOrigin = rotateY(localOrigin, -rotation);\r\n    localDir = rotateY(localDir, -rotation);\r\n\r\n    // Inverse Shear (Undo the lean: x' = x - lean*y)\r\n    localOrigin.x -= lean * localOrigin.y;\r\n    localOrigin.z -= lean * localOrigin.y;\r\n    localDir.x -= lean * localDir.y;\r\n    localDir.z -= lean * localDir.y;\r\n\r\n    float tClosest = 1e20;\r\n    vec3 normalClosest = vec3(0.0);\r\n    bool hitAny = false;\r\n    \r\n    float bladeHeight = 1.0;\r\n    float baseWidth = 0.1; \r\n    \r\n    // --- Test Plane A (Z-facing part) ---\r\n    if (abs(localDir.z) > 1e-6) {\r\n        float t = -localOrigin.z / localDir.z;\r\n        if (t > 0.0) { // Removed t < tClosest check since it's the first check\r\n            vec3 p = localOrigin + t * localDir;\r\n            if (p.y >= 0.0 && p.y <= bladeHeight) {\r\n                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));\r\n                if (abs(p.x) <= currentWidth) {\r\n                    tClosest = t;\r\n                    hitAny = true;\r\n                    // Base normal (0,0,1) -> Sheared normal -> Rotated normal\r\n                    // Sheared Plane Z: z - lean*y = 0. Normal is (0, -lean, 1)\r\n                    normalClosest = normalize(vec3(0.0, -lean, 1.0));\r\n                    hitY = p.y;\r\n                    // Flip if hitting backface\r\n                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;\r\n                }\r\n            }\r\n        }\r\n    }\r\n\r\n    // --- Test Plane B (X-facing part) ---\r\n    if (abs(localDir.x) > 1e-6) {\r\n        float t = -localOrigin.x / localDir.x;\r\n        // Only update if this hit is closer than the previous one\r\n        if (t > 0.0 && t < tClosest) {\r\n            vec3 p = localOrigin + t * localDir;\r\n            if (p.y >= 0.0 && p.y <= bladeHeight) {\r\n                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));\r\n                if (abs(p.z) <= currentWidth) {\r\n                    tClosest = t;\r\n                    hitAny = true;\r\n                    // Base normal (1,0,0) -> Sheared normal -> Rotated normal\r\n                    // Sheared Plane X: x - lean*y = 0. Normal is (1, -lean, 0)\r\n                    normalClosest = normalize(vec3(1.0, -lean, 0.0));\r\n                    hitY = p.y;\r\n                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;\r\n                }\r\n            }\r\n        }\r\n    }\r\n\r\n    if (!hitAny) {\r\n        return false;\r\n    }\r\n\r\n    // Output 1: Distance\r\n    dist = tClosest;\r\n\r\n    // Output 2: Triangle Struct\r\n    // Rotate the normal back to world space\r\n    vec3 worldNormal = rotateY(normalClosest, rotation);\r\n    \r\n    // Fill required dummy data to prevent compilation errors/undefined behavior\r\n    result.vertices = vec3[3](vec3(0.), vec3(0.), vec3(0.));\r\n    result.types[1] = 0;\r\n    result.types[2] = 0;\r\n    result.min = vec3(0.);\r\n    result.max = vec3(0.);\r\n    result.center = vec3(0.);\r\n    result.normals = vec3[3](vec3(0.), vec3(0.), vec3(0.));\r\n\r\n    // Fill only the required fields\r\n    result.types[0] = -1;       // As requested\r\n    result.triNormal = worldNormal; // The calculated normal\r\n    result.normals[0].x = hitY; //Height\r\n    return true;\r\n}\r\n\r\n//AI written; Returns distance to intersection with light sphere\r\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\r\n    vec3 oc = rayOrigin - light.position; \r\n\r\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\r\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\r\n    float b = 2.0 * dot(oc, rayDir);\r\n    float c = dot(oc, oc) - light.radius * light.radius;\r\n\r\n    float discriminant = b*b - 4.0*a*c;\r\n\r\n    // If the discriminant is negative, the ray misses the sphere.\r\n    if (discriminant < 0.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    float sqrt_d = sqrt(discriminant);\r\n\r\n    // Calculate the two potential intersection distances (solutions for t)\r\n    float t0 = (-b - sqrt_d) / (2.0 * a);\r\n    float t1 = (-b + sqrt_d) / (2.0 * a);\r\n\r\n    // We need the smallest, positive t value.\r\n    // Check the closer intersection point (t0) first.\r\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\r\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t0;\r\n    }\r\n    // If t0 was behind the ray, check the farther intersection point (t1).\r\n    // This case occurs if the ray starts inside the sphere.\r\n    else if (t1 > 0.001) {\r\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t1;\r\n    }\r\n\r\n    // Both intersection points are behind the ray's origin.\r\n    return -1.0;\r\n}\r\n\r\n/**\r\n * Returns TRIANGLE index\r\n */\r\nint traverseBVH(Ray mainRay, out vec3 closestBarycentric, out float minHitDistance, out Triangle hitTriangle) {\r\n    int closestHitIndex = -1;\r\n    minHitDistance = 1.0/0.0001; // Infinity\r\n\r\n    int stack[BVH_DEPTH]; \r\n    int stackPtr = 0;\r\n    stack[stackPtr++] = 0; // Push root node index\r\n\r\n    while (stackPtr > 0) {\r\n        int nodeIndex = stack[--stackPtr];\r\n        BVH node = getBVH(nodeIndex);\r\n\r\n        float tMin, tMax;\r\n        if (!intersectAABB(mainRay, node.min, node.max, tMin, tMax)) {\r\n            continue;\r\n        }\r\n\r\n        if (tMin >= minHitDistance) {\r\n            continue;\r\n        }\r\n\r\n        if (node.left == -1) { // Leaf Node\r\n            for (int j = 0; j < 4; j++) {\r\n                int triIdx = node.triangles[j];\r\n                if(triIdx <= -2 && grassEnabled){//gRaS\r\n                    //Do cool stuff later\r\n                    int thingI = triIdx*(-1)-2;\r\n                    int grassInfoSize = 8;\r\n                    vec3 minB = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+1),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+2));\r\n                    //vec3 max = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+3),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+4),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+5));\r\n                    float lean = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+6);\r\n                    float angle = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+7);\r\n                    //bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) \r\n                    Triangle tri;\r\n                    float hitDist;\r\n                    bool val = intersectGrassBlade(mainRay, minB, lean, angle, hitDist, tri);\r\n                    if(val && hitDist < minHitDistance){\r\n                        minHitDistance = hitDist;\r\n                        closestHitIndex = triIdx;\r\n                        closestBarycentric = vec3(0.0);\r\n                        hitTriangle= tri;\r\n                    }\r\n                    continue;\r\n                }\r\n                if (triIdx == -1) continue;\r\n\r\n                Triangle tri = getTriangle(triIdx);\r\n                vec3 currentBarycentric;\r\n                float hitDist = intersectTriangle(mainRay.origin, mainRay.dir, tri, currentBarycentric);\r\n\r\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\r\n                    minHitDistance = hitDist;\r\n                    closestHitIndex = triIdx;\r\n                    closestBarycentric = currentBarycentric;\r\n                    hitTriangle= tri;\r\n                }\r\n            }\r\n        } else { // Internal Node\r\n            // Check for space for two children to prevent stack overflow\r\n            if (stackPtr < BVH_DEPTH-1) { \r\n                stack[stackPtr++] = node.left;\r\n                stack[stackPtr++] = node.right;\r\n            }\r\n        }\r\n    }\r\n\r\n    return closestHitIndex;\r\n}\r\n\r\n// New optimized traversal for shadows: Returns TRUE immediately on any hit\r\nbool traverseBVHShadow(Ray shadowRay, float maxDist) {\r\n    int stack[BVH_DEPTH]; \r\n    int stackPtr = 0;\r\n    stack[stackPtr++] = 0; // Push root node index\r\n\r\n    while (stackPtr > 0) {\r\n        int nodeIndex = stack[--stackPtr];\r\n        BVH node = getBVH(nodeIndex);\r\n\r\n        float tMin, tMax;\r\n        if (!intersectAABB(shadowRay, node.min, node.max, tMin, tMax)) {\r\n            continue;\r\n        }\r\n\r\n        // Optimization: If the AABB is further away than the light source, ignore it\r\n        if (tMin >= maxDist) {\r\n            continue;\r\n        }\r\n\r\n        if (node.left == -1) { // Leaf Node\r\n            for (int j = 0; j < 4; j++) {\r\n                int triIdx = node.triangles[j];\r\n                \r\n                // Grass Logic\r\n                if(triIdx <= -2 && grassEnabled){\r\n                    int thingI = triIdx*(-1)-2;\r\n                    int grassInfoSize = 8;\r\n                    vec3 minB = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+1),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+2));\r\n                    float lean = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+6);\r\n                    float angle = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+7);\r\n                    \r\n                    Triangle dummyTri; // Not used, but required by function signature\r\n                    float hitDist;\r\n                    bool hit = intersectGrassBlade(shadowRay, minB, lean, angle, hitDist, dummyTri);\r\n                    \r\n                    // If we hit grass closer than the light, we are blocked\r\n                    if(hit && hitDist > 0.001 && hitDist < maxDist){\r\n                        return true;\r\n                    }\r\n                    continue;\r\n                }\r\n\r\n                if (triIdx == -1) continue;\r\n\r\n                Triangle tri = getTriangle(triIdx);\r\n                vec3 dummyBary;\r\n                float hitDist = intersectTriangle(shadowRay.origin, shadowRay.dir, tri, dummyBary);\r\n\r\n                // If we hit geometry closer than the light, we are blocked\r\n                if (hitDist > 0.001 && hitDist < maxDist) {\r\n                    return true;\r\n                }\r\n            }\r\n        } else { // Internal Node\r\n            if (stackPtr < BVH_DEPTH-1) { \r\n                stack[stackPtr++] = node.left;\r\n                stack[stackPtr++] = node.right;\r\n            }\r\n        }\r\n    }\r\n\r\n    return false; // No occlusion found\r\n}\r\n\r\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\r\n    return (\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\nfloat smoothItem(float[3] a, vec3 baryCentric){\r\n    return(\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\n\r\nvoid getInfo(Triangle tri, TerrainType tt1, TerrainType tt2, TerrainType tt3, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){\r\n    vec3[3] colors = vec3[3](\r\n        tt1.color,\r\n        tt2.color,\r\n        tt3.color\r\n    );\r\n    float[3] reflectivities = float[3](\r\n        tt1.reflectiveness,\r\n        tt2.reflectiveness,\r\n        tt3.reflectiveness\r\n    );\r\n    float[3] roughness = float[3](\r\n        tt1.roughness,\r\n        tt2.roughness,\r\n        tt3.roughness\r\n    );\r\n\r\n    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));\r\n    matColor = smoothItem(colors,baryCentric);\r\n    matRoughness = smoothItem(roughness,baryCentric);\r\n    reflectiveness = smoothItem(reflectivities,baryCentric);\r\n}\r\n\r\n/**\r\nReturn random direction based on given via cosine\r\n*/\r\nvec3 weightedDIR(vec3 normal, inout uint rng_state){\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cos_theta = sqrt(1.0 - r2);\r\n    float sin_theta = sqrt(r2);\r\n    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);\r\n    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, normal));\r\n    vec3 bitangent = cross(normal, tangent);\r\n    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;\r\n    return normalize(dirWorld);\r\n}\r\n\r\nvec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));\r\n    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\r\n\r\n    vec3 localDir = vec3(\r\n        cos(phi) * sinTheta,\r\n        sin(phi) * sinTheta,\r\n        cosTheta\r\n    );\r\n\r\n    // Construct tangent space around the perfect reflection direction\r\n    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, perfectDir));\r\n    vec3 bitangent = cross(perfectDir, tangent);\r\n\r\n    vec3 worldDir = normalize(\r\n        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z\r\n    );\r\n\r\n    return worldDir;\r\n}\r\nvec3 sampleCone(vec3 coneAxis, float maxAngle, inout uint rng_state) {\r\n    // 1. Generate 2 random numbers\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float cosMaxAngle = cos(maxAngle);\r\n    \r\n    // --- 2. Spherical Coordinate Sampling (Inverse Transform Sampling) ---\r\n    // cos_theta: Samples the cosine of the polar angle (theta) uniformly \r\n    // over the solid angle of the cone. This is the crucial step for uniformity.\r\n    float cos_theta = mix(cosMaxAngle, 1.0, r2); \r\n    \r\n    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);\r\n    float phi = 2.0 * PI * r1; // Azimuthal angle (phi) is uniform 0 to 2*PI\r\n\r\n    // --- 3. Create Local Direction (Cone Axis = Z-axis) ---\r\n    // The direction vector in the local cone space.\r\n    vec3 localDir = vec3(\r\n        cos(phi) * sin_theta,\r\n        sin(phi) * sin_theta,\r\n        cos_theta\r\n    );\r\n\r\n    // --- 4. Transform Local Direction to World Space (Tangent Space Transform) ---\r\n    \r\n    // Calculate an orthonormal basis (tangent space) around the coneAxis.\r\n    // The standard 'up' vector handles cases where coneAxis is near (0, 1, 0)\r\n    // by choosing a different vector to cross with.\r\n    vec3 up = abs(coneAxis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, coneAxis));\r\n    vec3 bitangent = cross(coneAxis, tangent);\r\n\r\n    // Transform the local direction (localDir) into the world space basis (tangent, bitangent, coneAxis)\r\n    vec3 worldDir = normalize(\r\n        tangent * localDir.x + \r\n        bitangent * localDir.y + \r\n        coneAxis * localDir.z\r\n    );\r\n    \r\n    return worldDir;\r\n}\r\n\r\nbool isValidVec3(vec3 v) {\r\n    return all(greaterThanEqual(v, vec3(-1e20))) &&\r\n           all(lessThanEqual(v, vec3(1e20))) &&\r\n           !any(isnan(v));\r\n}\r\n\r\n// --- PBR Helper Functions ---\r\n\r\n// 1. Fresnel Schlick\r\n// cosTheta is dot(H, V)\r\nvec3 fresnelSchlick(float cosTheta, vec3 F0) {\r\n    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);\r\n}\r\n\r\n// 2. Distribution GGX (Trowbridge-Reitz)\r\nfloat DistributionGGX(vec3 N, vec3 H, float roughness) {\r\n    float a = roughness * roughness;\r\n    float a2 = a * a;\r\n    float NdotH = max(dot(N, H), 0.0);\r\n    float NdotH2 = NdotH * NdotH;\r\n\r\n    float num = a2;\r\n    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\r\n    denom = PI * denom * denom;\r\n\r\n    return num / denom;\r\n}\r\n\r\n// 3. Geometry Schlick-GGX (Smith method)\r\nfloat GeometrySchlickGGX(float NdotV, float roughness) {\r\n    float r = (roughness + 1.0);\r\n    float k = (r * r) / 8.0; // Use k = a^2 / 2 for IBL, but (r+1)^2 / 8 for direct light path tracing\r\n\r\n    float num = NdotV;\r\n    float denom = NdotV * (1.0 - k) + k;\r\n\r\n    return num / denom;\r\n}\r\n\r\nfloat GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {\r\n    float NdotV = max(dot(N, V), 0.0);\r\n    float NdotL = max(dot(N, L), 0.0);\r\n    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\r\n    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\r\n\r\n    return ggx1 * ggx2;\r\n}\r\n\r\n// 4. GGX Importance Sampling\r\n// Returns a Half-vector (H) based on roughness\r\nvec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {\r\n    float a = roughness * roughness;\r\n    \r\n    float phi = 2.0 * PI * Xi.x;\r\n    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));\r\n    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);\r\n    \r\n    // Spherical to Cartesian (Tangent space)\r\n    vec3 H;\r\n    H.x = cos(phi) * sinTheta;\r\n    H.y = sin(phi) * sinTheta;\r\n    H.z = cosTheta;\r\n    \r\n    // Tangent to World space\r\n    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, N));\r\n    vec3 bitangent = cross(N, tangent);\r\n    \r\n    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;\r\n    return normalize(sampleVec);\r\n}\r\n\r\n// Evaluate Both Specular and Diffuse for Direct Light (NEE)\r\n// This calculates how much light reflects from the sun to the camera\r\nvec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albedo, float metallic) {\r\n    vec3 H = normalize(V + L);\r\n    float NdotV = max(dot(N, V), 0.0);\r\n    float NdotL = max(dot(N, L), 0.0);\r\n    float HdotV = max(dot(H, V), 0.0);\r\n    \r\n    if (NdotL <= 0.0 || NdotV <= 0.0) return vec3(0.0);\r\n\r\n    // 1. Specular Term (Cook-Torrance)\r\n    float D = DistributionGGX(N, H, roughness);\r\n    float G = GeometrySmith(N, V, L, roughness);\r\n    vec3 F = fresnelSchlick(HdotV, F0);\r\n    \r\n    vec3 kS = F; // Specular contribution\r\n    vec3 kD = vec3(1.0) - kS; // Remaining energy for diffuse\r\n    kD *= (1.0 - metallic);   // Metals have 0 diffuse\r\n\r\n    vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.0001);\r\n    vec3 diffuse = albedo / PI; //regular lambertian diffuse\r\n    \r\n    return kD * diffuse + specular; \r\n}\r\n\r\n//Get sky color. AI generated\r\nvec3 getSkyColor(vec3 rayDir, vec3 sunDir) {\r\n    // -------------------------------------\r\n    // Constants\r\n    // -------------------------------------\r\n    const float RE = 6360e3;          // Earth Radius (meters)\r\n    const float RA = 6420e3;          // Atmosphere Radius (meters)\r\n    const float HR = 8000.0;          // Rayleigh Scale Height\r\n    const float HM = 1200.0;          // Mie Scale Height\r\n    float G_MIE = u_haloSize;         // Mie Anisotropy\r\n    \r\n\r\n\r\n    vec3 BETA_R = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.001; \r\n    vec3 BETA_M = vec3(u_MIE * 0.001);                 \r\n\r\n    float SUN_INTENSITY = u_sunIntensity; \r\n    int STEPS_PRIMARY = u_skyGradientQuality;   \r\n    int STEPS_LIGHT = u_sunsetQuality;       \r\n\r\n    // -------------------------------------\r\n    // Setup Geometry\r\n    // -------------------------------------\r\n    Light atmosphere;\r\n    atmosphere.position = vec3(0.0);\r\n    atmosphere.radius = RA;\r\n\r\n    vec3 camPos = vec3(0.0, RE + u_cameraPos.y, 0.0); \r\n    vec3 dummyNormal; \r\n\r\n    // Calculate distance to leave the atmosphere\r\n    float distToTop = intersectLight(camPos, rayDir, atmosphere, dummyNormal);\r\n    \r\n    // If we look down and don't hit the atmosphere cap (or hit ground logic),\r\n    // we initialize with White instead of Black.\r\n    if (distToTop < 0.0) return vec3(1.0); \r\n\r\n    // -------------------------------------\r\n    // Raymarching\r\n    // -------------------------------------\r\n    float stepSize = distToTop / float(STEPS_PRIMARY);\r\n    vec3 currentPos = camPos;\r\n    \r\n    vec3 totalR = vec3(0.0); \r\n    vec3 totalM = vec3(0.0); \r\n    float optDepthR = 0.0;\r\n    float optDepthM = 0.0;\r\n    \r\n    float mu = dot(rayDir, sunDir);\r\n    float phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);\r\n    float g = G_MIE; float g2 = g * g;\r\n    float phaseM = 3.0 / (8.0 * PI) * ((1.0 - g2) * (1.0 + mu * mu)) / \r\n                   ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));\r\n\r\n    for (int i = 0; i < STEPS_PRIMARY; ++i) {\r\n        vec3 samplePos = currentPos + rayDir * (stepSize * 0.5);\r\n        float height = length(samplePos) - RE;\r\n        \r\n        if (height < 0.0) height = 0.0;\r\n\r\n        float hr = exp(-height / HR) * stepSize;\r\n        float hm = exp(-height / HM) * stepSize;\r\n        \r\n        optDepthR += hr;\r\n        optDepthM += hm;\r\n        \r\n        float distToSun = intersectLight(samplePos, sunDir, atmosphere, dummyNormal);\r\n        float stepSizeSun = distToSun / float(STEPS_LIGHT);\r\n        float sunDepthR = 0.0;\r\n        float sunDepthM = 0.0;\r\n        vec3 sunPos = samplePos;\r\n        \r\n        for (int j = 0; j < STEPS_LIGHT; ++j) {\r\n            vec3 sPos = sunPos + sunDir * (stepSizeSun * 0.5);\r\n            float h = length(sPos) - RE;\r\n            if (h < 0.0) h = 0.0;\r\n            \r\n            sunDepthR += exp(-h / HR) * stepSizeSun;\r\n            sunDepthM += exp(-h / HM) * stepSizeSun;\r\n            sunPos += sunDir * stepSizeSun;\r\n        }\r\n        \r\n        vec3 tau = BETA_R * (optDepthR + sunDepthR) + BETA_M * 1.1 * (optDepthM + sunDepthM);\r\n        vec3 attenuation = exp(-tau);\r\n        \r\n        totalR += hr * attenuation;\r\n        totalM += hm * attenuation;\r\n        \r\n        currentPos += rayDir * stepSize;\r\n    }\r\n    \r\n    // -------------------------------------\r\n    // Final Color Calculation\r\n    // -------------------------------------\r\n    vec3 skyColor = SUN_INTENSITY * (totalR * BETA_R * phaseR + totalM * BETA_M * phaseM);\r\n    \r\n    // Apply Brightness\r\n    skyColor *= u_skyBrightnessBoost;\r\n\r\n    // --- [CHANGE #2 PART B] Smooth Horizon Blend ---\r\n    // Instead of a sharp cut, we mix the calculated sky with a white color\r\n    // based on how far the ray is looking down. \r\n    // -0.1 to 0.1 creates a small foggy blur at the horizon line.\r\n    // If rayDir.y is very negative (looking down), blendingFactor becomes 0.0 (All white).\r\n    \r\n    vec3 groundColor = vec3(1.0); // White\r\n    float horizonBlend = smoothstep(-0.05, 0.05, rayDir.y);\r\n    \r\n    return mix(groundColor, skyColor, horizonBlend);\r\n}\r\nvec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){\r\n    vec3 directLight = vec3(0.0);\r\n    bool autoNormal = false;\r\n    if(length(smoothNormal) == 0.0){\r\n        autoNormal = true;\r\n    }\r\n    if(numActiveLights == 0){\r\n        return vec3(0.0);\r\n    }\r\n    \r\n    int i = int(rand(rng_state)*float(numActiveLights));\r\n    Light light = lights[i]; \r\n    rng_state = hash(rng_state);\r\n    \r\n    // choose a point on the light sphere\r\n    float r1 = (rand(rng_state)-0.5)*2.0;\r\n    float r2 = (rand(rng_state)-0.5)*2.0;\r\n    float r3 = (rand(rng_state)-0.5)*2.0;\r\n    vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;\r\n    vec3 lightPoint = light.position + jitter;\r\n\r\n    vec3 lightDir = normalize(lightPoint - mainRay.origin);\r\n    float lightDistance = length(lightPoint - mainRay.origin);\r\n\r\n    if(autoNormal){\r\n        smoothNormal = lightDir;\r\n    }\r\n\r\n    Ray shadowRay;\r\n    shadowRay.origin = mainRay.origin;\r\n    shadowRay.dir = lightDir;\r\n\r\n    // Fast Shadow Check\r\n    bool blocked = traverseBVHShadow(shadowRay, lightDistance);\r\n\r\n    if(!blocked){\r\n        float P = 1.0/(lightDistance*lightDistance);\r\n        float NdotL = max(dot(smoothNormal, lightDir), 0.0);\r\n        directLight += BRDF * light.color * light.intensity * NdotL * P * PI * light.radius * light.radius;\r\n    }\r\n    return directLight;\r\n}\r\n\r\nvec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state, int bounce) {\r\n    vec3 sunAxis = -u_sunDirection; \r\n\r\n    vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);\r\n\r\n    if(length(smoothNormal) == 0.0){\r\n        smoothNormal = lightDir;\r\n    }\r\n    float NdotL = max(dot(smoothNormal, lightDir), 0.0);\r\n    if (NdotL <= 0.0) {\r\n        return vec3(0.0);\r\n    }\r\n    \r\n    Ray shadowRay;\r\n    shadowRay.origin = mainRay.origin;\r\n    shadowRay.dir = lightDir;\r\n\r\n    // Fast Shadow Check (Max distance is effectively infinite for sun)\r\n    bool blocked = traverseBVHShadow(shadowRay, 1e20);\r\n\r\n    if (!blocked) {\r\n        // Ray is not blocked, calculate light contribution\r\n        // --- Light Contribution (Radiance) ---\r\n        // float cos_alpha = cos(u_sunAngularRadius);\r\n        // float solidAngle = 2.0 * PI * (1.0 - cos_alpha);\r\n        // float PDF = 1.0 / solidAngle; \r\n        // L_i = BRDF * NdotL / PDF * Radiance\r\n        // Radiance (L_e) = Intensity / SolidAngle\r\n        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) \r\n        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)\r\n        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:\r\n        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;\r\n        return directLight;\r\n    }\r\n    \r\n    return vec3(0.0);\r\n}\r\n\r\n\r\nvec3 PathTrace(Ray OGRay, inout uint rng_state) {\r\n    Ray ourRay;\r\n    ourRay.origin = OGRay.origin;\r\n    ourRay.dir = OGRay.dir;\r\n    vec3 rayDir = OGRay.dir;\r\n\r\n    vec3 color = vec3(0.0);\r\n    vec3 throughput = vec3(1.0);\r\n\r\n    vec3 UP_VECTOR = vec3(0.0, 1.0, 0.0);\r\n    float COS_ZENITH = dot(-u_sunDirection, UP_VECTOR);\r\n    float ZENITH_ANGLE = acos(COS_ZENITH) * 57.2958; //converted to degrees\r\n    float AIR_MASS = 1.0 / (COS_ZENITH + 0.15 * pow(93.885 - ZENITH_ANGLE, -1.253));\r\n    AIR_MASS = clamp(AIR_MASS, 1.0, 50.0);\r\n    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.001; \r\n    vec3 SUN_TRANSMISSION = exp(-AIR_MASS * BETA_EXTINCTION);\r\n\r\n    int hasMirror = -1;\r\n    for (int bounce = 0; bounce < numBounces; bounce++) {\r\n        vec3 currentRayOrigin = ourRay.origin;\r\n        vec3 currentRayDir = ourRay.dir;\r\n\r\n        vec3 baryCentric;\r\n        float minHitDistance;\r\n        Triangle tri;\r\n        int triIndex = traverseBVH(ourRay, baryCentric, minHitDistance,tri);\r\n        \r\n        int hitLightIndex = -1;\r\n        for (int i = 0; i < numActiveLights; i++) {\r\n            vec3 lightHitNormal;\r\n            float lightHitDistance = intersectLight(ourRay.origin, ourRay.dir, lights[i], lightHitNormal);\r\n            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {\r\n                hitLightIndex = i;\r\n                minHitDistance = lightHitDistance;\r\n            }\r\n        }\r\n\r\n        if (hitLightIndex != -1) {\r\n            // Ray hit light source\r\n            if(bounce == 0 || bounce == hasMirror + 1){\r\n                // Directly visible light or after mirror/glossy\r\n                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;\r\n            }\r\n            //Note, now that we have an NEE we do not need to factor in light hit after the first bounce.\r\n            break; // Path terminates.\r\n        }\r\n        vec3 atmosphereColor = getSkyColor(ourRay.dir, -u_sunDirection);\r\n\r\n        vec3 sunDirToScene = -u_sunDirection; // Direction from scene TO the sun\r\n        float cosAngle = dot(ourRay.dir, sunDirToScene);\r\n        \r\n        // The angular radius is very small, so we use its cosine\r\n        float cosAngularRadius = cos(u_sunAngularRadius);\r\n        \r\n        // If the angle between the ray and the center of the sun is less than the angular radius, \r\n        // the ray hit the visible sun disk.\r\n        bool hitSunDisk = (cosAngle >= cosAngularRadius);\r\n\r\n        vec3 finalSky = atmosphereColor;\r\n        if (triIndex == -1) {\r\n            // Ray missed everything and flew into space (Sky).\r\n            if (hitSunDisk) {\r\n                // Ray hit the visible Sun disk\r\n                finalSky += u_sunColor * u_sunIntensity *SUN_TRANSMISSION; \r\n            }\r\n\r\n            // Apply clouds and final color\r\n            if(bounce == 0 || bounce == hasMirror + 1){\r\n                color += throughput * finalSky;\r\n            }\r\n            color += finalSky*ambientLightIntensity;\r\n            \r\n            break;\r\n        }\r\n\r\n        // The ray hit a triangle \r\n        //Get information\r\n        vec3 hitPoint = ourRay.origin + ourRay.dir * minHitDistance;\r\n\r\n        bool isGrassBlade = false;\r\n        if(tri.types[0] == -1){\r\n            isGrassBlade = true; \r\n        }\r\n        TerrainType t1;//getTerrainType(tri.types[0]);\r\n        TerrainType t2;\r\n        TerrainType t3;\r\n        if(!isGrassBlade){\r\n            t1 = Terrains[tri.types[0]];//getTerrainType(tri.types[0]);\r\n            t2 = Terrains[tri.types[1]];\r\n            t3 = Terrains[tri.types[2]];\r\n        }\r\n\r\n        vec3 smoothNormal, matColor;\r\n        float matRoughness, reflectiveness;\r\n        int type = 1;\r\n        if(t1.type != 1){\r\n            type = t1.type;\r\n        }else if(t2.type != 1){\r\n            type = t2.type;\r\n        }else if(t3.type != 1){\r\n            type = t3.type;\r\n        }else{\r\n            type = t1.type; //default to first one in triangle\r\n        }\r\n        if(!isGrassBlade){\r\n            getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);\r\n        }\r\n\r\n        vec3 geometricNormal = tri.triNormal;\r\n        bool didSwitch = false;\r\n        if (dot(geometricNormal, ourRay.dir) > 0.0) geometricNormal = -geometricNormal; //\"same direction\"\r\n        if(!isGrassBlade){\r\n            if (dot(smoothNormal, geometricNormal) < 0.0) {\r\n                smoothNormal = -smoothNormal;\r\n                didSwitch = true;\r\n            } //If pointing in opposite directions, flip\r\n        }\r\n\r\n        // Create the next bounce ray\r\n        if(isGrassBlade){\r\n            //Do something cool \r\n            //pretend diffuse for now\r\n            type = 1;\r\n            smoothNormal = tri.triNormal;\r\n            matColor =  mix(grassBaseColor,grassTipColor, tri.normals[0].x);\r\n        }\r\n        if(type != 4) //Transmission goes through\r\n            ourRay.origin = hitPoint + geometricNormal * 0.1;\r\n        if(type == 1){ //Diffuse\r\n            //direct lighting\r\n            vec3 directLight = vec3(0.0);\r\n            vec3 BRDF = matColor / PI;\r\n            directLight = sampleSunLight(ourRay,BRDF, smoothNormal, rng_state, bounce) + shootShadowRay(ourRay, BRDF, smoothNormal, rng_state);\r\n            \r\n            ourRay.dir = weightedDIR(smoothNormal, rng_state);\r\n            float cos_theta = dot(ourRay.dir,smoothNormal);\r\n            float p = 0.5*PI;\r\n            throughput *= BRDF*cos_theta/p;\r\n            color += throughput * directLight;\r\n        }else if (type == 2) { // Specular (mirror)\r\n            vec3 useNormal = smoothNormal;\r\n            if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n            vec3 perfect = normalize(reflect(ourRay.dir, useNormal));\r\n            ourRay.dir = perfect;\r\n            throughput *= vec3(0.8); // decrease brightness a bit\r\n            hasMirror = bounce;\r\n        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular\r\n            vec3 useNormal = smoothNormal;\r\n            vec3 backDir = -ourRay.dir;\r\n            if(dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n            float metallic = clamp(reflectiveness, 0.0, 1.0);\r\n            float roughness = clamp(matRoughness, 0.001, 1.0);\r\n            float alpha = roughness * roughness;\r\n            vec3 F0 = mix(vec3(0.04), matColor, metallic);\r\n            vec3 albedo = matColor * (1.0 - metallic);\r\n\r\n            //Direct Lighting\r\n            vec3 L_sun = -u_sunDirection;\r\n            vec3 brdf = EvalUnifiedBRDF(useNormal, backDir, L_sun, alpha, F0, albedo, metallic);\r\n            vec3 directLight = sampleSunLight(ourRay, brdf, useNormal, rng_state, bounce) + shootShadowRay(ourRay, brdf, useNormal, rng_state);\r\n            color += throughput * directLight;\r\n\r\n            //Indirect lighting\r\n            float F_view = fresnelSchlick(max(dot(useNormal, backDir), 0.0), F0).g; // use green channel as estimate\r\n            float specProb = mix(F_view, 1.0, metallic);\r\n            specProb = clamp(specProb, 0.05, 0.95); // Prevent divide by zero\r\n\r\n            float r_val = rand(rng_state);\r\n\r\n            if(r_val < specProb){ //Specular bounce\r\n                vec2 Xi = vec2(rand(rng_state), rand(rng_state));\r\n                vec3 H = ImportanceSampleGGX(Xi, useNormal, alpha);\r\n                vec3 L = normalize(reflect(-backDir, H));\r\n\r\n                float NdotL = dot(useNormal, L);\r\n                float NdotH = dot(useNormal, H);\r\n                float VdotH = dot(backDir, H);\r\n                float NdotV = dot(useNormal, backDir);\r\n\r\n                if (NdotL > 0.0 && VdotH > 0.0) {\r\n                    vec3 F = fresnelSchlick(VdotH, F0);\r\n                    float G = GeometrySmith(useNormal, backDir, L, alpha);\r\n                    \r\n                    // The Weight for GGX Importance Sampling:\r\n                    // Weight = (F * G * VdotH) / (NdotV * NdotH * specProb)\r\n                    vec3 weight = (F * G * VdotH) / (NdotV * NdotH + 0.0001);\r\n                    \r\n                    throughput *= weight / specProb;\r\n                    ourRay.dir = L;\r\n                    hasMirror = bounce;\r\n                }\r\n            }else{\r\n                //regular diffuse\r\n                vec3 L = weightedDIR(useNormal, rng_state);\r\n                vec3 kS = fresnelSchlick(max(dot(useNormal, L), 0.0), F0);\r\n                vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);\r\n                \r\n                throughput *= (kD * albedo) / (1.0 - specProb);\r\n                ourRay.dir = L;\r\n            }    \r\n        }else if (type == 4){ //Transmission (Glass)\r\n            float eta;\r\n            vec3 transmissionNormal;\r\n            if(didSwitch){ //exiting\r\n                eta = reflectiveness / 1.0;\r\n                transmissionNormal = -smoothNormal; // Refract in the opposite direction\r\n            }else{ //entering\r\n                eta = 1.0 / reflectiveness;\r\n                transmissionNormal = smoothNormal; // Refract in the same direction\r\n            }\r\n            vec3 refracted = refract(ourRay.dir, transmissionNormal, eta);\r\n            if (length(refracted) < 0.001) {\r\n                // TIR: fall back to mirror reflection\r\n                vec3 useNormal = smoothNormal;\r\n                if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n                ourRay.dir = normalize(reflect(ourRay.dir, useNormal));\r\n                ourRay.origin = hitPoint + geometricNormal * 0.01;\r\n            } else {\r\n                //Do microfacet\r\n                vec3 useNormal = smoothNormal;\r\n                if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n                ourRay.dir = sampleGlossyDirection(normalize(refracted), matRoughness, rng_state);\r\n\r\n                ourRay.origin = hitPoint - geometricNormal * 0.01;\r\n            }\r\n            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce\r\n            vec3 absorption = -log(matColor)*0.1;  // if matColor is tint\r\n            throughput *= exp(-absorption * (minHitDistance)); //Beer Lambert law\r\n        }else if (type == 5){ // Emissive\r\n            color += throughput * matColor;\r\n            break;\r\n        }\r\n\r\n        if (bounce >= 3) { \r\n            // Calculate survival probability based on the brightness of the current throughput.\r\n            // Brighter paths have a higher chance of surviving.\r\n            float p = max(throughput.r, max(throughput.g, throughput.b));\r\n\r\n            // Clamp probability\r\n            p = clamp(p, 0.0, 0.95);\r\n\r\n            if (rand(rng_state) > p) {\r\n                break; // Terminate path\r\n            }\r\n\r\n            // If the ray survives, we must boost its intensity to compensate for the \r\n            // rays we just killed. This ensures the average brightness remains correct.\r\n            throughput *= 1.0 / p;\r\n        }\r\n        \r\n        // [Sanity Check] Stop if throughput is zero to save performance\r\n        if (length(throughput) <= 0.001) {\r\n            break;\r\n        }\r\n    }\r\n    return min(color, vec3(10.0));\r\n}\r\n\r\nvoid main() {\r\n    int pixelX = int(v_uv.x * u_resolution.x);\r\n    int pixelY = int(v_uv.y * u_resolution.y);\r\n    int patternIndex = pixelX + pixelY * 199;\r\n\r\n    // Check if we should render this frame\r\n    if(patternIndex % u_skips != u_frameNumber % u_skips){\r\n        fragColor = vec4(textureLod(u_lastFrame, v_uv, 0.0).rgb, 1.0);\r\n        return;\r\n    }\r\n    //Random Hash\r\n    uint pixel_x = uint(v_uv.x * u_resolution.x); \r\n    uint pixel_y = uint(v_uv.y * u_resolution.y);\r\n    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);\r\n    uint rng_state = hash(seed + uint(u_frameNumber));\r\n    rng_state = hash(rng_state + uint(u_frameNumber));\r\n\r\n    //Load terrains\r\n    for(int i = 0; i < u_numTerrains; i++){\r\n        Terrains[i] = getTerrainType(i);\r\n    }\r\n    \r\n    // Jitter calculation for Anti-Alising\r\n    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one\r\n    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].\r\n\r\n    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;\r\n    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC\r\n\r\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\r\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \r\n    // Transform from clip space to world space\r\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\r\n    // Perform perspective divide\r\n    rayWorld /= rayWorld.w;\r\n    // The ray direction is the vector from the camera to this point in the world\r\n    Ray mainRay;\r\n    mainRay.origin = u_cameraPos;\r\n    mainRay.dir = normalize(rayWorld.xyz - u_cameraPos);\r\n\r\n\r\n    vec3 newSampleColor = PathTrace(mainRay, rng_state); // Sample Color\r\n    vec3 newSum;\r\n    float effectiveSampleCount = ceil(float(u_frameNumber) / float(u_skips));\r\n    \r\n    effectiveSampleCount = max(effectiveSampleCount, 1.0);\r\n    if(u_frameNumber <= u_skips){ \r\n        newSum = newSampleColor;\r\n    } else {\r\n        vec3 lastSum = textureLod(u_lastFrame, v_uv, 0.0).rgb;\r\n        newSum = lastSum + (newSampleColor - lastSum) / effectiveSampleCount;\r\n    }\r\n\r\n    fragColor = vec4(newSum,1.0); \r\n}";
+module.exports = "#version 300 es\r\n\r\n//Sources:\r\n//Gemini/Chatgpt (GOATS) - Written most of the funky low level code (texture reading)\r\n//Hongyi Ren - Cloud sampling functions\r\n//https://www.reddit.com/r/GraphicsProgramming/comments/pjssze/directional_lighting_in_a_path_tracer/ - More specifically the two stackoverflow links in the comments - NEE implementation\r\n//https://www.cg.tuwien.ac.at/sites/default/files/course/4854/attachments/12_3_next%20event%20estimation_notes.pdf - NEE theory\r\n\r\nprecision highp float;\r\nprecision highp sampler3D;\r\nprecision highp int;\r\n#define MAX_LIGHTS 100\r\n#define PI 3.1415926\r\n#define BVH_DEPTH 64\r\n#define NUM_TERRAINS 50 \r\n#define MAX_FLOAT 1e20\r\n\r\n//Note: \r\nuniform sampler2D u_lastFrame;\r\nuniform int u_frameNumber;\r\nuniform int numBounces;\r\nuniform int u_skips;\r\n\r\nuniform sampler2D u_vertices;\r\nuniform sampler2D u_terrains;\r\nuniform sampler2D u_normals;\r\nuniform sampler2D u_boundingBox;\r\nuniform sampler2D u_nodesTex;\r\nuniform sampler2D u_leafsTex;\r\nuniform sampler2D u_terrainTypes;\r\nuniform sampler2D u_grassBB;\r\nuniform sampler3D u_CloudNoise;\r\nuniform sampler2D u_WeatherMap;\r\n\r\nuniform vec3 u_cameraPos;\r\nuniform mat4 u_invViewProjMatrix;\r\nuniform vec2 u_resolution;\r\n\r\nuniform vec3 u_cloudsCubeMin;\r\nuniform vec3 u_cloudsCubeMax;\r\n\r\n//Cloud settings\r\nuniform bool CLOUDS_enableClouds;\r\nuniform float CLOUDS_absorption;\r\nuniform float CLOUDS_densityThreshold;\r\nuniform float CLOUDS_baseFrequency;\r\nuniform float CLOUDS_detailFrequency;\r\nuniform float CLOUDS_lightAbsorption;\r\nuniform float CLOUDS_lightIntensity;\r\nuniform float CLOUDS_darknessThreshold;\r\nuniform float CLOUDS_ambientIntensity;\r\nuniform float CLOUDS_phaseG;\r\nuniform float CLOUDS_phaseMultiplier;\r\nuniform float CLOUDS_weatherMapOffsetX;\r\nuniform float CLOUDS_weatherMapOffsetY;\r\nuniform int CLOUDS_MAX_STEPS;\r\nuniform int CLOUDS_MAX_STEPS_LIGHT;\r\nuniform float CLOUDS_blueNoiseAmplitude;\r\nuniform vec3 CLOUDS_baseCloudColor;\r\nuniform float CLOUDS_skyContribution;\r\nuniform float CLOUDS_lightDarkSharpness;\r\nuniform float CLOUDS_simplexMultiplier;\r\nconst float CLOUDS_DENSITY_THRESHOLD_SKIP = 0.01f;\r\nconst float CLOUDS_ALPHA_THRESHOLD = 0.99f;\r\n\r\n//Grass\r\nuniform vec3 grassBaseColor;\r\nuniform vec3 grassTipColor;\r\nuniform bool grassEnabled;\r\n\r\n//Light/Sun\r\nstruct Light {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n};\r\nuniform Light lights[MAX_LIGHTS];\r\nuniform int numActiveLights;\r\n\r\n\r\n/*uniform float sunDirX;\r\nuniform float sunDirY;\r\nuniform float sunDirZ;*/\r\nuniform vec3 u_sunDirection;\r\n\r\nuniform float u_sunIntensity;    // Sun intensity (controls brightness)\r\nuniform float u_sunAngularRadius; // Angular radius of the sun in radians (approx 0.00465 radians or 0.266 degrees)\r\nuniform vec3 u_sunColor;\r\nuniform float u_blueScatter;\r\nuniform float u_redScatter;\r\nuniform float u_greenScatter;\r\nuniform float u_haloSize;\r\nuniform int u_skyGradientQuality;\r\nuniform int u_sunsetQuality; \r\nuniform float u_MIE;\r\nuniform float ambientLightIntensity;\r\nuniform float u_skyBrightnessBoost; \r\n\r\nin vec2 v_uv;\r\nout vec4 fragColor;\r\n\r\nstruct BVH{\r\n    vec3 min;\r\n    vec3 max;\r\n    int right;\r\n    int left;\r\n    int[4] triangles;\r\n};\r\n\r\nstruct Triangle{\r\n    vec3[3] vertices; \r\n    int[3] types;\r\n    vec3 min;\r\n    vec3 max;\r\n    vec3 center;\r\n    vec3 triNormal;\r\n    vec3[3] normals;\r\n};\r\n\r\nstruct TerrainType{\r\n    vec3 color;\r\n    float reflectiveness; // Decimal 0-1   \r\n    float roughness; // Decimal 0-1\r\n    int type; //Type. See terrains.ts\r\n};\r\n\r\nstruct Ray{\r\n    vec3 origin;\r\n    vec3 dir;\r\n};\r\n\r\nTerrainType[NUM_TERRAINS] Terrains;\r\nuniform int u_numTerrains;\r\n\r\n// Provides a high quality 32-bit hash function to generate pseudo-random numbers\r\n// Source: https://www.shadertoy.com/view/4djSRW by Dave Hoskins\r\nuint hash(uint state) {\r\n    state ^= 2747636419u;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    state ^= state >> 16;\r\n    state *= 2654435769u;\r\n    return state;\r\n}\r\n\r\n// Generates a random float in the [0, 1] range\r\nfloat rand(inout uint state) {\r\n    state = hash(state);\r\n    return float(state) / 4294967295.0; // 2^32 - 1\r\n}\r\n\r\nfloat fetchFloatFrom1D(sampler2D tex, int index) {\r\n    ivec2 size = textureSize(tex, 0);\r\n    int texWidth = size.x;\r\n    \r\n    int texelIndex = index / 4;      // Which texel (pixel) contains our float\r\n    int componentIndex = index % 4;  // Which component (r,g,b,a) of the texel\r\n\r\n    // Calculate 2D coordinates of the texel\r\n    int y_coord = texelIndex / texWidth;\r\n    int x_coord = texelIndex % texWidth;\r\n\r\n    // Convert to UV coordinates [0, 1] for sampling\r\n    // Add 0.5 to sample the center of the texel\r\n    float u = (float(x_coord) + 0.5) / float(texWidth);\r\n    float v = (float(y_coord) + 0.5) / float(size.y);\r\n\r\n    vec4 texel = textureLod(tex, vec2(u, v), 0.0);//texture(tex, vec2(u, v));\r\n\r\n    if (componentIndex == 0) return texel.r;\r\n    else if (componentIndex == 1) return texel.g;\r\n    else if (componentIndex == 2) return texel.b;\r\n    else return texel.a;\r\n}\r\n\r\nBVH getBVH(int i){\r\n    BVH r;\r\n    int bbBoxSize = 6;\r\n    r.min = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+1),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+2));\r\n    r.max = vec3(fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+3),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+4),fetchFloatFrom1D(u_boundingBox, i*bbBoxSize+5));\r\n\r\n    int nodeSize = 2;\r\n    r.left = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize));\r\n    r.right = int(fetchFloatFrom1D(u_nodesTex,i*nodeSize+1));\r\n\r\n    int leafSize = 4;\r\n    r.triangles[0]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize));\r\n    r.triangles[1]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+1));\r\n    r.triangles[2]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+2));\r\n    r.triangles[3]=int(fetchFloatFrom1D(u_leafsTex,i*leafSize+3));\r\n    \r\n    return r;\r\n}\r\n\r\nTriangle getTriangle(int i){\r\n    Triangle tri;\r\n    int triVertexSize = 9;\r\n    tri.vertices[0] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize), fetchFloatFrom1D(u_vertices, i*triVertexSize+1), fetchFloatFrom1D(u_vertices, i*triVertexSize+2));\r\n    tri.vertices[1] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+3), fetchFloatFrom1D(u_vertices, i*triVertexSize+4), fetchFloatFrom1D(u_vertices, i*triVertexSize+5));\r\n    tri.vertices[2] = vec3(fetchFloatFrom1D(u_vertices, i*triVertexSize+6), fetchFloatFrom1D(u_vertices, i*triVertexSize+7), fetchFloatFrom1D(u_vertices, i*triVertexSize+8));\r\n\r\n    int typeSize = 3;\r\n    tri.types[0] = int(fetchFloatFrom1D(u_terrains, i*typeSize));\r\n    tri.types[1] = int(fetchFloatFrom1D(u_terrains, i*typeSize+1));\r\n    tri.types[2] = int(fetchFloatFrom1D(u_terrains, i*typeSize+2));\r\n\r\n    tri.min = vec3(min(tri.vertices[0].x, min(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   min(tri.vertices[0].y, min(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   min(tri.vertices[0].z, min(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.max = vec3(max(tri.vertices[0].x, max(tri.vertices[1].x, tri.vertices[2].x)),\r\n                   max(tri.vertices[0].y, max(tri.vertices[1].y, tri.vertices[2].y)),\r\n                   max(tri.vertices[0].z, max(tri.vertices[1].z, tri.vertices[2].z)));\r\n    tri.center = (tri.min + tri.max) * 0.5;\r\n    tri.triNormal = normalize(cross(tri.vertices[1] - tri.vertices[0], tri.vertices[2] - tri.vertices[0]));\r\n\r\n    tri.normals[0] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize), fetchFloatFrom1D(u_normals, i*triVertexSize+1), fetchFloatFrom1D(u_normals, i*triVertexSize+2));\r\n    tri.normals[1] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+3), fetchFloatFrom1D(u_normals, i*triVertexSize+4), fetchFloatFrom1D(u_normals, i*triVertexSize+5));\r\n    tri.normals[2] = vec3(fetchFloatFrom1D(u_normals, i*triVertexSize+6), fetchFloatFrom1D(u_normals, i*triVertexSize+7), fetchFloatFrom1D(u_normals, i*triVertexSize+8));\r\n\r\n    return tri;\r\n}\r\n\r\nTerrainType getTerrainType(int i){\r\n    TerrainType t;\r\n    int terrainTypeSize = 6;\r\n    t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));\r\n    t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); \r\n    t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); \r\n    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));\r\n\r\n    return t;\r\n}\r\n\r\nbool intersectAABB(Ray mainRay, vec3 boxMin, vec3 boxMax, out float tMin, out float tMax) {\r\n    vec3 invDir = 1.0 / mainRay.dir;\r\n    vec3 t0s = (boxMin - mainRay.origin) * invDir;\r\n    vec3 t1s = (boxMax - mainRay.origin) * invDir;\r\n\r\n    vec3 tSmalls = min(t0s, t1s);\r\n    vec3 tBigs = max(t0s, t1s);\r\n\r\n    tMin = max(max(tSmalls.x, tSmalls.y), tSmalls.z);\r\n    tMax = min(min(tBigs.x, tBigs.y), tBigs.z);\r\n\r\n    return tMax >= max(tMin, 0.0);\r\n}\r\n\r\n//AI written; Returns distance to intersection with triangle\r\nfloat intersectTriangle(vec3 rayOrigin, vec3 rayDir, Triangle tri, out vec3 barycentric) {\r\n    const float EPSILON = 0.000001;\r\n    vec3 v0 = tri.vertices[0];\r\n    vec3 v1 = tri.vertices[1];\r\n    vec3 v2 = tri.vertices[2];\r\n\r\n    vec3 edge1 = v1 - v0;\r\n    vec3 edge2 = v2 - v0;\r\n\r\n    vec3 h = cross(rayDir, edge2);\r\n    float a = dot(edge1, h);\r\n\r\n    if (a > -EPSILON && a < EPSILON) {\r\n        return -1.0; // Ray is parallel to the triangle\r\n    }\r\n\r\n    float f = 1.0 / a;\r\n    vec3 s = rayOrigin - v0;\r\n    float u = f * dot(s, h);\r\n\r\n    if (u < 0.0 || u > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    vec3 q = cross(s, edge1);\r\n    float v = f * dot(rayDir, q);\r\n\r\n    if (v < 0.0 || u + v > 1.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    // At this stage we can compute t to find out where the intersection point is on the line.\r\n    float t = f * dot(edge2, q);\r\n    if (t > EPSILON) { // ray intersection\r\n        barycentric = vec3(1.0 - u - v, u, v);\r\n        return t;\r\n    }\r\n    \r\n    return -1.0; // This means that there is a line intersection but not a ray intersection.\r\n}\r\n\r\nvec3 rotateY(vec3 v, float angle) {\r\n    float c = cos(angle);\r\n    float s = sin(angle);\r\n    return vec3(c * v.x - s * v.z, v.y, s * v.x + c * v.z);\r\n}\r\n\r\n// --- Intersection Function ---\r\n// Returns true if hit, writes distance to 'dist' and fills 'result' struct\r\nbool intersectGrassBlade(Ray mainRay,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) {\r\n    // ------------------------------------\r\n    \r\n    // 1. TRANSFORM RAY TO LOCAL SPACE\r\n    vec3 localOrigin = mainRay.origin - instancePos;\r\n    vec3 localDir = mainRay.dir;\r\n    float hitY = 0.0;\r\n\r\n    // Inverse Rotation (Rotate by -rotation)\r\n    localOrigin = rotateY(localOrigin, -rotation);\r\n    localDir = rotateY(localDir, -rotation);\r\n\r\n    // Inverse Shear (Undo the lean: x' = x - lean*y)\r\n    localOrigin.x -= lean * localOrigin.y;\r\n    localOrigin.z -= lean * localOrigin.y;\r\n    localDir.x -= lean * localDir.y;\r\n    localDir.z -= lean * localDir.y;\r\n\r\n    float tClosest = 1e20;\r\n    vec3 normalClosest = vec3(0.0);\r\n    bool hitAny = false;\r\n    \r\n    float bladeHeight = 1.0;\r\n    float baseWidth = 0.1; \r\n    \r\n    // --- Test Plane A (Z-facing part) ---\r\n    if (abs(localDir.z) > 1e-6) {\r\n        float t = -localOrigin.z / localDir.z;\r\n        if (t > 0.0) { // Removed t < tClosest check since it's the first check\r\n            vec3 p = localOrigin + t * localDir;\r\n            if (p.y >= 0.0 && p.y <= bladeHeight) {\r\n                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));\r\n                if (abs(p.x) <= currentWidth) {\r\n                    tClosest = t;\r\n                    hitAny = true;\r\n                    // Base normal (0,0,1) -> Sheared normal -> Rotated normal\r\n                    // Sheared Plane Z: z - lean*y = 0. Normal is (0, -lean, 1)\r\n                    normalClosest = normalize(vec3(0.0, -lean, 1.0));\r\n                    hitY = p.y;\r\n                    // Flip if hitting backface\r\n                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;\r\n                }\r\n            }\r\n        }\r\n    }\r\n\r\n    // --- Test Plane B (X-facing part) ---\r\n    if (abs(localDir.x) > 1e-6) {\r\n        float t = -localOrigin.x / localDir.x;\r\n        // Only update if this hit is closer than the previous one\r\n        if (t > 0.0 && t < tClosest) {\r\n            vec3 p = localOrigin + t * localDir;\r\n            if (p.y >= 0.0 && p.y <= bladeHeight) {\r\n                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));\r\n                if (abs(p.z) <= currentWidth) {\r\n                    tClosest = t;\r\n                    hitAny = true;\r\n                    // Base normal (1,0,0) -> Sheared normal -> Rotated normal\r\n                    // Sheared Plane X: x - lean*y = 0. Normal is (1, -lean, 0)\r\n                    normalClosest = normalize(vec3(1.0, -lean, 0.0));\r\n                    hitY = p.y;\r\n                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;\r\n                }\r\n            }\r\n        }\r\n    }\r\n\r\n    if (!hitAny) {\r\n        return false;\r\n    }\r\n\r\n    // Output 1: Distance\r\n    dist = tClosest;\r\n\r\n    // Output 2: Triangle Struct\r\n    // Rotate the normal back to world space\r\n    vec3 worldNormal = rotateY(normalClosest, rotation);\r\n    \r\n    // Fill required dummy data to prevent compilation errors/undefined behavior\r\n    result.vertices = vec3[3](vec3(0.), vec3(0.), vec3(0.));\r\n    result.types[1] = 0;\r\n    result.types[2] = 0;\r\n    result.min = vec3(0.);\r\n    result.max = vec3(0.);\r\n    result.center = vec3(0.);\r\n    result.normals = vec3[3](vec3(0.), vec3(0.), vec3(0.));\r\n\r\n    // Fill only the required fields\r\n    result.types[0] = -1;       // As requested\r\n    result.triNormal = worldNormal; // The calculated normal\r\n    result.normals[0].x = hitY; //Height\r\n    return true;\r\n}\r\n\r\n//AI written; Returns distance to intersection with light sphere\r\nfloat intersectLight(vec3 rayOrigin, vec3 rayDir, Light light, out vec3 hitNormal) {\r\n    vec3 oc = rayOrigin - light.position; \r\n\r\n    // The coefficients of the quadratic equation (at^2 + bt + c = 0)\r\n    float a = dot(rayDir, rayDir); // Should be 1.0 for a normalized rayDir\r\n    float b = 2.0 * dot(oc, rayDir);\r\n    float c = dot(oc, oc) - light.radius * light.radius;\r\n\r\n    float discriminant = b*b - 4.0*a*c;\r\n\r\n    // If the discriminant is negative, the ray misses the sphere.\r\n    if (discriminant < 0.0) {\r\n        return -1.0;\r\n    }\r\n\r\n    float sqrt_d = sqrt(discriminant);\r\n\r\n    // Calculate the two potential intersection distances (solutions for t)\r\n    float t0 = (-b - sqrt_d) / (2.0 * a);\r\n    float t1 = (-b + sqrt_d) / (2.0 * a);\r\n\r\n    // We need the smallest, positive t value.\r\n    // Check the closer intersection point (t0) first.\r\n    if (t0 > 0.001) { // Use a small epsilon to avoid self-intersection artifacts\r\n        vec3 hitPoint = rayOrigin + t0 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t0;\r\n    }\r\n    // If t0 was behind the ray, check the farther intersection point (t1).\r\n    // This case occurs if the ray starts inside the sphere.\r\n    else if (t1 > 0.001) {\r\n        vec3 hitPoint = rayOrigin + t1 * rayDir;\r\n        hitNormal = normalize(hitPoint - light.position);\r\n        return t1;\r\n    }\r\n\r\n    // Both intersection points are behind the ray's origin.\r\n    return -1.0;\r\n}\r\n\r\n/**\r\n * Returns TRIANGLE index\r\n */\r\nint traverseBVH(Ray mainRay, out vec3 closestBarycentric, out float minHitDistance, out Triangle hitTriangle) {\r\n    int closestHitIndex = -1;\r\n    minHitDistance = 1.0/0.0001; // Infinity\r\n\r\n    int stack[BVH_DEPTH]; \r\n    int stackPtr = 0;\r\n    stack[stackPtr++] = 0; // Push root node index\r\n\r\n    while (stackPtr > 0) {\r\n        int nodeIndex = stack[--stackPtr];\r\n        BVH node = getBVH(nodeIndex);\r\n\r\n        float tMin, tMax;\r\n        if (!intersectAABB(mainRay, node.min, node.max, tMin, tMax)) {\r\n            continue;\r\n        }\r\n\r\n        if (tMin >= minHitDistance) {\r\n            continue;\r\n        }\r\n\r\n        if (node.left == -1) { // Leaf Node\r\n            for (int j = 0; j < 4; j++) {\r\n                int triIdx = node.triangles[j];\r\n                if(triIdx <= -2 && grassEnabled){//gRaS\r\n                    //Do cool stuff later\r\n                    int thingI = triIdx*(-1)-2;\r\n                    int grassInfoSize = 8;\r\n                    vec3 minB = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+1),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+2));\r\n                    //vec3 max = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+3),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+4),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+5));\r\n                    float lean = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+6);\r\n                    float angle = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+7);\r\n                    //bool intersectGrassBlade(vec3 rayOrigin, vec3 rayDir,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) \r\n                    Triangle tri;\r\n                    float hitDist;\r\n                    bool val = intersectGrassBlade(mainRay, minB, lean, angle, hitDist, tri);\r\n                    if(val && hitDist < minHitDistance){\r\n                        minHitDistance = hitDist;\r\n                        closestHitIndex = triIdx;\r\n                        closestBarycentric = vec3(0.0);\r\n                        hitTriangle= tri;\r\n                    }\r\n                    continue;\r\n                }\r\n                if (triIdx == -1) continue;\r\n\r\n                Triangle tri = getTriangle(triIdx);\r\n                vec3 currentBarycentric;\r\n                float hitDist = intersectTriangle(mainRay.origin, mainRay.dir, tri, currentBarycentric);\r\n\r\n                if (hitDist > 0.0 && hitDist < minHitDistance) {\r\n                    minHitDistance = hitDist;\r\n                    closestHitIndex = triIdx;\r\n                    closestBarycentric = currentBarycentric;\r\n                    hitTriangle= tri;\r\n                }\r\n            }\r\n        } else { // Internal Node\r\n            // Check for space for two children to prevent stack overflow\r\n            if (stackPtr < BVH_DEPTH-1) { \r\n                stack[stackPtr++] = node.left;\r\n                stack[stackPtr++] = node.right;\r\n            }\r\n        }\r\n    }\r\n\r\n    return closestHitIndex;\r\n}\r\n\r\n// New optimized traversal for shadows: Returns TRUE immediately on any hit\r\nbool traverseBVHShadow(Ray shadowRay, float maxDist) {\r\n    int stack[BVH_DEPTH]; \r\n    int stackPtr = 0;\r\n    stack[stackPtr++] = 0; // Push root node index\r\n\r\n    while (stackPtr > 0) {\r\n        int nodeIndex = stack[--stackPtr];\r\n        BVH node = getBVH(nodeIndex);\r\n\r\n        float tMin, tMax;\r\n        if (!intersectAABB(shadowRay, node.min, node.max, tMin, tMax)) {\r\n            continue;\r\n        }\r\n\r\n        // Optimization: If the AABB is further away than the light source, ignore it\r\n        if (tMin >= maxDist) {\r\n            continue;\r\n        }\r\n\r\n        if (node.left == -1) { // Leaf Node\r\n            for (int j = 0; j < 4; j++) {\r\n                int triIdx = node.triangles[j];\r\n                \r\n                // Grass Logic\r\n                if(triIdx <= -2 && grassEnabled){\r\n                    int thingI = triIdx*(-1)-2;\r\n                    int grassInfoSize = 8;\r\n                    vec3 minB = vec3(fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+1),fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+2));\r\n                    float lean = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+6);\r\n                    float angle = fetchFloatFrom1D(u_grassBB, thingI*grassInfoSize+7);\r\n                    \r\n                    Triangle dummyTri; // Not used, but required by function signature\r\n                    float hitDist;\r\n                    bool hit = intersectGrassBlade(shadowRay, minB, lean, angle, hitDist, dummyTri);\r\n                    \r\n                    // If we hit grass closer than the light, we are blocked\r\n                    if(hit && hitDist > 0.001 && hitDist < maxDist){\r\n                        return true;\r\n                    }\r\n                    continue;\r\n                }\r\n\r\n                if (triIdx == -1) continue;\r\n\r\n                Triangle tri = getTriangle(triIdx);\r\n                vec3 dummyBary;\r\n                float hitDist = intersectTriangle(shadowRay.origin, shadowRay.dir, tri, dummyBary);\r\n\r\n                // If we hit geometry closer than the light, we are blocked\r\n                if (hitDist > 0.001 && hitDist < maxDist) {\r\n                    return true;\r\n                }\r\n            }\r\n        } else { // Internal Node\r\n            if (stackPtr < BVH_DEPTH-1) { \r\n                stack[stackPtr++] = node.left;\r\n                stack[stackPtr++] = node.right;\r\n            }\r\n        }\r\n    }\r\n\r\n    return false; // No occlusion found\r\n}\r\n\r\nvec3 smoothItem(vec3[3] a, vec3 baryCentric){\r\n    return (\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\nfloat smoothItem(float[3] a, vec3 baryCentric){\r\n    return(\r\n        baryCentric.x * a[0] + \r\n        baryCentric.y * a[1] +\r\n        baryCentric.z * a[2]\r\n    );\r\n}\r\n\r\nvoid getInfo(Triangle tri, TerrainType tt1, TerrainType tt2, TerrainType tt3, vec3 baryCentric, out vec3 smoothNormal, out vec3 matColor, out float matRoughness, out float reflectiveness){\r\n    vec3[3] colors = vec3[3](\r\n        tt1.color,\r\n        tt2.color,\r\n        tt3.color\r\n    );\r\n    float[3] reflectivities = float[3](\r\n        tt1.reflectiveness,\r\n        tt2.reflectiveness,\r\n        tt3.reflectiveness\r\n    );\r\n    float[3] roughness = float[3](\r\n        tt1.roughness,\r\n        tt2.roughness,\r\n        tt3.roughness\r\n    );\r\n\r\n    smoothNormal = normalize(smoothItem(tri.normals,baryCentric));\r\n    matColor = smoothItem(colors,baryCentric);\r\n    matRoughness = smoothItem(roughness,baryCentric);\r\n    reflectiveness = smoothItem(reflectivities,baryCentric);\r\n}\r\n\r\n/**\r\nReturn random direction based on given via cosine\r\n*/\r\nvec3 weightedDIR(vec3 normal, inout uint rng_state){\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cos_theta = sqrt(1.0 - r2);\r\n    float sin_theta = sqrt(r2);\r\n    vec3 randomDirHemi = vec3(cos(phi) * sin_theta, sin(phi) * sin_theta, cos_theta);\r\n    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, normal));\r\n    vec3 bitangent = cross(normal, tangent);\r\n    vec3 dirWorld = tangent * randomDirHemi.x + bitangent * randomDirHemi.y + normal * randomDirHemi.z;\r\n    return normalize(dirWorld);\r\n}\r\n\r\nvec3 sampleGlossyDirection(vec3 perfectDir, float roughness, inout uint rng_state) {\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float shininess = pow(1.0 - roughness, 3.0) * 1000.0; // adjust as needed\r\n\r\n    float phi = 2.0 * PI * r1;\r\n    float cosTheta = pow(r2, 1.0 / (shininess + 1.0));\r\n    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);\r\n\r\n    vec3 localDir = vec3(\r\n        cos(phi) * sinTheta,\r\n        sin(phi) * sinTheta,\r\n        cosTheta\r\n    );\r\n\r\n    // Construct tangent space around the perfect reflection direction\r\n    vec3 up = abs(perfectDir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, perfectDir));\r\n    vec3 bitangent = cross(perfectDir, tangent);\r\n\r\n    vec3 worldDir = normalize(\r\n        tangent * localDir.x + bitangent * localDir.y + perfectDir * localDir.z\r\n    );\r\n\r\n    return worldDir;\r\n}\r\nvec3 sampleCone(vec3 coneAxis, float maxAngle, inout uint rng_state) {\r\n    // 1. Generate 2 random numbers\r\n    float r1 = rand(rng_state);\r\n    float r2 = rand(rng_state);\r\n\r\n    float cosMaxAngle = cos(maxAngle);\r\n    \r\n    // --- 2. Spherical Coordinate Sampling (Inverse Transform Sampling) ---\r\n    // cos_theta: Samples the cosine of the polar angle (theta) uniformly \r\n    // over the solid angle of the cone. This is the crucial step for uniformity.\r\n    float cos_theta = mix(cosMaxAngle, 1.0, r2); \r\n    \r\n    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);\r\n    float phi = 2.0 * PI * r1; // Azimuthal angle (phi) is uniform 0 to 2*PI\r\n\r\n    // --- 3. Create Local Direction (Cone Axis = Z-axis) ---\r\n    // The direction vector in the local cone space.\r\n    vec3 localDir = vec3(\r\n        cos(phi) * sin_theta,\r\n        sin(phi) * sin_theta,\r\n        cos_theta\r\n    );\r\n\r\n    // --- 4. Transform Local Direction to World Space (Tangent Space Transform) ---\r\n    \r\n    // Calculate an orthonormal basis (tangent space) around the coneAxis.\r\n    // The standard 'up' vector handles cases where coneAxis is near (0, 1, 0)\r\n    // by choosing a different vector to cross with.\r\n    vec3 up = abs(coneAxis.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, coneAxis));\r\n    vec3 bitangent = cross(coneAxis, tangent);\r\n\r\n    // Transform the local direction (localDir) into the world space basis (tangent, bitangent, coneAxis)\r\n    vec3 worldDir = normalize(\r\n        tangent * localDir.x + \r\n        bitangent * localDir.y + \r\n        coneAxis * localDir.z\r\n    );\r\n    \r\n    return worldDir;\r\n}\r\n\r\nbool isValidVec3(vec3 v) {\r\n    return all(greaterThanEqual(v, vec3(-1e20))) &&\r\n           all(lessThanEqual(v, vec3(1e20))) &&\r\n           !any(isnan(v));\r\n}\r\n\r\n// --- PBR Helper Functions ---\r\n\r\n// 1. Fresnel Schlick\r\n// cosTheta is dot(H, V)\r\nvec3 fresnelSchlick(float cosTheta, vec3 F0) {\r\n    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);\r\n}\r\n\r\n// 2. Distribution GGX (Trowbridge-Reitz)\r\nfloat DistributionGGX(vec3 N, vec3 H, float roughness) {\r\n    float a = roughness * roughness;\r\n    float a2 = a * a;\r\n    float NdotH = max(dot(N, H), 0.0);\r\n    float NdotH2 = NdotH * NdotH;\r\n\r\n    float num = a2;\r\n    float denom = (NdotH2 * (a2 - 1.0) + 1.0);\r\n    denom = PI * denom * denom;\r\n\r\n    return num / denom;\r\n}\r\n\r\n// 3. Geometry Schlick-GGX (Smith method)\r\nfloat GeometrySchlickGGX(float NdotV, float roughness) {\r\n    float r = (roughness + 1.0);\r\n    float k = (r * r) / 8.0; // Use k = a^2 / 2 for IBL, but (r+1)^2 / 8 for direct light path tracing\r\n\r\n    float num = NdotV;\r\n    float denom = NdotV * (1.0 - k) + k;\r\n\r\n    return num / denom;\r\n}\r\n\r\nfloat GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {\r\n    float NdotV = max(dot(N, V), 0.0);\r\n    float NdotL = max(dot(N, L), 0.0);\r\n    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\r\n    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\r\n\r\n    return ggx1 * ggx2;\r\n}\r\n\r\n// 4. GGX Importance Sampling\r\n// Returns a Half-vector (H) based on roughness\r\nvec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness) {\r\n    float a = roughness * roughness;\r\n    \r\n    float phi = 2.0 * PI * Xi.x;\r\n    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));\r\n    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);\r\n    \r\n    // Spherical to Cartesian (Tangent space)\r\n    vec3 H;\r\n    H.x = cos(phi) * sinTheta;\r\n    H.y = sin(phi) * sinTheta;\r\n    H.z = cosTheta;\r\n    \r\n    // Tangent to World space\r\n    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);\r\n    vec3 tangent = normalize(cross(up, N));\r\n    vec3 bitangent = cross(N, tangent);\r\n    \r\n    vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;\r\n    return normalize(sampleVec);\r\n}\r\n\r\n// Evaluate Both Specular and Diffuse for Direct Light (NEE)\r\n// This calculates how much light reflects from the sun to the camera\r\nvec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albedo, float metallic) {\r\n    vec3 H = normalize(V + L);\r\n    float NdotV = max(dot(N, V), 0.0);\r\n    float NdotL = max(dot(N, L), 0.0);\r\n    float HdotV = max(dot(H, V), 0.0);\r\n    \r\n    if (NdotL <= 0.0 || NdotV <= 0.0) return vec3(0.0);\r\n\r\n    // 1. Specular Term (Cook-Torrance)\r\n    float D = DistributionGGX(N, H, roughness);\r\n    float G = GeometrySmith(N, V, L, roughness);\r\n    vec3 F = fresnelSchlick(HdotV, F0);\r\n    \r\n    vec3 kS = F; // Specular contribution\r\n    vec3 kD = vec3(1.0) - kS; // Remaining energy for diffuse\r\n    kD *= (1.0 - metallic);   // Metals have 0 diffuse\r\n\r\n    vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.0001);\r\n    vec3 diffuse = albedo / PI; //regular lambertian diffuse\r\n    \r\n    return kD * diffuse + specular; \r\n}\r\n\r\n//Get sky color. AI generated\r\nvec3 getSkyColor(vec3 rayDir, vec3 sunDir) {\r\n    // -------------------------------------\r\n    // Constants\r\n    // -------------------------------------\r\n    const float RE = 6360e3;          // Earth Radius (meters)\r\n    const float RA = 6420e3;          // Atmosphere Radius (meters)\r\n    const float HR = 8000.0;          // Rayleigh Scale Height\r\n    const float HM = 1200.0;          // Mie Scale Height\r\n    float G_MIE = u_haloSize;         // Mie Anisotropy\r\n    \r\n\r\n\r\n    vec3 BETA_R = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.001; \r\n    vec3 BETA_M = vec3(u_MIE * 0.001);                 \r\n\r\n    float SUN_INTENSITY = u_sunIntensity; \r\n    int STEPS_PRIMARY = u_skyGradientQuality;   \r\n    int STEPS_LIGHT = u_sunsetQuality;       \r\n\r\n    // -------------------------------------\r\n    // Setup Geometry\r\n    // -------------------------------------\r\n    Light atmosphere;\r\n    atmosphere.position = vec3(0.0);\r\n    atmosphere.radius = RA;\r\n\r\n    vec3 camPos = vec3(0.0, RE + u_cameraPos.y, 0.0); \r\n    vec3 dummyNormal; \r\n\r\n    // Calculate distance to leave the atmosphere\r\n    float distToTop = intersectLight(camPos, rayDir, atmosphere, dummyNormal);\r\n    \r\n    // If we look down and don't hit the atmosphere cap (or hit ground logic),\r\n    // we initialize with White instead of Black.\r\n    if (distToTop < 0.0) return vec3(1.0); \r\n\r\n    // -------------------------------------\r\n    // Raymarching\r\n    // -------------------------------------\r\n    float stepSize = distToTop / float(STEPS_PRIMARY);\r\n    vec3 currentPos = camPos;\r\n    \r\n    vec3 totalR = vec3(0.0); \r\n    vec3 totalM = vec3(0.0); \r\n    float optDepthR = 0.0;\r\n    float optDepthM = 0.0;\r\n    \r\n    float mu = dot(rayDir, sunDir);\r\n    float phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);\r\n    float g = G_MIE; float g2 = g * g;\r\n    float phaseM = 3.0 / (8.0 * PI) * ((1.0 - g2) * (1.0 + mu * mu)) / \r\n                   ((2.0 + g2) * pow(1.0 + g2 - 2.0 * g * mu, 1.5));\r\n\r\n    for (int i = 0; i < STEPS_PRIMARY; ++i) {\r\n        vec3 samplePos = currentPos + rayDir * (stepSize * 0.5);\r\n        float height = length(samplePos) - RE;\r\n        \r\n        if (height < 0.0) height = 0.0;\r\n\r\n        float hr = exp(-height / HR) * stepSize;\r\n        float hm = exp(-height / HM) * stepSize;\r\n        \r\n        optDepthR += hr;\r\n        optDepthM += hm;\r\n        \r\n        float distToSun = intersectLight(samplePos, sunDir, atmosphere, dummyNormal);\r\n        float stepSizeSun = distToSun / float(STEPS_LIGHT);\r\n        float sunDepthR = 0.0;\r\n        float sunDepthM = 0.0;\r\n        vec3 sunPos = samplePos;\r\n        \r\n        for (int j = 0; j < STEPS_LIGHT; ++j) {\r\n            vec3 sPos = sunPos + sunDir * (stepSizeSun * 0.5);\r\n            float h = length(sPos) - RE;\r\n            if (h < 0.0) h = 0.0;\r\n            \r\n            sunDepthR += exp(-h / HR) * stepSizeSun;\r\n            sunDepthM += exp(-h / HM) * stepSizeSun;\r\n            sunPos += sunDir * stepSizeSun;\r\n        }\r\n        \r\n        vec3 tau = BETA_R * (optDepthR + sunDepthR) + BETA_M * 1.1 * (optDepthM + sunDepthM);\r\n        vec3 attenuation = exp(-tau);\r\n        \r\n        totalR += hr * attenuation;\r\n        totalM += hm * attenuation;\r\n        \r\n        currentPos += rayDir * stepSize;\r\n    }\r\n    \r\n    // -------------------------------------\r\n    // Final Color Calculation\r\n    // -------------------------------------\r\n    vec3 skyColor = SUN_INTENSITY * (totalR * BETA_R * phaseR + totalM * BETA_M * phaseM);\r\n    \r\n    // Apply Brightness\r\n    skyColor *= u_skyBrightnessBoost;\r\n\r\n    // --- [CHANGE #2 PART B] Smooth Horizon Blend ---\r\n    // Instead of a sharp cut, we mix the calculated sky with a white color\r\n    // based on how far the ray is looking down. \r\n    // -0.1 to 0.1 creates a small foggy blur at the horizon line.\r\n    // If rayDir.y is very negative (looking down), blendingFactor becomes 0.0 (All white).\r\n    \r\n    vec3 groundColor = vec3(1.0); // White\r\n    float horizonBlend = smoothstep(-0.05, 0.05, rayDir.y);\r\n    \r\n    return mix(groundColor, skyColor, horizonBlend);\r\n}\r\nvec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){\r\n    vec3 directLight = vec3(0.0);\r\n    bool autoNormal = false;\r\n    if(length(smoothNormal) == 0.0){\r\n        autoNormal = true;\r\n    }\r\n    if(numActiveLights == 0){\r\n        return vec3(0.0);\r\n    }\r\n    \r\n    int i = int(rand(rng_state)*float(numActiveLights));\r\n    Light light = lights[i]; \r\n    rng_state = hash(rng_state);\r\n    \r\n    // choose a point on the light sphere\r\n    float r1 = (rand(rng_state)-0.5)*2.0;\r\n    float r2 = (rand(rng_state)-0.5)*2.0;\r\n    float r3 = (rand(rng_state)-0.5)*2.0;\r\n    vec3 jitter = normalize(vec3(r1,r2,r3)) * light.radius;\r\n    vec3 lightPoint = light.position + jitter;\r\n\r\n    vec3 lightDir = normalize(lightPoint - mainRay.origin);\r\n    float lightDistance = length(lightPoint - mainRay.origin);\r\n\r\n    if(autoNormal){\r\n        smoothNormal = lightDir;\r\n    }\r\n\r\n    Ray shadowRay;\r\n    shadowRay.origin = mainRay.origin;\r\n    shadowRay.dir = lightDir;\r\n\r\n    // Fast Shadow Check\r\n    bool blocked = traverseBVHShadow(shadowRay, lightDistance);\r\n\r\n    if(!blocked){\r\n        float P = 1.0/(lightDistance*lightDistance);\r\n        float NdotL = max(dot(smoothNormal, lightDir), 0.0);\r\n        directLight += BRDF * light.color * light.intensity * NdotL * P * PI * light.radius * light.radius;\r\n    }\r\n    return directLight;\r\n}\r\n\r\nvec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state, int bounce) {\r\n    vec3 sunAxis = -u_sunDirection; \r\n\r\n    vec3 lightDir = sampleCone(sunAxis, u_sunAngularRadius, rng_state);\r\n\r\n    if(length(smoothNormal) == 0.0){\r\n        smoothNormal = lightDir;\r\n    }\r\n    float NdotL = max(dot(smoothNormal, lightDir), 0.0);\r\n    if (NdotL <= 0.0) {\r\n        return vec3(0.0);\r\n    }\r\n    \r\n    Ray shadowRay;\r\n    shadowRay.origin = mainRay.origin;\r\n    shadowRay.dir = lightDir;\r\n\r\n    // Fast Shadow Check (Max distance is effectively infinite for sun)\r\n    bool blocked = traverseBVHShadow(shadowRay, 1e20);\r\n\r\n    if (!blocked) {\r\n        // Ray is not blocked, calculate light contribution\r\n        // --- Light Contribution (Radiance) ---\r\n        // float cos_alpha = cos(u_sunAngularRadius);\r\n        // float solidAngle = 2.0 * PI * (1.0 - cos_alpha);\r\n        // float PDF = 1.0 / solidAngle; \r\n        // L_i = BRDF * NdotL / PDF * Radiance\r\n        // Radiance (L_e) = Intensity / SolidAngle\r\n        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) \r\n        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)\r\n        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:\r\n        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;\r\n        return directLight;\r\n    }\r\n    \r\n    return vec3(0.0);\r\n}\r\n\r\n\r\nvec3 PathTrace(Ray OGRay, inout uint rng_state) {\r\n    Ray ourRay;\r\n    ourRay.origin = OGRay.origin;\r\n    ourRay.dir = OGRay.dir;\r\n    vec3 rayDir = OGRay.dir;\r\n\r\n    vec3 color = vec3(0.0);\r\n    vec3 throughput = vec3(1.0);\r\n\r\n    vec3 UP_VECTOR = vec3(0.0, 1.0, 0.0);\r\n    float COS_ZENITH = dot(-u_sunDirection, UP_VECTOR);\r\n    float ZENITH_ANGLE = acos(COS_ZENITH) * 57.2958; //converted to degrees\r\n    float AIR_MASS = 1.0 / (COS_ZENITH + 0.15 * pow(93.885 - ZENITH_ANGLE, -1.253));\r\n    AIR_MASS = clamp(AIR_MASS, 1.0, 50.0);\r\n    vec3 BETA_EXTINCTION = vec3(u_redScatter, u_greenScatter, u_blueScatter)*0.001; \r\n    vec3 SUN_TRANSMISSION = exp(-AIR_MASS * BETA_EXTINCTION);\r\n\r\n    int hasMirror = -1;\r\n    for (int bounce = 0; bounce < numBounces; bounce++) {\r\n        vec3 currentRayOrigin = ourRay.origin;\r\n        vec3 currentRayDir = ourRay.dir;\r\n\r\n        vec3 baryCentric;\r\n        float minHitDistance;\r\n        Triangle tri;\r\n        int triIndex = traverseBVH(ourRay, baryCentric, minHitDistance,tri);\r\n        \r\n        int hitLightIndex = -1;\r\n        for (int i = 0; i < numActiveLights; i++) {\r\n            vec3 lightHitNormal;\r\n            float lightHitDistance = intersectLight(ourRay.origin, ourRay.dir, lights[i], lightHitNormal);\r\n            if (lightHitDistance > 0.0 && lightHitDistance < minHitDistance) {\r\n                hitLightIndex = i;\r\n                minHitDistance = lightHitDistance;\r\n            }\r\n        }\r\n\r\n        if (hitLightIndex != -1) {\r\n            // Ray hit light source\r\n            if(bounce == 0 || bounce == hasMirror + 1){\r\n                // Directly visible light or after mirror/glossy\r\n                color += throughput * lights[hitLightIndex].color * lights[hitLightIndex].intensity;\r\n            }\r\n            //Note, now that we have an NEE we do not need to factor in light hit after the first bounce.\r\n            break; // Path terminates.\r\n        }\r\n        vec3 atmosphereColor = getSkyColor(ourRay.dir, -u_sunDirection);\r\n\r\n        vec3 sunDirToScene = -u_sunDirection; // Direction from scene TO the sun\r\n        float cosAngle = dot(ourRay.dir, sunDirToScene);\r\n        \r\n        // The angular radius is very small, so we use its cosine\r\n        float cosAngularRadius = cos(u_sunAngularRadius);\r\n        \r\n        // If the angle between the ray and the center of the sun is less than the angular radius, \r\n        // the ray hit the visible sun disk.\r\n        bool hitSunDisk = (cosAngle >= cosAngularRadius);\r\n\r\n        vec3 finalSky = atmosphereColor;\r\n        if (triIndex == -1) {\r\n            // Ray missed everything and flew into space (Sky).\r\n            if (hitSunDisk) {\r\n                // Ray hit the visible Sun disk\r\n                finalSky += u_sunColor * u_sunIntensity *SUN_TRANSMISSION; \r\n            }\r\n\r\n            // Apply clouds and final color\r\n            if(bounce == 0 || bounce == hasMirror + 1){\r\n                color += throughput * finalSky;\r\n            }\r\n            color += finalSky*ambientLightIntensity;\r\n            \r\n            break;\r\n        }\r\n\r\n        // The ray hit a triangle \r\n        //Get information\r\n        vec3 hitPoint = ourRay.origin + ourRay.dir * minHitDistance;\r\n\r\n        bool isGrassBlade = false;\r\n        if(tri.types[0] == -1){\r\n            isGrassBlade = true; \r\n        }\r\n        TerrainType t1;//getTerrainType(tri.types[0]);\r\n        TerrainType t2;\r\n        TerrainType t3;\r\n        if(!isGrassBlade){\r\n            t1 = Terrains[tri.types[0]];//getTerrainType(tri.types[0]);\r\n            t2 = Terrains[tri.types[1]];\r\n            t3 = Terrains[tri.types[2]];\r\n        }\r\n\r\n        vec3 smoothNormal, matColor;\r\n        float matRoughness, reflectiveness;\r\n        int type = 1;\r\n        if(t1.type != 1){\r\n            type = t1.type;\r\n        }else if(t2.type != 1){\r\n            type = t2.type;\r\n        }else if(t3.type != 1){\r\n            type = t3.type;\r\n        }else{\r\n            type = t1.type; //default to first one in triangle\r\n        }\r\n        if(!isGrassBlade){\r\n            getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);\r\n        }\r\n\r\n        vec3 geometricNormal = tri.triNormal;\r\n        bool didSwitch = false;\r\n        if (dot(geometricNormal, ourRay.dir) > 0.0) geometricNormal = -geometricNormal; //\"same direction\"\r\n        if(!isGrassBlade){\r\n            if (dot(smoothNormal, geometricNormal) < 0.0) {\r\n                smoothNormal = -smoothNormal;\r\n                didSwitch = true;\r\n            } //If pointing in opposite directions, flip\r\n        }\r\n\r\n        // Create the next bounce ray\r\n        if(isGrassBlade){\r\n            //Do something cool \r\n            //pretend microfascet for now\r\n            type = 3;\r\n            smoothNormal = tri.triNormal;\r\n            matColor =  mix(grassBaseColor,grassTipColor, tri.normals[0].x);\r\n            reflectiveness=0.04;\r\n            matRoughness=0.75;\r\n        }\r\n        if(type != 4) //Transmission goes through\r\n            ourRay.origin = hitPoint + geometricNormal * 0.1;\r\n        if(type == 1){ //Diffuse\r\n            //direct lighting\r\n            vec3 directLight = vec3(0.0);\r\n            vec3 BRDF = matColor / PI;\r\n            directLight = sampleSunLight(ourRay,BRDF, smoothNormal, rng_state, bounce) + shootShadowRay(ourRay, BRDF, smoothNormal, rng_state);\r\n            \r\n            ourRay.dir = weightedDIR(smoothNormal, rng_state);\r\n            float cos_theta = dot(ourRay.dir,smoothNormal);\r\n            float p = 0.5*PI;\r\n            throughput *= BRDF*cos_theta/p;\r\n            color += throughput * directLight;\r\n        }else if (type == 2) { // Specular (mirror)\r\n            vec3 useNormal = smoothNormal;\r\n            if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n            vec3 perfect = normalize(reflect(ourRay.dir, useNormal));\r\n            ourRay.dir = perfect;\r\n            throughput *= vec3(0.8); // decrease brightness a bit\r\n            hasMirror = bounce;\r\n        }else if (type == 3){ //Microfacet (Glossy), mixture of diffuse and specular\r\n            vec3 useNormal = smoothNormal;\r\n            vec3 backDir = -ourRay.dir;\r\n            if(dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n            float metallic = clamp(reflectiveness, 0.0, 1.0);\r\n            float roughness = clamp(matRoughness, 0.001, 1.0);\r\n            float alpha = roughness * roughness;\r\n            vec3 F0 = mix(vec3(0.04), matColor, metallic);\r\n            vec3 albedo = matColor * (1.0 - metallic);\r\n\r\n            //Direct Lighting\r\n            vec3 L_sun = -u_sunDirection;\r\n            vec3 brdf = EvalUnifiedBRDF(useNormal, backDir, L_sun, alpha, F0, albedo, metallic);\r\n            vec3 directLight = sampleSunLight(ourRay, brdf, useNormal, rng_state, bounce) + shootShadowRay(ourRay, brdf, useNormal, rng_state);\r\n            color += throughput * directLight;\r\n\r\n            //Indirect lighting\r\n            float F_view = fresnelSchlick(max(dot(useNormal, backDir), 0.0), F0).g; // use green channel as estimate\r\n            float specProb = mix(F_view, 1.0, metallic);\r\n            specProb = clamp(specProb, 0.05, 0.95); // Prevent divide by zero\r\n\r\n            float r_val = rand(rng_state);\r\n\r\n            if(r_val < specProb){ //Specular bounce\r\n                vec2 Xi = vec2(rand(rng_state), rand(rng_state));\r\n                vec3 H = ImportanceSampleGGX(Xi, useNormal, alpha);\r\n                vec3 L = normalize(reflect(-backDir, H));\r\n\r\n                float NdotL = dot(useNormal, L);\r\n                float NdotH = dot(useNormal, H);\r\n                float VdotH = dot(backDir, H);\r\n                float NdotV = dot(useNormal, backDir);\r\n\r\n                if (NdotL > 0.0 && VdotH > 0.0) {\r\n                    vec3 F = fresnelSchlick(VdotH, F0);\r\n                    float G = GeometrySmith(useNormal, backDir, L, alpha);\r\n                    \r\n                    // The Weight for GGX Importance Sampling:\r\n                    // Weight = (F * G * VdotH) / (NdotV * NdotH * specProb)\r\n                    vec3 weight = (F * G * VdotH) / (NdotV * NdotH + 0.0001);\r\n                    \r\n                    throughput *= weight / specProb;\r\n                    ourRay.dir = L;\r\n                    hasMirror = bounce;\r\n                }\r\n            }else{\r\n                //regular diffuse\r\n                vec3 L = weightedDIR(useNormal, rng_state);\r\n                vec3 kS = fresnelSchlick(max(dot(useNormal, L), 0.0), F0);\r\n                vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);\r\n                \r\n                throughput *= (kD * albedo) / (1.0 - specProb);\r\n                ourRay.dir = L;\r\n            }    \r\n        }else if (type == 4){ //Transmission (Glass)\r\n            float eta;\r\n            vec3 transmissionNormal;\r\n            if(didSwitch){ //exiting\r\n                eta = reflectiveness / 1.0;\r\n                transmissionNormal = -smoothNormal; // Refract in the opposite direction\r\n            }else{ //entering\r\n                eta = 1.0 / reflectiveness;\r\n                transmissionNormal = smoothNormal; // Refract in the same direction\r\n            }\r\n            vec3 refracted = refract(ourRay.dir, transmissionNormal, eta);\r\n            if (length(refracted) < 0.001) {\r\n                // TIR: fall back to mirror reflection\r\n                vec3 useNormal = smoothNormal;\r\n                if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n                ourRay.dir = normalize(reflect(ourRay.dir, useNormal));\r\n                ourRay.origin = hitPoint + geometricNormal * 0.01;\r\n            } else {\r\n                //Do microfacet\r\n                vec3 useNormal = smoothNormal;\r\n                if (dot(useNormal, ourRay.dir) > 0.0) useNormal = -useNormal; //\"same direction\"\r\n                ourRay.dir = sampleGlossyDirection(normalize(refracted), matRoughness, rng_state);\r\n\r\n                ourRay.origin = hitPoint - geometricNormal * 0.01;\r\n            }\r\n            hasMirror = bounce; // Transmission is not a mirror, but we still track the last bounce\r\n            vec3 absorption = -log(matColor)*0.1;  // if matColor is tint\r\n            throughput *= exp(-absorption * (minHitDistance)); //Beer Lambert law\r\n        }else if (type == 5){ // Emissive\r\n            color += throughput * matColor;\r\n            break;\r\n        }\r\n\r\n        if (bounce >= 3) { \r\n            // Calculate survival probability based on the brightness of the current throughput.\r\n            // Brighter paths have a higher chance of surviving.\r\n            float p = max(throughput.r, max(throughput.g, throughput.b));\r\n\r\n            // Clamp probability\r\n            p = clamp(p, 0.0, 0.95);\r\n\r\n            if (rand(rng_state) > p) {\r\n                break; // Terminate path\r\n            }\r\n\r\n            // If the ray survives, we must boost its intensity to compensate for the \r\n            // rays we just killed. This ensures the average brightness remains correct.\r\n            throughput *= 1.0 / p;\r\n        }\r\n        \r\n        // [Sanity Check] Stop if throughput is zero to save performance\r\n        if (length(throughput) <= 0.001) {\r\n            break;\r\n        }\r\n    }\r\n    return min(color, vec3(10.0));\r\n}\r\n\r\nvoid main() {\r\n    int pixelX = int(v_uv.x * u_resolution.x);\r\n    int pixelY = int(v_uv.y * u_resolution.y);\r\n    int patternIndex = pixelX + pixelY * 199;\r\n\r\n    // Check if we should render this frame\r\n    if(patternIndex % u_skips != u_frameNumber % u_skips){\r\n        fragColor = vec4(textureLod(u_lastFrame, v_uv, 0.0).rgb, 1.0);\r\n        return;\r\n    }\r\n    //Random Hash\r\n    uint pixel_x = uint(v_uv.x * u_resolution.x); \r\n    uint pixel_y = uint(v_uv.y * u_resolution.y);\r\n    uint seed = hash(pixel_x) + hash(pixel_y * 1999u);\r\n    uint rng_state = hash(seed + uint(u_frameNumber));\r\n    rng_state = hash(rng_state + uint(u_frameNumber));\r\n\r\n    //Load terrains\r\n    for(int i = 0; i < u_numTerrains; i++){\r\n        Terrains[i] = getTerrainType(i);\r\n    }\r\n    \r\n    // Jitter calculation for Anti-Alising\r\n    uint jitter_rng_state = hash(rng_state); // Create a new state from the main one\r\n    float jitterX = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    float jitterY = rand(jitter_rng_state) - 0.5; // Random value in [-0.5, 0.5]\r\n    vec2 pixelSize = 1.0 / u_resolution; // Get the size of one pixel in UV space [0, 1].\r\n\r\n    vec2 jitteredUV = v_uv + vec2(jitterX, jitterY) * pixelSize;\r\n    vec2 screenPos = jitteredUV * 2.0 - 1.0; // Convert jittered UV to NDC\r\n\r\n    // Define the ray in clip space. 'w' is 1.0 because it's a point.\r\n    vec4 rayClip = vec4(screenPos, -1.0, 1.0); \r\n    // Transform from clip space to world space\r\n    vec4 rayWorld = u_invViewProjMatrix * rayClip;\r\n    // Perform perspective divide\r\n    rayWorld /= rayWorld.w;\r\n    // The ray direction is the vector from the camera to this point in the world\r\n    Ray mainRay;\r\n    mainRay.origin = u_cameraPos;\r\n    mainRay.dir = normalize(rayWorld.xyz - u_cameraPos);\r\n\r\n\r\n    vec3 newSampleColor = PathTrace(mainRay, rng_state); // Sample Color\r\n    vec3 newSum;\r\n    float effectiveSampleCount = ceil(float(u_frameNumber) / float(u_skips));\r\n    \r\n    effectiveSampleCount = max(effectiveSampleCount, 1.0);\r\n    if(u_frameNumber <= u_skips){ \r\n        newSum = newSampleColor;\r\n    } else {\r\n        vec3 lastSum = textureLod(u_lastFrame, v_uv, 0.0).rgb;\r\n        newSum = lastSum + (newSampleColor - lastSum) / effectiveSampleCount;\r\n    }\r\n\r\n    fragColor = vec4(newSum,1.0); \r\n}";
 
 /***/ }),
 
@@ -9166,7 +9168,7 @@ class WorldMap {
             min: 0,
             max: 0.5,
             step: 0.001,
-            defaultValue: 0.005,
+            defaultValue: 0.005 * 2,
             numType: "float"
         });
         _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
@@ -9175,7 +9177,7 @@ class WorldMap {
             min: 0,
             max: 0.5,
             step: 0.001,
-            defaultValue: 0.011,
+            defaultValue: 0.011 * 2,
             numType: "float"
         });
         _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
@@ -9184,7 +9186,7 @@ class WorldMap {
             min: 0,
             max: 0.5,
             step: 0.001,
-            defaultValue: 0.022,
+            defaultValue: 0.022 * 2,
             numType: "float"
         });
         _Settings__WEBPACK_IMPORTED_MODULE_7__.SettingsManager.instance.addSliderToSection("Sky Settings", {
@@ -9440,11 +9442,16 @@ class WorldMap {
             }
             // Determine which chunk this triangle belongs to based on first vertex
             // The vertex position is in strip-local space, so divide by resolution to get chunk index
-            const localX = tri[0][0];
-            const localZ = tri[0][2];
-            // Calculate chunk indices within the strip (0, 1, 2, ...)
-            const chunkIdxX = Math.floor(localX / this.resolution);
-            const chunkIdxZ = Math.floor(localZ / this.resolution);
+            const PADDING_OFFSET = 1.0;
+            const EPSILON = 1e-6;
+            const centroidX = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0;
+            const centroidZ = (tri[0][2] + tri[1][2] + tri[2][2]) / 3.0;
+            // Convert padded local coords -> voxel coords in strip space
+            const voxelX = Math.floor(centroidX - PADDING_OFFSET - EPSILON);
+            const voxelZ = Math.floor(centroidZ - PADDING_OFFSET - EPSILON);
+            // Map voxel coords to chunk indices
+            const chunkIdxX = Math.floor(voxelX / this.resolution);
+            const chunkIdxZ = Math.floor(voxelZ / this.resolution);
             // Clamp to valid chunk indices
             const clampedChunkIdxX = Math.max(0, Math.min(numberOfChunksX - 1, chunkIdxX));
             const clampedChunkIdxZ = Math.max(0, Math.min(numberOfChunksZ - 1, chunkIdxZ));
@@ -9456,7 +9463,7 @@ class WorldMap {
             const mesh = chunkMeshes[key];
             if (!mesh)
                 continue;
-            // Convert to chunk-local coordinates by subtracting the chunk's offset within the strip
+            // Convert to chunk-local coordinates
             const chunkOffsetX = clampedChunkIdxX * this.resolution;
             const chunkOffsetZ = clampedChunkIdxZ * this.resolution;
             const localTri = [
@@ -9549,6 +9556,8 @@ class WorldMap {
         // Count total triangles for pre-allocation logging
         let totalTriangles = 0;
         for (const chunk of Object.values(this.chunks)) {
+            if (!chunk.getMesh())
+                continue;
             totalTriangles += chunk.getMesh().mesh.length;
         }
         for (const obj of this.worldObjects) {
@@ -9557,6 +9566,8 @@ class WorldMap {
         // Merge chunks with transformation applied
         for (const chunk of Object.values(this.chunks)) {
             const chunkMesh = chunk.getMesh();
+            if (!chunkMesh)
+                continue;
             const transformedChunkMesh = new _Mesh__WEBPACK_IMPORTED_MODULE_2__.Mesh();
             // Transform each triangle by the chunk position
             for (let i = 0; i < chunkMesh.mesh.length; i++) {
@@ -9587,6 +9598,8 @@ class WorldMap {
         if (this.worldObjects.length > 0) {
             for (let objIdx = 0; objIdx < this.worldObjects.length; objIdx++) {
                 const obj = this.worldObjects[objIdx];
+                if (!obj.mesh)
+                    continue;
                 // Create a simple hash of the transform matrix to detect changes
                 const transformHash = obj.position.join(",");
                 const needsRetransform = !obj._cachedTransformedMesh ||
@@ -10222,18 +10235,20 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   ObjectUI: () => (/* binding */ ObjectUI)
 /* harmony export */ });
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
-/* harmony import */ var _modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../modelLoader/3fmreader */ "./src/modelLoader/3fmreader.ts");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var _modelLoader_3mfreader__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../modelLoader/3mfreader */ "./src/modelLoader/3mfreader.ts");
 /* harmony import */ var _modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../modelLoader/objreader */ "./src/modelLoader/objreader.ts");
-/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+/* harmony import */ var _modelLoader_stlreader__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../modelLoader/stlreader */ "./src/modelLoader/stlreader.ts");
+/* harmony import */ var _terrains__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./terrains */ "./src/map/terrains.ts");
+
 
 
 
 
 class ObjectUI {
     constructor(map, updateTracer, camera) {
-        this.nextSpawnPosition = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0, 50, 0);
+        this.nextSpawnPosition = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(0, 50, 0);
         this.transformUpdateTimeout = null; // For debouncing transform updates
         this.tracerUpdateSupplier = updateTracer;
         this.camera = camera;
@@ -10312,8 +10327,9 @@ class ObjectUI {
             if (!file ||
                 !(file.name.endsWith(".ply") ||
                     file.name.endsWith(".3mf") ||
-                    file.name.endsWith(".obj"))) {
-                alert("Please upload a valid .ply, .3mf, or .obj file.");
+                    file.name.endsWith(".obj") ||
+                    file.name.endsWith(".stl"))) {
+                alert("Please upload a valid .ply, .3mf, .obj, or .stl file.");
                 return;
             }
             if (!nameInput.value.trim()) {
@@ -10335,17 +10351,17 @@ class ObjectUI {
                 const importMap = {};
                 document.querySelectorAll(".map-entry").forEach((entry) => {
                     const inputs = entry.querySelectorAll("input, select");
-                    const color = _terrains__WEBPACK_IMPORTED_MODULE_2__.Color.fromHex(inputs[0].value);
+                    const color = _terrains__WEBPACK_IMPORTED_MODULE_3__.Color.fromHex(inputs[0].value);
                     const type = parseInt(inputs[1].value);
-                    _terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains[Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length] = {
+                    _terrains__WEBPACK_IMPORTED_MODULE_3__.Terrains[Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_3__.Terrains).length] = {
                         color: color,
                         reflectiveness: Math.min(1, Math.max(0, parseFloat(inputs[2].value))),
                         roughness: Math.min(1, Math.max(0, parseFloat(inputs[3].value))),
                         type: type,
-                        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0, 0, 0),
+                        emissivity: gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(0, 0, 0),
                         metallicity: 0
                     };
-                    importMap[color.toString()] = Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_2__.Terrains).length - 1;
+                    importMap[color.toString()] = Object.keys(_terrains__WEBPACK_IMPORTED_MODULE_3__.Terrains).length - 1;
                 });
                 let mesh;
                 let threeMFTransform = null;
@@ -10357,7 +10373,7 @@ class ObjectUI {
                 else if (file.name.endsWith(".3mf")) {
                     const fileUrl = URL.createObjectURL(file);
                     try {
-                        const result = await (0,_modelLoader_3fmreader__WEBPACK_IMPORTED_MODULE_0__.threemfToMesh)(fileUrl, importMap, qualityValue);
+                        const result = await (0,_modelLoader_3mfreader__WEBPACK_IMPORTED_MODULE_0__.threemfToMesh)(fileUrl, importMap, qualityValue);
                         if (result == null) {
                             return;
                         }
@@ -10376,6 +10392,16 @@ class ObjectUI {
                     }
                     mesh = (0,_modelLoader_objreader__WEBPACK_IMPORTED_MODULE_1__.objSourceToMesh)(await file.text());
                 }
+                else if (file.name.endsWith(".stl")) {
+                    if (Object.keys(importMap).length != 0) {
+                        alert("STL import with color mapping is not yet supported.");
+                        document.body.removeChild(loadingMsg);
+                        return;
+                    }
+                    mesh = await (0,_modelLoader_stlreader__WEBPACK_IMPORTED_MODULE_2__.stlFileToMesh)(file, {
+                        quality: qualityValue
+                    });
+                }
                 else {
                     throw new Error("Unsupported file type.");
                 }
@@ -10386,27 +10412,27 @@ class ObjectUI {
                 // Create transform matrix for spawn position
                 // FIXED: Apply 3MF transform first, then translate to spawn position
                 // This keeps vertices in local space for proper center calculation
-                const transform = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+                const transform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
                 // Apply 3MF transform if present (this is the transform from the 3MF file)
                 // IMPORTANT: The 3MF transform should only include rotation/scale, not translation
                 // because translation is handled separately as the world position
-                if (threeMFTransform && !gl_matrix__WEBPACK_IMPORTED_MODULE_4__.equals(threeMFTransform, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create())) {
+                if (threeMFTransform && !gl_matrix__WEBPACK_IMPORTED_MODULE_5__.equals(threeMFTransform, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create())) {
                     // Extract translation from 3MF transform
-                    const threeMFTranslation = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(threeMFTransform[12], threeMFTransform[13], threeMFTransform[14]);
+                    const threeMFTranslation = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(threeMFTransform[12], threeMFTransform[13], threeMFTransform[14]);
                     // Copy 3MF transform but zero out translation (we'll handle translation separately)
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_4__.copy(transform, threeMFTransform);
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.copy(transform, threeMFTransform);
                     transform[12] = 0;
                     transform[13] = 0;
                     transform[14] = 0;
                     // Add 3MF translation to spawn position (so object appears at correct location)
-                    const adjustedSpawnPos = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_3__.add(adjustedSpawnPos, spawnPos, threeMFTranslation);
+                    const adjustedSpawnPos = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_4__.add(adjustedSpawnPos, spawnPos, threeMFTranslation);
                     // Then translate to adjusted spawn position
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_4__.translate(transform, transform, adjustedSpawnPos);
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.translate(transform, transform, adjustedSpawnPos);
                 }
                 else {
                     // No 3MF transform, just translate to spawn position
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_4__.translate(transform, transform, spawnPos);
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.translate(transform, transform, spawnPos);
                 }
                 // Add to world at spawn position
                 map.addObject(mesh, transform, nameInput.value.trim());
@@ -10527,7 +10553,7 @@ class ObjectUI {
         const x = parseFloat(document.getElementById("spawn-x")?.value || "0");
         const y = parseFloat(document.getElementById("spawn-y")?.value || "50");
         const z = parseFloat(document.getElementById("spawn-z")?.value || "0");
-        return gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(x, y, z);
+        return gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(x, y, z);
     }
     setupObjectUI(obj, world, container, UI) {
         const wrapper = document.createElement("div");
@@ -10663,30 +10689,30 @@ class ObjectUI {
             // After T_world, it should be at world position.
             // However, we need to account for the fact that the center offset gets scaled/rotated.
             // Build rotation/scale matrix first
-            const rotScaleMat = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.scale(rotScaleMat, rotScaleMat, gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(scale[0], scale[1], scale[2]));
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.rotateX(rotScaleMat, rotScaleMat, rad[0]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.rotateY(rotScaleMat, rotScaleMat, rad[1]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.rotateZ(rotScaleMat, rotScaleMat, rad[2]);
+            const rotScaleMat = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.scale(rotScaleMat, rotScaleMat, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(scale[0], scale[1], scale[2]));
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.rotateX(rotScaleMat, rotScaleMat, rad[0]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.rotateY(rotScaleMat, rotScaleMat, rad[1]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.rotateZ(rotScaleMat, rotScaleMat, rad[2]);
             // After T(-center), center is at (0,0,0)
             // After R*S, center is still at (0,0,0)
             // We want center to end up at 'translation' in world space
             // But the translation happens AFTER rotation, so it's in rotated coordinate space
             // We need to transform the translation vector by the inverse rotation to get it in local space
-            const invRotScaleMat = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.invert(invRotScaleMat, rotScaleMat);
-            const worldTransInLocalSpace = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.create();
-            gl_matrix__WEBPACK_IMPORTED_MODULE_3__.transformMat4(worldTransInLocalSpace, gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(translation[0], translation[1], translation[2]), invRotScaleMat);
+            const invRotScaleMat = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.invert(invRotScaleMat, rotScaleMat);
+            const worldTransInLocalSpace = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.transformMat4(worldTransInLocalSpace, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(translation[0], translation[1], translation[2]), invRotScaleMat);
             // Build the full transform: T(worldTransInLocalSpace) * R * S * T(-center)
-            const newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+            const newMat = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
             // 1. Translate to -center (move object center to origin in LOCAL space)
-            const negCenter = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(-meshCenter[0], -meshCenter[1], -meshCenter[2]);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.translate(newMat, newMat, negCenter);
+            const negCenter = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(-meshCenter[0], -meshCenter[1], -meshCenter[2]);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.translate(newMat, newMat, negCenter);
             // 2. Apply rotation/scale (center is now at origin, so it stays at origin)
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.multiply(newMat, rotScaleMat, newMat);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.multiply(newMat, rotScaleMat, newMat);
             // 3. Translate by world translation (in local/rotated space) to place center at world position
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.translate(newMat, newMat, worldTransInLocalSpace);
-            gl_matrix__WEBPACK_IMPORTED_MODULE_4__.copy(obj.position, newMat);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.translate(newMat, newMat, worldTransInLocalSpace);
+            gl_matrix__WEBPACK_IMPORTED_MODULE_5__.copy(obj.position, newMat);
             // Position display updates immediately (smooth UI feedback)
             updatePosDisplay();
             // Debounce the expensive BVH rebuild - only update after user stops adjusting for 300ms
@@ -11617,8 +11643,16 @@ __webpack_require__.r(__webpack_exports__);
 
 const roundToPrecision = (value, precision) => Math.round(value * precision) / precision;
 const vertexKey = (vertex) => `${roundToPrecision(vertex[0], 1e2)},${roundToPrecision(vertex[1], 1e2)},${roundToPrecision(vertex[2], 1e2)}`;
+/** Emissivity packed for shader (0–1). Non-emissive = 0; emissive terrain uses color. */
+function packEmissivity(terrain) {
+    if (terrain.type === 5) {
+        const v = terrain.color.createVec3();
+        return (v[0] + v[1] + v[2]) / 3; // simple luminance for emissive
+    }
+    return 0;
+}
 const meshToInterleavedVerticesAndIndices = (mesh) => {
-    // For each vertex: x, y, z, r, g, b
+    // Per vertex: position(3), normal(3), color(3), reflectiveness(1), metallicity(1), roughness(1), emissivity(1) = 13 floats
     const vertexMap = new Map();
     const vertices = [];
     const indices = [];
@@ -11631,13 +11665,14 @@ const meshToInterleavedVerticesAndIndices = (mesh) => {
             const normal = mesh.normals[i][j];
             const key = vertexKey(vertex);
             if (!vertexMap.has(key)) {
-                const type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
-                const color = type.color;
-                vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255);
+                const terrain = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
+                const color = terrain.color;
+                const metallicity = terrain.type === 2 ? 1 : 0; // specular mirror
+                vertices.push(vertex[0], vertex[1], vertex[2], normal[0], normal[1], normal[2], color.r / 255, color.g / 255, color.b / 255, terrain.reflectiveness, metallicity, terrain.roughness, packEmissivity(terrain));
                 vertexMap.set(key, vertexIndex);
                 vertexIndex++;
             }
-            indices.push(vertexMap.get(key)); // Store the index of the vertex
+            indices.push(vertexMap.get(key));
         }
     }
     return {
@@ -11655,13 +11690,9 @@ const meshToNonInterleavedVerticesAndIndices = (mesh) => {
     const vertexMap = new Map();
     const positions = [];
     const normals = [];
-    const colors = [];
+    const uvs = [];
+    const blockIds = [];
     const indices = [];
-    const reflectiveness = [];
-    const roughness = [];
-    const metallicity = [];
-    const emissivity = [];
-    const terrainId = [];
     let vertexIndex = 0;
     for (let i = 0; i < mesh.mesh.length; i++) {
         const triangle = mesh.mesh[i];
@@ -11671,16 +11702,10 @@ const meshToNonInterleavedVerticesAndIndices = (mesh) => {
             const normal = mesh.normals[i][j];
             const key = vertexKey(vertex);
             if (!vertexMap.has(key)) {
-                const type = _terrains__WEBPACK_IMPORTED_MODULE_0__.Terrains[types[j]];
-                const color = type.color;
                 positions.push(vertex[0], vertex[1], vertex[2]);
                 normals.push(normal[0], normal[1], normal[2]);
-                colors.push(color.r / 255, color.g / 255, color.b / 255);
-                reflectiveness.push(type.reflectiveness);
-                roughness.push(type.roughness);
-                metallicity.push(type.metallicity);
-                emissivity.push(packEmissivityToUint8(type.emissivity) / 63.0);
-                terrainId.push(types[j]);
+                uvs.push(0.0, 0.0); // Placeholder for UVs
+                blockIds.push(types[j]); // block id as float
                 vertexMap.set(key, vertexIndex++);
             }
             indices.push(vertexMap.get(key));
@@ -11689,13 +11714,9 @@ const meshToNonInterleavedVerticesAndIndices = (mesh) => {
     return {
         positions: new Float32Array(positions),
         normals: new Float32Array(normals),
-        colors: new Float32Array(colors),
+        uvs: new Float32Array(uvs),
+        blockIds: new Uint32Array(blockIds),
         indices: new Uint32Array(indices),
-        reflectiveness: new Float32Array(reflectiveness),
-        roughness: new Float32Array(roughness),
-        metallicity: new Float32Array(metallicity),
-        emissivity: new Float32Array(emissivity),
-        terrainId: new Uint8Array(terrainId),
     };
 };
 
@@ -12062,7 +12083,7 @@ const quadIndices = new Uint16Array([0, 1, 2, 2, 3, 0]);
 /***/ ((module) => {
 
 "use strict";
-module.exports = "@group(0) @binding(0)\r\nvar<storage, read_write> interleavedData: array<vec4<f32>>; // vec4: xyz + terrain_type\r\n@group(0) @binding(1)\r\nvar<storage, read_write> indexData: array<u32>;\r\n@group(0) @binding(2)\r\nvar<storage, read> fieldData: array<f32>;\r\n@group(0) @binding(3)\r\nvar<storage, read> params: Params;\r\n@group(0) @binding(4)\r\nvar<storage, read> vertexOffsets: array<u32>;\r\n\r\nstruct Params {\r\n    width: u32,\r\n    height: u32,\r\n    depth: u32,\r\n}\r\n\r\nconst VERTICES = array<vec3<f32>, 8>(\r\n    vec3<f32>(0.0, 0.0, 0.0), \r\n    vec3<f32>(1.0, 0.0, 0.0), \r\n    vec3<f32>(1.0, 1.0, 0.0), \r\n    vec3<f32>(0.0, 1.0, 0.0), \r\n    vec3<f32>(0.0, 0.0, 1.0), \r\n    vec3<f32>(1.0, 0.0, 1.0), \r\n    vec3<f32>(1.0, 1.0, 1.0), \r\n    vec3<f32>(0.0, 1.0, 1.0),\r\n);\r\nconst EDGES = array<vec2<u32>, 12>(vec2<u32>(0, 1), vec2<u32>(1, 2), vec2<u32>(2, 3), vec2<u32>(3, 0), vec2<u32>(4, 5), vec2<u32>(5, 6), vec2<u32>(6, 7), vec2<u32>(7, 4), vec2<u32>(0, 4), vec2<u32>(1, 5), vec2<u32>(2, 6), vec2<u32>(3, 7),);\r\nconst CASES = array<u32, 256 * 5>(0, 0, 0, 0, 0, 776, 0, 0, 0, 0, 2305, 0, 0, 0, 0, 792, 408, 0, 0, 0, 298, 0, 0, 0, 0, 776, 673, 0, 0, 0, 41, 681, 0, 0, 0, 643, 2690, 2442, 0, 0, 2851, 0, 0, 0, 0, 2080, 2226, 0, 0, 0, 2305, 946, 0, 0, 0, 402, 667, 2968, 0, 0, 2979, 2579, 0, 0, 0, 161, 2208, 2984, 0, 0, 944, 185, 2490, 0, 0, 2968, 2715, 0, 0, 0, 2119, 0, 0, 0, 0, 115, 71, 0, 0, 0, 2119, 25, 0, 0, 0, 1049, 1812, 791, 0, 0, 2119, 2578, 0, 0, 0, 1844, 772, 2578, 0, 0, 2562, 2704, 2119, 0, 0, 1193, 932, 675, 1844, 0, 1924, 2851, 0, 0, 0, 2887, 587, 66, 0, 0, 2305, 946, 1144, 0, 0, 434, 2481, 1977, 1145, 0, 442, 315, 1924, 0, 0, 1796, 2567, 2576, 2983, 0, 2119, 944, 185, 2490, 0, 1972, 1209, 2490, 0, 0, 1353, 0, 0, 0, 0, 1353, 2096, 0, 0, 0, 336, 1344, 0, 0, 0, 2100, 1077, 1329, 0, 0, 1173, 298, 0, 0, 0, 776, 673, 2388, 0, 0, 1354, 2626, 576, 0, 0, 675, 936, 2213, 2132, 0, 1353, 571, 0, 0, 0, 523, 139, 1353, 0, 0, 1045, 1025, 571, 0, 0, 1045, 2836, 2849, 2228, 0, 2979, 2579, 1173, 0, 0, 1353, 161, 2208, 2984, 0, 1029, 1291, 59, 1466, 0, 1189, 2212, 2984, 0, 0, 1401, 1929, 0, 0, 0, 2384, 83, 855, 0, 0, 120, 368, 1393, 0, 0, 855, 339, 0, 0, 0, 2135, 2197, 2578, 0, 0, 298, 2384, 83, 855, 0, 40, 2085, 1322, 2135, 0, 2610, 1338, 1845, 0, 0, 1401, 1929, 571, 0, 0, 2336, 1833, 2855, 1401, 0, 2851, 120, 368, 1393, 0, 539, 2839, 1813, 0, 0, 2835, 2587, 2424, 1401, 0, 123, 87, 149, 186, 161, 2640, 1392, 1920, 2976, 944, 1466, 1403, 0, 0, 0, 2661, 0, 0, 0, 0, 776, 1626, 0, 0, 0, 400, 2661, 0, 0, 0, 792, 408, 1626, 0, 0, 609, 1617, 0, 0, 0, 1318, 1298, 776, 0, 0, 2405, 105, 608, 0, 0, 2437, 1410, 643, 1318, 0, 2851, 1626, 0, 0, 0, 2080, 2226, 2661, 0, 0, 2851, 400, 1626, 0, 0, 2661, 402, 667, 2968, 0, 1595, 1334, 309, 0, 0, 1675, 390, 129, 1302, 0, 2309, 1286, 1539, 1595, 0, 1430, 1691, 2968, 0, 0, 2119, 1446, 0, 0, 0, 115, 71, 1626, 0, 0, 2119, 1446, 25, 0, 0, 2661, 1049, 1812, 791, 0, 609, 1617, 2119, 0, 0, 1302, 1554, 1136, 115, 0, 1924, 2405, 105, 608, 0, 2354, 2419, 2375, 2342, 2405, 946, 2119, 1626, 0, 0, 1446, 2887, 587, 66, 0, 2305, 1144, 2851, 2661, 0, 2337, 2857, 1209, 1972, 2661, 2119, 1595, 1334, 309, 0, 267, 75, 1147, 1307, 1627, 1430, 1680, 1547, 2819, 1924, 2405, 2921, 1977, 1145, 0, 2468, 2660, 0, 0, 0, 1610, 1178, 776, 0, 0, 2561, 1546, 1030, 0, 0, 792, 2070, 422, 2148, 0, 297, 2340, 1062, 0, 0, 131, 297, 2340, 1062, 0, 576, 1602, 0, 0, 0, 808, 2084, 1062, 0, 0, 2468, 2660, 946, 0, 0, 651, 130, 1190, 2468, 0, 946, 2561, 1546, 1030, 0, 328, 356, 422, 395, 434, 2835, 1051, 1169, 1611, 0, 438, 395, 264, 356, 329, 2819, 1547, 1030, 0, 0, 2228, 2916, 0, 0, 0, 1926, 1674, 2697, 0, 0, 115, 2672, 2663, 2464, 0, 2657, 352, 103, 120, 0, 1562, 1814, 791, 0, 0, 393, 1665, 1926, 609, 0, 1657, 1849, 777, 617, 297, 2151, 104, 608, 0, 0, 611, 1651, 0, 0, 0, 2851, 1926, 1674, 2697, 0, 151, 2471, 2663, 519, 2855, 416, 166, 104, 2151, 946, 2657, 359, 379, 434, 0, 1681, 1673, 1656, 1555, 1595, 265, 1659, 0, 0, 0, 944, 182, 103, 120, 0, 2919, 0, 0, 0, 0, 1899, 0, 0, 0, 0, 131, 1899, 0, 0, 0, 2305, 2934, 0, 0, 0, 2353, 2435, 2934, 0, 0, 298, 2934, 0, 0, 0, 298, 131, 2934, 0, 0, 41, 681, 1899, 0, 0, 1899, 643, 2690, 2442, 0, 866, 886, 0, 0, 0, 1896, 2144, 98, 0, 0, 1575, 567, 2305, 0, 0, 1944, 663, 402, 1575, 0, 2582, 1559, 1811, 0, 0, 1800, 1543, 262, 2582, 0, 1591, 2358, 2307, 2710, 0, 1671, 2694, 2442, 0, 0, 1208, 1131, 0, 0, 0, 779, 2822, 1540, 0, 0, 2886, 2948, 2305, 0, 0, 2353, 1593, 1715, 1129, 0, 1208, 1131, 673, 0, 0, 673, 779, 2822, 1540, 0, 2706, 656, 1716, 1208, 0, 2371, 1123, 1715, 2707, 675, 2083, 1064, 1572, 0, 0, 66, 582, 0, 0, 0, 400, 2083, 1064, 1572, 0, 2337, 1065, 1572, 0, 0, 314, 2612, 900, 2630, 0, 266, 2566, 1540, 0, 0, 1699, 2707, 2307, 1123, 2115, 1193, 1130, 0, 0, 0, 1353, 1719, 0, 0, 0, 1353, 1719, 2096, 0, 0, 336, 1344, 2934, 0, 0, 1899, 2100, 1077, 1329, 0, 673, 1353, 2934, 0, 0, 776, 2388, 298, 1899, 0, 1719, 1354, 2626, 576, 0, 808, 2090, 2212, 1189, 1899, 866, 886, 1353, 0, 0, 1173, 1896, 2144, 98, 0, 1591, 566, 84, 336, 0, 536, 344, 1352, 1576, 1896, 1353, 2582, 1559, 1811, 0, 1671, 134, 2566, 266, 1173, 2563, 2624, 2644, 2615, 2678, 1896, 2154, 2213, 2132, 0, 1685, 2966, 2203, 0, 0, 875, 99, 1376, 2384, 0, 184, 1456, 1717, 336, 0, 2870, 1589, 1329, 0, 0, 298, 1685, 2966, 2203, 0, 179, 1712, 2400, 1385, 673, 1408, 1464, 1387, 1282, 1322, 875, 1379, 2643, 675, 0, 2195, 918, 1685, 866, 0, 1385, 2400, 98, 0, 0, 2134, 2069, 2049, 2146, 2083, 354, 342, 0, 0, 0, 902, 2198, 2390, 310, 2582, 161, 1696, 1376, 2384, 0, 2051, 2646, 0, 0, 0, 1386, 0, 0, 0, 0, 2741, 2933, 0, 0, 0, 2741, 2933, 131, 0, 0, 1963, 1882, 400, 0, 0, 2677, 2938, 2073, 792, 0, 2834, 1819, 1303, 0, 0, 131, 2834, 1819, 1303, 0, 2818, 1291, 2309, 1883, 0, 1426, 2434, 2098, 1874, 2930, 570, 2613, 1335, 0, 0, 522, 2567, 1800, 2677, 0, 400, 570, 2613, 1335, 0, 647, 664, 537, 629, 602, 1811, 1303, 0, 0, 0, 2160, 113, 373, 0, 0, 89, 848, 1875, 0, 0, 2421, 2439, 0, 0, 0, 1444, 1192, 2219, 0, 0, 67, 842, 1114, 939, 0, 2305, 1444, 1192, 2219, 0, 2868, 788, 404, 2740, 1444, 593, 2130, 2117, 2946, 0, 2885, 2820, 2864, 2897, 2834, 693, 2949, 2117, 37, 2309, 2373, 2866, 0, 0, 0, 2115, 834, 581, 602, 0, 2629, 586, 66, 0, 0, 898, 644, 586, 2629, 400, 1444, 1186, 1057, 1049, 0, 1080, 1332, 309, 0, 0, 81, 69, 0, 0, 0, 2309, 1283, 1336, 1412, 0, 2373, 0, 0, 0, 0, 1207, 2484, 2745, 0, 0, 776, 1207, 2484, 2745, 0, 320, 2881, 2932, 2737, 0, 1050, 1073, 1155, 1195, 1207, 329, 577, 1858, 2930, 0, 657, 1170, 2882, 1867, 131, 1867, 2882, 576, 0, 0, 1207, 692, 804, 2100, 0, 666, 1938, 1175, 882, 0, 1954, 1946, 1865, 1824, 1800, 1866, 1034, 26, 890, 570, 1864, 538, 0, 0, 0, 2324, 1047, 1811, 0, 0, 1800, 263, 2327, 1175, 0, 880, 1856, 0, 0, 0, 1864, 0, 0, 0, 0, 2697, 2954, 0, 0, 0, 179, 2480, 2745, 0, 0, 416, 168, 2219, 0, 0, 939, 794, 0, 0, 0, 657, 2962, 2203, 0, 0, 297, 2347, 2483, 2352, 0, 40, 696, 0, 0, 0, 811, 0, 0, 0, 0, 898, 650, 2697, 0, 0, 2336, 2466, 0, 0, 0, 2083, 2600, 424, 24, 0, 2593, 0, 0, 0, 0, 2067, 2193, 0, 0, 0, 265, 0, 0, 0, 0, 2051, 0, 0, 0, 0, 0, 0, 0, 0, 0);\r\nfn decode_triangle(packed: u32) -> vec3<u32> {\r\n    let edge0 = (packed >> 0u) & 0xFu;\r\n    let edge1 = (packed >> 4u) & 0xFu;\r\n    let edge2 = (packed >> 8u) & 0xFu;\r\n    return vec3<u32>(edge0, edge1, edge2);\r\n}\r\n\r\nfn get_case_triangle(case_idx: u32, tri_idx: u32) -> u32 {\r\n    let offset = case_idx * 5u + tri_idx;\r\n    return CASES[offset];\r\n}\r\n\r\nfn get_field_value(wx: u32, wy: u32, wz: u32) -> f32 {\r\n    let idx = wx + wy * params.width + wz * params.width * params.height;\r\n    return fieldData[idx];\r\n}\r\nfn get_field_value_interpolated(pos: vec3<f32>) -> f32 {\r\n    let x0 = u32(floor(pos.x));\r\n    let y0 = u32(floor(pos.y));\r\n    let z0 = u32(floor(pos.z));\r\n    let x1 = min(x0 + 1u, params.width - 1u);\r\n    let y1 = min(y0 + 1u, params.height - 1u);\r\n    let z1 = min(z0 + 1u, params.depth - 1u);\r\n    \r\n    let fx = fract(pos.x);\r\n    let fy = fract(pos.y);\r\n    let fz = fract(pos.z);\r\n    \r\n    // Sample 8 corners of the cube\r\n    let v000 = get_field_value(x0, y0, z0);\r\n    let v100 = get_field_value(x1, y0, z0);\r\n    let v010 = get_field_value(x0, y1, z0);\r\n    let v110 = get_field_value(x1, y1, z0);\r\n    let v001 = get_field_value(x0, y0, z1);\r\n    let v101 = get_field_value(x1, y0, z1);\r\n    let v011 = get_field_value(x0, y1, z1);\r\n    let v111 = get_field_value(x1, y1, z1);\r\n    \r\n    // Trilinear interpolation\r\n    let v00 = mix(v000, v100, fx);\r\n    let v01 = mix(v001, v101, fx);\r\n    let v10 = mix(v010, v110, fx);\r\n    let v11 = mix(v011, v111, fx);\r\n    \r\n    let v0 = mix(v00, v10, fy);\r\n    let v1 = mix(v01, v11, fy);\r\n    \r\n    return mix(v0, v1, fz);\r\n}\r\n\r\n// --- Compute normal by central differences ---\r\nfn get_normal(pos: vec3<f32>) -> vec3<f32> {\r\n    let d = 1.0;\r\n    let px = clamp(pos.x, 1.0, f32(params.width - 2u));\r\n    let py = clamp(pos.y, 1.0, f32(params.height - 2u));\r\n    let pz = clamp(pos.z, 1.0, f32(params.depth - 2u));\r\n    let fxp = get_field_value_interpolated(vec3<f32>(px + d, py, pz));\r\n    let fxm = get_field_value_interpolated(vec3<f32>(px - d, py, pz));\r\n    let fyp = get_field_value_interpolated(vec3<f32>(px, py + d, pz));\r\n    let fym = get_field_value_interpolated(vec3<f32>(px, py - d, pz));\r\n    let fzp = get_field_value_interpolated(vec3<f32>(px, py, pz + d));\r\n    let fzm = get_field_value_interpolated(vec3<f32>(px, py, pz - d));\r\n    let n = vec3<f32>(fxp - fxm, fyp - fym, fzp - fzm);\r\n    return normalize(- n);\r\n}\r\n\r\n// --- Terrain type heuristic: 0=grass, 2=rock, 3=snow, 4=water, 5=sand ---\r\nfn get_terrain_type(pos: vec3<f32>, normal: vec3<f32>) -> u32 {\r\n    let WATER_LEVEL = 30.0;\r\n    let SNOW_LINE = 140.0;\r\n    let y = pos.y;\r\n    let upDot = clamp(normal.y, - 1.0, 1.0);\r\n    let slope = 1.0 - abs(upDot);\r\n\r\n    if (y < WATER_LEVEL + 0.5 && slope < 0.01) {\r\n        return 4u;\r\n        // water\r\n    }\r\n    if (y < WATER_LEVEL + 3.0 && slope < 0.45) {\r\n        return 5u;\r\n        // sand\r\n    }\r\n    if (y > SNOW_LINE) {\r\n        return 3u;\r\n        // snow\r\n    }\r\n    if (slope > 0.8 || upDot < 0.4) {\r\n        return 2u;\r\n        // rock\r\n    }\r\n    return 0u;\r\n    // grass\r\n}\r\n\r\nfn interpolate_edge(cube_pos: vec3<f32>, edge_idx: u32, values: array<f32, 8>) -> vec3<f32> {\r\n    let edge = EDGES[edge_idx];\r\n    let v0 = VERTICES[edge.x];\r\n    let v1 = VERTICES[edge.y];\r\n    let val0 = values[edge.x];\r\n    let val1 = values[edge.y];\r\n    let t = (0.5 - val0) / (val1 - val0);\r\n    let t_clamped = clamp(t, 0.0, 1.0);\r\n    let p0 = cube_pos + v0;\r\n    let p1 = cube_pos + v1;\r\n    return mix(p0, p1, t_clamped);\r\n}\r\n\r\n@compute @workgroup_size(4, 4, 4)\r\nfn main(@builtin(global_invocation_id) global_id: vec3<u32>) {\r\n    let x = global_id.x;\r\n    let y = global_id.y;\r\n    let z = global_id.z;\r\n    if (x >= params.width - 1u || y >= params.height - 1u || z >= params.depth - 1u) {\r\n        return;\r\n    }\r\n\r\n    let cube_pos = vec3<f32>(f32(x), f32(y), f32(z));\r\n    var cube_values: array<f32, 8>;\r\n    var cube_mask: u32 = 0u;\r\n    for (var i: u32 = 0u; i < 8u; i = i + 1u) {\r\n        let v = VERTICES[i];\r\n        let val = get_field_value(x + u32(v.x), y + u32(v.y), z + u32(v.z));\r\n        cube_values[i] = val;\r\n        if (val < 0.5) {\r\n            cube_mask = cube_mask | (1u << i);\r\n        }\r\n    }\r\n\r\n    let voxel_idx = x + y * (params.width - 1u) + z * (params.width - 1u) * (params.height - 1u);\r\n    let base_vertex = vertexOffsets[voxel_idx];\r\n\r\n    var written: u32 = 0u;\r\n    for (var tri_idx: u32 = 0u; tri_idx < 5u; tri_idx = tri_idx + 1u) {\r\n        let packed_tri = get_case_triangle(cube_mask, tri_idx);\r\n        if (packed_tri == 0u) {\r\n            break;\r\n        }\r\n\r\n        let edges = decode_triangle(packed_tri);\r\n        let v0 = interpolate_edge(cube_pos, edges.x, cube_values);\r\n        let v1 = interpolate_edge(cube_pos, edges.y, cube_values);\r\n        let v2 = interpolate_edge(cube_pos, edges.z, cube_values);\r\n\r\n        let n0 = get_normal(v0);\r\n        let n1 = get_normal(v1);\r\n        let n2 = get_normal(v2);\r\n\r\n        let t0 = get_terrain_type(v0, n0);\r\n        let t1 = get_terrain_type(v1, n1);\r\n        let t2 = get_terrain_type(v2, n2);\r\n\r\n        let vtx_idx = base_vertex + written;\r\n        \r\n        // Interleaved layout: position.xyz, normal.xyz, terrain_type, padding\r\n        // Index 0: position\r\n        interleavedData[vtx_idx * 2u] = vec4<f32>(v0, bitcast<f32>(t0));\r\n        interleavedData[vtx_idx * 2u + 1u] = vec4<f32>(n0, 0.0);\r\n        \r\n        interleavedData[(vtx_idx + 1u) * 2u] = vec4<f32>(v2, bitcast<f32>(t2));\r\n        interleavedData[(vtx_idx + 1u) * 2u + 1u] = vec4<f32>(n2, 0.0);\r\n        \r\n        interleavedData[(vtx_idx + 2u) * 2u] = vec4<f32>(v1, bitcast<f32>(t1));\r\n        interleavedData[(vtx_idx + 2u) * 2u + 1u] = vec4<f32>(n1, 0.0);\r\n\r\n        indexData[vtx_idx] = vtx_idx;\r\n        indexData[vtx_idx + 1u] = vtx_idx + 1u;\r\n        indexData[vtx_idx + 2u] = vtx_idx + 2u;\r\n\r\n        written = written + 3u;\r\n    }\r\n}";
+module.exports = "@group(0) @binding(0)\r\nvar<storage, read_write> interleavedData: array<vec4<f32>>; // vec4: xyz + terrain_type\r\n@group(0) @binding(1)\r\nvar<storage, read_write> indexData: array<u32>;\r\n@group(0) @binding(2)\r\nvar<storage, read> fieldData: array<f32>;\r\n@group(0) @binding(3)\r\nvar<storage, read> params: Params;\r\n@group(0) @binding(4)\r\nvar<storage, read> vertexOffsets: array<u32>;\r\n\r\nstruct Params {\r\n    width: u32,\r\n    height: u32,\r\n    depth: u32,\r\n}\r\n\r\nconst VERTICES = array<vec3<f32>, 8>(\r\n    vec3<f32>(0.0, 0.0, 0.0), \r\n    vec3<f32>(1.0, 0.0, 0.0), \r\n    vec3<f32>(1.0, 1.0, 0.0), \r\n    vec3<f32>(0.0, 1.0, 0.0), \r\n    vec3<f32>(0.0, 0.0, 1.0), \r\n    vec3<f32>(1.0, 0.0, 1.0), \r\n    vec3<f32>(1.0, 1.0, 1.0), \r\n    vec3<f32>(0.0, 1.0, 1.0),\r\n);\r\nconst EDGES = array<vec2<u32>, 12>(vec2<u32>(0, 1), vec2<u32>(1, 2), vec2<u32>(2, 3), vec2<u32>(3, 0), vec2<u32>(4, 5), vec2<u32>(5, 6), vec2<u32>(6, 7), vec2<u32>(7, 4), vec2<u32>(0, 4), vec2<u32>(1, 5), vec2<u32>(2, 6), vec2<u32>(3, 7),);\r\nconst CASES = array<u32, 256 * 5>(0, 0, 0, 0, 0, 776, 0, 0, 0, 0, 2305, 0, 0, 0, 0, 792, 408, 0, 0, 0, 298, 0, 0, 0, 0, 776, 673, 0, 0, 0, 41, 681, 0, 0, 0, 643, 2690, 2442, 0, 0, 2851, 0, 0, 0, 0, 2080, 2226, 0, 0, 0, 2305, 946, 0, 0, 0, 402, 667, 2968, 0, 0, 2979, 2579, 0, 0, 0, 161, 2208, 2984, 0, 0, 944, 185, 2490, 0, 0, 2968, 2715, 0, 0, 0, 2119, 0, 0, 0, 0, 115, 71, 0, 0, 0, 2119, 25, 0, 0, 0, 1049, 1812, 791, 0, 0, 2119, 2578, 0, 0, 0, 1844, 772, 2578, 0, 0, 2562, 2704, 2119, 0, 0, 1193, 932, 675, 1844, 0, 1924, 2851, 0, 0, 0, 2887, 587, 66, 0, 0, 2305, 946, 1144, 0, 0, 434, 2481, 1977, 1145, 0, 442, 315, 1924, 0, 0, 1796, 2567, 2576, 2983, 0, 2119, 944, 185, 2490, 0, 1972, 1209, 2490, 0, 0, 1353, 0, 0, 0, 0, 1353, 2096, 0, 0, 0, 336, 1344, 0, 0, 0, 2100, 1077, 1329, 0, 0, 1173, 298, 0, 0, 0, 776, 673, 2388, 0, 0, 1354, 2626, 576, 0, 0, 675, 936, 2213, 2132, 0, 1353, 571, 0, 0, 0, 523, 139, 1353, 0, 0, 1045, 1025, 571, 0, 0, 1045, 2836, 2849, 2228, 0, 2979, 2579, 1173, 0, 0, 1353, 161, 2208, 2984, 0, 1029, 1291, 59, 1466, 0, 1189, 2212, 2984, 0, 0, 1401, 1929, 0, 0, 0, 2384, 83, 855, 0, 0, 120, 368, 1393, 0, 0, 855, 339, 0, 0, 0, 2135, 2197, 2578, 0, 0, 298, 2384, 83, 855, 0, 40, 2085, 1322, 2135, 0, 2610, 1338, 1845, 0, 0, 1401, 1929, 571, 0, 0, 2336, 1833, 2855, 1401, 0, 2851, 120, 368, 1393, 0, 539, 2839, 1813, 0, 0, 2835, 2587, 2424, 1401, 0, 123, 87, 149, 186, 161, 2640, 1392, 1920, 2976, 944, 1466, 1403, 0, 0, 0, 2661, 0, 0, 0, 0, 776, 1626, 0, 0, 0, 400, 2661, 0, 0, 0, 792, 408, 1626, 0, 0, 609, 1617, 0, 0, 0, 1318, 1298, 776, 0, 0, 2405, 105, 608, 0, 0, 2437, 1410, 643, 1318, 0, 2851, 1626, 0, 0, 0, 2080, 2226, 2661, 0, 0, 2851, 400, 1626, 0, 0, 2661, 402, 667, 2968, 0, 1595, 1334, 309, 0, 0, 1675, 390, 129, 1302, 0, 2309, 1286, 1539, 1595, 0, 1430, 1691, 2968, 0, 0, 2119, 1446, 0, 0, 0, 115, 71, 1626, 0, 0, 2119, 1446, 25, 0, 0, 2661, 1049, 1812, 791, 0, 609, 1617, 2119, 0, 0, 1302, 1554, 1136, 115, 0, 1924, 2405, 105, 608, 0, 2354, 2419, 2375, 2342, 2405, 946, 2119, 1626, 0, 0, 1446, 2887, 587, 66, 0, 2305, 1144, 2851, 2661, 0, 2337, 2857, 1209, 1972, 2661, 2119, 1595, 1334, 309, 0, 267, 75, 1147, 1307, 1627, 1430, 1680, 1547, 2819, 1924, 2405, 2921, 1977, 1145, 0, 2468, 2660, 0, 0, 0, 1610, 1178, 776, 0, 0, 2561, 1546, 1030, 0, 0, 792, 2070, 422, 2148, 0, 297, 2340, 1062, 0, 0, 131, 297, 2340, 1062, 0, 576, 1602, 0, 0, 0, 808, 2084, 1062, 0, 0, 2468, 2660, 946, 0, 0, 651, 130, 1190, 2468, 0, 946, 2561, 1546, 1030, 0, 328, 356, 422, 395, 434, 2835, 1051, 1169, 1611, 0, 438, 395, 264, 356, 329, 2819, 1547, 1030, 0, 0, 2228, 2916, 0, 0, 0, 1926, 1674, 2697, 0, 0, 115, 2672, 2663, 2464, 0, 2657, 352, 103, 120, 0, 1562, 1814, 791, 0, 0, 393, 1665, 1926, 609, 0, 1657, 1849, 777, 617, 297, 2151, 104, 608, 0, 0, 611, 1651, 0, 0, 0, 2851, 1926, 1674, 2697, 0, 151, 2471, 2663, 519, 2855, 416, 166, 104, 2151, 946, 2657, 359, 379, 434, 0, 1681, 1673, 1656, 1555, 1595, 265, 1659, 0, 0, 0, 944, 182, 103, 120, 0, 2919, 0, 0, 0, 0, 1899, 0, 0, 0, 0, 131, 1899, 0, 0, 0, 2305, 2934, 0, 0, 0, 2353, 2435, 2934, 0, 0, 298, 2934, 0, 0, 0, 298, 131, 2934, 0, 0, 41, 681, 1899, 0, 0, 1899, 643, 2690, 2442, 0, 866, 886, 0, 0, 0, 1896, 2144, 98, 0, 0, 1575, 567, 2305, 0, 0, 1944, 663, 402, 1575, 0, 2582, 1559, 1811, 0, 0, 1800, 1543, 262, 2582, 0, 1591, 2358, 2307, 2710, 0, 1671, 2694, 2442, 0, 0, 1208, 1131, 0, 0, 0, 779, 2822, 1540, 0, 0, 2886, 2948, 2305, 0, 0, 2353, 1593, 1715, 1129, 0, 1208, 1131, 673, 0, 0, 673, 779, 2822, 1540, 0, 2706, 656, 1716, 1208, 0, 2371, 1123, 1715, 2707, 675, 2083, 1064, 1572, 0, 0, 66, 582, 0, 0, 0, 400, 2083, 1064, 1572, 0, 2337, 1065, 1572, 0, 0, 314, 2612, 900, 2630, 0, 266, 2566, 1540, 0, 0, 1699, 2707, 2307, 1123, 2115, 1193, 1130, 0, 0, 0, 1353, 1719, 0, 0, 0, 1353, 1719, 2096, 0, 0, 336, 1344, 2934, 0, 0, 1899, 2100, 1077, 1329, 0, 673, 1353, 2934, 0, 0, 776, 2388, 298, 1899, 0, 1719, 1354, 2626, 576, 0, 808, 2090, 2212, 1189, 1899, 866, 886, 1353, 0, 0, 1173, 1896, 2144, 98, 0, 1591, 566, 84, 336, 0, 536, 344, 1352, 1576, 1896, 1353, 2582, 1559, 1811, 0, 1671, 134, 2566, 266, 1173, 2563, 2624, 2644, 2615, 2678, 1896, 2154, 2213, 2132, 0, 1685, 2966, 2203, 0, 0, 875, 99, 1376, 2384, 0, 184, 1456, 1717, 336, 0, 2870, 1589, 1329, 0, 0, 298, 1685, 2966, 2203, 0, 179, 1712, 2400, 1385, 673, 1408, 1464, 1387, 1282, 1322, 875, 1379, 2643, 675, 0, 2195, 918, 1685, 866, 0, 1385, 2400, 98, 0, 0, 2134, 2069, 2049, 2146, 2083, 354, 342, 0, 0, 0, 902, 2198, 2390, 310, 2582, 161, 1696, 1376, 2384, 0, 2051, 2646, 0, 0, 0, 1386, 0, 0, 0, 0, 2741, 2933, 0, 0, 0, 2741, 2933, 131, 0, 0, 1963, 1882, 400, 0, 0, 2677, 2938, 2073, 792, 0, 2834, 1819, 1303, 0, 0, 131, 2834, 1819, 1303, 0, 2818, 1291, 2309, 1883, 0, 1426, 2434, 2098, 1874, 2930, 570, 2613, 1335, 0, 0, 522, 2567, 1800, 2677, 0, 400, 570, 2613, 1335, 0, 647, 664, 537, 629, 602, 1811, 1303, 0, 0, 0, 2160, 113, 373, 0, 0, 89, 848, 1875, 0, 0, 2421, 2439, 0, 0, 0, 1444, 1192, 2219, 0, 0, 67, 842, 1114, 939, 0, 2305, 1444, 1192, 2219, 0, 2868, 788, 404, 2740, 1444, 593, 2130, 2117, 2946, 0, 2885, 2820, 2864, 2897, 2834, 693, 2949, 2117, 37, 2309, 2373, 2866, 0, 0, 0, 2115, 834, 581, 602, 0, 2629, 586, 66, 0, 0, 898, 644, 586, 2629, 400, 1444, 1186, 1057, 1049, 0, 1080, 1332, 309, 0, 0, 81, 69, 0, 0, 0, 2309, 1283, 1336, 1412, 0, 2373, 0, 0, 0, 0, 1207, 2484, 2745, 0, 0, 776, 1207, 2484, 2745, 0, 320, 2881, 2932, 2737, 0, 1050, 1073, 1155, 1195, 1207, 329, 577, 1858, 2930, 0, 657, 1170, 2882, 1867, 131, 1867, 2882, 576, 0, 0, 1207, 692, 804, 2100, 0, 666, 1938, 1175, 882, 0, 1954, 1946, 1865, 1824, 1800, 1866, 1034, 26, 890, 570, 1864, 538, 0, 0, 0, 2324, 1047, 1811, 0, 0, 1800, 263, 2327, 1175, 0, 880, 1856, 0, 0, 0, 1864, 0, 0, 0, 0, 2697, 2954, 0, 0, 0, 179, 2480, 2745, 0, 0, 416, 168, 2219, 0, 0, 939, 794, 0, 0, 0, 657, 2962, 2203, 0, 0, 297, 2347, 2483, 2352, 0, 40, 696, 0, 0, 0, 811, 0, 0, 0, 0, 898, 650, 2697, 0, 0, 2336, 2466, 0, 0, 0, 2083, 2600, 424, 24, 0, 2593, 0, 0, 0, 0, 2067, 2193, 0, 0, 0, 265, 0, 0, 0, 0, 2051, 0, 0, 0, 0, 0, 0, 0, 0, 0);\r\nfn decode_triangle(packed: u32) -> vec3<u32> {\r\n    let edge0 = (packed >> 0u) & 0xFu;\r\n    let edge1 = (packed >> 4u) & 0xFu;\r\n    let edge2 = (packed >> 8u) & 0xFu;\r\n    return vec3<u32>(edge0, edge1, edge2);\r\n}\r\n\r\nfn get_case_triangle(case_idx: u32, tri_idx: u32) -> u32 {\r\n    let offset = case_idx * 5u + tri_idx;\r\n    return CASES[offset];\r\n}\r\n\r\nfn get_field_value(wx: u32, wy: u32, wz: u32) -> f32 {\r\n    let idx = wx + wy * params.width + wz * params.width * params.height;\r\n    return fieldData[idx];\r\n}\r\nfn get_field_value_interpolated(pos: vec3<f32>) -> f32 {\r\n    let x0 = u32(floor(pos.x));\r\n    let y0 = u32(floor(pos.y));\r\n    let z0 = u32(floor(pos.z));\r\n    let x1 = min(x0 + 1u, params.width - 1u);\r\n    let y1 = min(y0 + 1u, params.height - 1u);\r\n    let z1 = min(z0 + 1u, params.depth - 1u);\r\n    \r\n    let fx = fract(pos.x);\r\n    let fy = fract(pos.y);\r\n    let fz = fract(pos.z);\r\n    \r\n    // Sample 8 corners of the cube\r\n    let v000 = get_field_value(x0, y0, z0);\r\n    let v100 = get_field_value(x1, y0, z0);\r\n    let v010 = get_field_value(x0, y1, z0);\r\n    let v110 = get_field_value(x1, y1, z0);\r\n    let v001 = get_field_value(x0, y0, z1);\r\n    let v101 = get_field_value(x1, y0, z1);\r\n    let v011 = get_field_value(x0, y1, z1);\r\n    let v111 = get_field_value(x1, y1, z1);\r\n    \r\n    // Trilinear interpolation\r\n    let v00 = mix(v000, v100, fx);\r\n    let v01 = mix(v001, v101, fx);\r\n    let v10 = mix(v010, v110, fx);\r\n    let v11 = mix(v011, v111, fx);\r\n    \r\n    let v0 = mix(v00, v10, fy);\r\n    let v1 = mix(v01, v11, fy);\r\n    \r\n    return mix(v0, v1, fz);\r\n}\r\n\r\n// --- Compute normal by central differences ---\r\nfn get_normal(pos: vec3<f32>) -> vec3<f32> {\r\n    let d = 1.0;\r\n    let px = clamp(pos.x, 1.0, f32(params.width - 2u));\r\n    let py = clamp(pos.y, 1.0, f32(params.height - 2u));\r\n    let pz = clamp(pos.z, 1.0, f32(params.depth - 2u));\r\n    let fxp = get_field_value_interpolated(vec3<f32>(px + d, py, pz));\r\n    let fxm = get_field_value_interpolated(vec3<f32>(px - d, py, pz));\r\n    let fyp = get_field_value_interpolated(vec3<f32>(px, py + d, pz));\r\n    let fym = get_field_value_interpolated(vec3<f32>(px, py - d, pz));\r\n    let fzp = get_field_value_interpolated(vec3<f32>(px, py, pz + d));\r\n    let fzm = get_field_value_interpolated(vec3<f32>(px, py, pz - d));\r\n    let n = vec3<f32>(fxp - fxm, fyp - fym, fzp - fzm);\r\n    return normalize(- n);\r\n}\r\n\r\n// --- Terrain type heuristic: 0=grass, 2=rock, 3=snow, 4=water, 5=sand ---\r\nfn get_terrain_type(pos: vec3<f32>, normal: vec3<f32>) -> u32 {\r\n    let WATER_LEVEL = 30.0;\r\n    let SNOW_LINE = 140.0;\r\n    let y = pos.y;\r\n    let upDot = clamp(normal.y, - 1.0, 1.0);\r\n    let slope = 1.0 - abs(upDot);\r\n\r\n    if (y < WATER_LEVEL + 0.5 && slope < 0.01) {\r\n        return 4u;\r\n        // water\r\n    }\r\n    if (y < WATER_LEVEL + 3.0 && slope < 0.45) {\r\n        return 5u;\r\n        // sand\r\n    }\r\n    if (y > SNOW_LINE) {\r\n        return 3u;\r\n        // snow\r\n    }\r\n    if (slope > 0.8 || upDot < 0.4) {\r\n        return 2u;\r\n        // rock\r\n    }\r\n    return 0u;\r\n    // grass\r\n}\r\n\r\nfn interpolate_edge(cube_pos: vec3<f32>, edge_idx: u32, values: array<f32, 8>) -> vec3<f32> {\r\n    let edge = EDGES[edge_idx];\r\n    let v0 = VERTICES[edge.x];\r\n    let v1 = VERTICES[edge.y];\r\n    let val0 = values[edge.x];\r\n    let val1 = values[edge.y];\r\n    let t = (0.5 - val0) / (val1 - val0);\r\n    let t_clamped = clamp(t, 0.0, 1.0);\r\n    let p0 = cube_pos + v0;\r\n    let p1 = cube_pos + v1;\r\n    return mix(p0, p1, t_clamped);\r\n}\r\n\r\n@compute @workgroup_size(4, 4, 4)\r\nfn main(@builtin(global_invocation_id) global_id: vec3<u32>) {\r\n    let x = global_id.x;\r\n    let y = global_id.y;\r\n    let z = global_id.z;\r\n    if (x >= params.width - 1u || y >= params.height - 1u || z >= params.depth - 1u) {\r\n        return;\r\n    }\r\n\r\n    let cube_pos = vec3<f32>(f32(x), f32(y), f32(z));\r\n    var cube_values: array<f32, 8>;\r\n    var cube_mask: u32 = 0u;\r\n    for (var i: u32 = 0u; i < 8u; i = i + 1u) {\r\n        let v = VERTICES[i];\r\n        let val = get_field_value(x + u32(v.x), y + u32(v.y), z + u32(v.z));\r\n        cube_values[i] = val;\r\n        if (val < 0.5) {\r\n            cube_mask = cube_mask | (1u << i);\r\n        }\r\n    }\r\n\r\n    let voxel_idx = x + y * (params.width - 1u) + z * (params.width - 1u) * (params.height - 1u);\r\n    let base_vertex = vertexOffsets[voxel_idx];\r\n\r\n    var written: u32 = 0u;\r\n    for (var tri_idx: u32 = 0u; tri_idx < 5u; tri_idx = tri_idx + 1u) {\r\n        let packed_tri = get_case_triangle(cube_mask, tri_idx);\r\n        if (packed_tri == 0u) {\r\n            break;\r\n        }\r\n\r\n        let edges = decode_triangle(packed_tri);\r\n        let v0 = interpolate_edge(cube_pos, edges.x, cube_values);\r\n        let v1 = interpolate_edge(cube_pos, edges.y, cube_values);\r\n        let v2 = interpolate_edge(cube_pos, edges.z, cube_values);\r\n\r\n        let n0 = get_normal(v0);\r\n        let n1 = get_normal(v1);\r\n        let n2 = get_normal(v2);\r\n\r\n        let t0 = get_terrain_type(v0, n0);\r\n        let t1 = t0;\r\n        let t2 = t0;\r\n\r\n        let vtx_idx = base_vertex + written;\r\n        \r\n        // Interleaved layout: position.xyz, normal.xyz, terrain_type, padding\r\n        // Index 0: position\r\n        interleavedData[vtx_idx * 2u] = vec4<f32>(v0, bitcast<f32>(t0));\r\n        interleavedData[vtx_idx * 2u + 1u] = vec4<f32>(n0, 0.0);\r\n        \r\n        interleavedData[(vtx_idx + 1u) * 2u] = vec4<f32>(v2, bitcast<f32>(t2));\r\n        interleavedData[(vtx_idx + 1u) * 2u + 1u] = vec4<f32>(n2, 0.0);\r\n        \r\n        interleavedData[(vtx_idx + 2u) * 2u] = vec4<f32>(v1, bitcast<f32>(t1));\r\n        interleavedData[(vtx_idx + 2u) * 2u + 1u] = vec4<f32>(n1, 0.0);\r\n\r\n        indexData[vtx_idx] = vtx_idx;\r\n        indexData[vtx_idx + 1u] = vtx_idx + 1u;\r\n        indexData[vtx_idx + 2u] = vtx_idx + 2u;\r\n\r\n        written = written + 3u;\r\n    }\r\n}";
 
 /***/ }),
 
@@ -12120,6 +12141,7 @@ module.exports = "@binding(0) @group(0)\r\nvar<storage, read_write> output: arra
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   Color: () => (/* binding */ Color),
+/* harmony export */   TerrainNorm: () => (/* binding */ TerrainNorm),
 /* harmony export */   Terrains: () => (/* binding */ Terrains)
 /* harmony export */ });
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
@@ -12240,13 +12262,14 @@ const Terrains = {
         type: 3
     }
 };
+const TerrainNorm = Object.values(Terrains).length * 2;
 
 
 /***/ }),
 
-/***/ "./src/modelLoader/3fmreader.ts":
+/***/ "./src/modelLoader/3mfreader.ts":
 /*!**************************************!*\
-  !*** ./src/modelLoader/3fmreader.ts ***!
+  !*** ./src/modelLoader/3mfreader.ts ***!
   \**************************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
@@ -12258,20 +12281,22 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var jszip__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! jszip */ "./node_modules/jszip/dist/jszip.min.js");
 /* harmony import */ var jszip__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(jszip__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
-/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/mat4.js");
 /* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec2.js");
 /* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
 /* harmony import */ var _map_terrains__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../map/terrains */ "./src/map/terrains.ts");
-/* harmony import */ var fast_xml_parser__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! fast-xml-parser */ "./node_modules/fast-xml-parser/src/xmlparser/XMLParser.js");
+/* harmony import */ var fast_xml_parser__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! fast-xml-parser */ "./node_modules/fast-xml-parser/src/xmlparser/XMLParser.js");
 
 
 
 
 
 async function threemfToMesh(url, importMap = null, quality = 1.0) {
+    const modelData = typeof Worker !== "undefined" ? await load3MFViaWorker(url) : await load3MF(url);
+    return buildMeshFromExtracted(modelData, importMap, quality);
+}
+function buildMeshFromExtracted(modelData, importMap, quality) {
     const mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_1__.Mesh();
-    const modelData = await load3MF(url);
-    // Create mesh from extracted data
     const totalTriangles = modelData.triangles.length;
     for (let i = 0; i < totalTriangles; i++) {
         const triangleVertices = modelData.triangles[i].map((vIdx) => modelData.vertices[vIdx]);
@@ -12329,45 +12354,126 @@ async function threemfToMesh(url, importMap = null, quality = 1.0) {
     }
     const originalTriangleCount = mesh.mesh.length;
     // Apply decimation if quality < 1.0
-    // For very large meshes (>500k triangles), automatically reduce quality if user hasn't set it
+    // For very large meshes (>500k triangles), optionally suggest reducing quality.
     const LARGE_MESH_THRESHOLD = 500000;
-    let finalQuality = quality;
-    if (quality >= 1.0 && originalTriangleCount > LARGE_MESH_THRESHOLD) {
-        // Auto-reduce quality for extremely large meshes to maintain performance
-        // Keep minimum at 30% to avoid severe visual artifacts
-        let recommendedQuality = Math.max(0.3, Math.min(0.7, 500000 / originalTriangleCount));
-        let proceed = window.confirm(`⚠️ The imported model is very large (${originalTriangleCount.toLocaleString()} triangles). We recomend adjusting quality to ${recommendedQuality.toFixed(2)}. If you would like to proceed with the current quality, confirm.`);
-        if (!proceed) {
-            let newQuality = null;
+    let effectiveQuality = quality;
+    if (typeof window !== "undefined" &&
+        quality >= 1.0 &&
+        originalTriangleCount > LARGE_MESH_THRESHOLD) {
+        // Auto-recommend reduced quality for extremely large meshes
+        const recommendedQuality = Math.max(0.3, Math.min(0.7, 500000 / originalTriangleCount));
+        const proceedWithRecommended = window.confirm(`⚠️ The imported model is very large (${originalTriangleCount.toLocaleString()} triangles).\n\n` +
+            `Click OK to use a reduced quality of ${recommendedQuality.toFixed(2)} for better performance,\n` +
+            `or Cancel to enter a custom quality value.`);
+        if (proceedWithRecommended) {
+            effectiveQuality = recommendedQuality;
+        }
+        else {
             while (true) {
                 const input = window.prompt(`Enter a quality value between 0.0 and 1.0\n` +
                     `(Recommended: ${recommendedQuality.toFixed(2)})\n\n` +
-                    `Press Cancel to quit.`, recommendedQuality.toFixed(2).toString());
-                // User chose to quit
+                    `Press Cancel to abort import.`, recommendedQuality.toFixed(2));
                 if (input === null) {
-                    return null; // or throw / abort import
+                    return null;
                 }
                 const value = Number(input);
                 if (!Number.isNaN(value) && value >= 0.0 && value <= 1.0) {
-                    newQuality = value;
+                    effectiveQuality = value;
                     break;
                 }
                 window.alert("Invalid input. Quality must be a number between 0.0 and 1.0.");
             }
-            quality = newQuality;
-        }
-        else {
-            quality = recommendedQuality;
         }
     }
-    else if (quality < 0.3) {
-        alert(`⚠️ Quality setting below 30% (${(quality * 100).toFixed(0)}%) may cause significant visual artifacts. Consider using 30-50% for better results.`);
+    else if (quality < 0.3 && typeof window !== "undefined") {
+        window.alert(`⚠️ Quality setting below 30% (${(quality * 100).toFixed(0)}%) may cause significant visual artifacts. Consider using 30-50% for better results.`);
     }
-    if (finalQuality < 1.0) {
-        const decimatedMesh = mesh.decimate(finalQuality);
+    if (effectiveQuality < 1.0) {
+        const clampedQuality = Math.max(0.05, Math.min(1.0, effectiveQuality));
+        const decimatedMesh = mesh.decimate(clampedQuality);
         return { mesh: decimatedMesh, transform: modelData.transform };
     }
     return { mesh, transform: modelData.transform };
+}
+let threeMFWorker = null;
+let threeMFWorkerRequestId = 0;
+const threeMFWorkerPending = new Map();
+function getThreeMFWorker() {
+    if (!threeMFWorker) {
+        threeMFWorker = new Worker(new URL(/* worker import */ __webpack_require__.p + __webpack_require__.u("src_modelLoader_ThreeMFWorker_ts"), __webpack_require__.b));
+        threeMFWorker.onmessage = (event) => {
+            const { id } = event.data;
+            const pending = threeMFWorkerPending.get(id);
+            if (!pending)
+                return;
+            threeMFWorkerPending.delete(id);
+            pending.resolve(event.data);
+        };
+        threeMFWorker.onerror = (err) => {
+            threeMFWorkerPending.forEach(({ reject }) => reject(err));
+            threeMFWorkerPending.clear();
+        };
+    }
+    return threeMFWorker;
+}
+async function load3MFViaWorker(url) {
+    if (typeof Worker === "undefined") {
+        return load3MF(url);
+    }
+    const worker = getThreeMFWorker();
+    const id = String(++threeMFWorkerRequestId);
+    const response = await new Promise((resolve, reject) => {
+        threeMFWorkerPending.set(id, { resolve, reject });
+        worker.postMessage({ id, url });
+    });
+    if (response.error) {
+        throw new Error(response.error);
+    }
+    if (!response.vertices ||
+        !response.colors ||
+        !response.triangles ||
+        !response.metallic ||
+        !response.roughness ||
+        !response.specular ||
+        !response.transform) {
+        throw new Error("3MF worker returned incomplete data.");
+    }
+    const vertices = [];
+    const colors = [];
+    const materials = [];
+    const triangles = [];
+    for (let i = 0; i < response.vertices.length; i += 3) {
+        vertices.push(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(response.vertices[i], response.vertices[i + 1], response.vertices[i + 2]));
+    }
+    for (let i = 0; i < response.colors.length; i += 3) {
+        colors.push(gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(response.colors[i], response.colors[i + 1], response.colors[i + 2]));
+    }
+    for (let i = 0; i < response.metallic.length; i++) {
+        materials.push({
+            metallic: response.metallic[i],
+            roughness: response.roughness[i],
+            specular: response.specular[i]
+        });
+    }
+    for (let i = 0; i < response.triangles.length; i += 3) {
+        triangles.push([
+            response.triangles[i],
+            response.triangles[i + 1],
+            response.triangles[i + 2]
+        ]);
+    }
+    const transform = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.fromValues(response.transform[0], response.transform[1], response.transform[2], response.transform[3], response.transform[4], response.transform[5], response.transform[6], response.transform[7], response.transform[8], response.transform[9], response.transform[10], response.transform[11], response.transform[12], response.transform[13], response.transform[14], response.transform[15]);
+    const normals = calculateNormals(vertices, triangles);
+    return {
+        vertices,
+        normals,
+        colors,
+        uvs: [],
+        triangles,
+        materials,
+        textures: new Map(),
+        transform
+    };
 }
 /**
  * Calculates smooth vertex normals
@@ -12496,7 +12602,7 @@ function getValue(obj, ...possibleNames) {
  */
 function parse3MFModel(xmlString) {
     const defaultColor = gl_matrix__WEBPACK_IMPORTED_MODULE_3__.fromValues(0.8, 0.8, 0.8);
-    const parser = new fast_xml_parser__WEBPACK_IMPORTED_MODULE_4__["default"]({
+    const parser = new fast_xml_parser__WEBPACK_IMPORTED_MODULE_5__["default"]({
         ignoreAttributes: false,
         attributeNamePrefix: "@_",
         textNodeName: "#text",
@@ -12568,7 +12674,7 @@ function parse3MFModel(xmlString) {
         triangles: []
     };
     // Accumulate 3MF transforms (for multiple build items, combine them)
-    let combinedTransform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+    let combinedTransform = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
     let hasTransform = false;
     const build = getValue(modelNode, 'build', 'm:build', '3mf:build');
     if (build) {
@@ -12589,15 +12695,15 @@ function parse3MFModel(xmlString) {
                 // For first item, use its transform; for others, combine (though this is rare)
                 if (idx === 0) {
                     combinedTransform = transform;
-                    hasTransform = !gl_matrix__WEBPACK_IMPORTED_MODULE_5__.equals(transform, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create());
+                    hasTransform = !gl_matrix__WEBPACK_IMPORTED_MODULE_4__.equals(transform, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create());
                 }
                 else {
                     // Multiple build items - combine transforms (this is unusual but handle it)
-                    gl_matrix__WEBPACK_IMPORTED_MODULE_5__.multiply(combinedTransform, combinedTransform, transform);
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_4__.multiply(combinedTransform, combinedTransform, transform);
                 }
                 try {
                     // Pass identity transform to keep vertices in local space
-                    processObject(objectId, gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create(), resourceLibrary, finalData);
+                    processObject(objectId, gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create(), resourceLibrary, finalData);
                 }
                 catch (e) {
                     console.error(`⚠️ Error processing object ${objectId}:`, e);
@@ -12626,7 +12732,7 @@ function parse3MFModel(xmlString) {
         normals,
         triangles: finalTriangles,
         textures: new Map(),
-        transform: hasTransform ? combinedTransform : gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create()
+        transform: hasTransform ? combinedTransform : gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create()
     };
 }
 /**
@@ -12908,8 +13014,8 @@ function processObject(objectId, cumulativeTransform, library, out, depth = 0) {
             // Add component children to stack (reverse order to maintain processing order)
             for (let i = objectData.components.length - 1; i >= 0; i--) {
                 const component = objectData.components[i];
-                const componentTransform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
-                gl_matrix__WEBPACK_IMPORTED_MODULE_5__.multiply(componentTransform, transform, component.transform);
+                const componentTransform = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
+                gl_matrix__WEBPACK_IMPORTED_MODULE_4__.multiply(componentTransform, transform, component.transform);
                 stack.push({
                     id: component.objectId,
                     transform: componentTransform,
@@ -12980,7 +13086,7 @@ async function load3MF(url) {
  * Parse transform matrix
  */
 function parseTransform(transformString) {
-    const transform = gl_matrix__WEBPACK_IMPORTED_MODULE_5__.create();
+    const transform = gl_matrix__WEBPACK_IMPORTED_MODULE_4__.create();
     if (!transformString)
         return transform;
     try {
@@ -12989,7 +13095,7 @@ function parseTransform(transformString) {
             console.warn("⚠️ Invalid transform:", transformString);
             return transform;
         }
-        gl_matrix__WEBPACK_IMPORTED_MODULE_5__.set(transform, parts[0], parts[1], parts[2], 0, parts[3], parts[4], parts[5], 0, parts[6], parts[7], parts[8], 0, parts[9], parts[10], parts[11], 1);
+        gl_matrix__WEBPACK_IMPORTED_MODULE_4__.set(transform, parts[0], parts[1], parts[2], 0, parts[3], parts[4], parts[5], 0, parts[6], parts[7], parts[8], 0, parts[9], parts[10], parts[11], 1);
     }
     catch (e) {
         console.warn("⚠️ Error parsing transform:", e);
@@ -13200,6 +13306,317 @@ function loadPLYToMesh(plyString, importMap = null) {
 
 /***/ }),
 
+/***/ "./src/modelLoader/stlreader.ts":
+/*!**************************************!*\
+  !*** ./src/modelLoader/stlreader.ts ***!
+  \**************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   parseBinarySTLAsync: () => (/* binding */ parseBinarySTLAsync),
+/* harmony export */   stlBufferToMesh: () => (/* binding */ stlBufferToMesh),
+/* harmony export */   stlFileToMesh: () => (/* binding */ stlFileToMesh),
+/* harmony export */   stlSourceToMesh: () => (/* binding */ stlSourceToMesh)
+/* harmony export */ });
+/* harmony import */ var gl_matrix__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! gl-matrix */ "./node_modules/gl-matrix/esm/vec3.js");
+/* harmony import */ var _map_Mesh__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../map/Mesh */ "./src/map/Mesh.ts");
+
+
+const DEFAULT_TERRAIN_TYPE = [0, 0, 0];
+/** Chunk size for mesh building to keep UI responsive (yield every N triangles) */
+const MESH_BUILD_CHUNK = 25000;
+/** STL normals are often inward or degenerate; fix and flip so the mesh lights correctly. */
+function fixSTLNormal(nx, ny, nz, v1x, v1y, v1z, v2x, v2y, v2z, v3x, v3y, v3z) {
+    let l = nx * nx + ny * ny + nz * nz;
+    if (l < 1e-10) {
+        const e1x = v2x - v1x;
+        const e1y = v2y - v1y;
+        const e1z = v2z - v1z;
+        const e2x = v3x - v1x;
+        const e2y = v3y - v1y;
+        const e2z = v3z - v1z;
+        nx = e1y * e2z - e1z * e2y;
+        ny = e1z * e2x - e1x * e2z;
+        nz = e1x * e2y - e1y * e2x;
+        l = nx * nx + ny * ny + nz * nz;
+        if (l < 1e-20)
+            return gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(0, 1, 0);
+    }
+    l = 1 / Math.sqrt(l);
+    return gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(-nx * l, -ny * l, -nz * l);
+}
+/**
+ * Detect if STL data is binary.
+ * Binary STL: 80-byte header, 4-byte little-endian triangle count, then 50 bytes per triangle.
+ */
+function isBinarySTL(buffer) {
+    if (buffer.byteLength < 84)
+        return false;
+    const view = new DataView(buffer);
+    const numTriangles = view.getUint32(80, true);
+    const expectedSize = 84 + numTriangles * 50;
+    return buffer.byteLength === expectedSize;
+}
+/**
+ * Parse binary STL into typed arrays. Loads the full mesh.
+ * Quality is NOT applied here — use Mesh.decimate(quality) after load for proper reduction.
+ */
+function parseBinarySTLToArrays(buffer, _options) {
+    const view = new DataView(buffer);
+    const numTriangles = view.getUint32(80, true);
+    const positions = new Float32Array(numTriangles * 9);
+    const normals = new Float32Array(numTriangles * 3);
+    let offset = 84;
+    for (let i = 0; i < numTriangles; i++) {
+        normals[i * 3] = view.getFloat32(offset, true);
+        normals[i * 3 + 1] = view.getFloat32(offset + 4, true);
+        normals[i * 3 + 2] = view.getFloat32(offset + 8, true);
+        offset += 12;
+        positions[i * 9] = view.getFloat32(offset, true);
+        positions[i * 9 + 1] = view.getFloat32(offset + 4, true);
+        positions[i * 9 + 2] = view.getFloat32(offset + 8, true);
+        offset += 12;
+        positions[i * 9 + 3] = view.getFloat32(offset, true);
+        positions[i * 9 + 4] = view.getFloat32(offset + 4, true);
+        positions[i * 9 + 5] = view.getFloat32(offset + 8, true);
+        offset += 12;
+        positions[i * 9 + 6] = view.getFloat32(offset, true);
+        positions[i * 9 + 7] = view.getFloat32(offset + 4, true);
+        positions[i * 9 + 8] = view.getFloat32(offset + 8, true);
+        offset += 14; // 12 + 2 attribute
+    }
+    return { positions, normals, numTriangles };
+}
+/**
+ * Build Mesh from pre-parsed Float32Arrays in chunks so the main thread can stay responsive.
+ * Reuses one normal vec3 per triangle (same reference 3x) to minimize allocations.
+ */
+function buildMeshFromArraysChunked(positions, normals, numTriangles) {
+    const mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+    const triArray = [];
+    const normArray = [];
+    const typeArray = [];
+    const sharedType = DEFAULT_TERRAIN_TYPE;
+    return new Promise((resolve) => {
+        let start = 0;
+        function doChunk() {
+            const end = Math.min(start + MESH_BUILD_CHUNK, numTriangles);
+            for (let i = start; i < end; i++) {
+                const o = i * 9;
+                triArray.push([
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(positions[o], positions[o + 1], positions[o + 2]),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(positions[o + 3], positions[o + 4], positions[o + 5]),
+                    gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(positions[o + 6], positions[o + 7], positions[o + 8])
+                ]);
+                const n = fixSTLNormal(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2], positions[o], positions[o + 1], positions[o + 2], positions[o + 3], positions[o + 4], positions[o + 5], positions[o + 6], positions[o + 7], positions[o + 8]);
+                normArray.push([n, n, n]);
+                typeArray.push(sharedType);
+            }
+            start = end;
+            if (start >= numTriangles) {
+                mesh.setVertices(triArray);
+                mesh.setNormals(normArray);
+                mesh.setTypes(typeArray);
+                resolve(mesh);
+                return;
+            }
+            requestAnimationFrame(doChunk);
+        }
+        requestAnimationFrame(doChunk);
+    });
+}
+/**
+ * Build Mesh from pre-parsed Float32Arrays in one shot (for smaller meshes).
+ */
+function buildMeshFromArraysSync(positions, normals, numTriangles) {
+    const mesh = new _map_Mesh__WEBPACK_IMPORTED_MODULE_0__.Mesh();
+    const triArray = [];
+    const normArray = [];
+    const typeArray = [];
+    const sharedType = DEFAULT_TERRAIN_TYPE;
+    for (let i = 0; i < numTriangles; i++) {
+        const o = i * 9;
+        triArray.push([
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(positions[o], positions[o + 1], positions[o + 2]),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(positions[o + 3], positions[o + 4], positions[o + 5]),
+            gl_matrix__WEBPACK_IMPORTED_MODULE_1__.fromValues(positions[o + 6], positions[o + 7], positions[o + 8])
+        ]);
+        const n = fixSTLNormal(normals[i * 3], normals[i * 3 + 1], normals[i * 3 + 2], positions[o], positions[o + 1], positions[o + 2], positions[o + 3], positions[o + 4], positions[o + 5], positions[o + 6], positions[o + 7], positions[o + 8]);
+        normArray.push([n, n, n]);
+        typeArray.push(sharedType);
+    }
+    mesh.setVertices(triArray);
+    mesh.setNormals(normArray);
+    mesh.setTypes(typeArray);
+    return mesh;
+}
+/**
+ * Parse binary STL asynchronously; uses chunked mesh building so UI stays responsive.
+ */
+function parseBinarySTLAsync(buffer, options) {
+    const { positions, normals, numTriangles } = parseBinarySTLToArrays(buffer, options);
+    return buildMeshFromArraysChunked(positions, normals, numTriangles);
+}
+/** Apply quality via decimation after load (preserves coherent mesh instead of scattered sampling). */
+function applyQuality(mesh, options) {
+    const q = options?.quality;
+    if (q == null || q >= 1)
+        return mesh;
+    const quality = Math.min(1, Math.max(0.05, q));
+    return mesh.decimate(quality);
+}
+/** ASCII STL: single-pass parse (no full line split) into arrays, then build mesh (chunked if large). */
+function parseASCIISTL(text, options) {
+    const positions = [];
+    const normalsList = [];
+    const len = text.length;
+    let i = 0;
+    while (i < len) {
+        const facetStart = text.indexOf("facet normal", i);
+        if (facetStart === -1)
+            break;
+        i = facetStart + 12;
+        const rest = text.slice(i);
+        const numMatch = rest.match(/^\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)/);
+        if (!numMatch)
+            continue;
+        normalsList.push(parseFloat(numMatch[1]), parseFloat(numMatch[2]), parseFloat(numMatch[3]));
+        const loopStart = text.indexOf("outer loop", i);
+        if (loopStart === -1)
+            break;
+        i = loopStart + 10;
+        const v1Start = text.indexOf("vertex", i);
+        const v2Start = text.indexOf("vertex", v1Start + 1);
+        const v3Start = text.indexOf("vertex", v2Start + 1);
+        if (v1Start === -1 || v2Start === -1 || v3Start === -1)
+            break;
+        const end1 = text.indexOf("\n", v1Start);
+        const end2 = text.indexOf("\n", v2Start);
+        const end3 = text.indexOf("\n", v3Start);
+        const v1Str = (end1 === -1 ? text.slice(v1Start + 6) : text.slice(v1Start + 6, end1)).trim();
+        const v2Str = (end2 === -1 ? text.slice(v2Start + 6) : text.slice(v2Start + 6, end2)).trim();
+        const v3Str = (end3 === -1 ? text.slice(v3Start + 6) : text.slice(v3Start + 6, end3)).trim();
+        const p1 = v1Str.split(/\s+/).map(Number);
+        const p2 = v2Str.split(/\s+/).map(Number);
+        const p3 = v3Str.split(/\s+/).map(Number);
+        if (p1.length >= 3 && p2.length >= 3 && p3.length >= 3) {
+            positions.push(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], p3[0], p3[1], p3[2]);
+        }
+        i = text.indexOf("endfacet", v3Start);
+        if (i === -1)
+            break;
+        i += 8;
+    }
+    const numTriangles = normalsList.length / 3;
+    const posArray = new Float32Array(positions);
+    const normArray = new Float32Array(normalsList);
+    let meshOrPromise;
+    if (numTriangles <= MESH_BUILD_CHUNK) {
+        meshOrPromise = buildMeshFromArraysSync(posArray, normArray, numTriangles);
+    }
+    else {
+        meshOrPromise = buildMeshFromArraysChunked(posArray, normArray, numTriangles);
+    }
+    if (meshOrPromise instanceof Promise) {
+        return meshOrPromise.then((mesh) => applyQuality(mesh, options));
+    }
+    return applyQuality(meshOrPromise, options);
+}
+/**
+ * Load STL from ArrayBuffer (auto-detect binary vs ASCII).
+ * Returns a Promise for large files so the UI can stay responsive.
+ * options.quality < 1 applies decimation after load.
+ */
+function stlBufferToMesh(buffer, options) {
+    if (isBinarySTL(buffer)) {
+        const { positions, normals, numTriangles } = parseBinarySTLToArrays(buffer, options);
+        if (numTriangles <= MESH_BUILD_CHUNK) {
+            return applyQuality(buildMeshFromArraysSync(positions, normals, numTriangles), options);
+        }
+        return buildMeshFromArraysChunked(positions, normals, numTriangles).then((mesh) => applyQuality(mesh, options));
+    }
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const text = decoder.decode(buffer);
+    return parseASCIISTL(text, options);
+}
+/**
+ * Load STL from ASCII string.
+ */
+function stlSourceToMesh(asciiSource, options) {
+    return parseASCIISTL(asciiSource, options);
+}
+/**
+ * Load STL from a File. Uses arrayBuffer() and auto-detects format.
+ * Returns Promise so large files can be loaded without freezing the page.
+ * Pass options.quality to decimate after load (e.g. 0.5 for 50%).
+ */
+let stlWorker = null;
+let stlWorkerRequestId = 0;
+const stlWorkerPending = new Map();
+function getStlWorker() {
+    if (!stlWorker) {
+        stlWorker = new Worker(new URL(/* worker import */ __webpack_require__.p + __webpack_require__.u("src_modelLoader_StlWorker_ts"), __webpack_require__.b));
+        stlWorker.onmessage = (event) => {
+            const { id } = event.data;
+            const pending = stlWorkerPending.get(id);
+            if (!pending)
+                return;
+            stlWorkerPending.delete(id);
+            pending.resolve(event.data);
+        };
+        stlWorker.onerror = (err) => {
+            // Fail all pending requests on worker error
+            stlWorkerPending.forEach(({ reject }) => reject(err));
+            stlWorkerPending.clear();
+        };
+    }
+    return stlWorker;
+}
+async function stlBufferToMeshViaWorker(buffer, options) {
+    // Fallback if workers are not available (e.g., non-browser env)
+    if (typeof Worker === "undefined") {
+        const direct = stlBufferToMesh(buffer, options);
+        if (direct instanceof Promise)
+            return direct;
+        return direct;
+    }
+    const worker = getStlWorker();
+    const id = String(++stlWorkerRequestId);
+    const response = await new Promise((resolve, reject) => {
+        stlWorkerPending.set(id, { resolve, reject });
+        // Transfer the buffer to avoid copying
+        worker.postMessage({ id, buffer, options }, [buffer]);
+    });
+    if (response.error) {
+        throw new Error(response.error);
+    }
+    if (!response.positions ||
+        !response.normals ||
+        response.numTriangles == null) {
+        throw new Error("STL worker returned incomplete data.");
+    }
+    const { positions, normals, numTriangles } = response;
+    // Reuse existing helpers to build Mesh on main thread (with chunking for large meshes)
+    let meshOrPromise;
+    if (numTriangles <= MESH_BUILD_CHUNK) {
+        meshOrPromise = buildMeshFromArraysSync(positions, normals, numTriangles);
+    }
+    else {
+        meshOrPromise = buildMeshFromArraysChunked(positions, normals, numTriangles);
+    }
+    const mesh = meshOrPromise instanceof Promise ? await meshOrPromise : meshOrPromise;
+    return applyQuality(mesh, options);
+}
+async function stlFileToMesh(file, options) {
+    const buffer = await file.arrayBuffer();
+    return stlBufferToMeshViaWorker(buffer, options);
+}
+
+
+/***/ }),
+
 /***/ "./src/render/Camera.ts":
 /*!******************************!*\
   !*** ./src/render/Camera.ts ***!
@@ -13218,7 +13635,7 @@ __webpack_require__.r(__webpack_exports__);
 
 
 class Camera {
-    constructor(position) {
+    constructor(position, debug) {
         this.sensitivity = 0.1;
         this.yaw = 0; // Left right rotation in degrees
         this.pitch = 0; // Up down rotation in degrees
@@ -13232,6 +13649,8 @@ class Camera {
         this.fovy = 90; // Field of view in degrees
         this.position = position;
         this.lastPosition = gl_matrix__WEBPACK_IMPORTED_MODULE_1__.clone(position);
+        this.debug = debug;
+        this.debug.addElement("Pos", () => `${Math.round(position[0])}, ${Math.round(position[1])}, ${Math.round(position[2])}`);
         this.UpdateCameraVectors();
         this.speed = 0.02;
         this.farPlane = this.rayTracingFarPlane;
@@ -13417,10 +13836,6 @@ class GLRenderer {
         this.renderGraph.add(finalPass, cloudsPass, lightingPass);
     }
     render(time, pathtracerOn = false) {
-        if (!pathtracerOn) {
-            this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
-            this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-        }
         //Run Pathtracer
         if (pathtracerOn) {
             this.pathtracer.render(time);
@@ -13544,7 +13959,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location =
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\nin vec2 fragUV;\r\nlayout(location = 0) out vec4 outNormal;\r\nlayout(location = 1) out vec4 outAlbedo;\r\nlayout(location = 2) out vec4 outMaterialAttributes;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D albedoTexture;\r\nuniform sampler2D materialAttributesTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D grassNormalTexture;\r\nuniform sampler2D grassAlbedoTexture;\r\nuniform sampler2D grassDepthTexture;\r\nvoid main() {\r\n    float sceneDepth = texture(depthTexture, fragUV).r;\r\n    float grassDepth = texture(grassDepthTexture, fragUV).r;\r\n    if(grassDepth < sceneDepth) {\r\n        outNormal = texture(grassNormalTexture, fragUV);\r\n        outAlbedo = texture(grassAlbedoTexture, fragUV);\r\n        outMaterialAttributes = vec4(0.0f); // Grass has no special material attributes yet\r\n        gl_FragDepth = grassDepth;\r\n    } else {\r\n        outNormal = texture(normalTexture, fragUV);\r\n        outAlbedo = texture(albedoTexture, fragUV);\r\n        outMaterialAttributes = texture(materialAttributesTexture, fragUV);\r\n        gl_FragDepth = sceneDepth;\r\n    }\r\n}\r\n";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nprecision lowp usampler2D;\r\nin vec2 fragUV;\r\nlayout(location = 0) out vec4 outNormal;\r\nlayout(location = 1) out vec2 outuv;\r\nlayout(location = 2) out uint outBlockId;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D uvTexture;\r\nuniform usampler2D blockIdTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D grassNormalTexture;\r\nuniform sampler2D grassDataTexture;\r\nuniform usampler2D grassBlockIdTexture;\r\nuniform sampler2D grassDepthTexture;\r\nvoid main() {\r\n    float sceneDepth = texture(depthTexture, fragUV).r;\r\n    float grassDepth = texture(grassDepthTexture, fragUV).r;\r\n    if(grassDepth < sceneDepth) {\r\n        outNormal = texture(grassNormalTexture, fragUV);\r\n        outuv = texture(grassDataTexture, fragUV).rg;\r\n        outBlockId = texture(grassBlockIdTexture, fragUV).r;\r\n        gl_FragDepth = grassDepth;\r\n    } else {\r\n        outNormal = texture(normalTexture, fragUV);\r\n        outuv = texture(uvTexture, fragUV).rg;\r\n        outBlockId = texture(blockIdTexture, fragUV).r;\r\n        gl_FragDepth = sceneDepth;\r\n    }\r\n}\r\n";
 
 /***/ }),
 
@@ -13588,7 +14003,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\nlayout(location =
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es \r\nprecision highp float;\r\n\r\nin vec3 viewNormal;\r\nin vec3 albedo;\r\nin vec4 viewPos;\r\nin vec4 materialAttributes;\r\nlayout(location = 0) out vec4 outNormal;\r\nlayout(location = 1) out vec4 outAlbedo;\r\nlayout(location = 2) out vec4 outMaterialAttributes;\r\nvoid main() {\r\n    vec3 normal = normalize(viewNormal);\r\n    // Store normal directly for floating point formats\r\n    outNormal = vec4(normal, 1.0f);\r\n    outAlbedo = vec4(albedo, 1.0f);\r\n    outMaterialAttributes = materialAttributes;\r\n}";
+module.exports = "#version 300 es \r\nprecision highp float;\r\n\r\nin vec3 viewNormal;\r\nin vec2 fragUV;\r\nflat in uint fragBlockId;\r\nlayout(location = 0) out vec4 outNormal;\r\nlayout(location = 2) out vec2 outUV;\r\nlayout(location = 3) out uint outBlockId;\r\nvoid main() {\r\n    vec3 normal = normalize(viewNormal);\r\n    outNormal = vec4(normal, 1.0f);\r\n    outUV = fragUV;\r\n    outBlockId = fragBlockId;\r\n}";
 
 /***/ }),
 
@@ -13599,7 +14014,7 @@ module.exports = "#version 300 es \r\nprecision highp float;\r\n\r\nin vec3 view
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec3 normal;\r\nlayout(location = 2) in vec3 color;\r\nlayout(location = 3) in float reflectiveness;\r\nlayout(location = 4) in float metallicity;\r\nlayout(location = 5) in float roughness;\r\nlayout(location = 6) in float emissivity;\r\nuniform mat4 model;\r\nuniform mat4 view;\r\nuniform mat4 proj;\r\n\r\nout vec3 viewNormal;\r\nout vec3 albedo;\r\nout vec4 materialAttributes; // x: reflectiveness, y: metallicity, z: roughness, w: emissivity\r\nout vec4 viewPos;\r\n\r\nvoid main() {\r\n    vec4 worldPos = model * vec4(position, 1.0f);\r\n    viewPos = view * worldPos;\r\n\r\n    mat3 normalMatrix = mat3(transpose(inverse(view * model)));\r\n    viewNormal = normalize(normalMatrix * normal);\r\n\r\n    albedo = color;\r\n    materialAttributes = vec4(reflectiveness, metallicity, roughness, emissivity);\r\n    gl_Position = proj * viewPos;\r\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(location = 0) in vec3 position;\r\nlayout(location = 1) in vec3 normal;\r\nlayout(location = 2) in vec2 uv;\r\nlayout(location = 3) in uint blockId;\r\nuniform mat4 model;\r\nuniform mat4 view;\r\nuniform mat4 proj;\r\n\r\nout vec3 viewNormal;\r\nout vec2 fragUV;\r\nflat out uint fragBlockId;\r\nout vec4 viewPos;\r\n\r\nvoid main() {\r\n    vec4 worldPos = model * vec4(position, 1.0f);\r\n    viewPos = view * worldPos;\r\n\r\n    mat3 normalMatrix = mat3(transpose(inverse(view * model)));\r\n    viewNormal = normalize(normalMatrix * normal);\r\n    fragUV = uv;\r\n    fragBlockId = blockId;\r\n    gl_Position = proj * viewPos;\r\n}";
 
 /***/ }),
 
@@ -13610,7 +14025,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(locati
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\n#define MAX_LIGHTS 100\r\n#define MAX_SHADOWED_POINT_LIGHTS 5\r\nin vec2 fragUV;\r\nout vec4 outputColor;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D albedoTexture;\r\nuniform sampler2D materialAttributesTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D ssaoTexture;\r\n// Shadow mask textures from dedicated shadow passes\r\nuniform sampler2D blurredSunShadowMask;\r\nuniform sampler2D blurredPointShadowMaskA;\r\nuniform sampler2D blurredPointShadowMaskB;\r\nuniform sampler2D blurredPointShadowMaskC;\r\nuniform sampler2D blurredPointShadowMaskD;\r\nuniform sampler2D blurredPointShadowMaskE;\r\n\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\n\r\nuniform float ambientLightIntensity;\r\n//Shadow Uniforms\r\nuniform int numShadowedLights;\r\nuniform bool sunDisabled;\r\nuniform bool cascadeDebug;\r\n\r\nstruct PointLight {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n    float range;\r\n};\r\n\r\nstruct DirectionalLight {\r\n    vec3 direction;\r\n    vec3 color;\r\n    float intensity;\r\n};\r\n\r\nuniform DirectionalLight SunLight;\r\nuniform PointLight pointLights[MAX_LIGHTS];\r\nuniform int numActivePointLights;\r\nuniform vec3 cameraPosition;\r\n\r\n// Add these uniforms near the top with other uniforms\r\nuniform float grassSpecularStrength;\r\nuniform float grassShininess;\r\nuniform float grassTranslucencyStrength;\r\nuniform float grassAmbientTransitionPower;\r\nuniform float grassSpecularTransitionPower;\r\nuniform float grassTranslucencyTransitionPower;\r\nuniform float grassDiffuseStrength;\r\nuniform float grassBaseDarkness;\r\nuniform vec3 grassBaseColor;\r\nuniform vec3 grassTipColor;\r\nuniform vec3 grassSpecularColor;\r\nuniform vec3 grassTranslucencyColor;\r\nuniform float sunShadowStrength;\r\nuniform float pointLightShadowStrength;\r\nuniform float grassPointLightintensity;\r\nuniform float grassPointLightDiffuseSoftness;\r\n\r\nconst float PI = 3.14159265359f;\r\nvec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projectionInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {\r\n    vec4 worldPos = viewInverseMatrix * vec4(viewPos, 1.0f);\r\n    return worldPos.xyz;\r\n}\r\n\r\nfloat calculateFresnel(vec3 viewDir, vec3 halfDir, float baseReflectivity) {\r\n    return baseReflectivity + (1.0f - baseReflectivity) * pow(1.0f - dot(viewDir, halfDir), 5.0f);\r\n}\r\n\r\n// Sample point light shadow mask from pre-computed shadow mask textures\r\nfloat getPointShadowMask(int lightIndex) {\r\n    switch(lightIndex) {\r\n        case 0: return texture(blurredPointShadowMaskA, fragUV).r;\r\n        case 1: return texture(blurredPointShadowMaskB, fragUV).r;\r\n        case 2: return texture(blurredPointShadowMaskC, fragUV).r;\r\n        case 3: return texture(blurredPointShadowMaskD, fragUV).r;\r\n        case 4: return texture(blurredPointShadowMaskE, fragUV).r;\r\n        default: return 1.0f;\r\n    }\r\n}\r\n\r\n// Cascade debug visualization colors\r\nvec3 getCascadeDebugColor(int primaryCascade, int secondaryCascade, float blendFactor) {\r\n    vec3 cascadeColors[8] = vec3[](\r\n        vec3(1.0f, 0.2f, 0.2f), // Red - Cascade 0 (smallest/closest)\r\n        vec3(0.2f, 1.0f, 0.2f), // Green - Cascade 1\r\n        vec3(0.2f, 0.2f, 1.0f), // Blue - Cascade 2\r\n        vec3(1.0f, 1.0f, 0.2f), // Yellow - Cascade 3\r\n        vec3(1.0f, 0.2f, 1.0f), // Magenta - Cascade 4\r\n        vec3(0.2f, 1.0f, 1.0f), // Cyan - Cascade 5\r\n        vec3(1.0f, 0.6f, 0.2f), // Orange - Cascade 6\r\n        vec3(0.6f, 0.2f, 1.0f)  // Purple - Cascade 7\r\n    );\r\n    vec3 primaryColor = cascadeColors[primaryCascade % 8];\r\n    vec3 secondaryColor = cascadeColors[secondaryCascade % 8];\r\n    if(blendFactor > 0.0f) {\r\n        vec3 blendedColor = mix(primaryColor, secondaryColor, blendFactor);\r\n        return mix(blendedColor, vec3(1.0f), blendFactor * 0.3f);\r\n    }\r\n    return primaryColor;\r\n}\r\n\r\nfloat DistributionGGX(vec3 N, vec3 H, float roughness) {\r\n    float a = roughness * roughness;\r\n    float a2 = a * a;\r\n    float NdotH = max(dot(N, H), 0.0f);\r\n    float NdotH2 = NdotH * NdotH;\r\n\r\n    float nom = a2;\r\n    float denom = (NdotH2 * (a2 - 1.0f) + 1.0f);\r\n    denom = PI * denom * denom;\r\n\r\n    return nom / denom;\r\n}\r\nfloat GeometrySchlickGGX(float NdotV, float roughness) {\r\n    float r = (roughness + 1.0f);\r\n    float k = (r * r) / 8.0f;\r\n\r\n    float nom = NdotV;\r\n    float denom = NdotV * (1.0f - k) + k;\r\n\r\n    return nom / denom;\r\n}\r\n\r\nfloat GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {\r\n    float NdotV = max(dot(N, V), 0.0f);\r\n    float NdotL = max(dot(N, L), 0.0f);\r\n    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\r\n    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\r\n\r\n    return ggx1 * ggx2;\r\n}\r\nvec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metallicity, float roughness) {\r\n    vec3 viewDir = normalize(cameraPosition - worldPos);\r\n    vec3 lightDir = normalize(-SunLight.direction);\r\n    vec3 halfWay = normalize(viewDir + lightDir);\r\n    float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);\r\n    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metallicity);\r\n    vec3 diffuse = diffuseCoefficient * albedo / PI;\r\n\r\n    // Cook-Torrance BRDF\r\n    float NDF = DistributionGGX(worldNormal, halfWay, roughness);\r\n    float G = GeometrySmith(worldNormal, viewDir, lightDir, roughness);\r\n    vec3 F = vec3(calculateFresnel(viewDir, halfWay, baseReflectivity));\r\n\r\n    vec3 numerator = NDF * G * F;\r\n    float denominator = 4.0f * max(dot(worldNormal, viewDir), 0.0f) * max(dot(worldNormal, lightDir), 0.0f) + 0.001f;\r\n    vec3 specular = numerator / denominator;\r\n    vec3 radiance = SunLight.color * SunLight.intensity;\r\n    float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);\r\n\r\n    return (diffuse + specular) * radiance * diffuseFactor;\r\n}\r\nvec3 unpackEmissivity(float normalizedPacked) {\r\n    // Denormalize from 0-1 range back to 0-63 (stored normalized for RGBA8 texture)\r\n    int packed = int(normalizedPacked * 63.0f + 0.5f); // +0.5 for rounding\r\n    float r = float(packed & 0x3) / 3.0f;\r\n    float g = float((packed >> 2) & 0x3) / 3.0f;\r\n    float b = float((packed >> 4) & 0x3) / 3.0f;\r\n    return vec3(r, g, b);\r\n}\r\n\r\nfloat calculateAttenuation(float d, float r, float range) {\r\n    if(d > range) {\r\n        return 0.0f;\r\n    }\r\n    return 2.0f * (1.0f - d / sqrt(d * d + r * r));\r\n}\r\n\r\nvec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metallicity, float roughness, int lightIndex) {\r\n    vec3 viewDir = normalize(cameraPosition - worldPos);\r\n    vec3 lightDir = normalize(pointLights[lightIndex].position - worldPos);\r\n    vec3 halfWay = normalize(viewDir + lightDir);\r\n    float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);\r\n    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metallicity);\r\n    vec3 diffuse = diffuseCoefficient * albedo / PI;\r\n\r\n    // Cook-Torrance BRDF\r\n    float NDF = DistributionGGX(worldNormal, halfWay, roughness);\r\n    float G = GeometrySmith(worldNormal, viewDir, lightDir, roughness);\r\n    vec3 F = vec3(calculateFresnel(viewDir, halfWay, baseReflectivity));\r\n\r\n    vec3 numerator = NDF * G * F;\r\n    float denominator = 4.0f * max(dot(worldNormal, viewDir), 0.0f) * max(dot(worldNormal, lightDir), 0.0f) + 0.001f;\r\n    vec3 specular = numerator / denominator;\r\n    vec3 radiance = pointLights[lightIndex].color * pointLights[lightIndex].intensity;\r\n    float distance = length(pointLights[lightIndex].position - worldPos);\r\n    float attenuation = calculateAttenuation(distance, pointLights[lightIndex].radius, pointLights[lightIndex].range);\r\n    float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);\r\n\r\n    return (diffuse + specular) * radiance * diffuseFactor * attenuation;\r\n}\r\nvec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float ambientOcclusion, float sunShadow) {\r\n    vec3 ambient = (vec3(ambientLightIntensity) * albedo) * ambientOcclusion;\r\n    vec3 lighting = ambient;\r\n\r\n    // Material attributes\r\n    vec4 materialData = texture(materialAttributesTexture, fragUV);\r\n    float baseReflectivity = materialData.r;\r\n    float metallicity = materialData.g;\r\n    float roughness = materialData.b;\r\n    vec3 emissivity = unpackEmissivity(materialData.a);\r\n\r\n    // Sun PBR lighting\r\n    if(!sunDisabled) {\r\n        lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness) * sunShadow;\r\n    }\r\n\r\n    // Point lights PBR - use pre-computed shadow masks\r\n    for(int i = 0; i < numActivePointLights; i++) {\r\n        float pointLightShadow = (i < numShadowedLights) ? getPointShadowMask(i) : 1.0f;\r\n        lighting += calculatePointPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, i) * pointLightShadow;\r\n    }\r\n\r\n    // Add emissivity ONCE at the end, unaffected by shadows\r\n    // This makes emissive materials glow regardless of lighting conditions\r\n    // Multiply by 4.0 to make emissive objects bright enough to trigger bloom (threshold 1.5)\r\n    lighting += emissivity * 4.0f;\r\n\r\n    return lighting;\r\n}\r\n\r\nvec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float curveAngle, float sunShadow) {\r\n    vec3 viewDirection = normalize(cameraPosition - worldPos);\r\n\r\n    vec3 toCamera = sunDisabled ? vec3(0.0f, 0.0f, -1.0f) : normalize(-SunLight.direction);\r\n    toCamera.y = 0.0f;\r\n\r\n    float curveViewDot = cos(curveAngle) * toCamera.x + sin(curveAngle) * toCamera.z;\r\n    bool isInnerCurve = curveViewDot > 0.0f;\r\n\r\n    float t = clamp(vHeight / 1.5f, 0.0f, 1.0f);\r\n    vec3 baseGrassColor = mix(grassBaseColor, grassTipColor, pow(t, grassAmbientTransitionPower));\r\n\r\n    vec3 normal = normalize(worldNormal) * (isInnerCurve ? -1.0f : 1.0f);\r\n    vec3 tangent = normalize(cross(normal, vec3(0.0f, 1.0f, 0.0f)));\r\n\r\n    // Ambient\r\n    vec3 grassColor = baseGrassColor * grassBaseDarkness;\r\n\r\n    // Sun lighting\r\n    if(!sunDisabled) {\r\n        vec3 lightDir = normalize(-SunLight.direction);\r\n        float diffuse = max(dot(normal, lightDir), 0.0f);\r\n        diffuse = diffuse * 0.6f + 0.4f;\r\n        vec3 sunDiffuse = baseGrassColor * grassDiffuseStrength * diffuse;\r\n\r\n        vec3 halfDir = normalize(lightDir + viewDirection);\r\n        float tdh = dot(tangent, halfDir);\r\n        float spec = pow(sqrt(1.0f - tdh * tdh), grassShininess);\r\n        spec = mix(0.0f, spec, pow(t, grassSpecularTransitionPower));\r\n        vec3 specular = grassSpecularStrength * spec * grassSpecularColor;\r\n\r\n        float translucency = max(dot(-lightDir, normal), 0.0f);\r\n        translucency = mix(0.0f, translucency, pow(t, grassTranslucencyTransitionPower));\r\n        vec3 translucentColor = grassTranslucencyColor * translucency * grassTranslucencyStrength;\r\n\r\n        float shadowFactor = mix(1.0f, sunShadow, sunShadowStrength);\r\n        grassColor += (sunDiffuse + specular + translucentColor) * shadowFactor;\r\n    }\r\n\r\n    // Point lights - use pre-computed shadow masks\r\n    for(int i = 0; i < numActivePointLights; i++) {\r\n        float pointLightShadow = (i < numShadowedLights) ? getPointShadowMask(i) : 1.0f;\r\n        vec3 pointLightDir = normalize(pointLights[i].position - worldPos);\r\n\r\n        float pointDiffuse = max(dot(normal, pointLightDir), 0.0f);\r\n        pointDiffuse = pointDiffuse * (1.0f - grassPointLightDiffuseSoftness) + grassPointLightDiffuseSoftness;\r\n        // Multiply by baseGrassColor so point lights tint the grass properly\r\n        vec3 pointDiffuseColor = baseGrassColor * pointDiffuse * pointLights[i].color * pointLights[i].intensity * grassDiffuseStrength * grassPointLightintensity;\r\n\r\n        vec3 pointHalfDir = normalize(pointLightDir + viewDirection);\r\n        float pointTdh = dot(tangent, pointHalfDir);\r\n        float pointSpec = pow(sqrt(1.0f - pointTdh * pointTdh), grassShininess);\r\n        pointSpec = mix(0.0f, pointSpec, pow(t, grassSpecularTransitionPower));\r\n        vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor * grassPointLightintensity;\r\n\r\n        float distance = length(pointLights[i].position - worldPos);\r\n        float attenuation = calculateAttenuation(distance, pointLights[i].radius, pointLights[i].range);\r\n\r\n        float shadowFactor = mix(1.0f, pointLightShadow, pointLightShadowStrength);\r\n        grassColor += (pointDiffuseColor + pointSpecular) * attenuation * shadowFactor;\r\n    }\r\n\r\n    return pow(grassColor, vec3(2.2f));\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV, projInverse);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);\r\n\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);\r\n\r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n\r\n    vec3 albedo = texture(albedoTexture, fragUV).rgb;\r\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\r\n\r\n    // Sample pre-computed sun shadow mask data\r\n    // R = shadow, G = primary cascade (normalized), B = secondary cascade (normalized), A = blend factor\r\n    vec4 sunShadowData = texture(blurredSunShadowMask, fragUV);\r\n    float sunShadow = sunShadowData.r;\r\n    int primaryCascade = int(sunShadowData.g * 8.0f + 0.5f);\r\n    int secondaryCascade = int(sunShadowData.b * 8.0f + 0.5f);\r\n    float cascadeBlendFactor = sunShadowData.a;\r\n\r\n    // Check if this is a grass material (material ID = 0.5 in alpha channel)\r\n    float materialId = texture(albedoTexture, fragUV).a;\r\n    bool isGrass = abs(materialId - 0.5f) < 0.01f;\r\n\r\n    // Apply cascade debug colors to albedo when enabled\r\n    if(cascadeDebug && !isGrass) {\r\n        albedo = getCascadeDebugColor(primaryCascade, secondaryCascade, cascadeBlendFactor);\r\n    }\r\n\r\n    vec3 lighting;\r\n\r\n    if(isGrass) {\r\n        // For grass: albedo.rg contains (height, curveAngle)\r\n        float vHeight = albedo.r;\r\n        float curveAngle = albedo.g;\r\n        lighting = computeGrassLighting(fragWorldPos, worldNormal, vHeight, curveAngle, sunShadow);\r\n    } else {\r\n        // Standard PBR lighting for terrain\r\n        lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, ambientOcclusion, sunShadow);\r\n    }\r\n\r\n    if(texture(depthTexture, fragUV).r >= 1.0f) {\r\n        outputColor = vec4(skyColor, 1.0f);\r\n    } else {\r\n        outputColor = vec4(lighting, 1.0f);\r\n    }\r\n}";
+module.exports = "#version 300 es\r\nprecision highp float;\r\nprecision lowp usampler2D;\r\n#define MAX_LIGHTS 100\r\n#define MAX_SHADOWED_POINT_LIGHTS 5\r\nin vec2 fragUV;\r\nout vec4 outputColor;\r\nuniform sampler2D normalTexture;\r\nuniform sampler2D uvTexture;\r\nuniform usampler2D blockIdTexture;\r\nuniform sampler2D depthTexture;\r\nuniform sampler2D ssaoTexture;\r\n// Shadow mask textures from dedicated shadow passes\r\nuniform sampler2D blurredSunShadowMask;\r\nuniform sampler2D blurredPointShadowMaskA;\r\nuniform sampler2D blurredPointShadowMaskB;\r\nuniform sampler2D blurredPointShadowMaskC;\r\nuniform sampler2D blurredPointShadowMaskD;\r\nuniform sampler2D blurredPointShadowMaskE;\r\n\r\nuniform mat4 viewInverse;\r\nuniform mat4 projInverse;\r\n\r\nuniform float ambientLightIntensity;\r\n//Shadow Uniforms\r\nuniform int numShadowedLights;\r\nuniform bool sunDisabled;\r\nuniform bool cascadeDebug;\r\n\r\nstruct PointLight {\r\n    vec3 position;\r\n    vec3 color;\r\n    vec3 showColor;\r\n    float intensity;\r\n    float radius;\r\n    float range;\r\n};\r\n\r\nstruct DirectionalLight {\r\n    vec3 direction;\r\n    vec3 color;\r\n    float intensity;\r\n};\r\n\r\nuniform DirectionalLight SunLight;\r\nuniform PointLight pointLights[MAX_LIGHTS];\r\nuniform int numActivePointLights;\r\nuniform vec3 cameraPosition;\r\n\r\n// Add these uniforms near the top with other uniforms\r\nuniform float grassSpecularStrength;\r\nuniform float grassShininess;\r\nuniform float grassTranslucencyStrength;\r\nuniform float grassAmbientTransitionPower;\r\nuniform float grassSpecularTransitionPower;\r\nuniform float grassTranslucencyTransitionPower;\r\nuniform float grassDiffuseStrength;\r\nuniform float grassBaseDarkness;\r\nuniform vec3 grassBaseColor;\r\nuniform vec3 grassTipColor;\r\nuniform vec3 grassSpecularColor;\r\nuniform vec3 grassTranslucencyColor;\r\nuniform float sunShadowStrength;\r\nuniform float pointLightShadowStrength;\r\nuniform float grassPointLightintensity;\r\nuniform float grassPointLightDiffuseSoftness;\r\n\r\nconst float PI = 3.14159265359f;\r\nvec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {\r\n    float depth = texture(depthTexture, texCoord).r;\r\n    vec2 ndc = texCoord * 2.0f - 1.0f;\r\n    vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);\r\n    vec4 viewSpacePos = projectionInverse * clipSpacePos;\r\n    return viewSpacePos.xyz / viewSpacePos.w;\r\n}\r\n\r\nvec3 getWorldPosition(vec3 viewPos, mat4 viewInverseMatrix) {\r\n    vec4 worldPos = viewInverseMatrix * vec4(viewPos, 1.0f);\r\n    return worldPos.xyz;\r\n}\r\n\r\nfloat calculateFresnel(vec3 viewDir, vec3 halfDir, float baseReflectivity) {\r\n    return baseReflectivity + (1.0f - baseReflectivity) * pow(1.0f - dot(viewDir, halfDir), 5.0f);\r\n}\r\n\r\n// Sample point light shadow mask from pre-computed shadow mask textures\r\nfloat getPointShadowMask(int lightIndex) {\r\n    switch(lightIndex) {\r\n        case 0: return texture(blurredPointShadowMaskA, fragUV).r;\r\n        case 1: return texture(blurredPointShadowMaskB, fragUV).r;\r\n        case 2: return texture(blurredPointShadowMaskC, fragUV).r;\r\n        case 3: return texture(blurredPointShadowMaskD, fragUV).r;\r\n        case 4: return texture(blurredPointShadowMaskE, fragUV).r;\r\n        default: return 1.0f;\r\n    }\r\n}\r\n\r\n// Cascade debug visualization colors\r\nvec3 getCascadeDebugColor(int primaryCascade, int secondaryCascade, float blendFactor) {\r\n    vec3 cascadeColors[8] = vec3[](\r\n        vec3(1.0f, 0.2f, 0.2f), // Red - Cascade 0 (smallest/closest)\r\n        vec3(0.2f, 1.0f, 0.2f), // Green - Cascade 1\r\n        vec3(0.2f, 0.2f, 1.0f), // Blue - Cascade 2\r\n        vec3(1.0f, 1.0f, 0.2f), // Yellow - Cascade 3\r\n        vec3(1.0f, 0.2f, 1.0f), // Magenta - Cascade 4\r\n        vec3(0.2f, 1.0f, 1.0f), // Cyan - Cascade 5\r\n        vec3(1.0f, 0.6f, 0.2f), // Orange - Cascade 6\r\n        vec3(0.6f, 0.2f, 1.0f)  // Purple - Cascade 7\r\n    );\r\n    vec3 primaryColor = cascadeColors[primaryCascade % 8];\r\n    vec3 secondaryColor = cascadeColors[secondaryCascade % 8];\r\n    if(blendFactor > 0.0f) {\r\n        vec3 blendedColor = mix(primaryColor, secondaryColor, blendFactor);\r\n        return mix(blendedColor, vec3(1.0f), blendFactor * 0.3f);\r\n    }\r\n    return primaryColor;\r\n}\r\n\r\nfloat DistributionGGX(vec3 N, vec3 H, float roughness) {\r\n    float a = roughness * roughness;\r\n    float a2 = a * a;\r\n    float NdotH = max(dot(N, H), 0.0f);\r\n    float NdotH2 = NdotH * NdotH;\r\n\r\n    float nom = a2;\r\n    float denom = (NdotH2 * (a2 - 1.0f) + 1.0f);\r\n    denom = PI * denom * denom;\r\n\r\n    return nom / denom;\r\n}\r\nfloat GeometrySchlickGGX(float NdotV, float roughness) {\r\n    float r = (roughness + 1.0f);\r\n    float k = (r * r) / 8.0f;\r\n\r\n    float nom = NdotV;\r\n    float denom = NdotV * (1.0f - k) + k;\r\n\r\n    return nom / denom;\r\n}\r\n\r\nfloat GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {\r\n    float NdotV = max(dot(N, V), 0.0f);\r\n    float NdotL = max(dot(N, L), 0.0f);\r\n    float ggx2 = GeometrySchlickGGX(NdotV, roughness);\r\n    float ggx1 = GeometrySchlickGGX(NdotL, roughness);\r\n\r\n    return ggx1 * ggx2;\r\n}\r\nvec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metallicity, float roughness) {\r\n    vec3 viewDir = normalize(cameraPosition - worldPos);\r\n    vec3 lightDir = normalize(-SunLight.direction);\r\n    vec3 halfWay = normalize(viewDir + lightDir);\r\n    float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);\r\n    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metallicity);\r\n    vec3 diffuse = diffuseCoefficient * albedo / PI;\r\n\r\n    // Cook-Torrance BRDF\r\n    float NDF = DistributionGGX(worldNormal, halfWay, roughness);\r\n    float G = GeometrySmith(worldNormal, viewDir, lightDir, roughness);\r\n    vec3 F = vec3(calculateFresnel(viewDir, halfWay, baseReflectivity));\r\n\r\n    vec3 numerator = NDF * G * F;\r\n    float denominator = 4.0f * max(dot(worldNormal, viewDir), 0.0f) * max(dot(worldNormal, lightDir), 0.0f) + 0.001f;\r\n    vec3 specular = numerator / denominator;\r\n    vec3 radiance = SunLight.color * SunLight.intensity;\r\n    float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);\r\n\r\n    return (diffuse + specular) * radiance * diffuseFactor;\r\n}\r\nfloat calculateAttenuation(float d, float r, float range) {\r\n    if(d > range) {\r\n        return 0.0f;\r\n    }\r\n    return 2.0f * (1.0f - d / sqrt(d * d + r * r));\r\n}\r\n\r\nvec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metallicity, float roughness, int lightIndex) {\r\n    vec3 viewDir = normalize(cameraPosition - worldPos);\r\n    vec3 lightDir = normalize(pointLights[lightIndex].position - worldPos);\r\n    vec3 halfWay = normalize(viewDir + lightDir);\r\n    float specularCoefficient = calculateFresnel(viewDir, normalize(worldNormal + viewDir), baseReflectivity);\r\n    float diffuseCoefficient = (1.0f - specularCoefficient) * (1.0f - metallicity);\r\n    vec3 diffuse = diffuseCoefficient * albedo / PI;\r\n\r\n    // Cook-Torrance BRDF\r\n    float NDF = DistributionGGX(worldNormal, halfWay, roughness);\r\n    float G = GeometrySmith(worldNormal, viewDir, lightDir, roughness);\r\n    vec3 F = vec3(calculateFresnel(viewDir, halfWay, baseReflectivity));\r\n\r\n    vec3 numerator = NDF * G * F;\r\n    float denominator = 4.0f * max(dot(worldNormal, viewDir), 0.0f) * max(dot(worldNormal, lightDir), 0.0f) + 0.001f;\r\n    vec3 specular = numerator / denominator;\r\n    vec3 radiance = pointLights[lightIndex].color * pointLights[lightIndex].intensity;\r\n    float distance = length(pointLights[lightIndex].position - worldPos);\r\n    float attenuation = calculateAttenuation(distance, pointLights[lightIndex].radius, pointLights[lightIndex].range);\r\n    float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);\r\n\r\n    return (diffuse + specular) * radiance * diffuseFactor * attenuation;\r\n}\r\nvec3 computeTerrainLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float baseReflectivity, float metallicity, float roughness, float ambientOcclusion, float sunShadow) {\r\n    vec3 ambient = (vec3(ambientLightIntensity) * albedo) * ambientOcclusion;\r\n    vec3 lighting = ambient;\r\n\r\n    // Sun PBR lighting\r\n    if(!sunDisabled) {\r\n        lighting += calculateSunPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness) * sunShadow;\r\n    }\r\n\r\n    // Point lights PBR - use pre-computed shadow masks\r\n    for(int i = 0; i < numActivePointLights; i++) {\r\n        float pointLightShadow = (i < numShadowedLights) ? getPointShadowMask(i) : 1.0f;\r\n        lighting += calculatePointPBRLighting(worldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, i) * pointLightShadow;\r\n    }\r\n    return lighting;\r\n}\r\n\r\nvec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float curveAngle, float sunShadow) {\r\n    vec3 viewDirection = normalize(cameraPosition - worldPos);\r\n\r\n    vec3 toCamera = sunDisabled ? vec3(0.0f, 0.0f, -1.0f) : normalize(-SunLight.direction);\r\n    toCamera.y = 0.0f;\r\n\r\n    float curveViewDot = cos(curveAngle) * toCamera.x + sin(curveAngle) * toCamera.z;\r\n    bool isInnerCurve = curveViewDot > 0.0f;\r\n\r\n    float t = clamp(vHeight / 1.5f, 0.0f, 1.0f);\r\n    vec3 baseGrassColor = mix(grassBaseColor, grassTipColor, pow(t, grassAmbientTransitionPower));\r\n\r\n    vec3 normal = normalize(worldNormal) * (isInnerCurve ? -1.0f : 1.0f);\r\n    vec3 tangent = normalize(cross(normal, vec3(0.0f, 1.0f, 0.0f)));\r\n\r\n    // Ambient\r\n    vec3 grassColor = baseGrassColor * grassBaseDarkness;\r\n\r\n    // Sun lighting\r\n    if(!sunDisabled) {\r\n        vec3 lightDir = normalize(-SunLight.direction);\r\n        float diffuse = max(dot(normal, lightDir), 0.0f);\r\n        diffuse = diffuse * 0.6f + 0.4f;\r\n        vec3 sunDiffuse = baseGrassColor * grassDiffuseStrength * diffuse;\r\n\r\n        vec3 halfDir = normalize(lightDir + viewDirection);\r\n        float tdh = dot(tangent, halfDir);\r\n        float spec = pow(sqrt(1.0f - tdh * tdh), grassShininess);\r\n        spec = mix(0.0f, spec, pow(t, grassSpecularTransitionPower));\r\n        vec3 specular = grassSpecularStrength * spec * grassSpecularColor;\r\n\r\n        float translucency = max(dot(-lightDir, normal), 0.0f);\r\n        translucency = mix(0.0f, translucency, pow(t, grassTranslucencyTransitionPower));\r\n        vec3 translucentColor = grassTranslucencyColor * translucency * grassTranslucencyStrength;\r\n\r\n        float shadowFactor = mix(1.0f, sunShadow, sunShadowStrength);\r\n        grassColor += (sunDiffuse + specular + translucentColor) * shadowFactor;\r\n    }\r\n\r\n    // Point lights - use pre-computed shadow masks\r\n    for(int i = 0; i < numActivePointLights; i++) {\r\n        float pointLightShadow = (i < numShadowedLights) ? getPointShadowMask(i) : 1.0f;\r\n        vec3 pointLightDir = normalize(pointLights[i].position - worldPos);\r\n\r\n        float pointDiffuse = max(dot(normal, pointLightDir), 0.0f);\r\n        pointDiffuse = pointDiffuse * (1.0f - grassPointLightDiffuseSoftness) + grassPointLightDiffuseSoftness;\r\n        // Multiply by baseGrassColor so point lights tint the grass properly\r\n        vec3 pointDiffuseColor = baseGrassColor * pointDiffuse * pointLights[i].color * pointLights[i].intensity * grassDiffuseStrength * grassPointLightintensity;\r\n\r\n        vec3 pointHalfDir = normalize(pointLightDir + viewDirection);\r\n        float pointTdh = dot(tangent, pointHalfDir);\r\n        float pointSpec = pow(sqrt(1.0f - pointTdh * pointTdh), grassShininess);\r\n        pointSpec = mix(0.0f, pointSpec, pow(t, grassSpecularTransitionPower));\r\n        vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor * grassPointLightintensity;\r\n\r\n        float distance = length(pointLights[i].position - worldPos);\r\n        float attenuation = calculateAttenuation(distance, pointLights[i].radius, pointLights[i].range);\r\n\r\n        float shadowFactor = mix(1.0f, pointLightShadow, pointLightShadowStrength);\r\n        grassColor += (pointDiffuseColor + pointSpecular) * attenuation * shadowFactor;\r\n    }\r\n\r\n    return pow(grassColor, vec3(2.2f));\r\n}\r\n\r\nvoid main() {\r\n    vec3 fragViewPos = getViewPosition(fragUV, projInverse);\r\n    vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);\r\n\r\n    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);\r\n    vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);\r\n\r\n    vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);\r\n\r\n    vec4 uvBlockIdData = texture(uvTexture, fragUV);\r\n    vec2 uv = uvBlockIdData.xy;\r\n    uint blockId = texture(blockIdTexture, fragUV).r;\r\n    vec3 albedo = vec3(1.0, 1.0, 1.0); // Placeholder, will be replaced by texture lookup later\r\n    float ambientOcclusion = texture(ssaoTexture, fragUV).r;\r\n\r\n    // Sample pre-computed sun shadow mask data\r\n    // R = shadow, G = primary cascade (normalized), B = secondary cascade (normalized), A = blend factor\r\n    vec4 sunShadowData = texture(blurredSunShadowMask, fragUV);\r\n    float sunShadow = sunShadowData.r;\r\n    int primaryCascade = int(sunShadowData.g * 8.0f + 0.5f);\r\n    int secondaryCascade = int(sunShadowData.b * 8.0f + 0.5f);\r\n    float cascadeBlendFactor = sunShadowData.a;\r\n\r\n    // Check if this is a grass material (blockId == 1)\r\n    bool isGrass = (blockId == 67u);\r\n\r\n    // Apply cascade debug colors to albedo when enabled\r\n    if(cascadeDebug && !isGrass) {\r\n        albedo = getCascadeDebugColor(primaryCascade, secondaryCascade, cascadeBlendFactor);\r\n    }\r\n\r\n    vec3 lighting;\r\n\r\n    if(isGrass) {\r\n        // For grass: uvBlockIdData.x = vHeight, uvBlockIdData.y = curveAngle\r\n        float vHeight = uvBlockIdData.x;\r\n        float curveAngle = uvBlockIdData.y;\r\n        lighting = computeGrassLighting(fragWorldPos, worldNormal, vHeight, curveAngle, sunShadow);\r\n    } else {\r\n        // Standard PBR lighting for terrain (use placeholder values)\r\n        float baseReflectivity = 0.04f;\r\n        float metallicity = 0.0f;\r\n        float roughness = 0.8f;\r\n        // TODO: Sample albedo from texture using uv\r\n        albedo = vec3(1.0, 1.0, 1.0); // Placeholder\r\n        lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, ambientOcclusion, sunShadow);\r\n    }\r\n\r\n    if(texture(depthTexture, fragUV).r >= 1.0f) {\r\n        outputColor = vec4(skyColor, 1.0f);\r\n    } else {\r\n        outputColor = vec4(lighting, 1.0f);\r\n    }\r\n}";
 
 /***/ }),
 
@@ -13786,7 +14201,7 @@ module.exports = "#version 300 es\r\nprecision highp float;\r\n\r\nlayout(locati
 /***/ ((module) => {
 
 "use strict";
-module.exports = "#version 300 es\r\nprecision lowp float;\r\nin float vHeight;\r\nin vec3 vNormal;\r\nin float vCurveAngle;\r\nlayout(location = 0) out vec4 fragNormal;\r\nlayout(location = 1) out vec4 fragAlbedo;\r\nvoid main() {\r\n    fragNormal = vec4(normalize(vNormal), 1.0f);\r\n    fragAlbedo = vec4(vHeight, vCurveAngle, 0.0f, 0.5f);\r\n}";
+module.exports = "#version 300 es\r\nprecision lowp float;\r\nin float vHeight;\r\nin vec3 vNormal;\r\nin float vCurveAngle;\r\nlayout(location = 0) out vec4 fragNormal;\r\nlayout(location = 1) out vec2 fragGrassData;\r\nlayout(location = 2) out uint fragBlockId;\r\nvoid main() {\r\n    fragNormal = vec4(normalize(vNormal), 1.0f);\r\n    fragGrassData = vec2(vHeight, vCurveAngle);\r\n    fragBlockId = 67u;\r\n}";
 
 /***/ }),
 
@@ -14904,8 +15319,8 @@ class CombineGeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MOD
             throw new Error("[GeometryPass] Floating point render targets not supported. EXT_color_buffer_float or EXT_color_buffer_half_float required.");
         }
         const normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, normalInternalFormat, normalFormat, normalType);
-        const albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
-        const materialAttributesTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        const uvTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RG16F, this.gl.RG, this.gl.FLOAT);
+        const blockIdTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.R32UI, this.gl.RED_INTEGER, this.gl.UNSIGNED_INT);
         const depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
         const fbo = this.gl.createFramebuffer();
         if (!fbo) {
@@ -14913,8 +15328,8 @@ class CombineGeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MOD
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, normalTexture, 0);
-        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, albedoTexture, 0);
-        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, materialAttributesTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, uvTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, blockIdTexture, 0);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depthTexture, 0);
         this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1, this.gl.COLOR_ATTACHMENT2]);
         const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
@@ -14926,8 +15341,8 @@ class CombineGeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MOD
             fbo: fbo,
             textures: {
                 normal: normalTexture,
-                albedo: albedoTexture,
-                materialAttributes: materialAttributesTexture,
+                uv: uvTexture,
+                blockId: blockIdTexture,
                 depth: depthTexture
             }
         };
@@ -14937,21 +15352,24 @@ class CombineGeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MOD
         const gBuffer = this.renderGraph?.getOutputs(this);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clearBufferfv(this.gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
+        this.gl.clearBufferfv(this.gl.COLOR, 1, [0.0, 0.0, 0.0, 1.0]);
+        this.gl.clearBufferuiv(this.gl.COLOR, 2, [0, 0, 0, 0]);
         this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
         this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.depthMask(true);
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
         this.gl.bindVertexArray(vao.vao);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["normal"], "normalTexture", 0);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["albedo"], "albedoTexture", 1);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["materialAttributes"], "materialAttributesTexture", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["uv"], "uvTexture", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["blockId"], "blockIdTexture", 2);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["depth"], "depthTexture", 3);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassNormal"], "grassNormalTexture", 4);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassAlbedo"], "grassAlbedoTexture", 5);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassDepth"], "grassDepthTexture", 6);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassData"], "grassDataTexture", 5);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassBlockId"], "grassBlockIdTexture", 6);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, gBuffer["grassDepth"], "grassDepthTexture", 7);
         if (!pathtracerOn || this.pathtracerRender) {
             this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
         }
@@ -15249,17 +15667,18 @@ class GeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__
             throw new Error("[GeometryPass] Floating point render targets not supported. EXT_color_buffer_float or EXT_color_buffer_half_float required.");
         }
         const normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, normalInternalFormat, normalFormat, normalType);
-        const albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
+        const uvTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RG16F, this.gl.RG, this.gl.FLOAT);
+        const blockIdTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.R32UI, this.gl.RED_INTEGER, this.gl.UNSIGNED_INT);
         const depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
-        const matieralAttributesTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.createTexture2D(this.gl, w, h, this.gl.RGBA8, this.gl.RGBA, this.gl.UNSIGNED_BYTE);
         const fbo = this.gl.createFramebuffer();
         if (!fbo) {
             throw new Error("Failed to create framebuffer");
         }
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, normalTexture, 0);
-        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, albedoTexture, 0);
-        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, matieralAttributesTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, uvTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, blockIdTexture, 0);
+        // No materialAttributes texture needed anymore
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depthTexture, 0);
         this.gl.drawBuffers([
             this.gl.COLOR_ATTACHMENT0,
@@ -15275,17 +15694,19 @@ class GeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__
             fbo: fbo,
             textures: {
                 normal: normalTexture,
-                albedo: albedoTexture,
-                materialAttributes: matieralAttributesTexture,
-                depth: depthTexture
+                depth: depthTexture,
+                uv: uvTexture,
+                blockId: blockIdTexture
             }
         };
     }
     render(vaosToRender, pathtracerOn) {
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
-        this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        this.gl.clearBufferfv(this.gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
+        this.gl.clearBufferfv(this.gl.COLOR, 1, [0.0, 0.0, 0.0, 1.0]);
+        this.gl.clearBufferuiv(this.gl.COLOR, 2, [0, 0, 0, 0]);
         this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
-        this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+        this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.gl.enable(this.gl.DEPTH_TEST);
         this.gl.depthFunc(this.gl.LESS);
@@ -15372,19 +15793,22 @@ class GrassGeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODUL
             throw new Error("Failed to create framebuffer for GrassGeometryPass");
         const depthTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.DEPTH_COMPONENT32F, this.gl.DEPTH_COMPONENT, this.gl.FLOAT);
         const normalTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
-        const albedoTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RGBA16F, this.gl.RGBA, this.gl.FLOAT);
+        const grassDataTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.RG16F, this.gl.RG, this.gl.FLOAT);
+        const blockIdTexture = _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_0__.TextureUtils.createTexture2D(this.gl, this.canvas.width, this.canvas.height, this.gl.R32UI, this.gl.RED_INTEGER, this.gl.UNSIGNED_INT);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, normalTexture, 0);
-        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, albedoTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, grassDataTexture, 0);
+        this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT2, this.gl.TEXTURE_2D, blockIdTexture, 0);
         this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.DEPTH_ATTACHMENT, this.gl.TEXTURE_2D, depthTexture, 0);
-        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1]);
+        this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1, this.gl.COLOR_ATTACHMENT2]);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
         return {
             fbo,
             textures: {
                 grassDepth: depthTexture,
                 grassNormal: normalTexture,
-                grassAlbedo: albedoTexture
+                grassData: grassDataTexture,
+                grassBlockId: blockIdTexture
             }
         };
     }
@@ -15585,9 +16009,11 @@ class GrassGeometryPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODUL
         gl.disable(gl.BLEND);
         gl.disable(gl.CULL_FACE);
         gl.enable(gl.DEPTH_TEST);
-        gl.clearColor(0, 0, 0, 1);
+        this.gl.clearBufferfv(this.gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
+        this.gl.clearBufferfv(this.gl.COLOR, 1, [0.0, 0.0, 0.0, 1.0]);
+        this.gl.clearBufferuiv(this.gl.COLOR, 2, [0, 0, 0, 0]);
         gl.clearDepth(1.0);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.clear(gl.DEPTH_BUFFER_BIT);
         // Check if grass is enabled - if not, we've already cleared the buffers
         // so the depth will be 1.0 (far plane), ensuring scene geometry is used
         const grassEnabled = this.resourceCache.getData("grassEnabled") ?? true;
@@ -15696,10 +16122,10 @@ class LightingPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__
         const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
         const textures = this.renderGraph.getOutputs(this);
         const normalTexture = textures["normal"];
-        const albedoTexture = textures["albedo"];
+        const uvTexture = textures["uv"];
+        const blockIdTexture = textures["blockId"];
         const depthTexture = textures["depth"];
         const ssaoTexture = textures["ssaoBlur"];
-        const materialAttributesTexture = textures["materialAttributes"];
         // Shadow mask textures from dedicated shadow passes
         const blurredSunShadowMask = textures["blurredSunShadowMask"];
         const blurredPointShadowMaskA = textures["blurredPointShadowMaskA"];
@@ -15710,17 +16136,18 @@ class LightingPass extends _renderSystem_RenderPass__WEBPACK_IMPORTED_MODULE_0__
         // Bind lighting framebuffer
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget.fbo);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-        if (!pathtracerOn || this.pathtracerRender) {
-            this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-        }
+        this.gl.clearBufferfv(this.gl.COLOR, 0, [0.5, 0.7, 1.0, 1.0]);
+        this.gl.clearDepth(1.0);
+        this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
         this.gl.disable(this.gl.DEPTH_TEST);
         this.gl.disable(this.gl.BLEND);
         this.gl.useProgram(this.program);
         this.gl.bindVertexArray(vao.vao);
         // Bind G-buffer textures
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, normalTexture, "normalTexture", 0);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, albedoTexture, "albedoTexture", 1);
-        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, materialAttributesTexture, "materialAttributesTexture", 2);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, uvTexture, "uvTexture", 1);
+        _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, blockIdTexture, "blockIdTexture", 2);
+        // No materialAttributesTexture binding
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, depthTexture, "depthTexture", 3);
         _utils_TextureUtils__WEBPACK_IMPORTED_MODULE_2__.TextureUtils.bindTex(this.gl, this.program, ssaoTexture, "ssaoTexture", 4);
         // Bind shadow mask textures
@@ -17868,28 +18295,16 @@ class VAOManager {
             vertex: {
                 position: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.positions),
                 normal: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.normals),
-                color: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.colors),
-                reflectiveness: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.reflectiveness),
-                metallicity: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.metallicity),
-                roughness: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.roughness),
-                emissivity: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.emissivity)
+                uv: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateAttributeBuffer(this.gl, vertexData.uvs),
+                blockId: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateIntegerBuffer(this.gl, vertexData.blockIds)
             },
             indices: _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices))
         };
         const terrainVAO = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.createNonInterleavedVao(this.gl, {
             position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
             normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
-            color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 },
-            reflectiveness: {
-                buffer: TerrainTriangleBuffer.vertex.reflectiveness,
-                size: 1
-            },
-            metallicity: {
-                buffer: TerrainTriangleBuffer.vertex.metallicity,
-                size: 1
-            },
-            roughness: { buffer: TerrainTriangleBuffer.vertex.roughness, size: 1 },
-            emissivity: { buffer: TerrainTriangleBuffer.vertex.emissivity, size: 1 }
+            uv: { buffer: TerrainTriangleBuffer.vertex.uv, size: 2 },
+            blockId: { buffer: TerrainTriangleBuffer.vertex.blockId, size: 1, type: this.gl.UNSIGNED_INT }
         }, TerrainTriangleBuffer.indices, this.geometryProgram);
         const modelMatrix = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.CreateTransformations(gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(chunk.ChunkPosition[0], chunk.ChunkPosition[1], chunk.ChunkPosition[2]), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(0, 0, 0), gl_matrix__WEBPACK_IMPORTED_MODULE_5__.fromValues(1, 1, 1));
         this.terrainVAOInfos[chunkKey] = {
@@ -17898,9 +18313,10 @@ class VAOManager {
             modelMatrix,
             boundingBox: this.computeBoundingBox(vertexData.positions)
         };
-        this.grassVAOInfos[chunkKey] = this.createGrassVAO(vertexData.positions, vertexData.normals, vertexData.terrainId, Array.from(vertexData.indices), modelMatrix);
+        debugger;
+        this.grassVAOInfos[chunkKey] = this.createGrassVAO(vertexData.positions, vertexData.normals, vertexData.blockIds, Array.from(vertexData.indices), modelMatrix);
     }
-    createGrassVAO(terrainVertices, terrainNormals, terrainId, triangleIndices, modelMatrix) {
+    createGrassVAO(terrainVertices, terrainNormals, blockIds, triangleIndices, modelMatrix) {
         const numBlades = 20000;
         const grassThickness = 0.1;
         const numTriangles = triangleIndices.length / 3;
@@ -17921,15 +18337,12 @@ class VAOManager {
             }
             const w = 1 - u - v;
             // Check terrain type at this triangle (all three vertices should have the same type)
-            const type0 = terrainId[triangleIndices[triIdx + 0]];
-            if (type0 !== 0)
-                continue; // Only place grass on terrain type 0 (grass)
-            const type1 = terrainId[triangleIndices[triIdx + 1]];
-            if (type1 !== 0)
-                continue;
-            const type2 = terrainId[triangleIndices[triIdx + 2]];
-            if (type2 !== 0)
-                continue;
+            const blockId0 = blockIds[triangleIndices[triIdx + 0]];
+            const blockId1 = blockIds[triangleIndices[triIdx + 1]];
+            const blockId2 = blockIds[triangleIndices[triIdx + 2]];
+            if (blockId0 !== 0 || blockId1 !== 0 || blockId2 !== 0) {
+                continue; // Skip if not grass
+            }
             // Interpolate position
             const x = terrainVertices[i0] * u +
                 terrainVertices[i1] * v +
@@ -18367,9 +18780,13 @@ class VAOManager {
     createWorldObjectVAOs(worldObjects) {
         for (const worldObject of worldObjects) {
             const vao = _utils_RenderUtils__WEBPACK_IMPORTED_MODULE_1__.RenderUtils.createInterleavedVao(this.gl, worldObject.buffer.vertex, worldObject.buffer.indices, {
-                position: { offset: 0, size: 3, stride: 36 },
-                normal: { offset: 12, size: 3, stride: 36 },
-                color: { offset: 24, size: 3, stride: 36 }
+                position: { offset: 0, size: 3, stride: 52 },
+                normal: { offset: 12, size: 3, stride: 52 },
+                color: { offset: 24, size: 3, stride: 52 },
+                reflectiveness: { offset: 36, size: 1, stride: 52 },
+                metallicity: { offset: 40, size: 1, stride: 52 },
+                roughness: { offset: 44, size: 1, stride: 52 },
+                emissivity: { offset: 48, size: 1, stride: 52 }
             }, this.geometryProgram);
             this.vaoCache.set(worldObject.id, {
                 vao,
@@ -18581,6 +18998,20 @@ class RenderUtils {
         return buffer;
     }
     /**
+     * Creates a buffer for integer vertex attributes.
+     * @param gl The WebGL2RenderingContext to use for creating the buffer.
+     * @param data The array of integer data.
+     * @returns WebGLBuffer containing the attribute data.
+     */
+    static CreateIntegerBuffer(gl, data) {
+        const buffer = gl.createBuffer();
+        if (!buffer)
+            throw new Error("Failed to create integer buffer");
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+        return buffer;
+    }
+    /**
      * Creates an index buffer for the given indices.
      * @param gl The WebGL2RenderingContext to use for creating the buffer.
      * @param indices The array of indices to be stored in the buffer.
@@ -18646,7 +19077,13 @@ class RenderUtils {
             const { buffer, size, type = gl.FLOAT } = bufferInfo;
             gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
             gl.enableVertexAttribArray(attribLocation);
-            gl.vertexAttribPointer(attribLocation, size, type, false, 0, 0);
+            // Use vertexAttribIPointer for integer types
+            if (type === gl.UNSIGNED_INT || type === gl.INT || type === gl.UNSIGNED_BYTE || type === gl.BYTE || type === gl.SHORT || type === gl.UNSIGNED_SHORT) {
+                gl.vertexAttribIPointer(attribLocation, size, type, 0, 0);
+            }
+            else {
+                gl.vertexAttribPointer(attribLocation, size, type, false, 0, 0);
+            }
         }
         gl.bindVertexArray(null);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -19147,6 +19584,15 @@ class WorldUtils {
 /******/ 		};
 /******/ 	})();
 /******/ 	
+/******/ 	/* webpack/runtime/get javascript chunk filename */
+/******/ 	(() => {
+/******/ 		// This function allow to reference async chunks
+/******/ 		__webpack_require__.u = (chunkId) => {
+/******/ 			// return url for filenames based on template
+/******/ 			return "" + chunkId + ".index.js";
+/******/ 		};
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/get javascript update chunk filename */
 /******/ 	(() => {
 /******/ 		// This function allow to reference all chunks
@@ -19163,7 +19609,7 @@ class WorldUtils {
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("9522fc5ac36472b62b2b")
+/******/ 		__webpack_require__.h = () => ("baab8800649c23f976f8")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
@@ -19638,7 +20084,7 @@ class WorldUtils {
 /******/ 	
 /******/ 	/* webpack/runtime/jsonp chunk loading */
 /******/ 	(() => {
-/******/ 		// no baseURI
+/******/ 		__webpack_require__.b = document.baseURI || self.location.href;
 /******/ 		
 /******/ 		// object to store loaded and loading chunks
 /******/ 		// undefined = chunk not loaded, null = chunk preloaded/prefetched
