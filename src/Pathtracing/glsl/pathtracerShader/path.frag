@@ -1023,14 +1023,25 @@ vec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     Ray shadowRay;
     shadowRay.origin = mainRay.origin;
     shadowRay.dir = lightDir;
+    int hitLightIndex = -1;
+    for (int j = 0; j < numActiveLights; j++) {
+        if(j == i) continue; // Skip the light we're sampling
+        vec3 lightHitNormal;
+        float lightHitDistance = intersectLight(shadowRay.origin, shadowRay.dir, lights[j], lightHitNormal);
+        if (lightHitDistance > 0.0 && lightHitDistance < lightDistance) {
+            hitLightIndex = j;
+            break;
+        }
+    }
+    if(hitLightIndex ==0){
+        // Fast Shadow Check
+        bool blocked = traverseBVHShadow(shadowRay, lightDistance);
 
-    // Fast Shadow Check
-    bool blocked = traverseBVHShadow(shadowRay, lightDistance);
-
-    if(!blocked){
-        float P = 1.0/(lightDistance*lightDistance);
-        float NdotL = max(dot(smoothNormal, lightDir), 0.0);
-        directLight += BRDF * light.color * light.intensity * NdotL * P * PI * light.radius * light.radius;
+        if(!blocked){
+            float P = 1.0/(lightDistance*lightDistance);
+            float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+            directLight += BRDF * light.color * light.intensity * NdotL * P * PI * light.radius * light.radius;
+        }
     }
     return directLight;
 }
@@ -1051,23 +1062,34 @@ vec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     Ray shadowRay;
     shadowRay.origin = mainRay.origin;
     shadowRay.dir = lightDir;
+    int hitLightIndex = -1;
+    for (int i = 0; i < numActiveLights; i++) {
+        vec3 lightHitNormal;
+        float lightHitDistance = intersectLight(shadowRay.origin, shadowRay.dir, lights[i], lightHitNormal);
+        if (lightHitDistance > 0.0) {
+            hitLightIndex = i;
+            break;
+        }
+    }
 
-    // Fast Shadow Check (Max distance is effectively infinite for sun)
-    bool blocked = traverseBVHShadow(shadowRay, 1e20);
+    if (hitLightIndex == -1) {
+        // Fast Shadow Check (Max distance is effectively infinite for sun)
+        bool blocked = traverseBVHShadow(shadowRay, 1e20);
 
-    if (!blocked) {
-        // Ray is not blocked, calculate light contribution
-        // --- Light Contribution (Radiance) ---
-        // float cos_alpha = cos(u_sunAngularRadius);
-        // float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
-        // float PDF = 1.0 / solidAngle; 
-        // L_i = BRDF * NdotL / PDF * Radiance
-        // Radiance (L_e) = Intensity / SolidAngle
-        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
-        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
-        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
-        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
-        return directLight;
+        if (!blocked) {
+            // Ray is not blocked, calculate light contribution
+            // --- Light Contribution (Radiance) ---
+            // float cos_alpha = cos(u_sunAngularRadius);
+            // float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
+            // float PDF = 1.0 / solidAngle; 
+            // L_i = BRDF * NdotL / PDF * Radiance
+            // Radiance (L_e) = Intensity / SolidAngle
+            // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
+            // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
+            // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
+            vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
+            return directLight;
+        }
     }
     
     return vec3(0.0);

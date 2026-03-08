@@ -117,6 +117,7 @@ export class GameEngine {
     );
 
     this.updatePathracing = () => {
+      if(!this.pathTracer.meshProgram) { return; }
       if (!this.pathtracerUpdated) {
         this.pathtracerUpdated = true;
         this.pathTracer.initBVH(this.world.combinedMesh());

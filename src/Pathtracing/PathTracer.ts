@@ -128,7 +128,10 @@ export class PathTracer {
         console.timeEnd("Pathtracer Shader Compile Time");
 
       }
-    });
+    }).catch((error) => {
+      // Handle specific errors thrown during compilation
+      console.error("PathTracer: Fatal error during shader compilation:", error);
+    });;
 
 
     document.addEventListener("visibilitychange", () => {
