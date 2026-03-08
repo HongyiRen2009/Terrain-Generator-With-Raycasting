@@ -585,15 +585,6 @@ export class PathTracer {
       numType: "int"
     });
     SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
-      id: "u_skips",
-      label: "Skips",
-      min: 1,
-      max: 50,
-      step: 1,
-      defaultValue: 4,
-      numType: "int"
-    });
-    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
       id: "u_varianceThreshold",
       label: "Variance Threshold",
       min: 0,
