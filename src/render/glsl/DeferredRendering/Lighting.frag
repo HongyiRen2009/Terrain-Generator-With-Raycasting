@@ -168,9 +168,6 @@ vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float
     return (diffuse + specular) * radiance * diffuseFactor;
 }
 float calculateAttenuation(float d, float r, float range) {
-    if(d > range) {
-        return 0.0f;
-    }
     return 2.0f * (1.0f - d / sqrt(d * d + r * r));
 }
 
