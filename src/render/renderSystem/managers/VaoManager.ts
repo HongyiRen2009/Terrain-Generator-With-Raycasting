@@ -2,7 +2,7 @@ import { mat4, vec3 } from "gl-matrix";
 import { BVHTriangle, Mesh } from "../../../map/Mesh";
 import { WorldObject } from "../../../map/WorldObject";
 import { RenderUtils } from "../../../utils/RenderUtils";
-import { meshToNonInterleavedVerticesAndIndices } from "../../../map/cubes_utils";
+import { meshToNonInterleavedVerticesAndIndices, meshToPositionsAndIndices } from "../../../map/cubes_utils";
 import GeometryVertexShaderSource from "../../glsl/DeferredRendering/Geometry.vert";
 import GeometryFragmentShaderSource from "../../glsl/DeferredRendering/Geometry.frag";
 import e from "express";
@@ -32,6 +32,7 @@ export class VAOManager {
   private gl: WebGL2RenderingContext;
   private vaoCache: Map<number, VaoInfo>;
   private terrainVAOInfos: { [key: string]: VaoInfo } = {};
+  private waterVAOInfos: { [key: string]: VaoInfo } = {};
   private screenQuadVAOInfo: VaoInfo | null = null;
   // Keep references to buffers so we can delete them later
   private terrainBuffers: {
@@ -107,7 +108,6 @@ export class VAOManager {
       modelMatrix,
       boundingBox: this.computeBoundingBox(vertexData.positions)
     };
-    debugger;
     this.grassVAOInfos[chunkKey] = this.createGrassVAO(
       vertexData.positions,
       vertexData.normals,
@@ -117,7 +117,38 @@ export class VAOManager {
     );
 
   }
-
+  createWaterVAO(chunk: Chunk, chunkKey: string): void {
+    const triangleMesh = chunk.WaterMesh;
+    
+    const vertexData = meshToPositionsAndIndices(triangleMesh);
+    const WaterTriangleBuffer = {
+      vertex: {
+        position: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          vertexData.positions
+        ),
+      }
+    };
+    const waterVAO = RenderUtils.createNonInterleavedVao(
+      this.gl,
+      {
+        position: { buffer: WaterTriangleBuffer.vertex.position, size: 3 },
+      },
+      RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices)),
+      this.geometryProgram!
+    );
+    const modelMatrix = RenderUtils.CreateTransformations(vec3.fromValues(
+      chunk.ChunkPosition[0],
+      chunk.ChunkPosition[1],
+      chunk.ChunkPosition[2]
+    ), vec3.fromValues(0, 0, 0), vec3.fromValues(1, 1, 1));
+    this.waterVAOInfos[chunkKey] = {
+      vao: waterVAO,
+      indexCount: vertexData.indices.length,
+      modelMatrix,
+      boundingBox: this.computeBoundingBox(vertexData.positions)
+    };
+  }
   createGrassVAO(
     terrainVertices: Float32Array,
     terrainNormals: Float32Array,
@@ -250,6 +281,11 @@ export class VAOManager {
     if (vaoInfo) {
       this.gl.deleteVertexArray(vaoInfo.vao);
       delete this.terrainVAOInfos[chunkKey];
+    }
+    const waterVaoInfo = this.waterVAOInfos[chunkKey];
+    if (waterVaoInfo) {
+      this.gl.deleteVertexArray(waterVaoInfo.vao);
+      delete this.waterVAOInfos[chunkKey];
     }
     const grassVaoInfo = this.grassVAOInfos[chunkKey];
     if (grassVaoInfo) {
@@ -734,7 +770,15 @@ export class VAOManager {
     });
     return vaosToRender;
   }
-
+  getWaterVaosToRender(): VaoInfo[] {
+    const vaosToRender: VaoInfo[] = [];
+    if (this.waterVAOInfos) {
+      for (const key in this.waterVAOInfos) {
+        vaosToRender.push(this.waterVAOInfos[key]);
+      }
+    }
+    return vaosToRender;
+  }
   getScreenQuadVAO(): VaoInfo | null {
     return this.screenQuadVAOInfo;
   }

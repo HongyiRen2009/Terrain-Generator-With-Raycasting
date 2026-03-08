@@ -101,10 +101,6 @@ fn get_terrain_type(pos: vec3<f32>, normal: vec3<f32>) -> u32 {
     let upDot = clamp(normal.y, - 1.0, 1.0);
     let slope = 1.0 - abs(upDot);
 
-    if (y < WATER_LEVEL + 0.5 && slope < 0.01) {
-        return 4u;
-        // water
-    }
     if (y < WATER_LEVEL + 3.0 && slope < 0.45) {
         return 5u;
         // sand

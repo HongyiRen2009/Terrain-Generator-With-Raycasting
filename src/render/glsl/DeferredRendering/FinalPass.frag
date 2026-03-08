@@ -5,7 +5,8 @@ in vec2 fragUV;
 out vec4 outputColor;
 
 uniform sampler2D sceneTexture;
-uniform sampler2D cloudsTexture; // <-- Add this line
+uniform sampler2D cloudsTexture;
+uniform sampler2D waterTexture;
 uniform vec2 resolution;
 
 // Vignette
@@ -88,7 +89,10 @@ void main() {
     // Sample clouds and lit scene
     vec4 clouds = texture(cloudsTexture, uv);
     vec3 litScene = texture(sceneTexture, uv).rgb;
-
+    vec3 waterColor = texture(waterTexture, uv).rgb;
+    if(waterColor.r > 0.0f || waterColor.g > 0.0f || waterColor.b > 0.0f) {
+        litScene = waterColor; // Override lit scene with water color if present
+    }
     // Composite clouds over lit scene
     color = clouds.rgb + litScene * (1.0 - clouds.a);
 

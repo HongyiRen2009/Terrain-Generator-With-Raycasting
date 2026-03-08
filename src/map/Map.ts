@@ -402,6 +402,7 @@ private async generateChunkStrip(
     width, height, depth, this.seed,
     chunkStartPos[0], chunkStartPos[1], chunkStartPos[2]
   );
+  const field = await computeShader.readFieldBuffer(fieldBuffer, width , height , depth);
   const interleavedResult = await computeShader.createMarchingCubes(
     fieldBuffer, width, height, depth
   );
@@ -414,7 +415,7 @@ private async generateChunkStrip(
 
   // Partition triangles into chunks
   const chunkMeshes: { [key: string]: Mesh } = {};
-  
+  const chunkWaterMeshes: { [key: string]: Mesh } = {};
   // Create chunk meshes using chunk indices (0,1,2...) not world positions
   for (let cx = 0; cx < numberOfChunksX; cx++) {
     for (let cz = 0; cz < numberOfChunksZ; cz++) {
@@ -423,6 +424,7 @@ private async generateChunkStrip(
       const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
       const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
       chunkMeshes[key] = new Mesh();
+      chunkWaterMeshes[key] = new Mesh();
     }
   }
 
@@ -512,10 +514,59 @@ private async generateChunkStrip(
       new Uint32Array(new Float32Array([interleavedData[offset1 + 3]]).buffer)[0],
       new Uint32Array(new Float32Array([interleavedData[offset2 + 3]]).buffer)[0]
     ];
-
-    mesh.addTriangle(localTri, norm, types);
+      mesh.addTriangle(localTri, norm, types);
+    
   }
-
+  const PADDING_OFFSET = 1.0;
+  //Create Water meshes for the strip (flat plane at y=30, same x/z as terrain)
+  for (let cx = 0; cx < numberOfChunksX; cx++) {
+    for (let cz = 0; cz < numberOfChunksZ; cz++) {
+      const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+      const chunkWorldY = chunkStartPos[1];
+      const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+      const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
+      const waterMesh = chunkWaterMeshes[key];
+      const waterResolution = 64; // Higher = smoother water
+      if (!waterMesh) continue;
+      const y = 30;
+      const step = this.resolution / waterResolution;
+for (let x = 0; x < waterResolution; x++) {
+  for (let z = 0; z < waterResolution; z++) {
+          const vx = x * step;
+          const vz = z * step;
+                  // Calculate strip-local field coordinates
+        const stripLocalX = cx * this.resolution + vx;
+        const stripLocalZ = cz * this.resolution + vz;
+        const paddedX = Math.floor(stripLocalX + PADDING_OFFSET);
+        const paddedY = Math.floor(y + PADDING_OFFSET);
+        const paddedZ = Math.floor(stripLocalZ + PADDING_OFFSET);
+        
+        // Check field value at water level
+        if (paddedX < 0 || paddedX >= width || paddedY < 0 || paddedY >= height || 
+            paddedZ < 0 || paddedZ >= depth) {
+          continue;
+        }
+        
+        const fieldIndex = paddedX + paddedY * width + paddedZ * width * height;
+        const fieldValue = field[fieldIndex];
+        
+        // Only generate water if field is empty (terrain doesn't exist here)
+        if (fieldValue > 0.5) {
+          continue;
+        }
+          const v1 = vec3.fromValues(vx,        y, vz);
+          const v2 = vec3.fromValues(vx + step, y, vz);
+          const v3 = vec3.fromValues(vx,        y, vz + step);
+          const v4 = vec3.fromValues(vx + step, y, vz + step);
+          const norm = vec3.fromValues(0, 1, 0);
+          waterMesh.addTriangle([v1, v3, v2], [norm, norm, norm], [4, 4, 4]);
+          waterMesh.addTriangle([v2, v3, v4], [norm, norm, norm], [4, 4, 4]);
+        }
+      }
+      chunkWaterMeshes[key] = waterMesh;
+    }
+  }
+      
   // Create Chunk objects and assign meshes
   for (let cx = 0; cx < numberOfChunksX; cx++) {
     for (let cz = 0; cz < numberOfChunksZ; cz++) {
@@ -532,6 +583,7 @@ private async generateChunkStrip(
         this
       );
       chunk.Mesh = chunkMeshes[key];
+      chunk.WaterMesh = chunkWaterMeshes[key];
       this.chunks[key] = chunk;
       
       if (then) {
@@ -797,6 +849,7 @@ export class Chunk {
   Field: Float32Array = new Float32Array();
   seed: number;
   Mesh: Mesh = null!;
+  WaterMesh: Mesh = null!;
   gearObjects: vec3[];
   worldMap: WorldMap;
   constructor(
@@ -1045,6 +1098,7 @@ async generate(): Promise<{
     // Reconstruct mesh from compute shader results
     startTime = performance.now();
     this.Mesh = new Mesh();
+    this.WaterMesh = new Mesh();
 
     for (let i = 0; i < indices.length; i += 3) {
       const idx0 = indices[i];
@@ -1121,8 +1175,12 @@ async generate(): Promise<{
         new Uint32Array(new Float32Array([terrainTypeFloat1]).buffer)[0],
         new Uint32Array(new Float32Array([terrainTypeFloat2]).buffer)[0]
       ];
-
+      if(types[0] === 4 || types[1] === 4 || types[2] === 4) {
+        this.WaterMesh.addTriangle(tri, norm, types);
+      }
+      else {
       this.Mesh.addTriangle(tri, norm, types);
+        }
     }
     timings.meshConstruction = performance.now() - startTime;
     timings.total = performance.now() - totalStart;

@@ -382,6 +382,10 @@ generateChunksAroundCamera(deleteAllChunks: boolean = false) {
         chunk,
         WorldUtils.chunkKeyFromPosition(chunk.ChunkPosition, this.world)
       );
+      this.renderer.vaoManager.createWaterVAO(
+        chunk,
+        WorldUtils.chunkKeyFromPosition(chunk.ChunkPosition, this.world)
+       );
     }
   );
   this.world.processChunkQueue();
