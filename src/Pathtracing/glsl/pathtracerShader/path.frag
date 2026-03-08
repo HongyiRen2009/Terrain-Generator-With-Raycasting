@@ -301,97 +301,184 @@ vec3 rotateY(vec3 v, float angle) {
 
 // --- Intersection Function ---
 // Returns true if hit, writes distance to 'dist' and fills 'result' struct
-bool intersectGrassBlade(Ray mainRay,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) {
+bool intersectGrassBlade(Ray mainRay, vec3 instancePos, float lean, float rotation, out float dist, out Triangle result) {
     // ------------------------------------
+    // GEOMETRY CONFIGURATION
+    const float HEIGHT = 1.0;
+    const float WIDTH  = 0.12;  // Half-width at the base
+    const float THICK  = 0.02;  // Thickness of the volume
+    const float CURVE_X = 2.0;  // Strength of the "taco" curl
     
     // 1. TRANSFORM RAY TO LOCAL SPACE
-    vec3 localOrigin = mainRay.origin - instancePos;
-    vec3 localDir = mainRay.dir;
-    float hitY = 0.0;
+    vec3 ro = mainRay.origin - instancePos;
+    vec3 rd = mainRay.dir;
 
-    // Inverse Rotation (Rotate by -rotation)
-    localOrigin = rotateY(localOrigin, -rotation);
-    localDir = rotateY(localDir, -rotation);
+    // Inverse Rotation (Rotate ray by -rotation around Y)
+    float cr = cos(-rotation);
+    float sr = sin(-rotation);
+    vec3 localO = vec3(ro.x * cr + ro.z * sr, ro.y, -ro.x * sr + ro.z * cr);
+    vec3 localD = vec3(rd.x * cr + rd.z * sr, rd.y, -rd.x * sr + rd.z * cr);
 
-    // Inverse Shear (Undo the lean: x' = x - lean*y)
-    localOrigin.x -= lean * localOrigin.y;
-    localOrigin.z -= lean * localOrigin.y;
-    localDir.x -= lean * localDir.y;
-    localDir.z -= lean * localDir.y;
-
+    // Track the closest hit
     float tClosest = 1e20;
-    vec3 normalClosest = vec3(0.0);
-    bool hitAny = false;
+    vec3  nClosest = vec3(0.0);
+    bool  hit = false;
+    float hitH = 0.0; // Height of intersection for shading
+
+    // ---------------------------------------------------------
+    // 2. INTERSECT CURVED FACES (Front & Back)
+    // Equation: Z = lean * y^2 + CURVE_X * x^2 +/- THICK
+    // We solve for both Front (+THICK) and Back (-THICK) offsets.
     
-    float bladeHeight = 1.0;
-    float baseWidth = 0.1; 
-    
-    // --- Test Plane A (Z-facing part) ---
-    if (abs(localDir.z) > 1e-6) {
-        float t = -localOrigin.z / localDir.z;
-        if (t > 0.0) { // Removed t < tClosest check since it's the first check
-            vec3 p = localOrigin + t * localDir;
-            if (p.y >= 0.0 && p.y <= bladeHeight) {
-                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));
-                if (abs(p.x) <= currentWidth) {
-                    tClosest = t;
-                    hitAny = true;
-                    // Base normal (0,0,1) -> Sheared normal -> Rotated normal
-                    // Sheared Plane Z: z - lean*y = 0. Normal is (0, -lean, 1)
-                    normalClosest = normalize(vec3(0.0, -lean, 1.0));
-                    hitY = p.y;
-                    // Flip if hitting backface
-                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;
+    // Quadratic Coefficients for Ray-Surface Intersection
+    // Substituted P(t) into Surface Equation: A*t^2 + B*t + C = 0
+    float A = lean * localD.y * localD.y + CURVE_X * localD.x * localD.x;
+    float B_core = 2.0 * (lean * localO.y * localD.y + CURVE_X * localO.x * localD.x) - localD.z;
+    float C_core = lean * localO.y * localO.y + CURVE_X * localO.x * localO.x - localO.z;
+
+    float offsets[2]; 
+    offsets[0] = THICK; 
+    offsets[1] = -THICK;
+
+    for(int i = 0; i < 2; i++) {
+        float C = C_core + offsets[i];
+        float t1 = -1.0, t2 = -1.0;
+
+        // Solve Quadratic
+        if (abs(A) < 1e-6) {
+            // Linear case (rare)
+            if (abs(B_core) > 1e-6) t1 = -C / B_core;
+        } else {
+            float det = B_core * B_core - 4.0 * A * C;
+            if (det >= 0.0) {
+                float sqrtD = sqrt(det);
+                t1 = (-B_core - sqrtD) / (2.0 * A);
+                t2 = (-B_core + sqrtD) / (2.0 * A);
+            }
+        }
+
+        // Check Candidates
+        float candidates[2]; candidates[0] = t1; candidates[1] = t2;
+        for(int k = 0; k < 2; k++) {
+            float t = candidates[k];
+            if (t > 1e-4 && t < tClosest) {
+                vec3 p = localO + t * localD;
+                
+                // BOUNDS CHECK:
+                // 1. Height: Must be between 0 and HEIGHT
+                // 2. Width: Must be inside the tapered edge |x| <= WIDTH * (1 - y)
+                if (p.y >= 0.0 && p.y <= HEIGHT) {
+                    float currentWidth = WIDTH * (1.0 - p.y / HEIGHT);
+                    if (abs(p.x) <= currentWidth) {
+                        tClosest = t;
+                        hit = true;
+                        hitH = p.y;
+                        
+                        // Calculate Normal (Gradient of implicit surface)
+                        // F = lean*y^2 + k*x^2 - z
+                        // Normal = (2kx, 2ky, -1)
+                        vec3 grad = vec3(2.0 * CURVE_X * p.x, 2.0 * lean * p.y, -1.0);
+                        nClosest = normalize(grad);
+                    }
                 }
             }
         }
     }
 
-    // --- Test Plane B (X-facing part) ---
-    if (abs(localDir.x) > 1e-6) {
-        float t = -localOrigin.x / localDir.x;
-        // Only update if this hit is closer than the previous one
-        if (t > 0.0 && t < tClosest) {
-            vec3 p = localOrigin + t * localDir;
-            if (p.y >= 0.0 && p.y <= bladeHeight) {
-                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));
-                if (abs(p.z) <= currentWidth) {
-                    tClosest = t;
-                    hitAny = true;
-                    // Base normal (1,0,0) -> Sheared normal -> Rotated normal
-                    // Sheared Plane X: x - lean*y = 0. Normal is (1, -lean, 0)
-                    normalClosest = normalize(vec3(1.0, -lean, 0.0));
-                    hitY = p.y;
-                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;
+    // ---------------------------------------------------------
+    // 3. INTERSECT SIDE EDGES (Left & Right)
+    // Planar Taper: x = +/- WIDTH * (1 - y/HEIGHT)
+    // Rearranged: x +/- (WIDTH/HEIGHT)*y -/+ WIDTH = 0
+    
+    // Slopes for the planes
+    float slope = WIDTH / HEIGHT; // Change in X per Y
+    // We check Right Plane (x > 0) and Left Plane (x < 0)
+    // Right Normal: (1, slope, 0), D = -WIDTH
+    // Left Normal:  (-1, slope, 0), D = -WIDTH (if formulated as -x - slope*y + width = 0)
+    
+    // Simplified Loop for Sides: s=1 (Right), s=-1 (Left)
+    float signs[2]; signs[0] = 1.0; signs[1] = -1.0;
+    
+    for(int i = 0; i < 2; i++) {
+        float s = signs[i];
+        vec3 nPlane = normalize(vec3(s, slope, 0.0));
+        float dPlane = -WIDTH / length(vec3(s, slope, 0.0)); // Plane constant
+        
+        // Ray-Plane Intersection: t = -(dot(N,O) + d) / dot(N,D)
+        float denom = dot(nPlane, localD);
+        if (abs(denom) > 1e-6) {
+            float t = -(dot(nPlane, localO) + dPlane) / denom;
+            
+            if (t > 1e-4 && t < tClosest) {
+                vec3 p = localO + t * localD;
+                
+                // BOUNDS CHECK:
+                // 1. Height: 0 <= y <= HEIGHT
+                // 2. Thickness: The point must lie BETWEEN the front and back curves.
+                //    Center Z at this point = lean*y^2 + curveX*x^2
+                if (p.y >= 0.0 && p.y <= HEIGHT) {
+                    float zCenter = lean * p.y * p.y + CURVE_X * p.x * p.x;
+                    // Check if z is within [zCenter - THICK, zCenter + THICK]
+                    if (abs(p.z - zCenter) <= THICK) {
+                        tClosest = t;
+                        hit = true;
+                        hitH = p.y;
+                        nClosest = nPlane;
+                    }
                 }
             }
         }
     }
 
-    if (!hitAny) {
-        return false;
+    // ---------------------------------------------------------
+    // 4. INTERSECT BOTTOM CAP (y = 0)
+    if (abs(localD.y) > 1e-6) {
+        float t = -localO.y / localD.y;
+        if (t > 1e-4 && t < tClosest) {
+            vec3 p = localO + t * localD;
+            
+            // BOUNDS CHECK:
+            // 1. Width: |x| <= WIDTH
+            // 2. Thickness: |z - lean*0 - curve*x^2| <= THICK => |z - curve*x^2| <= THICK
+            //    (At y=0, lean term is 0)
+            float zCenter = CURVE_X * p.x * p.x;
+            
+            if (abs(p.x) <= WIDTH && abs(p.z - zCenter) <= THICK) {
+                tClosest = t;
+                hit = true;
+                hitH = 0.0;
+                nClosest = vec3(0.0, -1.0, 0.0); // Pointing down
+            }
+        }
     }
 
-    // Output 1: Distance
+    if (!hit) return false;
+
+    // ---------------------------------------------------------
+    // 5. OUTPUT RESULTS
     dist = tClosest;
 
-    // Output 2: Triangle Struct
-    // Rotate the normal back to world space
-    vec3 worldNormal = rotateY(normalClosest, rotation);
-    
-    // Fill required dummy data to prevent compilation errors/undefined behavior
-    result.vertices = vec3[3](vec3(0.), vec3(0.), vec3(0.));
-    result.types[1] = 0;
-    result.types[2] = 0;
-    result.min = vec3(0.);
-    result.max = vec3(0.);
-    result.center = vec3(0.);
-    result.normals = vec3[3](vec3(0.), vec3(0.), vec3(0.));
+    // Ensure Normal Faces the Ray (Double Sided Rendering)
+    if (dot(localD, nClosest) > 0.0) nClosest = -nClosest;
 
-    // Fill only the required fields
-    result.types[0] = -1;       // As requested
-    result.triNormal = worldNormal; // The calculated normal
-    result.normals[0].x = hitY; //Height
+    // Transform Normal back to World Space
+    vec3 worldNormal = vec3(
+        nClosest.x * cr + nClosest.z * sr,
+        nClosest.y,
+        -nClosest.x * sr + nClosest.z * cr
+    );
+
+    // Fill struct dummy data to prevent undefined behavior
+    result.vertices[0] = vec3(0.); result.vertices[1] = vec3(0.); result.vertices[2] = vec3(0.);
+    result.types[1] = 0; result.types[2] = 0;
+    result.min = vec3(0.); result.max = vec3(0.); result.center = vec3(0.);
+    result.normals[1] = vec3(0.); result.normals[2] = vec3(0.);
+
+    // Fill Required Fields
+    result.types[0] = -1;       
+    result.triNormal = worldNormal; 
+    result.normals[0].x = hitH; // Height of intersection (0.0 to 1.0)
+
     return true;
 }
 
