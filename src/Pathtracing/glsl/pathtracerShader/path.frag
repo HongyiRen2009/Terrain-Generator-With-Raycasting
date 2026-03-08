@@ -890,26 +890,22 @@ vec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albe
 //Get sky color. AI generated
 vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     // -------------------------------------
-    // Constants
+    // Constants & Setup
     // -------------------------------------
-    const float RE = 6360e3;          // Earth Radius (meters)
-    const float RA = 6420e3;          // Atmosphere Radius (meters)
-    const float HR = 8000.0;          // Rayleigh Scale Height
-    const float HM = 1200.0;          // Mie Scale Height
-    float G_MIE = u_haloSize;         // Mie Anisotropy
+    const float RE = 6360e3;
+    const float RA = 6420e3;
+    const float HR = 8000.0;
+    const float HM = 1200.0;
+    float G_MIE = u_haloSize;
     
-
-
     vec3 BETA_R = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.001; 
     vec3 BETA_M = vec3(u_MIE * 0.001);                 
+    vec3 BETA_O = vec3(0.01035, 0.02507, 0.00107) * BETA_R.z; // Ozone absorption
 
     float SUN_INTENSITY = u_sunIntensity; 
     int STEPS_PRIMARY = u_skyGradientQuality;   
     int STEPS_LIGHT = u_sunsetQuality;       
 
-    // -------------------------------------
-    // Setup Geometry
-    // -------------------------------------
     Light atmosphere;
     atmosphere.position = vec3(0.0);
     atmosphere.radius = RA;
@@ -917,11 +913,17 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     vec3 camPos = vec3(0.0, RE + u_cameraPos.y, 0.0); 
     vec3 dummyNormal; 
 
-    // Calculate distance to leave the atmosphere
     float distToTop = intersectLight(camPos, rayDir, atmosphere, dummyNormal);
     
-    // If we look down and don't hit the atmosphere cap (or hit ground logic),
-    // we initialize with White instead of Black.
+    float a = dot(rayDir, rayDir);
+    float b = 2.0 * dot(camPos, rayDir);
+    float c = dot(camPos, camPos) - RE * RE;
+    float delta = b * b - 4.0 * a * c;
+    if (delta >= 0.0) {
+        float distToEarth = (-b - sqrt(delta)) / (2.0 * a);
+        if (distToEarth > 0.0) distToTop = min(distToTop, distToEarth);
+    }
+    
     if (distToTop < 0.0) return vec3(1.0); 
 
     // -------------------------------------
@@ -934,6 +936,7 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     vec3 totalM = vec3(0.0); 
     float optDepthR = 0.0;
     float optDepthM = 0.0;
+    float optDepthO = 0.0; 
     
     float mu = dot(rayDir, sunDir);
     float phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
@@ -949,31 +952,50 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
 
         float hr = exp(-height / HR) * stepSize;
         float hm = exp(-height / HM) * stepSize;
+        float ho = max(0.0, 1.0 - abs(height - 25000.0) / 15000.0) * stepSize;
         
-        optDepthR += hr;
-        optDepthM += hm;
+        // --- FIX #1: NUMERICAL INTEGRATION ---
+        // Calculate optical depth to the *middle* of the step.
+        // Prevents the massive horizon steps from artificially deleting near-camera blue light.
+        float sampleOptDepthR = optDepthR + hr * 0.5;
+        float sampleOptDepthM = optDepthM + hm * 0.5;
+        float sampleOptDepthO = optDepthO + ho * 0.5;
         
         float distToSun = intersectLight(samplePos, sunDir, atmosphere, dummyNormal);
         float stepSizeSun = distToSun / float(STEPS_LIGHT);
+        
         float sunDepthR = 0.0;
         float sunDepthM = 0.0;
+        float sunDepthO = 0.0;
         vec3 sunPos = samplePos;
+        
+        bool inShadow = false;
         
         for (int j = 0; j < STEPS_LIGHT; ++j) {
             vec3 sPos = sunPos + sunDir * (stepSizeSun * 0.5);
             float h = length(sPos) - RE;
-            if (h < 0.0) h = 0.0;
+            if (h < 0.0) { inShadow = true; break; }
             
             sunDepthR += exp(-h / HR) * stepSizeSun;
             sunDepthM += exp(-h / HM) * stepSizeSun;
+            sunDepthO += max(0.0, 1.0 - abs(h - 25000.0) / 15000.0) * stepSizeSun;
             sunPos += sunDir * stepSizeSun;
         }
         
-        vec3 tau = BETA_R * (optDepthR + sunDepthR) + BETA_M * 1.1 * (optDepthM + sunDepthM);
-        vec3 attenuation = exp(-tau);
+        if (!inShadow) {
+            vec3 tau = BETA_R * (sampleOptDepthR + sunDepthR) + 
+                       BETA_M * 1.1 * (sampleOptDepthM + sunDepthM) + 
+                       BETA_O * (sampleOptDepthO + sunDepthO);
+            vec3 attenuation = exp(-tau);
+            
+            totalR += hr * attenuation;
+            totalM += hm * attenuation;
+        }
         
-        totalR += hr * attenuation;
-        totalM += hm * attenuation;
+        // Accumulate full step for the next iteration
+        optDepthR += hr;
+        optDepthM += hm;
+        optDepthO += ho;
         
         currentPos += rayDir * stepSize;
     }
@@ -982,21 +1004,28 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     // Final Color Calculation
     // -------------------------------------
     vec3 skyColor = SUN_INTENSITY * (totalR * BETA_R * phaseR + totalM * BETA_M * phaseM);
-    
+
+    // --- FIX #2: MULTIPLE SCATTERING APPROXIMATION ---
+    // Inject a soft ambient blue to replace the light artificially lost to the single-scatter model.
+    // Scales by sunDir.y so it disappears safely during sunset, preserving your dark red horizons!
+    float sunHeight = max(0.0, sunDir.y);
+    vec3 multiScat = vec3(0.5, 0.7, 1.0) * SUN_INTENSITY * 0.15 * sunHeight;
+    vec3 viewTau = BETA_R * optDepthR + BETA_M * 1.1 * optDepthM + BETA_O * optDepthO;
+    skyColor += multiScat * (1.0 - exp(-viewTau));
+
     // Apply Brightness
     skyColor *= u_skyBrightnessBoost;
 
-    // --- [CHANGE #2 PART B] Smooth Horizon Blend ---
-    // Instead of a sharp cut, we mix the calculated sky with a white color
-    // based on how far the ray is looking down. 
-    // -0.1 to 0.1 creates a small foggy blur at the horizon line.
-    // If rayDir.y is very negative (looking down), blendingFactor becomes 0.0 (All white).
-    
-    vec3 groundColor = vec3(1.0); // White
-    float horizonBlend = smoothstep(-0.05, 0.05, rayDir.y);
+    // ACES Tonemapping
+    skyColor = clamp((skyColor * (2.51 * skyColor + 0.03)) / (skyColor * (2.43 * skyColor + 0.59) + 0.14), 0.0, 1.0);
+
+    // Smooth Horizon Blend (Shifted down slightly so the sky evaluates cleanly to 1.0 at rayDir.y == 0.0)
+    vec3 groundColor = vec3(0.5, 0.55, 0.6); 
+    float horizonBlend = smoothstep(-0.03, 0.0, rayDir.y);
     
     return mix(groundColor, skyColor, horizonBlend);
 }
+
 vec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
     vec3 directLight = vec3(0.0);
     bool autoNormal = false;
