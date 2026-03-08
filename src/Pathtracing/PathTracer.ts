@@ -23,8 +23,10 @@ export class PathTracer {
   private canvas: HTMLCanvasElement;
   private gl: WebGL2RenderingContext;
   // Accumulation stuff
-  private framebuffers: WebGLFramebuffer[] = [];
+  private accumulationFrameBuffers: WebGLFramebuffer[] = [];
+  private varianceFrameBuffers: WebGLFramebuffer[] = [];
   private accumulationTextures: WebGLTexture[] = [];
+  private varianceTextures: WebGLTexture[] = [];
   private currentFrame = 0; // The source texture/framebuffer index
   private frameNumber = 0; // The accumulation counter
   //Shaders
@@ -83,6 +85,7 @@ export class PathTracer {
     frameNum: null as WebGLUniformLocation | null,
     grassBB: null as WebGLUniformLocation | null,
     copyBoolean: null as WebGLUniformLocation | null,
+    lastVariance: null as WebGLUniformLocation | null,
   };
 
   public constructor(
@@ -98,7 +101,8 @@ export class PathTracer {
     this.camera = camera;
     this.debug = debug;
     this.noiseGenerator=new NoiseGenerator(this.gl);
-    this.gl.enable(this.gl.BLEND);
+    //this.gl.enable(this.gl.BLEND);
+    this.gl.disable(this.gl.BLEND); // Prevent MRT data corruption
 
     //Enable float texture writing extention
     const float_render_ext = this.gl.getExtension("EXT_color_buffer_float");
@@ -189,6 +193,7 @@ export class PathTracer {
 
   public drawMesh() {
     this.setupFrame();
+    this.gl.finish(); // Ensure all setup commands are done before we start timing
 
     //Put camera position, direction in shader
     this.gl.uniform1i(this.uniforms.copyBoolean, 0);
@@ -222,12 +227,21 @@ export class PathTracer {
     const lastFrameIndex = this.currentFrame;
     const nextFrameIndex = (this.currentFrame + 1) % 2;
 
-    this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
+    // previous accumulation
+    this.gl.activeTexture(this.gl.TEXTURE10); // Changed to 10
     this.gl.bindTexture(
       this.gl.TEXTURE_2D,
       this.accumulationTextures[lastFrameIndex]
     );
-    this.gl.uniform1i(this.uniforms.lastFrame, 8);
+    this.gl.uniform1i(this.uniforms.lastFrame, 10);
+
+    // previous variance
+    this.gl.activeTexture(this.gl.TEXTURE11); // Changed to 11
+    this.gl.bindTexture(
+      this.gl.TEXTURE_2D,
+      this.varianceTextures[lastFrameIndex]
+    );
+    this.gl.uniform1i(this.uniforms.lastVariance, 11);
 
     //put samples, bounce in shader
     SettingsManager.instance.updateProgramUniforms(this.gl,this.meshProgram!);
@@ -240,8 +254,13 @@ export class PathTracer {
     // Draw
     this.gl.bindFramebuffer(
       this.gl.FRAMEBUFFER,
-      this.framebuffers[nextFrameIndex]
+      this.accumulationFrameBuffers[nextFrameIndex]
     );
+
+    this.gl.drawBuffers([
+      this.gl.COLOR_ATTACHMENT0,
+      this.gl.COLOR_ATTACHMENT1
+    ]);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
     //Ping Pong
@@ -259,12 +278,12 @@ export class PathTracer {
       0
     );*/
     this.gl.uniform1i(this.uniforms.copyBoolean, 1);
-    this.gl.activeTexture(this.gl.TEXTURE8); // Use a new texture unit
+    this.gl.activeTexture(this.gl.TEXTURE10); // Match the new unit
     this.gl.bindTexture(
       this.gl.TEXTURE_2D,
       this.accumulationTextures[nextFrameIndex]
     );
-    this.gl.uniform1i(this.uniforms.lastFrame, 8);
+    this.gl.uniform1i(this.uniforms.lastFrame, 10);
     // We can reuse the same fullscreen triangle VAO
     this.gl.clearColor(0, 0, 0, 1); // Clear the actual screen
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
@@ -318,7 +337,7 @@ export class PathTracer {
     this.uniforms.frameNum = this.gl.getUniformLocation(this.meshProgram!, "u_frameNumber");
     this.uniforms.grassBB = this.gl.getUniformLocation(this.meshProgram!, "u_grassBB");
     this.uniforms.copyBoolean = this.gl.getUniformLocation(this.meshProgram!, "u_copyMode");
-
+    this.uniforms.lastVariance = this.gl.getUniformLocation(this.meshProgram!, "u_varianceTexture");
 
     this.initBVHTextures();
     this.setupFrame();
@@ -371,6 +390,16 @@ export class PathTracer {
     this.camera.farPlane = this.camera.rayTracingFarPlane;
   }
   private initBVHTextures() {
+    // --- MEMORY LEAK FIX: Delete old BVH buffers ---
+    if (this.vertexTex) this.gl.deleteTexture(this.vertexTex);
+    if (this.terrainTex) this.gl.deleteTexture(this.terrainTex);
+    if (this.boundingBoxesTex) this.gl.deleteTexture(this.boundingBoxesTex);
+    if (this.nodesTex) this.gl.deleteTexture(this.nodesTex);
+    if (this.leafsTex) this.gl.deleteTexture(this.leafsTex);
+    if (this.terrainTypeTex) this.gl.deleteTexture(this.terrainTypeTex);
+    if (this.vertexNormalsTex) this.gl.deleteTexture(this.vertexNormalsTex);
+    if (this.grassTexture) this.gl.deleteTexture(this.grassTexture);
+
     this.vertexTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertices);
     this.terrainTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrains);
     this.boundingBoxesTex = TextureUtils.packFloatArrayToTexture(this.gl, this.boundingBoxes);
@@ -378,11 +407,15 @@ export class PathTracer {
     this.leafsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.leafs);
     this.terrainTypeTex = TextureUtils.packFloatArrayToTexture(this.gl, this.terrainTypes);
     this.vertexNormalsTex = TextureUtils.packFloatArrayToTexture(this.gl, this.vertexNormals);
-    this.grassTexture = TextureUtils.packFloatArrayToTexture(this.gl,this.grassBB);
+    this.grassTexture = TextureUtils.packFloatArrayToTexture(this.gl, this.grassBB);
 
-    //clouds
-    this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
-    this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
+    // --- TIME FIX: Only generate expensive 3D noise ONCE ---
+    if (!this.noiseTexture) {
+      this.noiseTexture = this.noiseGenerator.generateCloudNoiseTex(32);
+    }
+    if (!this.weatherMapTexture) {
+      this.weatherMapTexture = this.noiseGenerator.generateWeatherMap(128);
+    }
   }
 
   private setupFrame() {
@@ -395,58 +428,65 @@ export class PathTracer {
   }
 
   private initBuffers() {
-    this.accumulationTextures = [];
-    this.framebuffers = [];
-    for (let i = 0; i < 2; ++i) {
-      // Create a texture to store the accumulated image
-      const texture = this.gl.createTexture();
-      this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-      this.gl.texImage2D(
-        this.gl.TEXTURE_2D,
-        0,
-        this.gl.RGBA32F,
-        this.canvas.width,
-        this.canvas.height,
-        0,
-        this.gl.RGBA,
-        this.gl.FLOAT,
-        null
-      );
-      this.gl.texParameteri(
-        this.gl.TEXTURE_2D,
-        this.gl.TEXTURE_MIN_FILTER,
-        this.gl.NEAREST
-      );
-      this.gl.texParameteri(
-        this.gl.TEXTURE_2D,
-        this.gl.TEXTURE_MAG_FILTER,
-        this.gl.NEAREST
-      );
-      this.gl.texParameteri(
-        this.gl.TEXTURE_2D,
-        this.gl.TEXTURE_WRAP_S,
-        this.gl.CLAMP_TO_EDGE
-      );
-      this.gl.texParameteri(
-        this.gl.TEXTURE_2D,
-        this.gl.TEXTURE_WRAP_T,
-        this.gl.CLAMP_TO_EDGE
-      );
-      this.accumulationTextures.push(texture);
+    // --- MEMORY LEAK FIX: Delete old buffers before redefining them ---
+    if (this.accumulationTextures) this.accumulationTextures.forEach(t => this.gl.deleteTexture(t));
+    if (this.varianceTextures) this.varianceTextures.forEach(t => this.gl.deleteTexture(t));
+    if (this.accumulationFrameBuffers) this.accumulationFrameBuffers.forEach(f => this.gl.deleteFramebuffer(f));
 
-      // Create a framebuffer and attach the texture to it
-      const fbo = this.gl.createFramebuffer();
-      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
-      this.gl.framebufferTexture2D(
-        this.gl.FRAMEBUFFER,
-        this.gl.COLOR_ATTACHMENT0,
-        this.gl.TEXTURE_2D,
-        texture,
-        0
+    this.accumulationTextures = [];
+    this.varianceTextures =[];
+    this.accumulationFrameBuffers =[];
+
+    for (let i = 0; i < 2; i++) {
+      // --- Accumulation texture (32-bit float) ---
+      const accumTex = this.gl.createTexture()!;
+      this.gl.bindTexture(this.gl.TEXTURE_2D, accumTex);
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D, 0, this.gl.RGBA32F,
+        this.canvas.width, this.canvas.height, 0,
+        this.gl.RGBA, this.gl.FLOAT, null
       );
-      this.framebuffers.push(fbo);
+      this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+      this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+      this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+      this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+      this.accumulationTextures.push(accumTex);
+
+      // --- Variance texture (16-bit float) ---
+      const varianceTex = this.gl.createTexture()!;
+      this.gl.bindTexture(this.gl.TEXTURE_2D, varianceTex);
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D, 0, this.gl.RGBA16F,
+        this.canvas.width, this.canvas.height, 0,
+        this.gl.RGBA, this.gl.HALF_FLOAT, null // <-- STRICT FIX: Use HALF_FLOAT for 16F buffers
+      );
+      this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+      this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+      this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+      this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+      this.varianceTextures.push(varianceTex);
+
+      // --- Framebuffer ---
+      const fbo = this.gl.createFramebuffer()!;
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, fbo);
+      this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, this.gl.TEXTURE_2D, accumTex, 0);
+      this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT1, this.gl.TEXTURE_2D, varianceTex, 0);
+      
+      this.gl.drawBuffers([
+        this.gl.COLOR_ATTACHMENT0,
+        this.gl.COLOR_ATTACHMENT1
+      ]);
+
+      this.gl.clearBufferfv(this.gl.COLOR, 0, [0, 0, 0, 0]);
+      this.gl.clearBufferfv(this.gl.COLOR, 1,[0, 0, 0, 0]);
+
+      const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+      if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+        console.error("PathTracer Framebuffer incomplete:", status);
+      }
+      this.accumulationFrameBuffers.push(fbo);
     }
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null); // Unbind
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
   }
 
   public resetAccumulation() {
@@ -464,11 +504,23 @@ export class PathTracer {
       }
       this.accumulationTextures = [];
     }
-    if (this.framebuffers) {
-      for (const fbo of this.framebuffers) {
+    if (this.varianceTextures) {
+      for (const tex of this.varianceTextures) {
+        if (tex) this.gl.deleteTexture(tex);
+      }
+      this.varianceTextures = [];
+    }
+    if (this.accumulationFrameBuffers) {
+      for (const fbo of this.accumulationFrameBuffers) {
         if (fbo) this.gl.deleteFramebuffer(fbo);
       }
-      this.framebuffers = [];
+      this.accumulationFrameBuffers = [];
+    }
+    if (this.varianceFrameBuffers) {
+      for (const fbo of this.varianceFrameBuffers) {
+        if (fbo) this.gl.deleteFramebuffer(fbo);
+      }
+      this.varianceFrameBuffers = [];
     }
     // delete programs
     if (this.meshProgram) this.gl.deleteProgram(this.meshProgram);
@@ -481,6 +533,32 @@ export class PathTracer {
       this.gl.deleteBuffer(this.fullscreenVBO);
       this.fullscreenVBO = null;
     }
+
+    // Clean up massive geometry buffers to prevent them bleeding into the rasterizer
+    if (this.vertexTex) this.gl.deleteTexture(this.vertexTex);
+    if (this.terrainTex) this.gl.deleteTexture(this.terrainTex);
+    if (this.boundingBoxesTex) this.gl.deleteTexture(this.boundingBoxesTex);
+    if (this.nodesTex) this.gl.deleteTexture(this.nodesTex);
+    if (this.leafsTex) this.gl.deleteTexture(this.leafsTex);
+    if (this.terrainTypeTex) this.gl.deleteTexture(this.terrainTypeTex);
+    if (this.vertexNormalsTex) this.gl.deleteTexture(this.vertexNormalsTex);
+    if (this.grassTexture) this.gl.deleteTexture(this.grassTexture);
+    
+    // Optional: Delete noise textures if you don't plan on reusing them shortly
+    if (this.noiseTexture) this.gl.deleteTexture(this.noiseTexture);
+    if (this.weatherMapTexture) this.gl.deleteTexture(this.weatherMapTexture);
+
+    this.vertexTex = undefined;
+    this.terrainTex = undefined;
+    this.boundingBoxesTex = undefined;
+    this.nodesTex = undefined;
+    this.leafsTex = undefined;
+    this.terrainTypeTex = undefined;
+    this.vertexNormalsTex = undefined;
+    this.grassTexture = undefined;
+    this.noiseTexture = undefined;
+    this.weatherMapTexture = undefined;
+  
   }
 
   private initSettingsSection() {
@@ -506,11 +584,30 @@ export class PathTracer {
       defaultValue: 4,
       numType: "int"
     });
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
+      id: "u_skips",
+      label: "Skips",
+      min: 1,
+      max: 50,
+      step: 1,
+      defaultValue: 4,
+      numType: "int"
+    });
+    SettingsManager.instance.addSliderToSection("Pathtracer Settings",{
+      id: "u_varianceThreshold",
+      label: "Variance Threshold",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      defaultValue: 0.05,
+      numType: "float"
+    });
 
     // Attach program uniforms for all settings
     SettingsManager.instance.attatchProgram(this.meshProgram!, [
       "numBounces",
       "u_skips",
+      "u_varianceThreshold",
       "u_redScatter",
       "u_greenScatter",
       "u_blueScatter",

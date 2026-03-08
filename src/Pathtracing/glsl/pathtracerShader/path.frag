@@ -102,7 +102,12 @@ uniform float ambientLightIntensity;
 uniform float u_skyBrightnessBoost; 
 
 in vec2 v_uv;
-out vec4 fragColor;
+uniform sampler2D u_varianceTexture; // Texture Unit 1: RGB=M2, A=Converged
+uniform float u_varianceThreshold;   // e.g. 0.05
+uniform int u_copyMode;              // If true, we copy from sourceTexture to output
+// Multiple Render Targets (MRT)
+layout(location = 0) out vec4 out_Color;    // RGB=Mean, A=SampleCount
+layout(location = 1) out vec4 out_Variance; // RGB=M2,   A=Converged
 
 struct BVH{
     vec3 min;
@@ -1356,7 +1361,6 @@ vec3 PathTrace(Ray OGRay, inout uint rng_state) {
     return min(color, vec3(10.0));
 }
 
-uniform int u_copyMode; // If true, we copy from sourceTexture to output without modification
 
 // ACES Filmic Tone Mapping Curve
 vec3 ACESFilmic(vec3 x) {
@@ -1368,7 +1372,13 @@ vec3 ACESFilmic(vec3 x) {
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
+// Helper to get brightness for variance calculation
+float getLuminance(vec3 c) {
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
 void copyCode() {
+    // We only care about RGB for display, ignore Alpha (count)
     vec3 sumColor = texture(u_lastFrame, v_uv).rgb;
 
     float exposure = 1.0;
@@ -1377,7 +1387,8 @@ void copyCode() {
     float gamma = 2.2;
     vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));
 
-    fragColor = vec4(finalColor, 1.0);
+    // Write to location 0 (Screen/Backbuffer)
+    out_Color = vec4(finalColor, 1.0);
 }
 
 void runCode() {
@@ -1385,11 +1396,26 @@ void runCode() {
     int pixelY = int(v_uv.y * u_resolution.y);
     int patternIndex = pixelX + pixelY * 199;
 
+    // --- 1. LOAD PREVIOUS STATE ---
+    // Texture 0: rgb = Mean Color, a = Sample Count
+    vec4 prevColorData = textureLod(u_lastFrame, v_uv, 0.0);
+    // Texture 1: rgb = M2 (Variance accumulator), a = Converged Flag
+    vec4 prevVarData   = textureLod(u_varianceTexture, v_uv, 0.0);
+
+    vec3 oldMean = prevColorData.rgb;
+    float oldCount = prevColorData.a; // Retrieved from Alpha
+    vec3 oldM2 = prevVarData.rgb;
+    float isConverged = prevVarData.a;
+
     // Check if we should render this frame
-    if(patternIndex % u_skips != u_frameNumber % u_skips){
-        fragColor = vec4(textureLod(u_lastFrame, v_uv, 0.0).rgb, 1.0);
+    // Optimization: If pixel is already converged (isConverged > 0.5), skip tracing
+    if((patternIndex % u_skips != u_frameNumber % u_skips) || isConverged > 0.5){
+        // Pass through existing data to keep it alive
+        out_Color = prevColorData;
+        out_Variance = prevVarData;
         return;
     }
+
     //Random Hash
     uint pixel_x = uint(v_uv.x * u_resolution.x); 
     uint pixel_y = uint(v_uv.y * u_resolution.y);
@@ -1422,20 +1448,57 @@ void runCode() {
     mainRay.origin = u_cameraPos;
     mainRay.dir = normalize(rayWorld.xyz - u_cameraPos);
 
-
+    // --- 2. TRACE ---
     vec3 newSampleColor = PathTrace(mainRay, rng_state); // Sample Color
-    vec3 newSum;
-    float effectiveSampleCount = ceil(float(u_frameNumber) / float(u_skips));
-    
-    effectiveSampleCount = max(effectiveSampleCount, 1.0);
+
+    // --- 3. ACCUMULATE (WELFORD'S ALGORITHM) ---
+    vec3 newMean;
+    vec3 newM2;
+    float newCount;
+    float newConverged = 0.0;
+
+    // Reset if it's the very first frame or resize
     if(u_frameNumber <= u_skips){ 
-        newSum = newSampleColor;
+        newMean = newSampleColor;
+        newM2 = vec3(0.0);
+        newCount = 1.0;
     } else {
-        vec3 lastSum = textureLod(u_lastFrame, v_uv, 0.0).rgb;
-        newSum = lastSum + (newSampleColor - lastSum) / effectiveSampleCount;
+        // Increment per-pixel count
+        newCount = oldCount + 1.0;
+
+        // Welford online variance update
+        vec3 delta = newSampleColor - oldMean;
+        newMean = oldMean + delta / newCount;
+        vec3 delta2 = newSampleColor - newMean;
+        newM2 = oldM2 + delta * delta2;
     }
 
-    fragColor = vec4(newSum,1.0); 
+    // --- 4. CHECK CONVERGENCE ---
+    // Only check after we have a statistical base (e.g. 32 samples)
+    if (newCount > 32.0) {
+        float lumM2 = getLuminance(newM2);
+        float lumMean = getLuminance(newMean);
+        
+        // Variance = M2 / (N - 1)
+        float variance = lumM2 / (newCount - 1.0);
+        float stdDev = sqrt(max(variance, 0.0));
+        
+        // Standard Error (Confidence Interval 95%)
+        // Error = 1.96 * sigma / sqrt(N)
+        float stdError = 1.96 * stdDev / sqrt(newCount);
+
+        // Threshold relative to brightness (allow brighter pixels more noise)
+        // Ensure threshold isn't 0.0 for black pixels
+        float threshold = max(u_varianceThreshold * lumMean, 0.001);
+
+        if (stdError < threshold) {
+            newConverged = 1.0; // Stop tracing this pixel
+        }
+    }
+
+    // Output Data
+    out_Color = vec4(newMean, newCount);       // Update Color + Count
+    out_Variance = vec4(newM2, newConverged);  // Update M2 + Converged Status
 }
 
 void main(){
