@@ -1,15 +1,17 @@
 #version 300 es
 precision highp float;
 precision lowp usampler2D;
+precision lowp sampler2DArray;
 #define MAX_LIGHTS 100
 #define MAX_SHADOWED_POINT_LIGHTS 5
 in vec2 fragUV;
 out vec4 outputColor;
-uniform sampler2D normalTexture;
-uniform sampler2D uvTexture;
-uniform usampler2D blockIdTexture;
-uniform sampler2D depthTexture;
+uniform sampler2D gNormal;
+uniform sampler2D gAux;
+uniform usampler2D gMaterialID;
+uniform sampler2D gDepth;
 uniform sampler2D ssaoTexture;
+uniform sampler2DArray materialsTextureArray;
 // Shadow mask textures from dedicated shadow passes
 uniform sampler2D blurredSunShadowMask;
 uniform sampler2D blurredPointShadowMaskA;
@@ -67,7 +69,7 @@ uniform float grassPointLightDiffuseSoftness;
 
 const float PI = 3.14159265359f;
 vec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {
-    float depth = texture(depthTexture, texCoord).r;
+    float depth = texture(gDepth, texCoord).r;
     vec2 ndc = texCoord * 2.0f - 1.0f;
     vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);
     vec4 viewSpacePos = projectionInverse * clipSpacePos;
@@ -167,10 +169,7 @@ vec3 calculateSunPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, float
 
     return (diffuse + specular) * radiance * diffuseFactor;
 }
-float calculateAttenuation(float d, float r, float range) {
-    if(d > range) {
-        return 0.0f;
-    }
+float calculateAttenuation(float d, float r) {
     return 2.0f * (1.0f - d / sqrt(d * d + r * r));
 }
 
@@ -192,7 +191,7 @@ vec3 calculatePointPBRLighting(vec3 worldPos, vec3 worldNormal, vec3 albedo, flo
     vec3 specular = numerator / denominator;
     vec3 radiance = pointLights[lightIndex].color * pointLights[lightIndex].intensity;
     float distance = length(pointLights[lightIndex].position - worldPos);
-    float attenuation = calculateAttenuation(distance, pointLights[lightIndex].radius, pointLights[lightIndex].range);
+    float attenuation = calculateAttenuation(distance, pointLights[lightIndex].radius);
     float diffuseFactor = max(dot(worldNormal, lightDir), 0.0f);
 
     return (diffuse + specular) * radiance * diffuseFactor * attenuation;
@@ -270,7 +269,7 @@ vec3 computeGrassLighting(vec3 worldPos, vec3 worldNormal, float vHeight, float 
         vec3 pointSpecular = grassSpecularStrength * pointSpec * grassSpecularColor * grassPointLightintensity;
 
         float distance = length(pointLights[i].position - worldPos);
-        float attenuation = calculateAttenuation(distance, pointLights[i].radius, pointLights[i].range);
+        float attenuation = calculateAttenuation(distance, pointLights[i].radius);
 
         float shadowFactor = mix(1.0f, pointLightShadow, pointLightShadowStrength);
         grassColor += (pointDiffuseColor + pointSpecular) * attenuation * shadowFactor;
@@ -283,19 +282,20 @@ void main() {
     vec3 fragViewPos = getViewPosition(fragUV, projInverse);
     vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);
 
-    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);
+    vec3 viewNormal = normalize(texture(gNormal, fragUV).rgb);
     vec3 skyColor = vec3(0.5f, 0.7f, 1.0f);
 
     vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);
 
-    vec4 uvBlockIdData = texture(uvTexture, fragUV);
-    vec2 uv = uvBlockIdData.xy;
-    uint blockId = texture(blockIdTexture, fragUV).r;
+    vec4 auxData = texture(gAux, fragUV);
+    vec2 uv = auxData.xy;
+    uint materialID = texture(gMaterialID, fragUV).r;
     vec3 albedo;
+    
     float ambientOcclusion = texture(ssaoTexture, fragUV).r;
 
-    // Check if this is an emissive light (blockId == 69)
-    if(blockId == 69u) {
+    // Check if this is an emissive light (materialID == 69)
+    if(materialID == 69u) {
         float packedEmissivity = uv.x;
         float packed = packedEmissivity * 63.0;
         float r = mod(packed, 4.0) / 3.0;
@@ -313,8 +313,8 @@ void main() {
     int secondaryCascade = int(sunShadowData.b * 8.0f + 0.5f);
     float cascadeBlendFactor = sunShadowData.a;
 
-    // Check if this is a grass material (blockId == 1)
-    bool isGrass = (blockId == 67u);
+    // Check if this is a grass material (materialID == 1)
+    bool isGrass = (materialID == 67u);
 
     // Apply cascade debug colors to albedo when enabled
     if(cascadeDebug && !isGrass) {
@@ -324,21 +324,36 @@ void main() {
     vec3 lighting;
 
     if(isGrass) {
-        // For grass: uvBlockIdData.x = vHeight, uvBlockIdData.y = curveAngle
-        float vHeight = uvBlockIdData.x;
-        float curveAngle = uvBlockIdData.y;
+        // For grass: auxData.x = vHeight, auxData.y = curveAngle
+        float vHeight = auxData.x;
+        float curveAngle = auxData.y;
         lighting = computeGrassLighting(fragWorldPos, worldNormal, vHeight, curveAngle, sunShadow);
     } else {
         // Standard PBR lighting for terrain (use placeholder values)
         float baseReflectivity = 0.04f;
         float metallicity = 0.0f;
         float roughness = 0.8f;
-        // TODO: Sample albedo from texture using uv
-        albedo = vec3(1.0, 0.0, 1.0); // Placeholder
+        vec3 blendWeights = abs(worldNormal);
+        // Tighten up the blending zone:
+        blendWeights = (blendWeights - 0.2) * 7.0;
+        blendWeights = max(blendWeights, 0.0); //Force weights to sum to 1.0 (very important!)
+        float weightSum = blendWeights.x + blendWeights.y + blendWeights.z;
+        blendWeights /= max(weightSum, 0.0001); // avoid division by zero on flat normals
+        vec2 coord1 = fragWorldPos.yz;
+        vec2 coord2 = fragWorldPos.zx;
+        vec2 coord3 = fragWorldPos.xy;
+        uint layer = 5u * materialID;
+        vec3 color1 = texture(materialsTextureArray, vec3(coord1, float(layer))).rgb;
+        vec3 color2 = texture(materialsTextureArray, vec3(coord2, float(layer))).rgb;
+        vec3 color3 = texture(materialsTextureArray, vec3(coord3, float(layer))).rgb;
+        // Now determine a color value and bump vector for each of the 3projections, blend them
+        albedo =  color1.xyz * blendWeights.xxx +
+                  color2.xyz * blendWeights.yyy +
+                  color3.xyz * blendWeights.zzz;
         lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, ambientOcclusion, sunShadow);
     }
 
-    if(texture(depthTexture, fragUV).r >= 1.0f) {
+    if(texture(gDepth, fragUV).r >= 1.0f) {
         outputColor = vec4(skyColor, 1.0f);
     } else {
         outputColor = vec4(lighting, 1.0f);

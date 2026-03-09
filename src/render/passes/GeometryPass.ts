@@ -63,7 +63,7 @@ export class GeometryPass extends RenderPass {
       );
     }
 
-    const normalTexture = TextureUtils.createTexture2D(
+    const gNormal = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -71,7 +71,7 @@ export class GeometryPass extends RenderPass {
       normalFormat,
       normalType
     );
-    const uvTexture = TextureUtils.createTexture2D(
+    const gAux = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -79,7 +79,7 @@ export class GeometryPass extends RenderPass {
       this.gl.RG,
       this.gl.FLOAT
     );
-    const blockIdTexture = TextureUtils.createTexture2D(
+    const gMaterialID = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -87,7 +87,7 @@ export class GeometryPass extends RenderPass {
       this.gl.RED_INTEGER,
       this.gl.UNSIGNED_INT
     );
-    const depthTexture = TextureUtils.createTexture2D(
+    const gDepth = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -106,21 +106,21 @@ export class GeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
       this.gl.TEXTURE_2D,
-      normalTexture,
+      gNormal,
       0
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT1,
       this.gl.TEXTURE_2D,
-      uvTexture,
+      gAux,
       0
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT2,
       this.gl.TEXTURE_2D,
-      blockIdTexture,
+      gMaterialID,
       0
     );
     // No materialAttributes texture needed anymore
@@ -128,7 +128,7 @@ export class GeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.DEPTH_ATTACHMENT,
       this.gl.TEXTURE_2D,
-      depthTexture,
+      gDepth,
       0
     );
     this.gl.drawBuffers([
@@ -147,10 +147,10 @@ export class GeometryPass extends RenderPass {
     return {
       fbo: fbo,
       textures: {
-        normal: normalTexture,
-        depth: depthTexture,
-        uv: uvTexture,
-        blockId: blockIdTexture
+        normal: gNormal,
+        depth: gDepth,
+        uv: gAux,
+        materialID: gMaterialID
       }
     };
   }

@@ -143,7 +143,7 @@ export function loadPLYToMesh(
             let found = false;
             for (let key in Terrains) {
               const terrain = Terrains[parseInt(key)];
-              if (terrain.type == 1 && col.equals(terrain.color)) {
+              if (terrain.brdfType == 1 && col.equals(terrain.color)) {
                 //use that color.
                 types[j] = parseInt(key);
                 found = true;
@@ -155,7 +155,7 @@ export function loadPLYToMesh(
                 color: col,
                 reflectiveness: 0.2,
                 roughness: 0.8,
-                type: 1,
+                brdfType: 1,
                 emissivity: vec3.fromValues(0, 0, 0),
                 metallicity: 0
               };
@@ -171,7 +171,7 @@ export function loadPLYToMesh(
           let found = false;
           for (let key in Terrains) {
             const terrain = Terrains[parseInt(key)];
-            if (terrain.type == 1 && col.equals(terrain.color)) {
+            if (terrain.brdfType == 1 && col.equals(terrain.color)) {
               //use that color.
               types[j] = parseInt(key);
               found = true;
@@ -183,7 +183,7 @@ export function loadPLYToMesh(
               color: col,
               reflectiveness: 0.2,
               roughness: 0.8,
-              type: 1,
+              brdfType: 1,
               emissivity: vec3.fromValues(0, 0, 0),
               metallicity: 0
             };

@@ -28,6 +28,7 @@
   },
   "devDependencies": {
     "@types/three": "^0.182.0",
+    "dotenv": "^16.4.5",
     "prettier": "^3.5.3",
     "simplex-noise": "^4.0.3",
     "ts-loader": "^9.5.2",

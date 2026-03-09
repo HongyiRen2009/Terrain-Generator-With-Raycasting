@@ -60,9 +60,10 @@ export class RenderUtils {
     gl.compileShader(Shader);
 
     if (!gl.getShaderParameter(Shader, gl.COMPILE_STATUS)) {
-      console.error("Shader compilation error: ", gl.getShaderInfoLog(Shader));
+      const log = gl.getShaderInfoLog(Shader) || "Unknown error";
+      console.error("Shader compilation error:", log);
       gl.deleteShader(Shader); // Clean up the failed shader
-      throw new Error("Shader compilation failed.");
+      throw new Error(`Shader compilation failed: ${log}`);
     }
 
     return Shader;

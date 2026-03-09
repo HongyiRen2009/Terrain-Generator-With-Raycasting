@@ -109,8 +109,8 @@ export class CSMShadowMaskPass extends RenderPass {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const textures = this.renderGraph!.getOutputs(this);
     const shadowDepthTextureArray = textures["shadowDepthTextureArray"];
-    const depthTexture = textures["depth"];
-    const normalTexture = textures["normal"];
+    const gDepth = textures["depth"];
+    const gNormal = textures["normal"];
     
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -121,8 +121,8 @@ export class CSMShadowMaskPass extends RenderPass {
     this.gl.bindVertexArray(vao.vao);
 
     // Bind textures
-    TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 0);
-    TextureUtils.bindTex(this.gl, this.program!, normalTexture, "normalTexture", 1);
+    TextureUtils.bindTex(this.gl, this.program!, gDepth, "gDepth", 0);
+    TextureUtils.bindTex(this.gl, this.program!, gNormal, "gNormal", 1);
     TextureUtils.bindTex(this.gl, this.program!, shadowDepthTextureArray, "shadowDepthTextureArray", 2, this.gl.TEXTURE_2D_ARRAY);
     
     // Bind jitter texture

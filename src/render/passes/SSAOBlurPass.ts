@@ -66,7 +66,7 @@ export class SSAOBlurPass extends RenderPass {
     const textures = this.renderGraph!.getOutputs(this);
     // SSAO texture is from SSAO pass, depth is from geometry pass
     const ssaoTexture = textures["ssao"];
-    const depthTexture = textures["depth"];
+    const gDepth = textures["depth"];
 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -83,8 +83,8 @@ export class SSAOBlurPass extends RenderPass {
     TextureUtils.bindTex(
       this.gl,
       this.program!,
-      depthTexture,
-      "depthTexture",
+      gDepth,
+      "gDepth",
       1
     );
     if (!pathtracerOn || this.pathtracerRender) {

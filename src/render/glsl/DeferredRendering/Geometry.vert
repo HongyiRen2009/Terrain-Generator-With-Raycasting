@@ -4,14 +4,14 @@ precision highp float;
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in vec2 uv;
-layout(location = 3) in uint blockId;
+layout(location = 3) in uint materialID;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
 
 out vec3 viewNormal;
 out vec2 fragUV;
-flat out uint fragBlockId;
+flat out uint fragmaterialID;
 out vec4 viewPos;
 
 void main() {
@@ -21,6 +21,6 @@ void main() {
     mat3 normalMatrix = mat3(transpose(inverse(view * model)));
     viewNormal = normalize(normalMatrix * normal);
     fragUV = uv;
-    fragBlockId = blockId;
+    fragmaterialID = materialID;
     gl_Position = proj * viewPos;
 }

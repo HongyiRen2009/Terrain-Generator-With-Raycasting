@@ -182,7 +182,7 @@ export class ObjectUI {
               1,
               Math.max(0, parseFloat((inputs[3] as HTMLInputElement).value))
             ),
-            type: type,
+            brdfType: type,
             emissivity: vec3.fromValues(0, 0, 0),
           metallicity: 0
           };

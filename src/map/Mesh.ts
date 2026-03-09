@@ -8,6 +8,8 @@ export interface BVHTriangle {
   triangle: Triangle;
   center: vec3; //centroid
   boundingBox: { min: vec3; max: vec3 };
+  /** Terrain (material) for each of the three vertices */
+  terrains: [Terrain, Terrain, Terrain];
   index: number; //index in the large thing.
   vertexNormals: Triangle;
 }
@@ -36,7 +38,7 @@ export interface flatBVHNode {
 export class Mesh {
   public mesh: Triangle[] = [];
   public normals: Triangle[] = [];
-  public type: [number, number, number][] = []; // To be used when terrain types are implemented
+  public materialIDs: [number, number, number][] = [];
   constructor() {}
 
  /**
@@ -53,29 +55,29 @@ merge(mesh2: Mesh) {
     for (let i = 0; i < mesh2.mesh.length; i++) {
       this.mesh.push(mesh2.mesh[i]);
       this.normals.push(mesh2.normals[i]);
-      this.type.push(mesh2.type[i]);
+      this.materialIDs.push(mesh2.materialIDs[i]);
     }
   } else {
     // For small meshes, spread operator is fine and faster
     this.mesh.push(...mesh2.mesh);
     this.normals.push(...mesh2.normals);
-    this.type.push(...mesh2.type);
+    this.materialIDs.push(...mesh2.materialIDs);
   }
 }
   /**
    * Adds triangle to mesh
    * @param triangle The triangle to add
    * @param normal The normals of the triangle to add
-   * @param type (optional) the terrain types of the triangles to add
+   * @param materialIDs (optional) the material IDs per vertex for the triangle
    */
   addTriangle(
     triangle: Triangle,
     normal: Triangle,
-    type: [number, number, number] = [0, 0, 0]
+    materialIDs: [number, number, number] = [0, 0, 0]
   ) {
     this.mesh.push(triangle);
     this.normals.push(normal);
-    this.type.push(type);
+    this.materialIDs.push(materialIDs);
   }
   /**
    * Copies the mesh to another mesh (used generally for OOP to avoid funny pointer errors)
@@ -84,7 +86,7 @@ merge(mesh2: Mesh) {
   copy() {
     const a = new Mesh();
     for (let i = 0; i < this.mesh.length; i++) {
-      a.addTriangle(this.mesh[i], this.normals[i], this.type[i]);
+      a.addTriangle(this.mesh[i], this.normals[i], this.materialIDs[i]);
     }
     return a;
   }
@@ -156,7 +158,7 @@ merge(mesh2: Mesh) {
         decimatedMesh.addTriangle(
           this.mesh[i],
           this.normals[i],
-          this.type[i]
+          this.materialIDs[i]
         );
         trianglesAdded++;
       }
@@ -174,8 +176,8 @@ merge(mesh2: Mesh) {
         Utilities.average([val[0][1], val[1][1], val[2][1]]),
         Utilities.average([val[0][2], val[1][2], val[2][2]])
       );
-      let terrain = this.type[i].map((type) => {
-        return Terrains[type];
+      let terrain = this.materialIDs[i].map((id) => {
+        return Terrains[id];
       });
       let min = vec3.fromValues(
         Math.min(val[0][0], val[1][0], val[2][0]),
@@ -191,7 +193,7 @@ merge(mesh2: Mesh) {
         triangle: val,
         center: center,
         boundingBox: { min: min, max: max },
-        type: terrain,
+        terrains: terrain as [Terrain, Terrain, Terrain],
         index: i,
         vertexNormals: this.normals[i]
       };
@@ -340,11 +342,11 @@ static flattenBVH(node: BVHNode): flatBVHNode[] {
     this.normals = value;
   }
 
-  // Getter and Setter for type
-  getTypes(): [number, number, number][] {
-    return this.type;
+  // Getter and Setter for materialIDs
+  getMaterialIDs(): [number, number, number][] {
+    return this.materialIDs;
   }
-  setTypes(value: [number, number, number][]): void {
-    this.type = value;
+  setMaterialIDs(value: [number, number, number][]): void {
+    this.materialIDs = value;
   }
 }

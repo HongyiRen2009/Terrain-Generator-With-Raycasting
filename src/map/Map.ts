@@ -642,7 +642,7 @@ private async generateChunkStrip(
 
         transformedChunkMesh.mesh.push(newTri);
         transformedChunkMesh.normals.push(newNorm);
-        transformedChunkMesh.type.push(chunkMesh.type[i]);
+        transformedChunkMesh.materialIDs.push(chunkMesh.materialIDs[i]);
       }
 
       CombinedMesh.merge(transformedChunkMesh);
@@ -707,7 +707,7 @@ private async generateChunkStrip(
             // Add transformed triangle directly
             transformedMesh.mesh.push(newTri);
             transformedMesh.normals.push(newNorm);
-            transformedMesh.type.push(meshCopy.type[i]);
+            transformedMesh.materialIDs.push(meshCopy.materialIDs[i]);
           }
 
           // Cache the transformed mesh and transform hash

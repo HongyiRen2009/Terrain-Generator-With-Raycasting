@@ -77,9 +77,9 @@ export class VAOManager {
           this.gl,
           vertexData.uvs
         ),
-        blockId: RenderUtils.CreateIntegerBuffer(
+        materialID: RenderUtils.CreateIntegerBuffer(
           this.gl,
-          vertexData.blockIds
+          vertexData.materialIDs
         )
 
       },
@@ -91,7 +91,7 @@ export class VAOManager {
         position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
         normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
         uv: { buffer: TerrainTriangleBuffer.vertex.uv, size: 2 },
-        blockId: { buffer: TerrainTriangleBuffer.vertex.blockId, size: 1, type: this.gl.UNSIGNED_INT }
+        materialID: { buffer: TerrainTriangleBuffer.vertex.materialID, size: 1, type: this.gl.UNSIGNED_INT }
       },
       TerrainTriangleBuffer.indices,
       this.geometryProgram!
@@ -107,11 +107,10 @@ export class VAOManager {
       modelMatrix,
       boundingBox: this.computeBoundingBox(vertexData.positions)
     };
-    debugger;
     this.grassVAOInfos[chunkKey] = this.createGrassVAO(
       vertexData.positions,
       vertexData.normals,
-      vertexData.blockIds,
+      vertexData.materialIDs,
       Array.from(vertexData.indices),
       modelMatrix,
     );
@@ -121,7 +120,7 @@ export class VAOManager {
   createGrassVAO(
     terrainVertices: Float32Array,
     terrainNormals: Float32Array,
-    blockIds: Uint32Array,
+    materialIDs: Uint32Array,
     triangleIndices: number[],
     modelMatrix: mat4
   ): GrassVAOInfo {
@@ -147,11 +146,11 @@ export class VAOManager {
       }
       const w = 1 - u - v;
       // Check terrain type at this triangle (all three vertices should have the same type)
-      const blockId0 = blockIds[triangleIndices[triIdx + 0]];
-      const blockId1 = blockIds[triangleIndices[triIdx + 1]];
-      const blockId2 = blockIds[triangleIndices[triIdx + 2]];
+      const materialID0 = materialIDs[triangleIndices[triIdx + 0]];
+      const materialID1 = materialIDs[triangleIndices[triIdx + 1]];
+      const materialID2 = materialIDs[triangleIndices[triIdx + 2]];
 
-      if (blockId0 !== 0 || blockId1 !== 0 || blockId2 !== 0) {
+      if (materialID0 !== 0 || materialID1 !== 0 || materialID2 !== 0) {
         continue; // Skip if not grass
       }
       // Interpolate position
@@ -419,6 +418,7 @@ export class VAOManager {
             vec3.fromValues(maxX, maxY, maxZ),
             vec3.fromValues(minX, minY, minZ + 0.01)
           ],
+          terrains: [Terrains[0], Terrains[0], Terrains[0]], // grass material
           index: -2 - globalInstanceIndex, // Unique negative ID for each grass blade
           vertexNormals: [
             vec3.fromValues(0, 0, 0),
@@ -580,7 +580,7 @@ export class VAOManager {
       const positions = new Float32Array(numVerts * 3);
       const normals = new Float32Array(numVerts * 3);
       const uvs = new Float32Array(numVerts * 2); // fill in with emissivity data
-      const blockIds = new Uint32Array(numVerts);
+      const materialIDs = new Uint32Array(numVerts);
       const indices: number[] = [];
 
       const colorVec = showColor.createVec3();
@@ -610,7 +610,7 @@ export class VAOManager {
           normals[idx * 3 + 2] = norm[k][2];
           uvs[idx * 2 + 0] = packedEmissivity; // Store emissivity in UV.x
           uvs[idx * 2 + 1] = 0; // Unused
-          blockIds[idx] = 69;
+          materialIDs[idx] = 69;
           indices.push(idx);
         }
       }
@@ -629,8 +629,8 @@ export class VAOManager {
           buffer: RenderUtils.CreateAttributeBuffer(this.gl, uvs),
           size: 2
         },
-        blockId: {
-          buffer: RenderUtils.CreateIntegerBuffer(this.gl, blockIds),
+        materialID: {
+          buffer: RenderUtils.CreateIntegerBuffer(this.gl, materialIDs),
           size: 1,
           type: this.gl.UNSIGNED_INT
         }
@@ -677,7 +677,7 @@ export class VAOManager {
           normal: { offset: 12, size: 3, stride: 52 },
           color: { offset: 24, size: 3, stride: 52 },
           uv: { offset: 36, size: 2, stride: 52 },
-          blockId: { offset: 44, size: 1, stride: 52, type: this.gl.UNSIGNED_INT }
+          materialID: { offset: 44, size: 1, stride: 52, type: this.gl.UNSIGNED_INT }
         },
         this.geometryProgram!
       );

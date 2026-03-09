@@ -75,7 +75,7 @@ function buildMeshFromExtracted(
             color: col,
             reflectiveness: material.metallic,
             roughness: material.roughness,
-            type: terrainType,
+            brdfType: terrainType,
             emissivity: vec3.fromValues(0, 0, 0),
             metallicity: 0
           };

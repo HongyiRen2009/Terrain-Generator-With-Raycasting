@@ -5,9 +5,9 @@ in vec3 vNormal;
 in float vCurveAngle;
 layout(location = 0) out vec4 fragNormal;
 layout(location = 1) out vec2 fragGrassData;
-layout(location = 2) out uint fragBlockId;
+layout(location = 2) out uint fragmaterialID;
 void main() {
     fragNormal = vec4(normalize(vNormal), 1.0f);
     fragGrassData = vec2(vHeight, vCurveAngle);
-    fragBlockId = 67u;
+    fragmaterialID = 67u;
 }

@@ -11,11 +11,12 @@ import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { WorldUtils } from "../../utils/WorldUtils";
 import { SettingsManager } from "../../Settings";
 import { vec3 } from "gl-matrix";
-import { Color } from "../../map/terrains";
+import { Color, Terrain, Terrains, MaterialMap } from "../../map/terrains";
 
 export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = false;
+  public materialsTextureArray: WebGLTexture;
   private updateSunDirectionCallback?: (direction: vec3) => void;
   constructor(
     gl: WebGL2RenderingContext,
@@ -40,7 +41,7 @@ export class LightingPass extends RenderPass {
       "numShadowedLights",
     ]);
     this.InitSettings();
-    
+    this.materialsTextureArray = this.createMaterialsTextureArray();
   }
 
   protected initRenderTarget(): RenderTarget {
@@ -79,10 +80,10 @@ export class LightingPass extends RenderPass {
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const textures = this.renderGraph!.getOutputs(this);
-    const normalTexture = textures["normal"];
-    const uvTexture = textures["uv"];
-    const blockIdTexture = textures["blockId"];
-    const depthTexture = textures["depth"];
+    const gNormal = textures["normal"];
+    const gAux = textures["uv"];
+    const gMaterialID = textures["materialID"];
+    const gDepth = textures["depth"];
     const ssaoTexture = textures["ssaoBlur"];
     
     // Shadow mask textures from dedicated shadow passes
@@ -105,20 +106,21 @@ export class LightingPass extends RenderPass {
     this.gl.bindVertexArray(vao.vao);
 
     // Bind G-buffer textures
-    TextureUtils.bindTex(this.gl, this.program!, normalTexture, "normalTexture", 0);
-    TextureUtils.bindTex(this.gl, this.program!, uvTexture, "uvTexture", 1);
-    TextureUtils.bindTex(this.gl, this.program!, blockIdTexture, "blockIdTexture", 2);
+    TextureUtils.bindTex(this.gl, this.program!, gNormal, "gNormal", 0);
+    TextureUtils.bindTex(this.gl, this.program!, gAux, "gAux", 1);
+    TextureUtils.bindTex(this.gl, this.program!, gMaterialID, "gMaterialID", 2);
     // No materialAttributesTexture binding
-    TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 3);
+    TextureUtils.bindTex(this.gl, this.program!, gDepth, "gDepth", 3);
     TextureUtils.bindTex(this.gl, this.program!, ssaoTexture, "ssaoTexture", 4);
+    TextureUtils.bindTex(this.gl, this.program!, this.materialsTextureArray, "materialsTextureArray", 5, this.gl.TEXTURE_2D_ARRAY);
     
     // Bind shadow mask textures
-    TextureUtils.bindTex(this.gl, this.program!, blurredSunShadowMask, "blurredSunShadowMask", 5);
-    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskA, "blurredPointShadowMaskA", 6);
-    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskB, "blurredPointShadowMaskB", 7);
-    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskC, "blurredPointShadowMaskC", 8);
-    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskD, "blurredPointShadowMaskD", 9);
-    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskE, "blurredPointShadowMaskE", 10);
+    TextureUtils.bindTex(this.gl, this.program!, blurredSunShadowMask, "blurredSunShadowMask", 6);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskA, "blurredPointShadowMaskA", 7);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskB, "blurredPointShadowMaskB", 8);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskC, "blurredPointShadowMaskC", 9);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskD, "blurredPointShadowMaskD", 10);
+    TextureUtils.bindTex(this.gl, this.program!, blurredPointShadowMaskE, "blurredPointShadowMaskE", 11);
 
     SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
 
@@ -331,8 +333,118 @@ export class LightingPass extends RenderPass {
       "ambientLightIntensity",
       "cascadeDebug"
     ]);
+
+ 
   }
+
+  private createMaterialsTextureArray(): WebGLTexture{
+      const materialsTexturesArray = this.gl.createTexture();
+      const size = 2048;
+      this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
+      this.gl.texStorage3D(
+        this.gl.TEXTURE_2D_ARRAY,
+        1,                  // mip levels
+        this.gl.RGBA8,           // internal format
+        size,
+        size,
+        Object.keys(Terrains).length*5 // For each terrain type, there is color normal displacement roughness AO 
+      );
+      this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+      this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+      this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
+      this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
+      for (const materialID in Terrains) {
+        const id = parseInt(materialID);
+        const material = Terrains[id].material;
+        const mapKeys = ["colorMap", "normalMap", "displacementMap", "roughnessMap", "AOMap"] as const;
+        for (const mapKey of mapKeys) {
+          const image = new Image();
+          if (material == null){
+            const pixel = this.createSolidColorData(
+              size,
+              size,
+              mapKey === "colorMap" ? Terrains[id].color.r : 128,
+              mapKey === "colorMap" ? Terrains[id].color.g : 128,
+              mapKey === "colorMap" ? Terrains[id].color.b : 128,
+              255
+            );
+            this.gl.texSubImage3D(
+              this.gl.TEXTURE_2D_ARRAY,
+              0,
+              0, 0, id * 5 + mapKeys.indexOf(mapKey),
+              size, size, 1,
+              this.gl.RGBA,
+              this.gl.UNSIGNED_BYTE,
+              pixel
+            );
+          }
+          else{
+            const layerIndex = id * 5 + mapKeys.indexOf(mapKey);
+            const fallbackPixel = this.createSolidColorData(
+              size,
+              size,
+              mapKey === "colorMap" ? Terrains[id].color.r : 128,
+              mapKey === "colorMap" ? Terrains[id].color.g : 128,
+              mapKey === "colorMap" ? Terrains[id].color.b : 128,
+              255
+            );
+            image.crossOrigin = "anonymous";
+            image.onload = () => {
+              const w = image.naturalWidth || image.width;
+              const h = image.naturalHeight || image.height;
+              if (w > 0 && h > 0) {
+                this.gl.activeTexture(this.gl.TEXTURE0);
+                this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
+                this.gl.texSubImage3D(
+                  this.gl.TEXTURE_2D_ARRAY,
+                  0,
+                  0, 0, layerIndex,
+                  w, h, 1,
+                  this.gl.RGBA,
+                  this.gl.UNSIGNED_BYTE,
+                  image
+                );
+              }
+            };
+            image.onerror = () => {
+              this.gl.activeTexture(this.gl.TEXTURE0);
+              this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
+              this.gl.texSubImage3D(
+                this.gl.TEXTURE_2D_ARRAY,
+                0,
+                0, 0, layerIndex,
+                size, size, 1,
+                this.gl.RGBA,
+                this.gl.UNSIGNED_BYTE,
+                fallbackPixel
+              );
+            };
+            image.src = material[mapKey];
+          }
+        }
+      }
+
+    return materialsTexturesArray;
+  }
+  private createSolidColorData(
+    width: number,
+    height: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number
+  ): Uint8Array {
+    const data = new Uint8Array(width * height * 4);
   
+    for (let i = 0; i < width * height; i++) {
+      const o = i * 4;
+      data[o + 0] = r;
+      data[o + 1] = g;
+      data[o + 2] = b;
+      data[o + 3] = a;
+    }
+  
+    return data;
+  }
+
 }
-
-

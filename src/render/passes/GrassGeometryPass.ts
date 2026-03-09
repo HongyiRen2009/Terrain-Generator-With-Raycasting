@@ -43,7 +43,7 @@ export class GrassGeometryPass extends RenderPass {
     const fbo = this.gl.createFramebuffer();
     if (!fbo)
       throw new Error("Failed to create framebuffer for GrassGeometryPass");
-    const depthTexture = TextureUtils.createTexture2D(
+    const gDepth = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
       this.canvas.height,
@@ -51,7 +51,7 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.DEPTH_COMPONENT,
       this.gl.FLOAT
     );
-    const normalTexture = TextureUtils.createTexture2D(
+    const gNormal = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
       this.canvas.height,
@@ -67,7 +67,7 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.RG,
       this.gl.FLOAT
     );
-    const blockIdTexture = TextureUtils.createTexture2D(
+    const gMaterialID = TextureUtils.createTexture2D(
       this.gl,
       this.canvas.width,
       this.canvas.height,
@@ -80,7 +80,7 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
       this.gl.TEXTURE_2D,
-      normalTexture,
+      gNormal,
       0
     );
     this.gl.framebufferTexture2D(
@@ -95,7 +95,7 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT2,
       this.gl.TEXTURE_2D,
-      blockIdTexture,
+      gMaterialID,
       0
     );
 
@@ -103,7 +103,7 @@ export class GrassGeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.DEPTH_ATTACHMENT,
       this.gl.TEXTURE_2D,
-      depthTexture,
+      gDepth,
       0
     );
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1, this.gl.COLOR_ATTACHMENT2]);
@@ -111,10 +111,10 @@ export class GrassGeometryPass extends RenderPass {
     return {
       fbo,
       textures: {
-        grassDepth: depthTexture,
-        grassNormal: normalTexture,
+        grassDepth: gDepth,
+        grassNormal: gNormal,
         grassData: grassDataTexture,
-        grassBlockId: blockIdTexture
+        grassmaterialID: gMaterialID
       }
     };
   }

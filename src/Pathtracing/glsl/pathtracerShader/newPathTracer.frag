@@ -134,7 +134,7 @@ struct TerrainType{
     vec3 color;
     float reflectiveness; // Decimal 0-1   
     float roughness; // Decimal 0-1
-    int type; //Type. See terrains.ts
+    int brdfType; // 1=diffuse, 2=specular, 3=glossy, 4=transmission, 5=emission. See terrains.ts
 };
 
 struct Ray{
@@ -240,7 +240,7 @@ TerrainType getTerrainType(int i){
     t.color = vec3(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+1), fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+2));
     t.reflectiveness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+3); 
     t.roughness = fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+4); 
-    t.type = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));
+    t.brdfType = int(fetchFloatFrom1D(u_terrainTypes, i*terrainTypeSize+5));
 
     return t;
 }
@@ -1153,14 +1153,14 @@ void main() {
     vec3 smoothNormal, matColor;
     float matRoughness, reflectiveness;
     int type = 1;
-    if(t1.type != 1){
-        type = t1.type;
-    }else if(t2.type != 1){
-        type = t2.type;
-    }else if(t3.type != 1){
-        type = t3.type;
+    if(t1.brdfType != 1){
+        type = t1.brdfType;
+    }else if(t2.brdfType != 1){
+        type = t2.brdfType;
+    }else if(t3.brdfType != 1){
+        type = t3.brdfType;
     }else{
-        type = t1.type; //default to first one in triangle
+        type = t1.brdfType; //default to first one in triangle
     }
     if(!isGrassBlade){
         getInfo(tri, t1, t2, t3, baryCentric, smoothNormal, matColor, matRoughness, reflectiveness);

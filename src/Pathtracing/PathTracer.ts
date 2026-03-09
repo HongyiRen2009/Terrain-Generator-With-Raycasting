@@ -142,7 +142,7 @@ export class PathTracer {
     //Pack triangles
     const { vertices, terrains, normals } = BVHUtils.packTriangles(
       mainMesh.mesh,
-      mainMesh.type,
+      mainMesh.materialIDs,
       mainMesh.normals
     );
     //Pack BVH
