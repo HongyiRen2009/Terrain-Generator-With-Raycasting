@@ -5,13 +5,13 @@ import { TextureUtils } from "../../utils/TextureUtils";
 import { RenderTarget } from "../renderSystem/RenderTarget";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { RenderGraph } from "../renderSystem/RenderGraph";
-import geometryVertexShaderSource from "../glsl/DeferredRendering/Geometry.vert";
-import geometryFragmentShaderSource from "../glsl/DeferredRendering/Geometry.frag";
 import { mat4, vec3 } from "gl-matrix";
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { WorldUtils } from "../../utils/WorldUtils";
 import waterVertexShaderSource from "../glsl/Water/Water.vert";
 import waterFragmentShaderSource from "../glsl/Water/Water.frag";
+import { Color } from "../../map/terrains";
+import { SettingsManager } from "../../Settings";
 export class WaterPass extends RenderPass {
     public VAOInputType: VAOInputType = VAOInputType.WATER;
     public pathtracerRender: boolean = true;
@@ -26,8 +26,67 @@ export class WaterPass extends RenderPass {
             "time",
             "cameraPos"
         ]);
-
+        this.initSettings();
     }
+    private initSettings() {
+    SettingsManager.instance.createSection(
+      document.getElementById("settings-section")!,
+      "Water Settings"
+    );
+        SettingsManager.instance.addSliderToSection("Water Settings",{
+        id: "ambientStrength",
+        label: "Ambient Strength",
+        min: 0.0,
+        max: 1.0,
+        step: 0.01,
+        defaultValue: 0.1,
+        } );
+        SettingsManager.instance.addSliderToSection("Water Settings",{
+        id: "diffuseStrength",
+        label: "Diffuse Strength",
+        min: 0.0,
+        max: 1.0,
+        step: 0.01,
+        defaultValue: 0.5,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings",{
+        id: "specularStrength",
+        label: "Specular Strength",
+        min: 0.0,
+        max: 1.0,
+        step: 0.01,
+        defaultValue: 0.5,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings",{
+        id: "shininess",
+        label: "Shininess",
+        min: 1.0,
+        max: 256.0,
+        step: 1.0,
+        defaultValue: 32.0,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings",{
+        id: "waterAmplitude",
+        label: "Water Amplitude",
+        min: 0.0,
+        max: 2.0,
+        step: 0.01,
+        defaultValue: 0.5,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings",{
+        id: "waterFrequency",
+        label: "Water Frequency",
+        min: 0.01,
+        max: 1.0,
+        step: 0.001,
+        defaultValue: 0.5,
+        });
+        SettingsManager.instance.attatchProgram(this.program!,
+            ["ambientStrength", "diffuseStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency"]);
+        
+    }
+
+        
     protected initRenderTarget(width?: number, height?: number): RenderTarget {
         const w = width || this.canvas.width;
         const h = height || this.canvas.height;
@@ -69,6 +128,16 @@ export class WaterPass extends RenderPass {
         this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
         this.gl.uniform1f(this.uniforms["time"], performance.now() / 1000);
         this.gl.uniform3fv(this.uniforms["cameraPos"], cameraPos);
+        SettingsManager.instance.updateProgramUniforms(this.gl,this.program!);
+        const disableSun = this.resourceCache.getData("disableSun") ?? false;
+        WorldUtils.updateLights(
+        this.gl,
+        this.program!,
+        this.resourceCache.getData("lights"),
+        disableSun
+            ? { direction: vec3.fromValues(0, -1, 0), color: new Color(255, 255, 255), intensity: 0 }
+            : this.resourceCache.getData("sunLight")
+        );
         this.gl.enable(this.gl.CULL_FACE);
         this.gl.cullFace(this.gl.BACK);
         const viewProj = mat4.create();
