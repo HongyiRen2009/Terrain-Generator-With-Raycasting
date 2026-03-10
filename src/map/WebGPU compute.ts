@@ -20,7 +20,7 @@ interface TerrainOptions {
 export class ComputeShader {
   device: GPUDevice = null!;
   adapter: GPUAdapter = null!;
-  private terrainOptions: TerrainOptions = {
+  public terrainOptions: TerrainOptions = {
     frequency: 0.01,
     heightScale: 50.0,
     waterLevel: 30.0,

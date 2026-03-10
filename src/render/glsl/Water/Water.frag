@@ -12,6 +12,14 @@ uniform float ambientStrength;
 uniform float diffuseStrength;
 uniform float specularStrength;
 uniform float shininess;
+uniform float ssrThickness;
+uniform float ssrMaxDistance;
+uniform float ssrResolution;
+uniform float fresnelF0;
+uniform float fresnelPower; 
+uniform float waterObscurity;
+uniform vec3 waterColor;
+uniform float waterAttenuation;
 
 struct DirectionalLight {
     vec3 direction;
@@ -23,19 +31,19 @@ uniform DirectionalLight SunLight;
 uniform vec3 cameraPos;
 vec3 CalculateLighting(vec3 viewDir, vec3 normal) {
 
-    vec3 waterColor = vec3(0.0, 0.3, 0.5);
+    vec3 color = waterColor;
     float diffuse = max(dot(normal, -SunLight.direction), 0.0);
-    waterColor = waterColor * (ambientStrength + diffuseStrength * diffuse * SunLight.intensity);
+    color *= (ambientStrength + diffuseStrength * diffuse * SunLight.intensity);
     vec3 reflectDir = reflect(-SunLight.direction, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-    waterColor += specularStrength * spec * SunLight.color * SunLight.intensity;
-    return waterColor;
+    color += specularStrength * spec * SunLight.color * SunLight.intensity;
+    return color;
 }
 vec3 Raycast(vec3 rayDir) {
-    float maxDistance = 100.0;
-    float resolution  = 0.2;
+    float maxDistance = ssrMaxDistance;
+    float resolution  = ssrResolution;
     int   steps       = int(maxDistance / resolution);
-    float thickness   = 0.03;
+    float thickness   = ssrThickness;
     float traveled    = 0.0;
     vec3 rayOrigin = vPosition + normalize(vNormal) * 0.05;
     for(int i = 0; i < steps; i++) {
@@ -70,9 +78,18 @@ if (!ssrHit) {
 }
 float Fresnel(vec3 normal, vec3 viewDir){
     float cosTheta = max(dot(normal, viewDir), 0.0);
-    float F0 = 0.02;
-    float fresnel = F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+    float F0 = fresnelF0;
+    float fresnel = F0 + (1.0 - F0) * pow(1.0 - cosTheta, fresnelPower);
     return fresnel;
+}
+
+float attenuation(float distance) {
+    return exp(-waterAttenuation * distance);
+}
+float distanceInWater(float sceneDepth, float waterDepth) {
+    float z = waterDepth * 2.0 - 1.0;
+    float linearDepth = (2.0 * 0.1 * 100.0) / (100.0 + 0.1 - z * (100.0 - 0.1));
+    return max(0.0, linearDepth - sceneDepth);  
 }
 void main() {
     vec2 screenUV = gl_FragCoord.xy / vec2(textureSize(sceneTexture, 0));
@@ -89,6 +106,8 @@ void main() {
     vec3 refractionColor = texture(sceneTexture, screenUV).rgb;
     float fresnel = Fresnel(normal, viewDir);
     vec3 reflectionRefractionColor = mix(refractionColor, reflectionColor, fresnel);
-    waterColor = mix(waterColor, reflectionRefractionColor, 0.3);
+    float refractionDistance = distanceInWater(sceneDepthAtPixel, gl_FragCoord.z);
+    float atten = attenuation(refractionDistance);
+    waterColor = mix(waterColor, reflectionRefractionColor, atten * (1.0 - waterObscurity));
     fragColor = vec4(waterColor, 1.0);
 }

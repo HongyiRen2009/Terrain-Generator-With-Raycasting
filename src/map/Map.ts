@@ -528,7 +528,7 @@ private async generateChunkStrip(
       const waterMesh = chunkWaterMeshes[key];
       const waterResolution = 64; // Higher = smoother water
       if (!waterMesh) continue;
-      const y = 30;
+      const y = computeShader.terrainOptions.waterLevel;
       const step = this.resolution / waterResolution;
 for (let x = 0; x < waterResolution; x++) {
   for (let z = 0; z < waterResolution; z++) {
@@ -938,7 +938,7 @@ export class Chunk {
         // stable pseudo-random in [0,1)
         return Math.abs(Math.sin(x * 127.1 + z * 311.7) * 43758.5453) % 1;
       }
-      const WATER_LEVEL = 30;
+      const WATER_LEVEL = this.worldMap.computeShader.terrainOptions.waterLevel;
       const SNOW_LINE = 140;
       // Determine a terrain type per vertex based on height and slope
       const types: [number, number, number] = [0, 0, 0];
@@ -1189,6 +1189,9 @@ async generate(): Promise<{
     return { mesh: this.Mesh, timings };
   }
   getMesh() {
-    return this.Mesh;
+    const combinedMesh = new Mesh();
+    combinedMesh.merge(this.Mesh);
+    combinedMesh.merge(this.WaterMesh);
+    return combinedMesh;
   }
 }
