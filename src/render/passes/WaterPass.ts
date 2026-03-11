@@ -5,7 +5,7 @@ import { TextureUtils } from "../../utils/TextureUtils";
 import { RenderTarget } from "../renderSystem/RenderTarget";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import { RenderGraph } from "../renderSystem/RenderGraph";
-import { mat4, vec3 } from "gl-matrix";
+import { mat4, vec2, vec3 } from "gl-matrix";
 import { getUniformLocations } from "../renderSystem/managers/ResourceCache";
 import { WorldUtils } from "../../utils/WorldUtils";
 import waterVertexShaderSource from "../glsl/Water/Water.vert";
@@ -19,6 +19,13 @@ export class WaterPass extends RenderPass {
     public VAOInputType: VAOInputType = VAOInputType.WATER;
     public pathtracerRender: boolean = true;
     private normalMapTexture: WebGLTexture;
+    private waveProperties = {
+        waveCount: 12,
+        waveDirs:[] as vec2[],
+        waveSpeeds:[] as number[],
+        wavePhases:[] as number[]
+    }
+    
     constructor(gl: WebGL2RenderingContext, resourceCache: ResourceCache, canvas: HTMLCanvasElement, renderGraph?: RenderGraph, name?: string) {
         super(gl, resourceCache, canvas, renderGraph, name);
         this.canvas = canvas;
@@ -28,9 +35,12 @@ export class WaterPass extends RenderPass {
             "proj",
             "model",
             "time",
-            "cameraPos"
+            "cameraPos",
+            "WAVE_COUNT",
         ]);
+        
         this.initSettings();
+        this.GenerateWaveProperties(this.waveProperties.waveCount);
         this.normalMapTexture = this.createNormalMapTexture();
     }
     private initSettings() {
@@ -97,7 +107,26 @@ export class WaterPass extends RenderPass {
             min: 0.0,
             max: 2.0,
             step: 0.01,
-            defaultValue: 0,
+            defaultValue: 0.2,
+        });
+                SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "waveCount",
+            label: "Wave Count",
+            min: 1,
+            max: 128,
+            step: 1,
+            defaultValue: this.waveProperties.waveCount,
+            onChange: (value: number) => {
+                this.GenerateWaveProperties(value);
+            }
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "globalWaveSpeed",
+            label: "Wave Speed",
+            min: 0.0,
+            max: 5.0,
+            step: 0.01,
+            defaultValue: 2.0,
         });
         SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "waterFrequency",
@@ -178,12 +207,32 @@ export class WaterPass extends RenderPass {
             step: 0.01,
             defaultValue: 0.5,
         });
+
         SettingsManager.instance.attatchProgram(this.program!,
-            ["waterColor", "waterObscurity","waterAttenuation", "ambientStrength", "diffuseStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency","ssrThickness", "ssrMaxDistance", "ssrResolution", "fresnelF0", "fresnelPower","refractionDistortionStrength","normalMapFrequency", "normalMapScrollSpeed", "normalMapStrength"]);
+            ["waterColor", "waterObscurity","waterAttenuation", "ambientStrength", "diffuseStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency","ssrThickness", "ssrMaxDistance", "ssrResolution", "fresnelF0", "fresnelPower","refractionDistortionStrength","normalMapFrequency", "normalMapScrollSpeed", "normalMapStrength","globalWaveSpeed"]);
 
     }
-
-
+    private GenerateWaveProperties(count: number) {
+        const waveCount = count;
+        const waveDirs: vec2[] = [];
+        const waveSpeeds: number[] = [];
+        const wavePhases: number[] = [];
+        for(let i = 0; i < waveCount; i++) {
+            const angle = Math.random() * 2 * Math.PI;
+            waveDirs.push(vec2.fromValues(Math.cos(angle), Math.sin(angle)));
+            waveSpeeds.push(1.0 + (Math.random() - 0.5));
+            wavePhases.push(Math.random() * 2 * Math.PI);
+        }
+        this.waveProperties = { waveCount, waveDirs, waveSpeeds, wavePhases };
+    }
+    private attachWavePropertiesToShader() {
+        this.gl.uniform1i(this.uniforms["WAVE_COUNT"], this.waveProperties.waveCount);
+        for(let i = 0; i < this.waveProperties.waveCount; i++) {
+            this.gl.uniform2fv(this.gl.getUniformLocation(this.program!, `WAVE_DIRS[${i}]`), this.waveProperties.waveDirs[i]);
+            this.gl.uniform1f(this.gl.getUniformLocation(this.program!, `WAVE_SPEED[${i}]`), this.waveProperties.waveSpeeds[i]);
+            this.gl.uniform1f(this.gl.getUniformLocation(this.program!, `WAVE_PHASE[${i}]`), this.waveProperties.wavePhases[i]);
+        }
+    }
     protected initRenderTarget(width?: number, height?: number): RenderTarget {
         const w = width || this.canvas.width;
         const h = height || this.canvas.height;
@@ -226,6 +275,7 @@ export class WaterPass extends RenderPass {
         this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
         this.gl.uniform1f(this.uniforms["time"], performance.now() / 1000);
         this.gl.uniform3fv(this.uniforms["cameraPos"], cameraPos);
+        this.attachWavePropertiesToShader();
         SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
         const disableSun = this.resourceCache.getData("disableSun") ?? false;
         WorldUtils.updateLights(

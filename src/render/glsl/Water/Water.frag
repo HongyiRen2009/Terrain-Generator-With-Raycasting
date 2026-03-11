@@ -108,25 +108,25 @@ vec3 blendedNormal = normalize(normal1 + normal2);
 return blendedNormal;
 }
 void main() {
-    
+    vec3 reflectionNormal = vec3(0.0, 1.0, 0.0);
     vec2 screenUV = gl_FragCoord.xy / vec2(textureSize(sceneTexture, 0));
     vec3 normalFromMap = getNormalMapNormal(vPosition.xz)*2.0-1.0;
 
 
-    vec3 normal = faceforward(normalize(vNormal), normalize(vPosition - cameraPos), normalize(vNormal));
+    vec3 normal = vNormal;
     vec3 distortedNormal = normalize(normal + normalFromMap*normalMapStrength); // Combine geometry normal with normal map
     vec3 viewDir = normalize(cameraPos - vPosition);
     vec3 waterColor = CalculateLighting(viewDir, distortedNormal);
-    vec3 reflectionColor = SSR(normal);
+    vec3 reflectionColor = SSR(reflectionNormal);
     float ior = 1.33;
-    vec3 refractedDir = refract(normalize(viewDir), normalize(normal), 1.0 / ior);
+    vec3 refractedDir = refract(normalize(viewDir), normalize(distortedNormal), 1.0 / ior);
     vec2 distortion = refractedDir.xy * refractionDistortionStrength;
     float sceneDepthAtPixel = texture(depthTexture, screenUV+distortion).r;
     if(sceneDepthAtPixel < 1.0 && gl_FragCoord.z >= sceneDepthAtPixel) {
         discard;
     }
     vec3 refractionColor = texture(sceneTexture, screenUV+distortion).rgb;
-    float fresnel = Fresnel(normal, viewDir);
+    float fresnel = Fresnel(distortedNormal, viewDir);
     vec3 reflectionRefractionColor = mix(refractionColor, reflectionColor, fresnel);
     float refractionDistance = distanceInWater(sceneDepthAtPixel, gl_FragCoord.z);
     float atten = attenuation(refractionDistance);

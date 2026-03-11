@@ -445,11 +445,16 @@ async createMarchingCubes(
     );
 
     const paramsBuffer = this.device.createBuffer({
-      size: 12,
+      size: 16,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       mappedAtCreation: true
     });
-    new Uint32Array(paramsBuffer.getMappedRange()).set([width, height, depth]);
+    const dv = new DataView(paramsBuffer.getMappedRange());
+    const littleEndian = true;
+    dv.setUint32(0, width >>> 0, littleEndian);
+    dv.setUint32(4, height >>> 0, littleEndian);
+    dv.setUint32(8, depth >>> 0, littleEndian);
+    dv.setFloat32(12, this.terrainOptions.waterLevel, littleEndian);
     paramsBuffer.unmap();
 
     const vertexCountData = await this.getMarchingCubesCounts(

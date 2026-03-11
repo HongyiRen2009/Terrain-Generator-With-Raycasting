@@ -64,12 +64,12 @@ export class WorldMap {
   public objectUI: ObjectUI;
   public computeShader: ComputeShader;
   public lightUI: LightUI;
-  private chunkStripQueue: { 
-    startPos: vec3, 
-    lengthInChunks: number, 
-    widthInChunks: number, 
+  private chunkStripQueue: {
+    startPos: vec3,
+    lengthInChunks: number,
+    widthInChunks: number,
     then: ((chunk: Chunk) => void) | null,
-    allChunksLoadedCallback: (() => void) | null 
+    allChunksLoadedCallback: (() => void) | null
   }[] = [];
   public isGeneratingChunk: boolean = false;
   /**
@@ -123,7 +123,7 @@ export class WorldMap {
       min: 0,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.005*2,
+      defaultValue: 0.005 * 2,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings", {
@@ -132,7 +132,7 @@ export class WorldMap {
       min: 0,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.011*2,
+      defaultValue: 0.011 * 2,
       numType: "float"
     });
     SettingsManager.instance.addSliderToSection("Sky Settings", {
@@ -141,10 +141,10 @@ export class WorldMap {
       min: 0,
       max: 0.5,
       step: 0.001,
-      defaultValue: 0.022*2,
+      defaultValue: 0.022 * 2,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_MIE",
       label: "Mie (whiteness at sea level)",
       min: 0,
@@ -153,7 +153,7 @@ export class WorldMap {
       defaultValue: 0.021,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_haloSize",
       label: "Mie Anisotropy (Lower = larger halo)",
       min: 0,
@@ -162,7 +162,7 @@ export class WorldMap {
       defaultValue: 0.76,
       numType: "float"
     });
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_skyGradientQuality",
       label: "Sky Gradient Quality",
       min: 1,
@@ -172,7 +172,7 @@ export class WorldMap {
       numType: "int"
     });
 
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_sunsetQuality",
       label: "Sunset Quality",
       min: 1,
@@ -182,7 +182,7 @@ export class WorldMap {
       numType: "int"
     });
 
-    SettingsManager.instance.addSliderToSection("Sky Settings",{
+    SettingsManager.instance.addSliderToSection("Sky Settings", {
       id: "u_skyBrightnessBoost",
       label: "Sky Brighness Coefficient",
       min: 0,
@@ -213,350 +213,353 @@ export class WorldMap {
   }
 
 
-private computeOptimalSubStripSize(
-  lengthInChunks: number,
-  widthInChunks: number,
-  maxArea: number
-): { tileX: number; tileZ: number } {
-  let bestTileX = 1;
-  let bestTileZ = Math.max(1, Math.min(widthInChunks, maxArea));
-  let bestCalls = Number.POSITIVE_INFINITY;
-  let bestArea = bestTileX * bestTileZ;
+  private computeOptimalSubStripSize(
+    lengthInChunks: number,
+    widthInChunks: number,
+    maxArea: number
+  ): { tileX: number; tileZ: number } {
+    let bestTileX = 1;
+    let bestTileZ = Math.max(1, Math.min(widthInChunks, maxArea));
+    let bestCalls = Number.POSITIVE_INFINITY;
+    let bestArea = bestTileX * bestTileZ;
 
-  const maxX = Math.min(lengthInChunks, maxArea);
-  for (let tx = 1; tx <= maxX; tx++) {
-    const tzCandidate = Math.floor(maxArea / tx);
-    if (tzCandidate < 1) continue;
+    const maxX = Math.min(lengthInChunks, maxArea);
+    for (let tx = 1; tx <= maxX; tx++) {
+      const tzCandidate = Math.floor(maxArea / tx);
+      if (tzCandidate < 1) continue;
 
-    const tz = Math.min(widthInChunks, tzCandidate);
-    const calls = Math.ceil(lengthInChunks / tx) * Math.ceil(widthInChunks / tz);
-    const area = tx * tz;
+      const tz = Math.min(widthInChunks, tzCandidate);
+      const calls = Math.ceil(lengthInChunks / tx) * Math.ceil(widthInChunks / tz);
+      const area = tx * tz;
 
-    // Prefer fewer calls; break ties by larger area
-    if (calls < bestCalls || (calls === bestCalls && area > bestArea)) {
-      bestCalls = calls;
-      bestArea = area;
-      bestTileX = tx;
-      bestTileZ = tz;
+      // Prefer fewer calls; break ties by larger area
+      if (calls < bestCalls || (calls === bestCalls && area > bestArea)) {
+        bestCalls = calls;
+        bestArea = area;
+        bestTileX = tx;
+        bestTileZ = tz;
+      }
     }
+
+    return { tileX: bestTileX, tileZ: bestTileZ };
   }
 
-  return { tileX: bestTileX, tileZ: bestTileZ };
-}
+  // ...existing code...
 
-// ...existing code...
+  public loadChunkStrip(
+    startPos: vec3,
+    lengthInChunks: number,
+    widthInChunks: number,
+    then: ((chunk: Chunk) => void) | null = null,
+    allChunksLoadedCallback: (() => void) | null = null
+  ) {
+    // Pick optimal tile size to minimize number of calls for this region
+    const { tileX, tileZ } = this.computeOptimalSubStripSize(
+      lengthInChunks,
+      widthInChunks,
+      MAX_CHUNKS_PER_STRIP_TOTAL
+    );
 
-public loadChunkStrip(
-  startPos: vec3, 
-  lengthInChunks: number, 
-  widthInChunks: number, 
-  then: ((chunk: Chunk) => void) | null = null,
-  allChunksLoadedCallback: (() => void) | null = null
-) {
-  // Pick optimal tile size to minimize number of calls for this region
-  const { tileX, tileZ } = this.computeOptimalSubStripSize(
-    lengthInChunks,
-    widthInChunks,
-    MAX_CHUNKS_PER_STRIP_TOTAL
-  );
+    for (let baseX = 0; baseX < lengthInChunks; baseX += tileX) {
+      for (let baseZ = 0; baseZ < widthInChunks; baseZ += tileZ) {
+        const subStripX = Math.min(tileX, lengthInChunks - baseX);
+        const subStripZ = Math.min(tileZ, widthInChunks - baseZ);
 
-  for (let baseX = 0; baseX < lengthInChunks; baseX += tileX) {
-    for (let baseZ = 0; baseZ < widthInChunks; baseZ += tileZ) {
-      const subStripX = Math.min(tileX, lengthInChunks - baseX);
-      const subStripZ = Math.min(tileZ, widthInChunks - baseZ);
+        const subStripStart = vec3.fromValues(
+          startPos[0] + baseX * this.resolution,
+          startPos[1],
+          startPos[2] + baseZ * this.resolution
+        );
 
-      const subStripStart = vec3.fromValues(
-        startPos[0] + baseX * this.resolution,
-        startPos[1],
-        startPos[2] + baseZ * this.resolution
-      );
-
-      // Overlap check
-      let hasOverlap = false;
-      for (let cx = 0; cx < subStripX && !hasOverlap; cx++) {
-        for (let cz = 0; cz < subStripZ; cz++) {
-          const chunkWorldX = subStripStart[0] + cx * this.resolution;
-          const chunkWorldZ = subStripStart[2] + cz * this.resolution;
-          const key = `${chunkWorldX},${subStripStart[1]},${chunkWorldZ}`;
-          if (this.chunks[key] || this.chunkQueueHasKey(key)) {
-            hasOverlap = true;
-            break;
-          }
-        }
-      }
-
-      if (hasOverlap) {
-        // Fallback to individual chunk loading for overlapping region
-        for (let cx = 0; cx < subStripX; cx++) {
+        // Overlap check
+        let hasOverlap = false;
+        for (let cx = 0; cx < subStripX && !hasOverlap; cx++) {
           for (let cz = 0; cz < subStripZ; cz++) {
-            const chunkPos = vec3.fromValues(
-              subStripStart[0] + cx * this.resolution,
-              subStripStart[1],
-              subStripStart[2] + cz * this.resolution
-            );
-            this.loadChunkStrip(chunkPos, 1, 1, then);
+            const chunkWorldX = subStripStart[0] + cx * this.resolution;
+            const chunkWorldZ = subStripStart[2] + cz * this.resolution;
+            const key = `${chunkWorldX},${subStripStart[1]},${chunkWorldZ}`;
+            if (this.chunks[key] || this.chunkQueueHasKey(key)) {
+              hasOverlap = true;
+              break;
+            }
           }
         }
-      } else {
-        // Queue the sub-strip
-        this.chunkStripQueue.push({
-          startPos: subStripStart,
-          lengthInChunks: subStripX,
-          widthInChunks: subStripZ,
-          then,
-          allChunksLoadedCallback
-        });
+
+        if (hasOverlap) {
+          // Fallback to individual chunk loading for overlapping region
+          for (let cx = 0; cx < subStripX; cx++) {
+            for (let cz = 0; cz < subStripZ; cz++) {
+              if (subStripX === 1 && subStripZ === 1) {
+                continue;
+              }
+              const chunkPos = vec3.fromValues(
+                subStripStart[0] + cx * this.resolution,
+                subStripStart[1],
+                subStripStart[2] + cz * this.resolution
+              );
+              this.loadChunkStrip(chunkPos, 1, 1, then);
+            }
+          }
+        } else {
+          // Queue the sub-strip
+          this.chunkStripQueue.push({
+            startPos: subStripStart,
+            lengthInChunks: subStripX,
+            widthInChunks: subStripZ,
+            then,
+            allChunksLoadedCallback
+          });
+        }
       }
     }
   }
-}
 
-/**
- * Processes both the chunk strip queue and the individual chunk queue asynchronously.
- * Prioritizes strip queue for efficiency.
- */
-public async processChunkQueue(allChunksLoadedCallback: (() => void) | null = null) {
-  if (this.isGeneratingChunk) return;
+  /**
+   * Processes both the chunk strip queue and the individual chunk queue asynchronously.
+   * Prioritizes strip queue for efficiency.
+   */
+  public async processChunkQueue(allChunksLoadedCallback: (() => void) | null = null) {
+    if (this.isGeneratingChunk) return;
 
-  // Process strip queue first (more efficient)
-  if (this.chunkStripQueue.length > 0) {
-    this.isGeneratingChunk = true;
-    const { startPos, lengthInChunks, widthInChunks, then, allChunksLoadedCallback: stripCallback } = this.chunkStripQueue.shift()!;
+    // Process strip queue first (more efficient)
+    if (this.chunkStripQueue.length > 0) {
+      this.isGeneratingChunk = true;
+      const { startPos, lengthInChunks, widthInChunks, then, allChunksLoadedCallback: stripCallback } = this.chunkStripQueue.shift()!;
 
-    try {
-      await this.generateChunkStrip(startPos, lengthInChunks, widthInChunks, then);
-      if (stripCallback) stripCallback();
-    } catch (e) {
-      console.error(`Failed to generate chunk strip at ${startPos}:`, e);
-    } finally {
-      this.isGeneratingChunk = false;
-      // Continue processing queues
-      this.processChunkQueue();
+      try {
+        await this.generateChunkStrip(startPos, lengthInChunks, widthInChunks, then);
+        if (stripCallback) stripCallback();
+      } catch (e) {
+        console.error(`Failed to generate chunk strip at ${startPos}:`, e);
+      } finally {
+        this.isGeneratingChunk = false;
+        // Continue processing queues
+        this.processChunkQueue();
+      }
+      return;
     }
-    return;
+
   }
 
-}
+  /**
+   * Generates a strip of chunks by creating a single large mesh and partitioning it.
+   * @param chunkStartPos Starting position in chunk coordinates (vec3) of the strip
+   * @param numberOfChunksX Number of chunks along X
+   * @param widthInChunks Number of chunks along Z
+   * @param then Optional callback after all chunks are generated
+   */
+  private async generateChunkStrip(
+    chunkStartPos: vec3,
+    numberOfChunksX: number,
+    numberOfChunksZ: number,
+    then: ((chunk: Chunk) => void) | null = null
+  ) {
+    // Calculate total grid size for the strip
+    const totalWidth = numberOfChunksX * this.resolution;
+    const totalDepth = numberOfChunksZ * this.resolution;
+    const gridSize = vec3.fromValues(totalWidth, this.height, totalDepth);
 
-/**
- * Generates a strip of chunks by creating a single large mesh and partitioning it.
- * @param chunkStartPos Starting position in chunk coordinates (vec3) of the strip
- * @param numberOfChunksX Number of chunks along X
- * @param widthInChunks Number of chunks along Z
- * @param then Optional callback after all chunks are generated
- */
-private async generateChunkStrip(
-  chunkStartPos: vec3,
-  numberOfChunksX: number,
-  numberOfChunksZ: number,
-  then: ((chunk: Chunk) => void) | null = null
-) {
-  // Calculate total grid size for the strip
-  const totalWidth = numberOfChunksX * this.resolution;
-  const totalDepth = numberOfChunksZ * this.resolution;
-  const gridSize = vec3.fromValues(totalWidth, this.height, totalDepth);
+    // Call compute shader ONCE for the whole strip
+    const computeShader = this.computeShader;
+    const width = gridSize[0] + 3;
+    const height = gridSize[1] + 3;
+    const depth = gridSize[2] + 3;
 
-  // Call compute shader ONCE for the whole strip
-  const computeShader = this.computeShader;
-  const width = gridSize[0] + 3;
-  const height = gridSize[1] + 3;
-  const depth = gridSize[2] + 3;
-  
-  // Generate field and mesh for the entire strip
-  const fieldBuffer = await computeShader.createSimplexNoise3D(
-    width, height, depth, this.seed,
-    chunkStartPos[0], chunkStartPos[1], chunkStartPos[2]
-  );
-  const field = await computeShader.readFieldBuffer(fieldBuffer, width , height , depth);
-  const interleavedResult = await computeShader.createMarchingCubes(
-    fieldBuffer, width, height, depth
-  );
-  const interleavedData = await computeShader.readInterleavedBuffer(
-    interleavedResult.interleavedBuffer, interleavedResult.vertexCount
-  );
-  const indices = await computeShader.readUintBuffer(
-    interleavedResult.indexBuffer, interleavedResult.indexCount
-  );
+    // Generate field and mesh for the entire strip
+    const fieldBuffer = await computeShader.createSimplexNoise3D(
+      width, height, depth, this.seed,
+      chunkStartPos[0], chunkStartPos[1], chunkStartPos[2]
+    );
+    const field = await computeShader.readFieldBuffer(fieldBuffer, width, height, depth);
+    const interleavedResult = await computeShader.createMarchingCubes(
+      fieldBuffer, width, height, depth
+    );
+    const interleavedData = await computeShader.readInterleavedBuffer(
+      interleavedResult.interleavedBuffer, interleavedResult.vertexCount
+    );
+    const indices = await computeShader.readUintBuffer(
+      interleavedResult.indexBuffer, interleavedResult.indexCount
+    );
 
-  // Partition triangles into chunks
-  const chunkMeshes: { [key: string]: Mesh } = {};
-  const chunkWaterMeshes: { [key: string]: Mesh } = {};
-  // Create chunk meshes using chunk indices (0,1,2...) not world positions
-  for (let cx = 0; cx < numberOfChunksX; cx++) {
-    for (let cz = 0; cz < numberOfChunksZ; cz++) {
-      const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+    // Partition triangles into chunks
+    const chunkMeshes: { [key: string]: Mesh } = {};
+    const chunkWaterMeshes: { [key: string]: Mesh } = {};
+    // Create chunk meshes using chunk indices (0,1,2...) not world positions
+    for (let cx = 0; cx < numberOfChunksX; cx++) {
+      for (let cz = 0; cz < numberOfChunksZ; cz++) {
+        const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+        const chunkWorldY = chunkStartPos[1];
+        const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+        const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
+        chunkMeshes[key] = new Mesh();
+        chunkWaterMeshes[key] = new Mesh();
+      }
+    }
+
+    // Assign triangles to the correct chunk mesh
+    for (let i = 0; i < indices.length; i += 3) {
+      const idx0 = indices[i];
+      const idx1 = indices[i + 1];
+      const idx2 = indices[i + 2];
+
+      const offset0 = idx0 * 8;
+      const offset1 = idx1 * 8;
+      const offset2 = idx2 * 8;
+
+      // Get positions in strip-local space (0 to totalWidth/totalDepth)
+      const tri: Triangle = [
+        vec3.fromValues(interleavedData[offset0], interleavedData[offset0 + 1], interleavedData[offset0 + 2]),
+        vec3.fromValues(interleavedData[offset1], interleavedData[offset1 + 1], interleavedData[offset1 + 2]),
+        vec3.fromValues(interleavedData[offset2], interleavedData[offset2 + 1], interleavedData[offset2 + 2])
+      ];
+
+      // Skip edge triangles to avoid seams (same logic as single chunk generation)
+      let rejectTriangle = false;
+      for (let j = 0; j < 3; j++) {
+        if (
+          tri[j][0] <= 0 ||
+          tri[j][0] >= width - 1 ||
+          tri[j][1] <= 0 ||
+          tri[j][1] >= height - 1 ||
+          tri[j][2] <= 0 ||
+          tri[j][2] >= depth - 1
+        ) {
+          rejectTriangle = true;
+          break;
+        }
+      }
+      if (rejectTriangle) {
+        continue;
+      }
+
+      // Determine which chunk this triangle belongs to based on first vertex
+      // The vertex position is in strip-local space, so divide by resolution to get chunk index
+      const PADDING_OFFSET = 1.0;
+      const EPSILON = 1e-6;
+
+      const centroidX = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0;
+      const centroidZ = (tri[0][2] + tri[1][2] + tri[2][2]) / 3.0;
+
+      // Convert padded local coords -> voxel coords in strip space
+      const voxelX = Math.floor(centroidX - PADDING_OFFSET - EPSILON);
+      const voxelZ = Math.floor(centroidZ - PADDING_OFFSET - EPSILON);
+
+      // Map voxel coords to chunk indices
+      const chunkIdxX = Math.floor(voxelX / this.resolution);
+      const chunkIdxZ = Math.floor(voxelZ / this.resolution);
+
+      // Clamp to valid chunk indices
+      const clampedChunkIdxX = Math.max(0, Math.min(numberOfChunksX - 1, chunkIdxX));
+      const clampedChunkIdxZ = Math.max(0, Math.min(numberOfChunksZ - 1, chunkIdxZ));
+
+      // Calculate world chunk position
+      const chunkWorldX = chunkStartPos[0] + clampedChunkIdxX * this.resolution;
       const chunkWorldY = chunkStartPos[1];
-      const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+      const chunkWorldZ = chunkStartPos[2] + clampedChunkIdxZ * this.resolution;
+
       const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
-      chunkMeshes[key] = new Mesh();
-      chunkWaterMeshes[key] = new Mesh();
-    }
-  }
+      const mesh = chunkMeshes[key];
+      if (!mesh) continue;
 
-  // Assign triangles to the correct chunk mesh
-  for (let i = 0; i < indices.length; i += 3) {
-    const idx0 = indices[i];
-    const idx1 = indices[i + 1];
-    const idx2 = indices[i + 2];
+      // Convert to chunk-local coordinates
+      const chunkOffsetX = clampedChunkIdxX * this.resolution;
+      const chunkOffsetZ = clampedChunkIdxZ * this.resolution;
 
-    const offset0 = idx0 * 8;
-    const offset1 = idx1 * 8;
-    const offset2 = idx2 * 8;
+      const localTri: Triangle = [
+        vec3.fromValues(tri[0][0] - chunkOffsetX, tri[0][1], tri[0][2] - chunkOffsetZ),
+        vec3.fromValues(tri[1][0] - chunkOffsetX, tri[1][1], tri[1][2] - chunkOffsetZ),
+        vec3.fromValues(tri[2][0] - chunkOffsetX, tri[2][1], tri[2][2] - chunkOffsetZ)
+      ];
 
-    // Get positions in strip-local space (0 to totalWidth/totalDepth)
-    const tri: Triangle = [
-      vec3.fromValues(interleavedData[offset0], interleavedData[offset0 + 1], interleavedData[offset0 + 2]),
-      vec3.fromValues(interleavedData[offset1], interleavedData[offset1 + 1], interleavedData[offset1 + 2]),
-      vec3.fromValues(interleavedData[offset2], interleavedData[offset2 + 1], interleavedData[offset2 + 2])
-    ];
+      const norm: Triangle = [
+        vec3.fromValues(interleavedData[offset0 + 4], interleavedData[offset0 + 5], interleavedData[offset0 + 6]),
+        vec3.fromValues(interleavedData[offset1 + 4], interleavedData[offset1 + 5], interleavedData[offset1 + 6]),
+        vec3.fromValues(interleavedData[offset2 + 4], interleavedData[offset2 + 5], interleavedData[offset2 + 6])
+      ];
 
-    // Skip edge triangles to avoid seams (same logic as single chunk generation)
-    let rejectTriangle = false;
-    for (let j = 0; j < 3; j++) {
-      if (
-        tri[j][0] <= 0 ||
-        tri[j][0] >= width - 1 ||
-        tri[j][1] <= 0 ||
-        tri[j][1] >= height - 1 ||
-        tri[j][2] <= 0 ||
-        tri[j][2] >= depth - 1
-      ) {
-        rejectTriangle = true;
-        break;
-      }
-    }
-    if (rejectTriangle) {
-      continue;
-    }
-
-    // Determine which chunk this triangle belongs to based on first vertex
-    // The vertex position is in strip-local space, so divide by resolution to get chunk index
-    const PADDING_OFFSET = 1.0;
-    const EPSILON = 1e-6;
-
-    const centroidX = (tri[0][0] + tri[1][0] + tri[2][0]) / 3.0;
-    const centroidZ = (tri[0][2] + tri[1][2] + tri[2][2]) / 3.0;
-
-    // Convert padded local coords -> voxel coords in strip space
-    const voxelX = Math.floor(centroidX - PADDING_OFFSET - EPSILON);
-    const voxelZ = Math.floor(centroidZ - PADDING_OFFSET - EPSILON);
-
-    // Map voxel coords to chunk indices
-    const chunkIdxX = Math.floor(voxelX / this.resolution);
-    const chunkIdxZ = Math.floor(voxelZ / this.resolution);
-
-    // Clamp to valid chunk indices
-    const clampedChunkIdxX = Math.max(0, Math.min(numberOfChunksX - 1, chunkIdxX));
-    const clampedChunkIdxZ = Math.max(0, Math.min(numberOfChunksZ - 1, chunkIdxZ));
-
-    // Calculate world chunk position
-    const chunkWorldX = chunkStartPos[0] + clampedChunkIdxX * this.resolution;
-    const chunkWorldY = chunkStartPos[1];
-    const chunkWorldZ = chunkStartPos[2] + clampedChunkIdxZ * this.resolution;
-
-    const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
-    const mesh = chunkMeshes[key];
-    if (!mesh) continue;
-
-    // Convert to chunk-local coordinates
-    const chunkOffsetX = clampedChunkIdxX * this.resolution;
-    const chunkOffsetZ = clampedChunkIdxZ * this.resolution;
-
-    const localTri: Triangle = [
-      vec3.fromValues(tri[0][0] - chunkOffsetX, tri[0][1], tri[0][2] - chunkOffsetZ),
-      vec3.fromValues(tri[1][0] - chunkOffsetX, tri[1][1], tri[1][2] - chunkOffsetZ),
-      vec3.fromValues(tri[2][0] - chunkOffsetX, tri[2][1], tri[2][2] - chunkOffsetZ)
-    ];
-
-    const norm: Triangle = [
-      vec3.fromValues(interleavedData[offset0 + 4], interleavedData[offset0 + 5], interleavedData[offset0 + 6]),
-      vec3.fromValues(interleavedData[offset1 + 4], interleavedData[offset1 + 5], interleavedData[offset1 + 6]),
-      vec3.fromValues(interleavedData[offset2 + 4], interleavedData[offset2 + 5], interleavedData[offset2 + 6])
-    ];
-
-    const types: [number, number, number] = [
-      new Uint32Array(new Float32Array([interleavedData[offset0 + 3]]).buffer)[0],
-      new Uint32Array(new Float32Array([interleavedData[offset1 + 3]]).buffer)[0],
-      new Uint32Array(new Float32Array([interleavedData[offset2 + 3]]).buffer)[0]
-    ];
+      const types: [number, number, number] = [
+        new Uint32Array(new Float32Array([interleavedData[offset0 + 3]]).buffer)[0],
+        new Uint32Array(new Float32Array([interleavedData[offset1 + 3]]).buffer)[0],
+        new Uint32Array(new Float32Array([interleavedData[offset2 + 3]]).buffer)[0]
+      ];
       mesh.addTriangle(localTri, norm, types);
-    
-  }
-  const PADDING_OFFSET = 1.0;
-  //Create Water meshes for the strip (flat plane at y=30, same x/z as terrain)
-  for (let cx = 0; cx < numberOfChunksX; cx++) {
-    for (let cz = 0; cz < numberOfChunksZ; cz++) {
-      const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
-      const chunkWorldY = chunkStartPos[1];
-      const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
-      const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
-      const waterMesh = chunkWaterMeshes[key];
-      const waterResolution = 64; // Higher = smoother water
-      if (!waterMesh) continue;
-      const y = computeShader.terrainOptions.waterLevel;
-      const step = this.resolution / waterResolution;
-for (let x = 0; x < waterResolution; x++) {
-  for (let z = 0; z < waterResolution; z++) {
-          const vx = x * step;
-          const vz = z * step;
-                  // Calculate strip-local field coordinates
-        const stripLocalX = cx * this.resolution + vx;
-        const stripLocalZ = cz * this.resolution + vz;
-        const paddedX = Math.floor(stripLocalX + PADDING_OFFSET);
-        const paddedY = Math.floor(y + PADDING_OFFSET);
-        const paddedZ = Math.floor(stripLocalZ + PADDING_OFFSET);
-        
-        // Check field value at water level
-        if (paddedX < 0 || paddedX >= width || paddedY < 0 || paddedY >= height || 
-            paddedZ < 0 || paddedZ >= depth) {
-          continue;
-        }
-        
-        const fieldIndex = paddedX + paddedY * width + paddedZ * width * height;
-        const fieldValue = field[fieldIndex];
-        
-        // Only generate water if field is empty (terrain doesn't exist here)
-        if (fieldValue > 0.5) {
-          continue;
-        }
-          const v1 = vec3.fromValues(vx,        y, vz);
-          const v2 = vec3.fromValues(vx + step, y, vz);
-          const v3 = vec3.fromValues(vx,        y, vz + step);
-          const v4 = vec3.fromValues(vx + step, y, vz + step);
-          const norm = vec3.fromValues(0, 1, 0);
-          waterMesh.addTriangle([v1, v3, v2], [norm, norm, norm], [4, 4, 4]);
-          waterMesh.addTriangle([v2, v3, v4], [norm, norm, norm], [4, 4, 4]);
-        }
-      }
-      chunkWaterMeshes[key] = waterMesh;
+
     }
-  }
-      
-  // Create Chunk objects and assign meshes
-  for (let cx = 0; cx < numberOfChunksX; cx++) {
-    for (let cz = 0; cz < numberOfChunksZ; cz++) {
-      const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
-      const chunkWorldY = chunkStartPos[1];
-      const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
-      const chunkPos = vec3.fromValues(chunkWorldX, chunkWorldY, chunkWorldZ);
-      const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
-      
-      const chunk = new Chunk(
-        chunkPos,
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this
-      );
-      chunk.Mesh = chunkMeshes[key];
-      chunk.WaterMesh = chunkWaterMeshes[key];
-      this.chunks[key] = chunk;
-      
-      if (then) {
-        then(chunk);
+    const PADDING_OFFSET = 1.0;
+    //Create Water meshes for the strip (flat plane at y=30, same x/z as terrain)
+    for (let cx = 0; cx < numberOfChunksX; cx++) {
+      for (let cz = 0; cz < numberOfChunksZ; cz++) {
+        const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+        const chunkWorldY = chunkStartPos[1];
+        const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+        const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
+        const waterMesh = chunkWaterMeshes[key];
+        const waterResolution = 64; // Higher = smoother water
+        if (!waterMesh) continue;
+        const y = computeShader.terrainOptions.waterLevel;
+        const step = this.resolution / waterResolution;
+        for (let x = 0; x < waterResolution; x++) {
+          for (let z = 0; z < waterResolution; z++) {
+            const vx = x * step;
+            const vz = z * step;
+            // Calculate strip-local field coordinates
+            const stripLocalX = cx * this.resolution + vx;
+            const stripLocalZ = cz * this.resolution + vz;
+            const paddedX = Math.floor(stripLocalX + PADDING_OFFSET);
+            const paddedY = Math.floor(y + PADDING_OFFSET); // Check a bit below water level to avoid floating water on thin terrain
+            const paddedZ = Math.floor(stripLocalZ + PADDING_OFFSET);
+
+            // Check field value at water level
+            if (paddedX < 0 || paddedX >= width || paddedY < 0 || paddedY >= height ||
+              paddedZ < 0 || paddedZ >= depth) {
+              continue;
+            }
+
+            const fieldIndex = paddedX + paddedY * width + paddedZ * width * height;
+            const fieldValue = field[fieldIndex];
+
+            // Only generate water if field is empty (terrain doesn't exist here)
+            if (fieldValue > 0.5) {
+              continue;
+            }
+            const v1 = vec3.fromValues(vx, y, vz);
+            const v2 = vec3.fromValues(vx + step, y, vz);
+            const v3 = vec3.fromValues(vx, y, vz + step);
+            const v4 = vec3.fromValues(vx + step, y, vz + step);
+            const norm = vec3.fromValues(0, 1, 0);
+            waterMesh.addTriangle([v1, v3, v2], [norm, norm, norm], [4, 4, 4]);
+            waterMesh.addTriangle([v2, v3, v4], [norm, norm, norm], [4, 4, 4]);
+          }
+        }
+        chunkWaterMeshes[key] = waterMesh;
       }
     }
+
+    // Create Chunk objects and assign meshes
+    for (let cx = 0; cx < numberOfChunksX; cx++) {
+      for (let cz = 0; cz < numberOfChunksZ; cz++) {
+        const chunkWorldX = chunkStartPos[0] + cx * this.resolution;
+        const chunkWorldY = chunkStartPos[1];
+        const chunkWorldZ = chunkStartPos[2] + cz * this.resolution;
+        const chunkPos = vec3.fromValues(chunkWorldX, chunkWorldY, chunkWorldZ);
+        const key = `${chunkWorldX},${chunkWorldY},${chunkWorldZ}`;
+
+        const chunk = new Chunk(
+          chunkPos,
+          vec3.fromValues(this.resolution, this.height, this.resolution),
+          this.seed,
+          this
+        );
+        chunk.Mesh = chunkMeshes[key];
+        chunk.WaterMesh = chunkWaterMeshes[key];
+        this.chunks[key] = chunk;
+
+        if (then) {
+          then(chunk);
+        }
+      }
+    }
   }
-}
 
   private logTiming(average = false) {
     const timings = average ? this.averageTimings() : this.TotalTimings;
@@ -619,7 +622,7 @@ for (let x = 0; x < waterResolution; x++) {
     // Count total triangles for pre-allocation logging
     let totalTriangles = 0;
     for (const chunk of Object.values(this.chunks)) {
-      if(!chunk.getMesh()) continue;
+      if (!chunk.getMesh()) continue;
       totalTriangles += chunk.getMesh().mesh.length;
     }
     for (const obj of this.worldObjects) {
@@ -629,7 +632,7 @@ for (let x = 0; x < waterResolution; x++) {
     // Merge chunks with transformation applied
     for (const chunk of Object.values(this.chunks)) {
       const chunkMesh = chunk.getMesh();
-      if(!chunkMesh) continue;
+      if (!chunkMesh) continue;
       const transformedChunkMesh = new Mesh();
 
       // Transform each triangle by the chunk position
@@ -666,7 +669,7 @@ for (let x = 0; x < waterResolution; x++) {
     if (this.worldObjects.length > 0) {
       for (let objIdx = 0; objIdx < this.worldObjects.length; objIdx++) {
         const obj = this.worldObjects[objIdx];
-        if(!obj.mesh) continue;
+        if (!obj.mesh) continue;
 
         // Create a simple hash of the transform matrix to detect changes
         const transformHash = obj.position.join(",");
