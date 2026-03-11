@@ -4,6 +4,7 @@ precision lowp usampler2D;
 precision lowp sampler2DArray;
 #define MAX_LIGHTS 100
 #define MAX_SHADOWED_POINT_LIGHTS 5
+#define NUM_TERRAINS 6
 in vec2 fragUV;
 out vec4 outputColor;
 uniform sampler2D gNormal;
@@ -22,6 +23,9 @@ uniform sampler2D blurredPointShadowMaskE;
 
 uniform mat4 viewInverse;
 uniform mat4 projInverse;
+uniform float materialTextureScale[NUM_TERRAINS];
+uniform bool useTerrainNormalMap;
+uniform bool useTerrainARMMap;
 
 uniform float ambientLightIntensity;
 //Shadow Uniforms
@@ -48,6 +52,7 @@ uniform DirectionalLight SunLight;
 uniform PointLight pointLights[MAX_LIGHTS];
 uniform int numActivePointLights;
 uniform vec3 cameraPosition;
+
 
 // Add these uniforms near the top with other uniforms
 uniform float grassSpecularStrength;
@@ -329,28 +334,81 @@ void main() {
         float curveAngle = auxData.y;
         lighting = computeGrassLighting(fragWorldPos, worldNormal, vHeight, curveAngle, sunShadow);
     } else {
-        // Standard PBR lighting for terrain (use placeholder values)
+        // Standard PBR lighting for terrain
         float baseReflectivity = 0.04f;
-        float metallicity = 0.0f;
-        float roughness = 0.8f;
+        float metallicity ;
+        float roughness;
+        float materialAO;
         vec3 blendWeights = abs(worldNormal);
         // Tighten up the blending zone:
-        blendWeights = (blendWeights - 0.2) * 7.0;
+        blendWeights = (blendWeights - 0.2) * 10.0;
         blendWeights = max(blendWeights, 0.0); //Force weights to sum to 1.0 (very important!)
         float weightSum = blendWeights.x + blendWeights.y + blendWeights.z;
         blendWeights /= max(weightSum, 0.0001); // avoid division by zero on flat normals
-        vec2 coord1 = fragWorldPos.yz;
-        vec2 coord2 = fragWorldPos.zx;
-        vec2 coord3 = fragWorldPos.xy;
-        uint layer = 5u * materialID;
+        vec2 coord1 = fragWorldPos.yz * materialTextureScale[materialID];
+        vec2 coord2 = fragWorldPos.zx * materialTextureScale[materialID];
+        vec2 coord3 = fragWorldPos.xy * materialTextureScale[materialID];
+        uint layer = 3u * materialID;
         vec3 color1 = texture(materialsTextureArray, vec3(coord1, float(layer))).rgb;
         vec3 color2 = texture(materialsTextureArray, vec3(coord2, float(layer))).rgb;
         vec3 color3 = texture(materialsTextureArray, vec3(coord3, float(layer))).rgb;
+        float materialAO1 = 1.0f;
+        float materialAO2 = 1.0f;
+        float materialAO3 = 1.0f;
+        float roughness1 = 0.8f;
+        float roughness2 = 0.8f;
+        float roughness3 = 0.8f;
+        float metallicity1 = 0.0f;
+        float metallicity2 = 0.0f;
+        float metallicity3 = 0.0f;
+        if(useTerrainARMMap) {
+            materialAO1 = texture(materialsTextureArray, vec3(coord1, float(layer)+2.0f)).r;
+            materialAO2 = texture(materialsTextureArray, vec3(coord2, float(layer)+2.0f)).r;
+            materialAO3 = texture(materialsTextureArray, vec3(coord3, float(layer)+2.0f)).r;
+            roughness1 = texture(materialsTextureArray, vec3(coord1, float(layer)+2.0f)).g;
+            roughness2 = texture(materialsTextureArray, vec3(coord2, float(layer)+2.0f)).g;
+            roughness3 = texture(materialsTextureArray, vec3(coord3, float(layer)+2.0f)).g;
+            metallicity1 = texture(materialsTextureArray, vec3(coord1, float(layer)+2.0f)).b;
+            metallicity2 = texture(materialsTextureArray, vec3(coord2, float(layer)+2.0f)).b;
+            metallicity3 = texture(materialsTextureArray, vec3(coord3, float(layer)+2.0f)).b;
+        }
         // Now determine a color value and bump vector for each of the 3projections, blend them
         albedo =  color1.xyz * blendWeights.xxx +
                   color2.xyz * blendWeights.yyy +
                   color3.xyz * blendWeights.zzz;
-        lighting = computeTerrainLighting(fragWorldPos, worldNormal, albedo, baseReflectivity, metallicity, roughness, ambientOcclusion, sunShadow);
+        materialAO =  materialAO1 * blendWeights.x +
+                  materialAO2 * blendWeights.y +
+                  materialAO3 * blendWeights.z;           
+        roughness =  roughness1 * blendWeights.x +
+                  roughness2 * blendWeights.y +
+                  roughness3 * blendWeights.z; 
+        metallicity = metallicity1 * blendWeights.x +
+                  metallicity2 * blendWeights.y +
+                  metallicity3 * blendWeights.z; 
+
+        // If ARM is disabled, do NOT tri-planar/blend fallback values
+        if(!useTerrainARMMap) {
+            materialAO = 1.0f;
+            roughness = 0.8f;
+            metallicity = 0.0f;
+        }
+        // ARM values from texture() are already normalized 0-1 (GPU divides by 255 for UNSIGNED_BYTE)
+        
+        vec3 lightingNormal = worldNormal;
+        if(useTerrainNormalMap) {
+            // Sample normal map (layer+1); decode from [0,1] to tangent-space [-1,1]
+            vec3 tnormal1 = normalize(texture(materialsTextureArray, vec3(coord1, float(layer)+1.0f)).rgb * 2.0f - 1.0f);
+            vec3 tnormal2 = normalize(texture(materialsTextureArray, vec3(coord2, float(layer)+1.0f)).rgb * 2.0f - 1.0f);
+            vec3 tnormal3 = normalize(texture(materialsTextureArray, vec3(coord3, float(layer)+1.0f)).rgb * 2.0f - 1.0f);
+            tnormal1 = vec3(tnormal1.xy + worldNormal.zy, abs(tnormal1.z) * worldNormal.x);
+            tnormal2 = vec3(tnormal2.xy + worldNormal.xz, abs(tnormal2.z) * worldNormal.y);
+            tnormal3 = vec3(tnormal3.xy + worldNormal.xy, abs(tnormal3.z) * worldNormal.z);
+            lightingNormal = normalize(tnormal1.zyx * blendWeights.x +
+                      tnormal2.xzy * blendWeights.y +
+                      tnormal3.xyz * blendWeights.z);
+        }
+        ambientOcclusion *= materialAO;                    
+        lighting = computeTerrainLighting(fragWorldPos, lightingNormal, albedo, baseReflectivity, metallicity, roughness, ambientOcclusion, sunShadow);
     }
 
     if(texture(gDepth, fragUV).r >= 1.0f) {

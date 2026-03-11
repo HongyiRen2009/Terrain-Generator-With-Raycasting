@@ -81,11 +81,13 @@ export interface MaterialMap {
   /**
    * File Locations for each map
    */
-  colorMap: string;
-  normalMap: string;
-  displacementMap: string;
-  roughnessMap: string;
-  AOMap: string;
+  texScale: number;
+  colorMap?: string;
+  normalMap?: string;
+  AOMap?: string;
+  roughnessMap?: string;
+  metallicityMap?: string;
+  displacementMap?: string;
 }
 
 /**
@@ -113,10 +115,19 @@ export interface Terrain {
  * The class for calculating the information for all our terrain types
  */
 export const Terrains: { [id: number]: Terrain } = {
-  //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
+  //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts and Lighting.frag
   // 0: Grass
   0: {
     color: Color.fromHex("#6BAA3A"),
+    material: {
+      texScale: 0.1,
+      colorMap: "assets/textures/grass/Grass005_2K-JPG_Color.jpg", 
+      normalMap: "assets/textures/grass/Grass005_2K-JPG_NormalGL.jpg" , 
+      AOMap: "assets/textures/grass/Grass005_2K-JPG_AmbientOcclusion.jpg",
+      roughnessMap: "assets/textures/grass/Grass005_2K-JPG_Roughness.jpg" , 
+      metallicityMap: undefined,
+      displacementMap: "assets/textures/grass/Grass005_2K-JPG_Displacement.jpg" 
+    },
     reflectiveness: 0.02,
     roughness: 0.9,
     metallicity: 0,
@@ -126,6 +137,15 @@ export const Terrains: { [id: number]: Terrain } = {
   // 1: Dirt
   1: {
     color: Color.fromHex("#7A5229"),
+    material: {
+      texScale: 1,
+      colorMap: "assets/textures/dirt/Ground103_2K-JPG_Color.jpg", 
+      normalMap: "assets/textures/dirt/Ground103_2K-JPG_NormalGL.jpg" , 
+      AOMap: "assets/textures/dirt/Ground103_2K-JPG_AmbientOcclusion.jpg",
+      roughnessMap: "assets/textures/dirt/Ground103_2K-JPG_Roughness.jpg" , 
+      metallicityMap: undefined,
+      displacementMap: "assets/textures/dirt/Ground103_2K-JPG_Displacement.jpg" 
+    },
     reflectiveness: 0.03,
     roughness: 0.9,
     metallicity: 0,
@@ -136,11 +156,13 @@ export const Terrains: { [id: number]: Terrain } = {
   2: {
     color: Color.fromHex("#8B8F91"),
     material: {
+      texScale: 0.1,
       colorMap: "assets/textures/rocks/Rocks024L_2K-JPG_Color.jpg", 
       normalMap: "assets/textures/rocks/Rocks024L_2K-JPG_NormalGL.jpg" , 
-      displacementMap: "assets/textures/rocks/Rocks024L_2K-JPG_Displacement.jpg" , 
+      AOMap: "assets/textures/rocks/Rocks024L_2K-JPG_AmbientOcclusion.jpg",
       roughnessMap: "assets/textures/rocks/Rocks024L_2K-JPG_Roughness.jpg" , 
-      AOMap: "assets/textures/rocks/Rocks024L_2K-JPG_AmbientOcclusion.jpg" 
+      metallicityMap: undefined,
+      displacementMap: "assets/textures/rocks/Rocks024L_2K-JPG_Displacement.jpg" 
     },
     reflectiveness: 0.04,
     roughness: 0.85,
@@ -169,6 +191,15 @@ export const Terrains: { [id: number]: Terrain } = {
   // 5: Sand / Beach
   5: {
     color: Color.fromHex("#E3D2A3"),
+    material: {
+      texScale: 0.1,
+      colorMap: "assets/textures/sand/Ground054_2K-JPG_Color.jpg", 
+      normalMap: "assets/textures/sand/Ground054_2K-JPG_NormalGL.jpg" , 
+      AOMap: "assets/textures/sand/Ground054_2K-JPG_AmbientOcclusion.jpg",
+      roughnessMap: "assets/textures/sand/Ground054_2K-JPG_Roughness.jpg" , 
+      metallicityMap: undefined,
+      displacementMap: "assets/textures/sand/Ground054_2K-JPG_Displacement.jpg" 
+    },
     reflectiveness: 0.02,
     roughness: 0.92,
     metallicity: 0,

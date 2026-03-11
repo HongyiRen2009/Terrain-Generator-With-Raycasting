@@ -90,7 +90,7 @@ export class FinalPass extends RenderPass {
     SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "enableBloom",
       label: "Enable Bloom",
-      defaultValue: true
+      defaultValue: false
     });
     SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "bloomThreshold",

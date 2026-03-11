@@ -17,6 +17,7 @@ export class LightingPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = false;
   public materialsTextureArray: WebGLTexture;
+  public materialTextureScale: number[];
   private updateSunDirectionCallback?: (direction: vec3) => void;
   constructor(
     gl: WebGL2RenderingContext,
@@ -39,9 +40,11 @@ export class LightingPass extends RenderPass {
       "cameraPosition",
       "ambientLightIntensity",
       "numShadowedLights",
+      "materialTextureScale[0]"
     ]);
     this.InitSettings();
     this.materialsTextureArray = this.createMaterialsTextureArray();
+    this.materialTextureScale = this.updateMaterialTextureScale();
   }
 
   protected initRenderTarget(): RenderTarget {
@@ -127,6 +130,8 @@ export class LightingPass extends RenderPass {
     const cameraInfo = this.resourceCache.getData("CameraInfo");
     this.gl.uniformMatrix4fv(this.uniforms["viewInverse"], false, cameraInfo.matViewInverse);
     this.gl.uniformMatrix4fv(this.uniforms["projInverse"], false, cameraInfo.matProjInverse);
+    const scaleArray = SettingsManager.instance.getSliderArray("materialTextureScale");
+    this.gl.uniform1fv(this.uniforms["materialTextureScale[0]"], scaleArray);
     this.gl.uniform3fv(this.uniforms["cameraPosition"], this.resourceCache.getData("cameraPosition"));
 
     // Shadow uniforms
@@ -168,6 +173,38 @@ export class LightingPass extends RenderPass {
   }
 
   private InitSettings() {
+    // Terrain material texture scale (per-terrain, index 0=Grass, 1=Dirt, 2=Rock, 3=Snow, 4=Water, 5=Sand)
+    SettingsManager.instance.createSection(
+      document.getElementById("settings-section")!,
+      "Terrain Materials"
+    );
+    const defaultTexScales = this.getDefaultTexScaleArray();
+    SettingsManager.instance.addSliderToSection("Terrain Materials", {
+      id: "materialTextureScale",
+      label: "Terrain Tex Scale",
+      isArray: true,
+      arrayLength: defaultTexScales.length,
+      defaultValue: defaultTexScales,
+      min: 0.001,
+      max: 1,
+      step: 0.001,
+      numType: "float",
+      uniform: false,
+      fineTuner: true
+    });
+
+    SettingsManager.instance.addCheckboxToSection("Terrain Materials", {
+      id: "useTerrainNormalMap",
+      label: "Use Terrain Normal Maps",
+      defaultValue: true
+    });
+
+    SettingsManager.instance.addCheckboxToSection("Terrain Materials", {
+      id: "useTerrainARMMap",
+      label: "Use Terrain ARM Maps (AO/Rough/Metal)",
+      defaultValue: true
+    });
+
     SettingsManager.instance.addCheckboxToSection("Sky Settings", {
       id: "disableSun",
       label: "Disable Sun",
@@ -331,6 +368,8 @@ export class LightingPass extends RenderPass {
       "sunShadowStrength",
       "pointLightShadowStrength",
       "ambientLightIntensity",
+      "useTerrainNormalMap",
+      "useTerrainARMMap",
       "cascadeDebug"
     ]);
 
@@ -343,69 +382,100 @@ export class LightingPass extends RenderPass {
       this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
       this.gl.texStorage3D(
         this.gl.TEXTURE_2D_ARRAY,
-        1,                  // mip levels
+        Math.floor(Math.log2(size)) + 1, // mip levels
         this.gl.RGBA8,           // internal format
         size,
         size,
-        Object.keys(Terrains).length*5 // For each terrain type, there is color normal displacement roughness AO 
+        Object.keys(Terrains).length*3 // For each terrain type, there is color normal (AO Roughness Metallicity Displacement) 
       );
-      this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+      this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
       this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
       this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
       this.gl.texParameteri(this.gl.TEXTURE_2D_ARRAY, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
+
+      // Reduce shimmering on highly tiled materials (like grass) when moving
+      const anisoExt =
+        this.gl.getExtension("EXT_texture_filter_anisotropic") ||
+        this.gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic") ||
+        this.gl.getExtension("MOZ_EXT_texture_filter_anisotropic");
+      if (anisoExt) {
+        const maxAniso = this.gl.getParameter(anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT) as number;
+        this.gl.texParameterf(
+          this.gl.TEXTURE_2D_ARRAY,
+          anisoExt.TEXTURE_MAX_ANISOTROPY_EXT,
+          Math.min(8, maxAniso || 1)
+        );
+      }
+
       for (const materialID in Terrains) {
         const id = parseInt(materialID);
         const material = Terrains[id].material;
-        const mapKeys = ["colorMap", "normalMap", "displacementMap", "roughnessMap", "AOMap"] as const;
-        for (const mapKey of mapKeys) {
+        const mapKeys = ["colorMap", "normalMap", "AOMap", "roughnessMap", "metallicityMap", "displacementMap"] as const;
+        for (let textureIndex = 0; textureIndex < 3; textureIndex++) {
           const image = new Image();
+          let fallbackPixel: Uint8Array;
+          switch (textureIndex){
+            case 0:
+              fallbackPixel = this.createSolidColorData(
+                size,
+                size,
+                Terrains[id].color.r,
+                Terrains[id].color.g,
+                Terrains[id].color.b,
+                255
+              );
+              break;
+            case 1:
+              fallbackPixel = this.createSolidColorData(
+                size,
+                size,
+                128,
+                128,
+                255,
+                255
+              );
+              break;
+            default:
+              // ARM layer: shader samples R=AO, G=roughness, B=metallic (A=displacement unused in lighting)
+              fallbackPixel = this.createSolidColorData(
+                size,
+                size,
+                255,      // R = AO (1 = no darkening)
+                0.8*255,  // G = roughness
+                0,        // B = metallicity
+                0         // A = displacement
+              );
+          }
           if (material == null){
-            const pixel = this.createSolidColorData(
-              size,
-              size,
-              mapKey === "colorMap" ? Terrains[id].color.r : 128,
-              mapKey === "colorMap" ? Terrains[id].color.g : 128,
-              mapKey === "colorMap" ? Terrains[id].color.b : 128,
-              255
-            );
             this.gl.texSubImage3D(
               this.gl.TEXTURE_2D_ARRAY,
               0,
-              0, 0, id * 5 + mapKeys.indexOf(mapKey),
+              0, 0, id * 3 + textureIndex,
               size, size, 1,
               this.gl.RGBA,
               this.gl.UNSIGNED_BYTE,
-              pixel
+              fallbackPixel
             );
+            this.gl.generateMipmap(this.gl.TEXTURE_2D_ARRAY);
+            continue;
           }
-          else{
-            const layerIndex = id * 5 + mapKeys.indexOf(mapKey);
-            const fallbackPixel = this.createSolidColorData(
-              size,
-              size,
-              mapKey === "colorMap" ? Terrains[id].color.r : 128,
-              mapKey === "colorMap" ? Terrains[id].color.g : 128,
-              mapKey === "colorMap" ? Terrains[id].color.b : 128,
-              255
-            );
+          const layerIndex = id * 3 + textureIndex;
+          if (textureIndex < 2){
             image.crossOrigin = "anonymous";
             image.onload = () => {
-              const w = image.naturalWidth || image.width;
-              const h = image.naturalHeight || image.height;
-              if (w > 0 && h > 0) {
-                this.gl.activeTexture(this.gl.TEXTURE0);
-                this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
-                this.gl.texSubImage3D(
-                  this.gl.TEXTURE_2D_ARRAY,
-                  0,
-                  0, 0, layerIndex,
-                  w, h, 1,
-                  this.gl.RGBA,
-                  this.gl.UNSIGNED_BYTE,
-                  image
+              this.gl.activeTexture(this.gl.TEXTURE0);
+              this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
+              this.gl.texSubImage3D(
+              this.gl.TEXTURE_2D_ARRAY,
+              0,
+              0, 0, layerIndex,
+              size, size, 1,
+              this.gl.RGBA,
+              this.gl.UNSIGNED_BYTE,
+              image
                 );
+              this.gl.generateMipmap(this.gl.TEXTURE_2D_ARRAY);
               }
-            };
             image.onerror = () => {
               this.gl.activeTexture(this.gl.TEXTURE0);
               this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
@@ -418,13 +488,44 @@ export class LightingPass extends RenderPass {
                 this.gl.UNSIGNED_BYTE,
                 fallbackPixel
               );
+              this.gl.generateMipmap(this.gl.TEXTURE_2D_ARRAY);
             };
-            image.src = material[mapKey];
+            image.src = material[mapKeys[textureIndex]]!;
+          }
+          else{
+            this.packGrayscaleImagesToTextureData(0, 255, 0.8*255, 0, size, material[mapKeys[2]], material[mapKeys[3]], material[mapKeys[4]], material[mapKeys[5]])
+              .then((packedData) => {
+                this.gl.activeTexture(this.gl.TEXTURE0);
+                this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
+                this.gl.texSubImage3D(
+                  this.gl.TEXTURE_2D_ARRAY,
+                  0,
+                  0, 0, layerIndex,
+                  size, size, 1,
+                  this.gl.RGBA,
+                  this.gl.UNSIGNED_BYTE,
+                  packedData
+                );
+                this.gl.generateMipmap(this.gl.TEXTURE_2D_ARRAY);
+              })
+              .catch(() => {
+                this.gl.activeTexture(this.gl.TEXTURE0);
+                this.gl.bindTexture(this.gl.TEXTURE_2D_ARRAY, materialsTexturesArray);
+                this.gl.texSubImage3D(
+                  this.gl.TEXTURE_2D_ARRAY,
+                  0,
+                  0, 0, layerIndex,
+                  size, size, 1,
+                  this.gl.RGBA,
+                  this.gl.UNSIGNED_BYTE,
+                  fallbackPixel
+                );
+                this.gl.generateMipmap(this.gl.TEXTURE_2D_ARRAY);
+              });
           }
         }
       }
-
-    return materialsTexturesArray;
+      return materialsTexturesArray;
   }
   private createSolidColorData(
     width: number,
@@ -439,12 +540,104 @@ export class LightingPass extends RenderPass {
     for (let i = 0; i < width * height; i++) {
       const o = i * 4;
       data[o + 0] = r;
-      data[o + 1] = g;
+      data[o + 1] = g; 
       data[o + 2] = b;
       data[o + 3] = a;
     }
   
     return data;
   }
+  private packGrayscaleImagesToTextureData(
+    fallbackR: number, 
+    fallbackG: number, 
+    fallbackB: number, 
+    fallbackA: number,
+    size: number,
+    AO?: string, 
+    roughness?: string, 
+    metallicity?: string, 
+    displacement?: string  
+  ): Promise<Uint8Array> {
+    const data = new Uint8Array(size * size * 4);
+    return Promise.all([
+      this.loadImage(AO),
+      this.loadImage(roughness),
+      this.loadImage(metallicity),
+      this.loadImage(displacement)
+    ]).then(([AOImage, roughnessImage, metallicityImage, displacementImage]) => {
+      console.log("All images loaded");
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      let AOData, roughnessData, metallicityData, displacementData;
+      if (AOImage == null){
+        AOData = this.createSolidColorData(2*size, 2*size, fallbackR, fallbackR, fallbackR, 255);
+      }
+      else{
+        ctx?.drawImage(AOImage, 0, 0, size, size);
+        AOData = ctx?.getImageData(0, 0, size, size).data;
+      }
+      if (roughnessImage == null){
+        roughnessData = this.createSolidColorData(2*size, 2*size, fallbackG, fallbackG, fallbackG, 255);
+      }
+      else{
+        ctx?.drawImage(roughnessImage, 0, 0, size, size);
+        roughnessData = ctx?.getImageData(0, 0, size, size).data;
+      }
+      if (metallicityImage == null){
+        metallicityData = this.createSolidColorData(2*size, 2*size, fallbackB, fallbackB, fallbackB, 255);
+      }
+      else{
+        ctx?.drawImage(metallicityImage, 0, 0, size, size);
+        metallicityData = ctx?.getImageData(0, 0, size, size).data;
+      }
+      if (displacementImage == null){
+        displacementData = this.createSolidColorData(2*size, 2*size, fallbackA, fallbackA, fallbackA, 255);
+      }
+      else{
+        ctx?.drawImage(displacementImage, 0, 0, size, size);
+        displacementData = ctx?.getImageData(0, 0, size, size).data;
+      }
 
+      for (let i = 0; i < size*size; i++){
+        const o = 4*i;
+        data[o+0] = AOData![o];
+        data[o+1] = roughnessData![o];
+        data[o+2] = metallicityData![o];
+        data[o+3] = displacementData![o];
+      }
+      return data;
+      
+    }).catch(err => {
+      console.error("Image failed to load", err);
+      throw err;
+    });
+  }
+
+  private loadImage(src: string | undefined) : Promise<HTMLImageElement | undefined> {
+    return new Promise((resolve, reject) => {
+      if (src == null){
+        resolve(undefined);
+      }
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src!;
+    }) 
+  }
+
+  private getDefaultTexScaleArray(): number[] {
+    const scale: number[] = [];
+    for (const materialID in Terrains) {
+      const id = parseInt(materialID);
+      const material = Terrains[id].material;
+      scale[id] = material?.texScale ?? 1;
+    }
+    return scale;
+  }
+
+  private updateMaterialTextureScale(): number[] {
+    return this.getDefaultTexScaleArray();
+  }
 }

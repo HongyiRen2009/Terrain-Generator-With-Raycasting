@@ -13,6 +13,8 @@ uniform sampler2D grassNormalTexture;
 uniform sampler2D grassDataTexture;
 uniform usampler2D grassgMaterialID;
 uniform sampler2D grassDepthTexture;
+
+
 void main() {
     float sceneDepth = texture(gDepth, fragUV).r;
     float grassDepth = texture(grassDepthTexture, fragUV).r;
