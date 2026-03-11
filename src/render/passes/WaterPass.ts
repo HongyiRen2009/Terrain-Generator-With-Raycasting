@@ -12,9 +12,13 @@ import waterVertexShaderSource from "../glsl/Water/Water.vert";
 import waterFragmentShaderSource from "../glsl/Water/Water.frag";
 import { Color } from "../../map/terrains";
 import { SettingsManager } from "../../Settings";
+import normalMap from "../../../assets/waterNormalMap.png";
+import { texture } from "three/tsl";
+
 export class WaterPass extends RenderPass {
     public VAOInputType: VAOInputType = VAOInputType.WATER;
     public pathtracerRender: boolean = true;
+    private normalMapTexture: WebGLTexture;
     constructor(gl: WebGL2RenderingContext, resourceCache: ResourceCache, canvas: HTMLCanvasElement, renderGraph?: RenderGraph, name?: string) {
         super(gl, resourceCache, canvas, renderGraph, name);
         this.canvas = canvas;
@@ -27,6 +31,7 @@ export class WaterPass extends RenderPass {
             "cameraPos"
         ]);
         this.initSettings();
+        this.normalMapTexture = this.createNormalMapTexture();
     }
     private initSettings() {
         SettingsManager.instance.createSection(
@@ -92,7 +97,7 @@ export class WaterPass extends RenderPass {
             min: 0.0,
             max: 2.0,
             step: 0.01,
-            defaultValue: 0.5,
+            defaultValue: 0,
         });
         SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "waterFrequency",
@@ -141,9 +146,40 @@ export class WaterPass extends RenderPass {
             step: 0.1,
             defaultValue: 1.7,
         });
-
+        SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "refractionDistortionStrength",
+            label: "Refraction Distortion Strength",
+            min: 0.0,
+            max: 0.1,
+            step: 0.001,
+            defaultValue: 0,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "normalMapFrequency",
+            label: "Normal Map Frequency",
+            min: 0.01,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.2,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "normalMapScrollSpeed",
+            label: "Normal Map Scroll Speed",
+            min: 0.0,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.2,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "normalMapStrength",
+            label: "Normal Map Strength",
+            min: 0.0,
+            max: 3.0,
+            step: 0.01,
+            defaultValue: 0.5,
+        });
         SettingsManager.instance.attatchProgram(this.program!,
-            ["waterColor", "waterObscurity","waterAttenuation", "ambientStrength", "diffuseStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency","ssrThickness", "ssrMaxDistance", "ssrResolution", "fresnelF0", "fresnelPower"]);
+            ["waterColor", "waterObscurity","waterAttenuation", "ambientStrength", "diffuseStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency","ssrThickness", "ssrMaxDistance", "ssrResolution", "fresnelF0", "fresnelPower","refractionDistortionStrength","normalMapFrequency", "normalMapScrollSpeed", "normalMapStrength"]);
 
     }
 
@@ -179,6 +215,7 @@ export class WaterPass extends RenderPass {
         const gBuffer = this.renderGraph?.getOutputs(this);
         TextureUtils.bindTex(this.gl, this.program!, gBuffer!["depth"], "depthTexture", 0);
         TextureUtils.bindTex(this.gl, this.program!, gBuffer!["sceneTexture"], "sceneTexture", 1);
+        TextureUtils.bindTex(this.gl, this.program!, this.normalMapTexture, "normalMap", 2);
         const cameraPos = this.resourceCache.getData("cameraPosition") as
             | vec3
             | undefined;
@@ -216,6 +253,22 @@ export class WaterPass extends RenderPass {
         }
         this.gl.bindVertexArray(null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+    }
+    private createNormalMapTexture(): WebGLTexture {
+        const normalMapImage = new Image();
+        normalMapImage.src = normalMap;
+        const texture = this.gl.createTexture()!;
+        normalMapImage.onload = () => {
+            this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+            this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, normalMapImage);
+            this.gl.generateMipmap(this.gl.TEXTURE_2D);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.REPEAT);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.REPEAT);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
+            this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+            this.gl.bindTexture(this.gl.TEXTURE_2D, null);
+        };
+        return texture;
     }
     public resize(width: number, height: number): void {
         this.renderTarget = this.initRenderTarget(width, height);

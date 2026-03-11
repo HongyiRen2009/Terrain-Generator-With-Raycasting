@@ -5,8 +5,10 @@ in vec3 vNormal;
 out vec4 fragColor;
 uniform sampler2D depthTexture;
 uniform sampler2D sceneTexture;
+uniform sampler2D normalMap;
 uniform mat4 proj;
 uniform mat4 view;
+uniform float time;
 //Settings
 uniform float ambientStrength;
 uniform float diffuseStrength;
@@ -20,7 +22,10 @@ uniform float fresnelPower;
 uniform float waterObscurity;
 uniform vec3 waterColor;
 uniform float waterAttenuation;
-
+uniform float refractionDistortionStrength;
+uniform float normalMapFrequency;
+uniform float normalMapScrollSpeed;
+uniform float normalMapStrength;
 struct DirectionalLight {
     vec3 direction;
     vec3 color;
@@ -39,13 +44,13 @@ vec3 CalculateLighting(vec3 viewDir, vec3 normal) {
     color += specularStrength * spec * SunLight.color * SunLight.intensity;
     return color;
 }
-vec3 Raycast(vec3 rayDir) {
+vec3 Raycast(vec3 rayDir,vec3 normal) {
     float maxDistance = ssrMaxDistance;
     float resolution  = ssrResolution;
     int   steps       = int(maxDistance / resolution);
     float thickness   = ssrThickness;
     float traveled    = 0.0;
-    vec3 rayOrigin = vPosition + normalize(vNormal) * 0.05;
+    vec3 rayOrigin = vPosition + normalize(normal) * 0.05;
     for(int i = 0; i < steps; i++) {
         if(traveled > maxDistance) break;
         rayOrigin += rayDir * resolution;
@@ -69,7 +74,7 @@ vec3 Raycast(vec3 rayDir) {
 vec3 SSR(vec3 normal) {
     vec3 fragToCamera = normalize(cameraPos - vPosition);
     vec3 reflectionDir = normalize(reflect(-fragToCamera, normal));
-    vec3 reflectionColor = Raycast(reflectionDir);
+    vec3 reflectionColor = Raycast(reflectionDir, normal);
 bool ssrHit = any(greaterThan(reflectionColor, vec3(0.001)));
 if (!ssrHit) {
     reflectionColor = vec3(0.5, 0.7, 0.9); // Fallback sky color
@@ -91,19 +96,36 @@ float distanceInWater(float sceneDepth, float waterDepth) {
     float linearDepth = (2.0 * 0.1 * 100.0) / (100.0 + 0.1 - z * (100.0 - 0.1));
     return max(0.0, linearDepth - sceneDepth);  
 }
+vec3 getNormalMapNormal(vec2 uv) {
+vec2 uv1 = uv * 2.0 + vec2(time , time  )* normalMapScrollSpeed;
+vec2 uv2 = uv * 1.5 + vec2(time * -3.0, time * 2.0)* normalMapScrollSpeed;
+
+vec3 normal1 = texture(normalMap, uv1*normalMapFrequency).rgb * 2.0 - 1.0;
+vec3 normal2 = texture(normalMap, uv2*normalMapFrequency).rgb * 2.0 - 1.0;
+
+// Combine and re-normalize to maintain a unit vector
+vec3 blendedNormal = normalize(normal1 + normal2);
+return blendedNormal;
+}
 void main() {
+    
     vec2 screenUV = gl_FragCoord.xy / vec2(textureSize(sceneTexture, 0));
-    float sceneDepthAtPixel = texture(depthTexture, screenUV).r;
+    vec3 normalFromMap = getNormalMapNormal(vPosition.xz)*2.0-1.0;
+
+
+    vec3 normal = faceforward(normalize(vNormal), normalize(vPosition - cameraPos), normalize(vNormal));
+    vec3 distortedNormal = normalize(normal + normalFromMap*normalMapStrength); // Combine geometry normal with normal map
+    vec3 viewDir = normalize(cameraPos - vPosition);
+    vec3 waterColor = CalculateLighting(viewDir, distortedNormal);
+    vec3 reflectionColor = SSR(normal);
+    float ior = 1.33;
+    vec3 refractedDir = refract(normalize(viewDir), normalize(normal), 1.0 / ior);
+    vec2 distortion = refractedDir.xy * refractionDistortionStrength;
+    float sceneDepthAtPixel = texture(depthTexture, screenUV+distortion).r;
     if(sceneDepthAtPixel < 1.0 && gl_FragCoord.z >= sceneDepthAtPixel) {
         discard;
     }
-
-    vec3 normal = faceforward(normalize(vNormal), normalize(vPosition - cameraPos), normalize(vNormal));
-    vec3 viewDir = normalize(cameraPos - vPosition);
-    vec3 waterColor = CalculateLighting(viewDir, normal);
-    vec3 reflectionColor = SSR(normal);
-    
-    vec3 refractionColor = texture(sceneTexture, screenUV).rgb;
+    vec3 refractionColor = texture(sceneTexture, screenUV+distortion).rgb;
     float fresnel = Fresnel(normal, viewDir);
     vec3 reflectionRefractionColor = mix(refractionColor, reflectionColor, fresnel);
     float refractionDistance = distanceInWater(sceneDepthAtPixel, gl_FragCoord.z);

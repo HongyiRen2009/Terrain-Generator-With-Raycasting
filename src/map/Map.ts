@@ -64,7 +64,6 @@ export class WorldMap {
   public objectUI: ObjectUI;
   public computeShader: ComputeShader;
   public lightUI: LightUI;
-  private chunkLoadQueue: { pos: vec3, key: string, then: ((chunk: Chunk) => void) | null }[] = [];
   private chunkStripQueue: { 
     startPos: vec3, 
     lengthInChunks: number, 
@@ -196,20 +195,21 @@ export class WorldMap {
 
   }
   public loadChunk(pos: vec3, then: ((chunk: Chunk) => void) | null = null) {
-    if (this.chunkQueueHasKey(`${pos[0]},${pos[1]},${pos[2]}`)) {
-      return;
-    }
-    const key = `${pos[0]},${pos[1]},${pos[2]}`;
-
-    // Skip if already loaded or queued
-    if (this.chunks[key]) return;
-    if (this.chunkLoadQueue.some(item => item.key === key)) return;
-
-    // Add to queue
-    this.chunkLoadQueue.push({ pos, key, then });
+    this.loadChunkStrip(pos, 1, 1, then);
   }
   private chunkQueueHasKey(key: string): boolean {
-    return this.chunkLoadQueue.some(item => item.key === key);
+    for (const strip of this.chunkStripQueue) {
+      const { startPos, lengthInChunks, widthInChunks } = strip;
+      for (let cx = 0; cx < lengthInChunks; cx++) {
+        for (let cz = 0; cz < widthInChunks; cz++) {
+          const chunkWorldX = startPos[0] + cx * this.resolution;
+          const chunkWorldZ = startPos[2] + cz * this.resolution;
+          const k = `${chunkWorldX},${startPos[1]},${chunkWorldZ}`;
+          if (k === key) return true;
+        }
+      }
+    }
+    return false;
   }
 
 
@@ -294,7 +294,7 @@ public loadChunkStrip(
               subStripStart[1],
               subStripStart[2] + cz * this.resolution
             );
-            this.loadChunk(chunkPos, then);
+            this.loadChunkStrip(chunkPos, 1, 1, then);
           }
         }
       } else {
@@ -336,41 +336,6 @@ public async processChunkQueue(allChunksLoadedCallback: (() => void) | null = nu
     return;
   }
 
-  // Fall back to individual chunk processing
-  if (this.chunkLoadQueue.length > 0) {
-    this.isGeneratingChunk = true;
-    const { pos, key, then: callback } = this.chunkLoadQueue.shift()!;
-
-    try {
-      const chunk = new Chunk(
-        pos,
-        vec3.fromValues(this.resolution, this.height, this.resolution),
-        this.seed,
-        this
-      );
-      this.chunks[key] = chunk;
-
-      // Await the generation
-      const { mesh, timings } = await chunk.generate();
-      this.addTimings(timings);
-      this.chunksGenerated++;
-      if (callback) callback(this.chunks[key]);
-    } catch (e) {
-      console.error(`Failed to generate chunk ${key}:`, e);
-      delete this.chunks[key];
-    } finally {
-      this.isGeneratingChunk = false;
-      if (this.chunkLoadQueue.length == 0) {
-        this.logTiming();
-        this.logTiming(true);
-        if (allChunksLoadedCallback) {
-          allChunksLoadedCallback();
-        }
-      }
-      this.processChunkQueue(allChunksLoadedCallback); // Process next in the queue
-    }
-    return;
-  }
 }
 
 /**
@@ -632,9 +597,6 @@ for (let x = 0; x < waterResolution; x++) {
   public async unloadChunk(pos: vec3) {
     const key = `${pos[0]},${pos[1]},${pos[2]}`;
     delete this.chunks[key];
-
-    // Remove from queue if it hasn't started generating yet
-    this.chunkLoadQueue = this.chunkLoadQueue.filter(item => item.key !== key);
   }
 
   public getChunkAt(
@@ -1029,164 +991,6 @@ export class Chunk {
     vec3.negate(normal, normal);
     vec3.normalize(normal, normal);
     return normal;
-  }
-async generate(): Promise<{
-    mesh: Mesh;
-    timings: Timing;
-  }> {
-    const timings: Timing = {
-      noise: 0,
-      fieldReadback: 0,
-      marchingCubes: 0,
-      vertexBufferReadback: 0,
-      indexBufferReadback: 0,
-      meshConstruction: 0,
-      total: 0
-    };
-    let totalStart = performance.now();
-
-    // Generate field using compute shader
-    let startTime = performance.now();
-    const computeShader = this.worldMap.computeShader;
-    const width = this.GridSize[0] + 3;
-    const height = this.GridSize[1] + 3;
-    const depth = this.GridSize[2] + 3;
-    const fieldBuffer = await computeShader.createSimplexNoise3D(
-      width,
-      height,
-      depth,
-      this.seed,
-      this.ChunkPosition[0],
-      this.ChunkPosition[1],
-      this.ChunkPosition[2]
-    );
-    timings.noise = performance.now() - startTime;
-
-    startTime = performance.now();
-    this.Field = await computeShader.readFieldBuffer(
-      fieldBuffer,
-      width,
-      height,
-      depth
-    );
-    timings.fieldReadback = performance.now() - startTime;
-    startTime = performance.now();
-    const {
-      interleavedBuffer,
-      indexBuffer,
-      vertexCount,
-      indexCount
-    } = await computeShader.createMarchingCubes(
-      fieldBuffer,
-      width,
-      height,
-      depth
-    );
-    timings.marchingCubes = performance.now() - startTime;
-
-    startTime = performance.now();
-    const interleavedData = await computeShader.readInterleavedBuffer(
-      interleavedBuffer,
-      vertexCount
-    );
-    timings.vertexBufferReadback = performance.now() - startTime;
-
-    startTime = performance.now();
-    const indices = await computeShader.readUintBuffer(indexBuffer, indexCount);
-    timings.indexBufferReadback = performance.now() - startTime;
-
-    // Reconstruct mesh from compute shader results
-    startTime = performance.now();
-    this.Mesh = new Mesh();
-    this.WaterMesh = new Mesh();
-
-    for (let i = 0; i < indices.length; i += 3) {
-      const idx0 = indices[i];
-      const idx1 = indices[i + 1];
-      const idx2 = indices[i + 2];
-
-      // Calculate offsets in the interleaved buffer (8 floats per vertex)
-      const offset0 = idx0 * 8;
-      const offset1 = idx1 * 8;
-      const offset2 = idx2 * 8;
-
-      const tri: Triangle = [
-        vec3.fromValues(
-          interleavedData[offset0],     // position.x
-          interleavedData[offset0 + 1], // position.y
-          interleavedData[offset0 + 2]  // position.z
-        ),
-        vec3.fromValues(
-          interleavedData[offset1],
-          interleavedData[offset1 + 1],
-          interleavedData[offset1 + 2]
-        ),
-        vec3.fromValues(
-          interleavedData[offset2],
-          interleavedData[offset2 + 1],
-          interleavedData[offset2 + 2]
-        )
-      ];
-
-      // Reject all triangles on edge of chunk to avoid seams
-      let rejectTriangle = false;
-      for (let j = 0; j < 3; j++) {
-        if (
-          tri[j][0] <= 0 ||
-          tri[j][0] >= width - 1 ||
-          tri[j][1] <= 0 ||
-          tri[j][1] >= height - 1 ||
-          tri[j][2] <= 0 ||
-          tri[j][2] >= depth - 1
-        ) {
-          rejectTriangle = true;
-          break;
-        }
-      }
-      if (rejectTriangle) {
-        continue;
-      }
-
-      const norm: Triangle = [
-        vec3.fromValues(
-          interleavedData[offset0 + 4], // normal.x
-          interleavedData[offset0 + 5], // normal.y
-          interleavedData[offset0 + 6]  // normal.z
-        ),
-        vec3.fromValues(
-          interleavedData[offset1 + 4],
-          interleavedData[offset1 + 5],
-          interleavedData[offset1 + 6]
-        ),
-        vec3.fromValues(
-          interleavedData[offset2 + 4],
-          interleavedData[offset2 + 5],
-          interleavedData[offset2 + 6]
-        )
-      ];
-
-      // Extract terrain types (stored as float, convert back to uint)
-      const terrainTypeFloat0 = interleavedData[offset0 + 3];
-      const terrainTypeFloat1 = interleavedData[offset1 + 3];
-      const terrainTypeFloat2 = interleavedData[offset2 + 3];
-
-      const types: [number, number, number] = [
-        new Uint32Array(new Float32Array([terrainTypeFloat0]).buffer)[0],
-        new Uint32Array(new Float32Array([terrainTypeFloat1]).buffer)[0],
-        new Uint32Array(new Float32Array([terrainTypeFloat2]).buffer)[0]
-      ];
-      if(types[0] === 4 || types[1] === 4 || types[2] === 4) {
-        this.WaterMesh.addTriangle(tri, norm, types);
-      }
-      else {
-      this.Mesh.addTriangle(tri, norm, types);
-        }
-    }
-    timings.meshConstruction = performance.now() - startTime;
-    timings.total = performance.now() - totalStart;
-
-
-    return { mesh: this.Mesh, timings };
   }
   getMesh() {
     const combinedMesh = new Mesh();
