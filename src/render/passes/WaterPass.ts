@@ -51,7 +51,20 @@ export class WaterPass extends RenderPass {
         SettingsManager.instance.addColorPickerToSection("Water Settings", {
             id: "waterColor",
             label: "Water Color",
-            defaultValue: "#0a4580",
+            defaultValue: "#002d57",
+        });
+        SettingsManager.instance.addColorPickerToSection("Water Settings", {
+            id:"shallowWaterColor",
+            label: "Shallow Water Color",
+            defaultValue: "#0066cc",
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "shallowWaterDepth",
+            label: "Shallow Water Depth",
+            min: 0.1,
+            max: 10.0,
+            step: 0.01,
+            defaultValue: 2.25,
         });
         SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "waterObscurity",
@@ -59,7 +72,7 @@ export class WaterPass extends RenderPass {
             min: 0.0,
             max: 1.0,
             step: 0.01,
-            defaultValue: 0.8,
+            defaultValue: 0.6,
         });
         SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "waterAttenuation",
@@ -72,14 +85,6 @@ export class WaterPass extends RenderPass {
         SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "ambientStrength",
             label: "Ambient Strength",
-            min: 0.0,
-            max: 1.0,
-            step: 0.01,
-            defaultValue: 0.1,
-        });
-        SettingsManager.instance.addSliderToSection("Water Settings", {
-            id: "diffuseStrength",
-            label: "Diffuse Strength",
             min: 0.0,
             max: 1.0,
             step: 0.01,
@@ -107,7 +112,7 @@ export class WaterPass extends RenderPass {
             min: 0.0,
             max: 2.0,
             step: 0.01,
-            defaultValue: 0.2,
+            defaultValue: 0.16,
         });
                 SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "waveCount",
@@ -135,6 +140,22 @@ export class WaterPass extends RenderPass {
             max: 1.0,
             step: 0.001,
             defaultValue: 0.5,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "persistence",
+            label: "Wave Persistence",
+            min: 0.1,
+            max: 1.0,
+            step: 0.01,
+            defaultValue: 0.6,
+        });
+        SettingsManager.instance.addSliderToSection("Water Settings", {
+            id: "lacunarity",
+            label: "Wave Lacunarity",
+            min: 1.0,
+            max: 4.0,
+            step: 0.1,
+            defaultValue: 1.2,
         });
         SettingsManager.instance.addCheckboxToSection("Water Settings", {
             id: "useSSR",
@@ -186,7 +207,7 @@ export class WaterPass extends RenderPass {
             min: 0.0,
             max: 0.1,
             step: 0.001,
-            defaultValue: 0,
+            defaultValue: 0.01,
         });
         SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "normalMapFrequency",
@@ -214,7 +235,7 @@ export class WaterPass extends RenderPass {
         });
 
         SettingsManager.instance.attatchProgram(this.program!,
-            ["waterColor", "waterObscurity","waterAttenuation", "ambientStrength", "diffuseStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency","ssrThickness", "ssrMaxDistance", "ssrResolution", "fresnelF0", "fresnelPower","refractionDistortionStrength","normalMapFrequency", "normalMapScrollSpeed", "normalMapStrength","globalWaveSpeed","useSSR"]);
+            ["waterColor","shallowWaterColor","shallowWaterDepth","waterObscurity","waterAttenuation", "ambientStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency", "persistence", "lacunarity",     "ssrThickness", "ssrMaxDistance", "ssrResolution", "fresnelF0", "fresnelPower","refractionDistortionStrength","normalMapFrequency", "normalMapScrollSpeed", "normalMapStrength","globalWaveSpeed","useSSR"]);
 
     }
     private GenerateWaveProperties(count: number) {

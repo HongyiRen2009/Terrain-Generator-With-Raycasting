@@ -20,6 +20,8 @@ uniform float WAVE_PHASE[MAX_WAVE_COUNT];
 uniform float waterAmplitude;
 uniform float waterFrequency;
 uniform float globalWaveSpeed;
+uniform float persistence;
+uniform float lacunarity;
 
 float getDirectionalWaves(vec2 pos) {
     float h = 0.0;
@@ -28,10 +30,10 @@ float getDirectionalWaves(vec2 pos) {
 
     for (int i = 0; i < WAVE_COUNT; i++) {
         float theta = dot(pos, WAVE_DIRS[i]) * freq + time * WAVE_SPEED[i]*globalWaveSpeed + WAVE_PHASE[i];
-        h += sin(theta) * amp;
+        h += exp(sin(theta)) * amp;
 
-        amp *= 0.55;
-        freq *= 1.85;
+        amp *= persistence;
+        freq *= lacunarity;
     }
 
     return h;
@@ -45,14 +47,14 @@ vec3 getDirectionalNormal(vec2 pos) {
 
     for (int i = 0; i < WAVE_COUNT; i++) {
         float theta = dot(pos, WAVE_DIRS[i]) * freq + time * WAVE_SPEED[i]*globalWaveSpeed + WAVE_PHASE[i];
+        float expSin = exp(sin(theta));
         float c = cos(theta);
 
-        float commonMultiple = amp * freq * c;
+        float commonMultiple = amp * freq * expSin * c;
         dHx += commonMultiple * WAVE_DIRS[i].x;
         dHz += commonMultiple * WAVE_DIRS[i].y;
-
-        amp *= 0.55;
-        freq *= 1.85;
+        amp *= persistence;
+        freq *= lacunarity;
     }
 
     return normalize(vec3(-dHx, 1.0, -dHz));

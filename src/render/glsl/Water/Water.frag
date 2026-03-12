@@ -11,7 +11,6 @@ uniform mat4 view;
 uniform float time;
 //Settings
 uniform float ambientStrength;
-uniform float diffuseStrength;
 uniform float specularStrength;
 uniform float shininess;
 uniform float ssrThickness;
@@ -21,6 +20,8 @@ uniform float fresnelF0;
 uniform float fresnelPower; 
 uniform float waterObscurity;
 uniform vec3 waterColor;
+uniform vec3 shallowWaterColor;
+uniform float shallowWaterDepth;
 uniform float waterAttenuation;
 uniform float refractionDistortionStrength;
 uniform float normalMapFrequency;
@@ -35,14 +36,15 @@ struct DirectionalLight {
 
 uniform DirectionalLight SunLight;
 uniform vec3 cameraPos;
-vec3 CalculateLighting(vec3 viewDir, vec3 normal) {
-
-    vec3 color = waterColor;
-    float diffuse = max(dot(normal, -SunLight.direction), 0.0);
-    color *= (ambientStrength + diffuseStrength * diffuse * SunLight.intensity);
-    vec3 reflectDir = reflect(-SunLight.direction, normal);
+vec3 CalculateLighting(vec3 viewDir, vec3 normal,float depth) {
+    vec3 blendedWaterColor = mix(shallowWaterColor, waterColor, smoothstep(0.0, shallowWaterDepth, depth));
+    vec3 color = ambientStrength * SunLight.color * SunLight.intensity * blendedWaterColor; // Base color modulated by water color and light
+    
+    vec3 lightDir = -SunLight.direction;
+    vec3 reflectDir = reflect(-lightDir, normal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-    color += specularStrength * spec * SunLight.color * SunLight.intensity;
+    color += specularStrength * spec * SunLight.color * SunLight.intensity * 0.5; // Reduced specular intensity for water
+    
     return color;
 }
 vec3 Raycast(vec3 rayDir,vec3 normal) {
@@ -93,10 +95,27 @@ float Fresnel(vec3 normal, vec3 viewDir){
 float attenuation(float distance) {
     return exp(-waterAttenuation * distance);
 }
+
+// Convert NDC depth to linear view space depth
+float linearizeDepth(float depthNDC) {
+    // Extract near and far planes from projection matrix
+    float n = 0.1;  // near plane (adjust to match your camera)
+    float f = 100.0; // far plane (adjust to match your camera)
+    
+    // Convert NDC depth to linear depth: depth in view space from camera
+    // NDC depth ranges from 0 (far) to 1 (near) after perspective division
+    float linearDepth = (2.0 * n * f) / (f + n - (2.0 * depthNDC - 1.0) * (f - n));
+    return linearDepth;
+}
+
 float distanceInWater(float sceneDepth, float waterDepth) {
-    float z = waterDepth * 2.0 - 1.0;
-    float linearDepth = (2.0 * 0.1 * 100.0) / (100.0 + 0.1 - z * (100.0 - 0.1));
-    return max(0.0, linearDepth - sceneDepth);  
+    // Convert both depth values to linear (view space) depth
+    float linearSceneDepth = linearizeDepth(sceneDepth);
+    float linearWaterDepth = linearizeDepth(waterDepth);
+    
+    // Return the distance light travels through water
+    // sceneDepth is closer to camera (smaller depth value), waterDepth is farther
+    return max(0.0, linearSceneDepth - linearWaterDepth);  
 }
 vec3 getNormalMapNormal(vec2 uv) {
 vec2 uv1 = uv * 2.0 + vec2(time , time  )* normalMapScrollSpeed;
@@ -118,7 +137,6 @@ void main() {
     vec3 normal = vNormal;
     vec3 distortedNormal = normalize(normal + normalFromMap*normalMapStrength); // Combine geometry normal with normal map
     vec3 viewDir = normalize(cameraPos - vPosition);
-    vec3 waterColor = CalculateLighting(viewDir, distortedNormal);
     vec3 reflectionColor = SSR(reflectionNormal);
     float ior = 1.33;
     vec3 refractedDir = refract(normalize(viewDir), normalize(distortedNormal), 1.0 / ior);
@@ -131,14 +149,15 @@ void main() {
     if(unDistortedSceneDepth < 1.0 && gl_FragCoord.z >= unDistortedSceneDepth) {
         discard;
     }
+    float refractionDistance = distanceInWater(sceneDepthAtPixel, gl_FragCoord.z);
+    vec3 waterColor = CalculateLighting(viewDir,distortedNormal,refractionDistance);
 
     vec3 refractionColor = texture(sceneTexture, screenUV+distortion).rgb;
-    float fresnel = Fresnel(normal, viewDir);
+    float fresnel = Fresnel(normal  , viewDir);
     if(!useSSR) {
         reflectionColor = refractionColor; // If SSR is disabled, use refraction color as reflection color for fresnel blending
     }
     vec3 reflectionRefractionColor = mix(refractionColor, reflectionColor, fresnel);
-    float refractionDistance = distanceInWater(sceneDepthAtPixel, gl_FragCoord.z);
     float atten = attenuation(refractionDistance);
     waterColor = mix(waterColor, reflectionRefractionColor, atten * (1.0 - waterObscurity));
     fragColor = vec4(waterColor, 1.0);
