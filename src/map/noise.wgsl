@@ -161,9 +161,6 @@ fn densityAt(x:f32, y:f32, z:f32, seed:u32) -> f32 {
     let octs = params.octaves;
     let pers = params.persistence;
     let lac  = params.lacunarity;
-    if(globalY < params.waterLevel) {
-        return 1.0;
-    }
     // Large-scale height field (continuous, noise-only)
     let m = fractalNoise3D(globalX*baseFreq*0.25, 0.0, globalZ*baseFreq*0.25, seed + 11u, octs, pers, lac);
     // Convert [-1..1] approx -> [0..1]

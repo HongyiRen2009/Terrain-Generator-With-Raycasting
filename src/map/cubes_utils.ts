@@ -57,6 +57,32 @@ export const meshToInterleavedVerticesAndIndices = (
     indices: new Uint32Array(indices)
   };
 };
+export const meshToPositionsAndIndices = (
+  mesh: Mesh
+): { positions: Float32Array; indices: Uint32Array } => {
+  const vertexMap = new Map<string, number>();
+  const positions: number[] = [];
+  const indices: number[] = [];
+  let vertexIndex = 0;
+  for (let i = 0; i < mesh.mesh.length; i++) {
+    const triangle = mesh.mesh[i];
+    for (let j = 0; j < 3; j++) {
+      const vertex = triangle[j];
+      const key = vertexKey(vertex);
+      if (!vertexMap.has(key)) {
+        positions.push(vertex[0], vertex[1], vertex[2]);
+        vertexMap.set(key, vertexIndex);
+        vertexIndex++;
+      }
+      indices.push(vertexMap.get(key)!);
+    }
+  }
+
+  return {
+    positions: new Float32Array(positions),
+    indices: new Uint32Array(indices)
+  };
+};
 export const meshToNonInterleavedVerticesAndIndices = (
   mesh: Mesh
 ): {

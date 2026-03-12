@@ -13,6 +13,7 @@ struct Params {
     width: u32,
     height: u32,
     depth: u32,
+    water_level: f32,
 }
 
 const VERTICES = array<vec3<f32>, 8>(
@@ -95,17 +96,15 @@ fn get_normal(pos: vec3<f32>) -> vec3<f32> {
 
 // --- Terrain type heuristic: 0=grass, 2=rock, 3=snow, 4=water, 5=sand ---
 fn get_terrain_type(pos: vec3<f32>, normal: vec3<f32>) -> u32 {
-    let WATER_LEVEL = 30.0;
-    let SNOW_LINE = 140.0;
+    let SNOW_LINE = 130.0;
     let y = pos.y;
     let upDot = clamp(normal.y, - 1.0, 1.0);
     let slope = 1.0 - abs(upDot);
-
-    if (y < WATER_LEVEL + 0.5 && slope < 0.01) {
-        return 4u;
-        // water
+    if(y< params.water_level) {
+        return 2u;
+        // rock underwater
     }
-    if (y < WATER_LEVEL + 3.0 && slope < 0.45) {
+    if (y < params.water_level + 3.0 && slope < 0.45) {
         return 5u;
         // sand
     }
