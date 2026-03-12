@@ -3,18 +3,15 @@ precision highp float;
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
-layout(location = 2) in vec3 color;
-layout(location = 3) in float reflectiveness;
-layout(location = 4) in float metalicity;
-layout(location = 5) in float roughness;
-layout(location = 6) in float emissivity;
+layout(location = 2) in vec2 uv;
+layout(location = 3) in uint materialID;
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 proj;
 
 out vec3 viewNormal;
-out vec3 albedo;
-out vec4 materialAttributes; // x: reflectiveness, y: metalicity, z: roughness, w: emissivity
+out vec2 fragUV;
+flat out uint fragmaterialID;
 out vec4 viewPos;
 
 void main() {
@@ -23,8 +20,7 @@ void main() {
 
     mat3 normalMatrix = mat3(transpose(inverse(view * model)));
     viewNormal = normalize(normalMatrix * normal);
-
-    albedo = color;
-    materialAttributes = vec4(reflectiveness, metalicity, roughness, emissivity);
+    fragUV = uv;
+    fragmaterialID = materialID;
     gl_Position = proj * viewPos;
 }

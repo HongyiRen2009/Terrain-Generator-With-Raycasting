@@ -7,6 +7,7 @@ import { TextureUtils } from "../../utils/TextureUtils";
 import { VaoInfo } from "../renderSystem/managers/VaoManager";
 import CombineGeometryVertexShaderSource from "../glsl/DeferredRendering/CombineGeometryPass.vert";
 import CombineGeometryFragmentShaderSource from "../glsl/DeferredRendering/CombineGeometryPass.frag";
+import { text } from "express";
 export class CombineGeometryPass extends RenderPass {
   public VAOInputType: VAOInputType = VAOInputType.FULLSCREENQUAD;
   public pathtracerRender: boolean = true;
@@ -53,7 +54,7 @@ export class CombineGeometryPass extends RenderPass {
       );
     }
 
-    const normalTexture = TextureUtils.createTexture2D(
+    const gNormal = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -61,23 +62,23 @@ export class CombineGeometryPass extends RenderPass {
       normalFormat,
       normalType
     );
-    const albedoTexture = TextureUtils.createTexture2D(
+    const gAux = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
-      this.gl.RGBA8,
-      this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE
+      this.gl.RG16F,
+      this.gl.RG,
+      this.gl.FLOAT
     );
-    const materialAttributesTexture = TextureUtils.createTexture2D(
+    const gMaterialID = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
-      this.gl.RGBA8,
-      this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE
+      this.gl.R32UI,
+      this.gl.RED_INTEGER,
+      this.gl.UNSIGNED_INT
     );
-    const depthTexture = TextureUtils.createTexture2D(
+    const gDepth = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -97,28 +98,28 @@ export class CombineGeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
       this.gl.TEXTURE_2D,
-      normalTexture,
+      gNormal,
       0
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT1,
       this.gl.TEXTURE_2D,
-      albedoTexture,
+      gAux,
       0
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT2,
       this.gl.TEXTURE_2D,
-      materialAttributesTexture,
+      gMaterialID,
       0
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.DEPTH_ATTACHMENT,
       this.gl.TEXTURE_2D,
-      depthTexture,
+      gDepth,
       0
     );
     this.gl.drawBuffers([this.gl.COLOR_ATTACHMENT0, this.gl.COLOR_ATTACHMENT1, this.gl.COLOR_ATTACHMENT2]);
@@ -133,10 +134,10 @@ export class CombineGeometryPass extends RenderPass {
     return {
       fbo: fbo,
       textures: {
-        normal: normalTexture,
-        albedo: albedoTexture,
-        materialAttributes: materialAttributesTexture,
-        depth: depthTexture
+        normal: gNormal,
+        uv: gAux,
+        materialID: gMaterialID,
+        depth: gDepth
       }
     };
   }
@@ -146,9 +147,11 @@ export class CombineGeometryPass extends RenderPass {
     const gBuffer = this.renderGraph?.getOutputs(this);
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    this.gl.clearBufferfv(this.gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
+    this.gl.clearBufferfv(this.gl.COLOR, 1, [0.0, 0.0, 0.0, 1.0]);
+    this.gl.clearBufferuiv(this.gl.COLOR, 2, [0, 0, 0, 0]);
     this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
     this.gl.enable(this.gl.DEPTH_TEST);
     this.gl.depthMask(true);
     this.gl.disable(this.gl.BLEND);
@@ -159,28 +162,28 @@ export class CombineGeometryPass extends RenderPass {
       this.gl,
       this.program!,
       gBuffer!["normal"],
-      "normalTexture",
+      "gNormal",
       0
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
-      gBuffer!["albedo"],
-      "albedoTexture",
+      gBuffer!["uv"],
+      "gAux",
       1
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
-      gBuffer!["materialAttributes"],
-      "materialAttributesTexture",
+      gBuffer!["materialID"],
+      "gMaterialID",
       2
-    );
+      );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       gBuffer!["depth"],
-      "depthTexture",
+      "gDepth",
       3
     );
     TextureUtils.bindTex(
@@ -193,16 +196,23 @@ export class CombineGeometryPass extends RenderPass {
     TextureUtils.bindTex(
       this.gl,
       this.program!,
-      gBuffer!["grassAlbedo"],
-      "grassAlbedoTexture",
+      gBuffer!["grassData"],
+      "grassDataTexture",
       5
+      );
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      gBuffer!["grassmaterialID"],
+      "grassgMaterialID",
+      6
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       gBuffer!["grassDepth"],
       "grassDepthTexture",
-      6
+      7
     );
 
     if (!pathtracerOn || this.pathtracerRender) {

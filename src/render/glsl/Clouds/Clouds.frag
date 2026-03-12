@@ -14,7 +14,7 @@ uniform mat4 matViewProj;
 uniform sampler3D noiseTexture;
 uniform sampler3D detailNoiseTexture;
 uniform sampler2D weatherMap;
-uniform sampler2D depthTexture;
+uniform sampler2D gDepth;
 uniform vec3 sunPos;
 uniform vec3 sunColor;
 
@@ -304,7 +304,7 @@ void main() {
     vec3 rayDirWorld = normalize((viewInverse * rayEye).xyz);
     vec3 rayOriginWorld = cameraPosition;
 
-    float sceneDepth = texture(depthTexture, fragUV).r;
+    float sceneDepth = texture(gDepth, fragUV).r;
     vec3 terrainWorldPos = getWorldPositionFromDepth(fragUV, sceneDepth);
     float distanceToTerrain = length(terrainWorldPos - rayOriginWorld);
 

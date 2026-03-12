@@ -180,8 +180,8 @@ export class CubeShadowMaskPass extends RenderPass {
   public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const textures = this.renderGraph!.getOutputs(this);
-    const depthTexture = textures["depth"];
-    const normalTexture = textures["normal"];
+    const gDepth = textures["depth"];
+    const gNormal = textures["normal"];
     const pointShadowTextures = textures["pointShadowTextures"] as WebGLTexture[];
     
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
@@ -195,8 +195,8 @@ export class CubeShadowMaskPass extends RenderPass {
     this.gl.bindVertexArray(vao.vao);
 
     // Bind G-buffer textures
-    TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 0);
-    TextureUtils.bindTex(this.gl, this.program!, normalTexture, "normalTexture", 1);
+    TextureUtils.bindTex(this.gl, this.program!, gDepth, "gDepth", 0);
+    TextureUtils.bindTex(this.gl, this.program!, gNormal, "gNormal", 1);
     
     // Bind point shadow cube maps (up to 5)
     const numShadowedLights = this.resourceCache.getData("numShadowedLights") ?? 0;

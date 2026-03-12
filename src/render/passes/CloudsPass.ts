@@ -157,7 +157,7 @@ public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
 
 // --- Uniforms & Textures ---
 const gBuffer = this.renderGraph!.getOutputs(this);
-const depthTexture = gBuffer["depth"];
+const gDepth = gBuffer["depth"];
 const cameraPosition = this.resourceCache.getData("cameraPosition") ?? vec3.fromValues(0, 0, 0);
 
 const boxWidth = SettingsManager.instance.getSetting("CLOUDS_boxWidth")?.value as number;
@@ -170,7 +170,7 @@ this.gl.uniform3fv(this.uniforms["cubeMax"], vec3.fromValues(boxWidth / 2 + came
 TextureUtils.bindTex(this.gl, this.program!, this.noiseTexture!, "noiseTexture", 0, this.gl.TEXTURE_3D);
 TextureUtils.bindTex(this.gl, this.program!, this.noiseDetailTexture!, "detailNoiseTexture", 1, this.gl.TEXTURE_3D);
 TextureUtils.bindTex(this.gl, this.program!, this.weatherMapTexture!, "weatherMap", 2);
-TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 3);
+TextureUtils.bindTex(this.gl, this.program!, gDepth, "gDepth", 3);
 TextureUtils.bindTex(this.gl, this.program!, previousTexture, "previousCloudTexture", 4);
 
 this.gl.uniform3fv(this.uniforms["cameraPosition"], cameraPosition);

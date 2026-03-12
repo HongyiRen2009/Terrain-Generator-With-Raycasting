@@ -21,6 +21,7 @@ import { GrassGeometryPass } from "./passes/GrassGeometryPass";
 import { CombineGeometryPass } from "./passes/CombineGeometryPass";
 import { ShadowBlurPass } from "./passes/Shadows/ShadowBlurPass";
 import { PathTracer } from "../Pathtracing/PathTracer";
+import { WaterPass } from "./passes/WaterPass";
 interface Matrices {
   matView: mat4;
   matProj: mat4;
@@ -160,6 +161,12 @@ export class GLRenderer {
       this.canvas,
       this.renderGraph
     )
+    const waterPass = new WaterPass(
+      this.gl,
+      this.resourceCache,
+      this.canvas,
+      this.renderGraph
+    );
     // Build render graph tree structure
 
     this.renderGraph.addRoot(geometryPass);
@@ -188,15 +195,12 @@ export class GLRenderer {
       shadowBlurPass,
       combineGeometryPass
     );
+    this.renderGraph.add(waterPass, lightingPass, combineGeometryPass);
     this.renderGraph.add(cloudsPass, combineGeometryPass);
-    this.renderGraph.add(finalPass, cloudsPass,lightingPass);
+    this.renderGraph.add(finalPass,waterPass, cloudsPass,lightingPass);
   }
 
   public render(time: number, pathtracerOn: boolean = false): void {
-    if (!pathtracerOn) {
-      this.gl.clearColor(0.5, 0.7, 1.0, 1.0);
-      this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    }
     //Run Pathtracer
     if(pathtracerOn){
       this.pathtracer.render(time);
@@ -207,6 +211,7 @@ export class GLRenderer {
     this.calculateCameraInfo();
 
     const vaosToRender = this._vaoManager.getVaosToRender();
+    const waterVaosToRender = this._vaoManager.getWaterVaosToRender();
     const screenQuadVAO = this._vaoManager.getScreenQuadVAO();
     const grassVAO = this._vaoManager.getGrassVAO();
     this.resourceCache.setData("lights", this.world.lights);
@@ -233,6 +238,9 @@ export class GLRenderer {
             break;
           case VAOInputType.GRASS:
             pass.render(grassVAO!, pathtracerOn);
+            break;
+          case VAOInputType.WATER:
+            pass.render(waterVaosToRender, pathtracerOn);
             break;
           case VAOInputType.NONE:
             pass.render([], pathtracerOn);

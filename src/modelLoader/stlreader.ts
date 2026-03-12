@@ -142,7 +142,7 @@ function buildMeshFromArraysChunked(
       if (start >= numTriangles) {
         mesh.setVertices(triArray);
         mesh.setNormals(normArray);
-        mesh.setTypes(typeArray);
+        mesh.setMaterialIDs(typeArray);
         resolve(mesh);
         return;
       }
@@ -193,7 +193,7 @@ function buildMeshFromArraysSync(
   }
   mesh.setVertices(triArray);
   mesh.setNormals(normArray);
-  mesh.setTypes(typeArray);
+  mesh.setMaterialIDs(typeArray);
   return mesh;
 }
 

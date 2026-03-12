@@ -2,13 +2,14 @@ import { mat4, vec3 } from "gl-matrix";
 import { BVHTriangle, Mesh } from "../../../map/Mesh";
 import { WorldObject } from "../../../map/WorldObject";
 import { RenderUtils } from "../../../utils/RenderUtils";
-import { meshToNonInterleavedVerticesAndIndices } from "../../../map/cubes_utils";
+import { meshToNonInterleavedVerticesAndIndices, meshToPositionsAndIndices } from "../../../map/cubes_utils";
 import GeometryVertexShaderSource from "../../glsl/DeferredRendering/Geometry.vert";
 import GeometryFragmentShaderSource from "../../glsl/DeferredRendering/Geometry.frag";
 import e from "express";
 import { Color, Terrains } from "../../../map/terrains";
 import { PointLight } from "../../../map/Light";
 import { Chunk } from "../../../map/Map";
+import { uv } from "three/tsl";
 export interface VaoInfo {
   vao: WebGLVertexArrayObject;
   indexCount: number;
@@ -31,6 +32,7 @@ export class VAOManager {
   private gl: WebGL2RenderingContext;
   private vaoCache: Map<number, VaoInfo>;
   private terrainVAOInfos: { [key: string]: VaoInfo } = {};
+  private waterVAOInfos: { [key: string]: VaoInfo } = {};
   private screenQuadVAOInfo: VaoInfo | null = null;
   // Keep references to buffers so we can delete them later
   private terrainBuffers: {
@@ -72,27 +74,15 @@ export class VAOManager {
           this.gl,
           vertexData.normals
         ),
-        color: RenderUtils.CreateAttributeBuffer(
+        uv: RenderUtils.CreateAttributeBuffer(
           this.gl,
-          vertexData.colors
+          vertexData.uvs
         ),
-        reflectiveness: RenderUtils.CreateAttributeBuffer(
+        materialID: RenderUtils.CreateIntegerBuffer(
           this.gl,
-          vertexData.reflectiveness
-        ),
-        metalicity: RenderUtils.CreateAttributeBuffer(
-          this.gl,
-
-          vertexData.metallicity
-        ),
-        roughness: RenderUtils.CreateAttributeBuffer(
-          this.gl,
-          vertexData.roughness
-        ),
-        emissivity: RenderUtils.CreateAttributeBuffer(
-          this.gl,
-          vertexData.emissivity
+          vertexData.materialIDs
         )
+
       },
       indices: RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices))
     };
@@ -101,17 +91,8 @@ export class VAOManager {
       {
         position: { buffer: TerrainTriangleBuffer.vertex.position, size: 3 },
         normal: { buffer: TerrainTriangleBuffer.vertex.normal, size: 3 },
-        color: { buffer: TerrainTriangleBuffer.vertex.color, size: 3 },
-        reflectiveness: {
-          buffer: TerrainTriangleBuffer.vertex.reflectiveness,
-          size: 1
-        },
-        metalicity: {
-          buffer: TerrainTriangleBuffer.vertex.metalicity,
-          size: 1
-        },
-        roughness: { buffer: TerrainTriangleBuffer.vertex.roughness, size: 1 },
-        emissivity: { buffer: TerrainTriangleBuffer.vertex.emissivity, size: 1 }
+        uv: { buffer: TerrainTriangleBuffer.vertex.uv, size: 2 },
+        materialID: { buffer: TerrainTriangleBuffer.vertex.materialID, size: 1, type: this.gl.UNSIGNED_INT }
       },
       TerrainTriangleBuffer.indices,
       this.geometryProgram!
@@ -130,17 +111,48 @@ export class VAOManager {
     this.grassVAOInfos[chunkKey] = this.createGrassVAO(
       vertexData.positions,
       vertexData.normals,
-      vertexData.terrainId,
+      vertexData.materialIDs,
       Array.from(vertexData.indices),
       modelMatrix,
     );
 
   }
-
+  createWaterVAO(chunk: Chunk, chunkKey: string): void {
+    const triangleMesh = chunk.WaterMesh;
+    
+    const vertexData = meshToPositionsAndIndices(triangleMesh);
+    const WaterTriangleBuffer = {
+      vertex: {
+        position: RenderUtils.CreateAttributeBuffer(
+          this.gl,
+          vertexData.positions
+        ),
+      }
+    };
+    const waterVAO = RenderUtils.createNonInterleavedVao(
+      this.gl,
+      {
+        position: { buffer: WaterTriangleBuffer.vertex.position, size: 3 },
+      },
+      RenderUtils.CreateIndexBuffer(this.gl, Array.from(vertexData.indices)),
+      this.geometryProgram!
+    );
+    const modelMatrix = RenderUtils.CreateTransformations(vec3.fromValues(
+      chunk.ChunkPosition[0],
+      chunk.ChunkPosition[1],
+      chunk.ChunkPosition[2]
+    ), vec3.fromValues(0, 0, 0), vec3.fromValues(1, 1, 1));
+    this.waterVAOInfos[chunkKey] = {
+      vao: waterVAO,
+      indexCount: vertexData.indices.length,
+      modelMatrix,
+      boundingBox: this.computeBoundingBox(vertexData.positions)
+    };
+  }
   createGrassVAO(
     terrainVertices: Float32Array,
     terrainNormals: Float32Array,
-    terrainId: Uint8Array,
+    materialIDs: Uint32Array,
     triangleIndices: number[],
     modelMatrix: mat4
   ): GrassVAOInfo {
@@ -166,13 +178,13 @@ export class VAOManager {
       }
       const w = 1 - u - v;
       // Check terrain type at this triangle (all three vertices should have the same type)
-      
-      const type0 = terrainId[triangleIndices[triIdx + 0]];
-      if (type0 !== 0) continue; // Only place grass on terrain type 0 (grass)
-      const type1 = terrainId[triangleIndices[triIdx + 1]];
-      if (type1 !== 0) continue;
-      const type2 = terrainId[triangleIndices[triIdx + 2]];
-      if (type2 !== 0) continue;
+      const materialID0 = materialIDs[triangleIndices[triIdx + 0]];
+      const materialID1 = materialIDs[triangleIndices[triIdx + 1]];
+      const materialID2 = materialIDs[triangleIndices[triIdx + 2]];
+
+      if (materialID0 !== 0 || materialID1 !== 0 || materialID2 !== 0) {
+        continue; // Skip if not grass
+      }
       // Interpolate position
       const x =
         terrainVertices[i0] * u +
@@ -269,6 +281,11 @@ export class VAOManager {
     if (vaoInfo) {
       this.gl.deleteVertexArray(vaoInfo.vao);
       delete this.terrainVAOInfos[chunkKey];
+    }
+    const waterVaoInfo = this.waterVAOInfos[chunkKey];
+    if (waterVaoInfo) {
+      this.gl.deleteVertexArray(waterVaoInfo.vao);
+      delete this.waterVAOInfos[chunkKey];
     }
     const grassVaoInfo = this.grassVAOInfos[chunkKey];
     if (grassVaoInfo) {
@@ -438,6 +455,7 @@ export class VAOManager {
             vec3.fromValues(maxX, maxY, maxZ),
             vec3.fromValues(minX, minY, minZ + 0.01)
           ],
+          terrains: [Terrains[0], Terrains[0], Terrains[0]], // grass material
           index: -2 - globalInstanceIndex, // Unique negative ID for each grass blade
           vertexNormals: [
             vec3.fromValues(0, 0, 0),
@@ -598,8 +616,9 @@ export class VAOManager {
 
       const positions = new Float32Array(numVerts * 3);
       const normals = new Float32Array(numVerts * 3);
-      const colors = new Float32Array(numVerts * 3);
-      const indices = new Uint32Array(numVerts);
+      const uvs = new Float32Array(numVerts * 2); // fill in with emissivity data
+      const materialIDs = new Uint32Array(numVerts);
+      const indices: number[] = [];
 
       const colorVec = showColor.createVec3();
       // Standard color for albedo
@@ -610,13 +629,6 @@ export class VAOManager {
       // Pack emissivity to make the light sphere glow with its color
       // Normalize to 0-1 range for RGBA8 texture storage (max packed value is 63)
       const packedEmissivity = packEmissivityToUint8([cr, cg, cb]) / 63.0;
-
-      // Material attributes for each vertex
-      const reflectiveness = new Float32Array(numVerts);
-      const metalicity = new Float32Array(numVerts);
-      const roughness = new Float32Array(numVerts);
-      const emissivity = new Float32Array(numVerts);
-
       for (let j = 0; j < triangles.length; j++) {
         const tri = triangles[j];
         const norm = triNormals[j];
@@ -633,19 +645,10 @@ export class VAOManager {
           normals[idx * 3 + 0] = norm[k][0];
           normals[idx * 3 + 1] = norm[k][1];
           normals[idx * 3 + 2] = norm[k][2];
-
-          // Color
-          colors[idx * 3 + 0] = cr;
-          colors[idx * 3 + 1] = cg;
-          colors[idx * 3 + 2] = cb;
-
-          // Material attributes - default values for light spheres
-          reflectiveness[idx] = 0.04; // Low reflectivity (dielectric), allows albedo color to show
-          metalicity[idx] = 0.0; // Non-metallic
-          roughness[idx] = 0.8; // Higher roughness for matte look
-          emissivity[idx] = packedEmissivity; // Glow with the light's color
-
-          indices[idx] = idx;
+          uvs[idx * 2 + 0] = packedEmissivity; // Store emissivity in UV.x
+          uvs[idx * 2 + 1] = 0; // Unused
+          materialIDs[idx] = 69;
+          indices.push(idx);
         }
       }
 
@@ -659,31 +662,21 @@ export class VAOManager {
           buffer: RenderUtils.CreateAttributeBuffer(this.gl, normals),
           size: 3
         },
-        color: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, colors),
-          size: 3
+        uv: {
+          buffer: RenderUtils.CreateAttributeBuffer(this.gl, uvs),
+          size: 2
         },
-        reflectiveness: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, reflectiveness),
-          size: 1
-        },
-        metalicity: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, metalicity),
-          size: 1
-        },
-        roughness: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, roughness),
-          size: 1
-        },
-        emissivity: {
-          buffer: RenderUtils.CreateAttributeBuffer(this.gl, emissivity),
-          size: 1
+        materialID: {
+          buffer: RenderUtils.CreateIntegerBuffer(this.gl, materialIDs),
+          size: 1,
+          type: this.gl.UNSIGNED_INT
         }
+
       };
 
       const indexBuffer = RenderUtils.CreateIndexBuffer(
         this.gl,
-        Array.from(indices) // RenderUtils expects number[]
+        indices
       );
 
       // Create VAO with Non-Interleaved layout (safer)
@@ -717,13 +710,10 @@ export class VAOManager {
         worldObject.buffer.vertex,
         worldObject.buffer.indices,
         {
-          position: { offset: 0, size: 3, stride: 52 },
-          normal: { offset: 12, size: 3, stride: 52 },
-          color: { offset: 24, size: 3, stride: 52 },
-          reflectiveness: { offset: 36, size: 1, stride: 52 },
-          metalicity: { offset: 40, size: 1, stride: 52 },
-          roughness: { offset: 44, size: 1, stride: 52 },
-          emissivity: { offset: 48, size: 1, stride: 52 }
+          position: { offset: 0, size: 3, stride: 36 },
+          normal: { offset: 12, size: 3, stride: 36 },
+          uv: { offset: 24, size: 2, stride: 36 },
+          materialID: { offset: 32, size: 1, stride: 36, type: this.gl.UNSIGNED_INT }
         },
         this.geometryProgram!
       );
@@ -780,7 +770,15 @@ export class VAOManager {
     });
     return vaosToRender;
   }
-
+  getWaterVaosToRender(): VaoInfo[] {
+    const vaosToRender: VaoInfo[] = [];
+    if (this.waterVAOInfos) {
+      for (const key in this.waterVAOInfos) {
+        vaosToRender.push(this.waterVAOInfos[key]);
+      }
+    }
+    return vaosToRender;
+  }
   getScreenQuadVAO(): VaoInfo | null {
     return this.screenQuadVAOInfo;
   }

@@ -15,7 +15,7 @@ uniform sampler2D pointShadowMaskB;
 uniform sampler2D pointShadowMaskC;
 uniform sampler2D pointShadowMaskD;
 uniform sampler2D pointShadowMaskE;
-uniform sampler2D depthTexture;
+uniform sampler2D gDepth;
 
 
 const int KERNEL_RADIUS = 2;
@@ -25,7 +25,7 @@ const float sigma_depth = 0.1f;
 
 void main() {
     
-    float centerDepth = texture(depthTexture, fragUV).r;
+    float centerDepth = texture(gDepth, fragUV).r;
     vec2 texelSize = 1.0f / vec2(textureSize(sunShadowMask, level));
 
     float sunShadowSum = 0.0f;
@@ -46,7 +46,7 @@ void main() {
             float samplePointShadowMaskD = textureLod(pointShadowMaskD, fragUV + offset, float(level)).r;
             float samplePointShadowMaskE = textureLod(pointShadowMaskE, fragUV + offset, float(level)).r;
 
-            float sampleDepth = texture(depthTexture, fragUV + offset).r;
+            float sampleDepth = texture(gDepth, fragUV + offset).r;
 
             float spatialWeight = exp(-float(x * x + y * y) / (2.0f * sigma_spatial * sigma_spatial));
             float depthWeight = exp(-pow(sampleDepth - centerDepth, 2.0f) / (2.0f * sigma_depth * sigma_depth));

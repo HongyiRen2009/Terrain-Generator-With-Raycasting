@@ -63,7 +63,7 @@ export class GeometryPass extends RenderPass {
       );
     }
 
-    const normalTexture = TextureUtils.createTexture2D(
+    const gNormal = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
@@ -71,29 +71,29 @@ export class GeometryPass extends RenderPass {
       normalFormat,
       normalType
     );
-    const albedoTexture = TextureUtils.createTexture2D(
+    const gAux = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
-      this.gl.RGBA8,
-      this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE
+      this.gl.RG16F,
+      this.gl.RG,
+      this.gl.FLOAT
     );
-    const depthTexture = TextureUtils.createTexture2D(
+    const gMaterialID = TextureUtils.createTexture2D(
+      this.gl,
+      w,
+      h,
+      this.gl.R32UI,
+      this.gl.RED_INTEGER,
+      this.gl.UNSIGNED_INT
+    );
+    const gDepth = TextureUtils.createTexture2D(
       this.gl,
       w,
       h,
       this.gl.DEPTH_COMPONENT32F,
       this.gl.DEPTH_COMPONENT,
       this.gl.FLOAT
-    );
-    const matieralAttributesTexture = TextureUtils.createTexture2D(
-      this.gl,
-      w,
-      h,
-      this.gl.RGBA8,
-      this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE
     );
     const fbo = this.gl.createFramebuffer();
 
@@ -106,28 +106,29 @@ export class GeometryPass extends RenderPass {
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT0,
       this.gl.TEXTURE_2D,
-      normalTexture,
+      gNormal,
       0
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT1,
       this.gl.TEXTURE_2D,
-      albedoTexture,
+      gAux,
       0
     );
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.COLOR_ATTACHMENT2,
       this.gl.TEXTURE_2D,
-      matieralAttributesTexture,
+      gMaterialID,
       0
     );
+    // No materialAttributes texture needed anymore
     this.gl.framebufferTexture2D(
       this.gl.FRAMEBUFFER,
       this.gl.DEPTH_ATTACHMENT,
       this.gl.TEXTURE_2D,
-      depthTexture,
+      gDepth,
       0
     );
     this.gl.drawBuffers([
@@ -146,19 +147,21 @@ export class GeometryPass extends RenderPass {
     return {
       fbo: fbo,
       textures: {
-        normal: normalTexture,
-        albedo: albedoTexture,
-        materialAttributes: matieralAttributesTexture,
-        depth: depthTexture
+        normal: gNormal,
+        depth: gDepth,
+        uv: gAux,
+        materialID: gMaterialID
       }
     };
   }
 
   public render(vaosToRender: VaoInfo[], pathtracerOn: boolean): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
-    this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+    this.gl.clearBufferfv(this.gl.COLOR, 0, [1.0, 1.0, 1.0, 1.0]);
+    this.gl.clearBufferfv(this.gl.COLOR, 1, [0.0, 0.0, 0.0, 1.0]);
+    this.gl.clearBufferuiv(this.gl.COLOR, 2, [0, 0, 0, 0]);
     this.gl.clearDepth(1.0); // Explicitly set clear depth to far plane (1.0)
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+    this.gl.clear(this.gl.DEPTH_BUFFER_BIT);
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     this.gl.enable(this.gl.DEPTH_TEST);
     this.gl.depthFunc(this.gl.LESS);

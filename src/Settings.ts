@@ -695,34 +695,7 @@ class SettingsSection {
         wrapper.appendChild(componentWrapper);
       }
     } else {
-      // Render single slider for non-vector types
-      const slider = document.createElement("input");
-      slider.type = "range";
-      slider.id = `${setting.id}-slider`;
-      slider.min = getCurrentMin().toString();
-      slider.max = getCurrentMax().toString();
-      slider.step = getCurrentStep().toString();
-      slider.value = currentValue.toString();
-
-      slider.addEventListener("input", () => {
-        const value = parseFloat(slider.value);
-        if (setting.isArray) {
-          const arrayValue = Array.isArray(setting.value) ? setting.value : [];
-          const idx = setting.arrayIndex ?? 0;
-          arrayValue[idx] = value;
-          setting.value = arrayValue;
-          valueSpan.textContent = slider.value;
-          if (setting.onChange) {
-            setting.onChange(value as any);
-          }
-        } else {
-          setting.value = value;
-          valueSpan.textContent = slider.value;
-          if (setting.onChange) {
-            setting.onChange(value);
-          }
-        }
-      });
+      // Use the single slider already created above (with updateValue and input listener)
 
     // Only add fine tuner buttons if fineTuner is enabled
     if (setting.fineTuner) {

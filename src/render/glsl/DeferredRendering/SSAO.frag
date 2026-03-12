@@ -3,8 +3,8 @@ precision highp float;
 #define NUM_SAMPLES 64
 in vec2 fragUV;
 out float ssao;
-uniform sampler2D normalTexture;
-uniform sampler2D depthTexture;
+uniform sampler2D gNormal;
+uniform sampler2D gDepth;
 uniform sampler2D noiseTexture;
 uniform float noiseSize;
 uniform vec3 samples[64];
@@ -14,7 +14,7 @@ uniform float radius;
 uniform float bias;
 uniform bool enableSSAO;
 vec3 getViewPosition(vec2 texCoord) {
-    float depth = texture(depthTexture, texCoord).r;
+    float depth = texture(gDepth, texCoord).r;
     vec2 ndc = texCoord * 2.0f - 1.0f;
     vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);
     vec4 viewSpacePos = projInverse * clipSpacePos;
@@ -27,12 +27,12 @@ void main() {
         return;
     }
     // Calculate noise scale to tile noise texture across screen
-    vec2 screenSize = vec2(textureSize(depthTexture, 0));
+    vec2 screenSize = vec2(textureSize(gDepth, 0));
     
     vec3 fragPos = getViewPosition(fragUV);
     
     // Read normal directly from floating point texture
-    vec3 normal = normalize(texture(normalTexture, fragUV).rgb);
+    vec3 normal = normalize(texture(gNormal, fragUV).rgb);
     
     // Use pixel coordinates with modulo to avoid floating point precision issues and grid artifacts
     // This ensures the noise texture tiles smoothly without visible patterns
@@ -58,7 +58,7 @@ void main() {
         }
 
         float sampleDepth = getViewPosition(offset.xy).z;
-        if(texture(depthTexture, offset.xy).r >= 1.0f)
+        if(texture(gDepth, offset.xy).r >= 1.0f)
             continue;
         float rangeCheck = abs(fragPos.z - sampleDepth) < radius ? 1.0f : 0.0f;
         occlusion += (sampleDepth >= samplePos.z + bias ? 1.0f : 0.0f) * rangeCheck;

@@ -6,8 +6,8 @@ in vec2 fragUV;
 out vec4 shadowMaskData;
 
 uniform highp sampler2DArrayShadow shadowDepthTextureArray;
-uniform sampler2D depthTexture;
-uniform sampler2D normalTexture;
+uniform sampler2D gDepth;
+uniform sampler2D gNormal;
 uniform highp sampler3D jitterTexture;
 
 uniform mat4 lightSpaceMatrices[8];
@@ -40,7 +40,7 @@ struct DirectionalLight {
 uniform DirectionalLight SunLight;
 
 vec3 getViewPosition(vec2 texCoord, mat4 projectionInverse) {
-    float depth = texture(depthTexture, texCoord).r;
+    float depth = texture(gDepth, texCoord).r;
     vec2 ndc = texCoord * 2.0f - 1.0f;
     vec4 clipSpacePos = vec4(ndc, depth * 2.0f - 1.0f, 1.0f);
     vec4 viewSpacePos = projectionInverse * clipSpacePos;
@@ -187,7 +187,7 @@ void main() {
     vec3 fragWorldPos = getWorldPosition(fragViewPos, viewInverse);
 
     // Compute world normal from normal texture (view space -> world space)
-    vec3 viewNormal = normalize(texture(normalTexture, fragUV).rgb);
+    vec3 viewNormal = normalize(texture(gNormal, fragUV).rgb);
     vec3 worldNormal = normalize(mat3(viewInverse) * viewNormal);
 
     float cascadeViewDepth = abs(fragViewPos.z);

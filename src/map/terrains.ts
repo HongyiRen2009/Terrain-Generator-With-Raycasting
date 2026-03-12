@@ -77,34 +77,37 @@ export class Color {
   }
 }
 
+export interface MaterialMap {
+  /**
+   * File Locations for each map
+   */
+  texScale: number;
+  colorMap?: string;
+  normalMap?: string;
+  AOMap?: string;
+  roughnessMap?: string;
+  metallicityMap?: string;
+  displacementMap?: string;
+}
+
 /**
  * Our terrain!
  */
 export interface Terrain {
   color: Color;
+  material?: MaterialMap;
   reflectiveness: number; // Decimal 0-1
   roughness: number; // Decimal 0-1
   metallicity: number; // Decimal 0-1
   emissivity:vec3; // RGB Emissive color (out of 1)
-  type: 1 | 2 | 3 | 4 | 5; //look below
-  /* Note about type (if no like search it up)
-  Here is a list of types of surfaces (from chatgpt)
-  1. Diffuse (Labertian) ; Regular matte surface
-    NOTE: Roughness & Reflectivity takes no affect in the pathracer - we assume it to be pure lambertian. If you want that, see type 3
-  2. Specular (Perfect Mirror)
-    //Color doesn't matter
-  3. Glossy (Microfacet Reflection)
-    //Note: roughness 0 = perfect mirror, roughness 1 = diffuse
-    // Reflectivity = How metallic it is
-  4. Transmission (Dielectric/Glass; Tinted Glass, microfacet transmission)
-    // Roughness refers to the blurriness of the transmission. 0 = perfect clear glass, 1 = frosted glass 
-    //Note: reflectiveness refers to index of refraction
-  5. Emission; Emissive surface (not as strong as regular light)
-
-
-  //Future: consider Anisotropic surfaces (like brushed metal); Basically needs full textures
-
-  So the above type basically corresponds to the thing on the list
+  /** BRDF / shading model: 1=diffuse, 2=specular mirror, 3=glossy, 4=transmission, 5=emission */
+  brdfType: 1 | 2 | 3 | 4 | 5;
+  /* BRDF types (if unsure, search "BRDF" or "Bidirectional Reflectance Distribution Function"):
+  1. Diffuse (Lambertian) – matte; roughness/reflectivity ignored in path tracer (pure Lambertian there; use 3 for microfacet).
+  2. Specular – perfect mirror (color unused).
+  3. Glossy – microfacet reflection; roughness 0 = mirror, 1 = diffuse; reflectiveness = metallicity.
+  4. Transmission – dielectric/glass; roughness = transmission blur; reflectiveness = IOR.
+  5. Emission – emissive surface.
   */
   //TODO: More stuff as more implementations
 }
@@ -112,33 +115,60 @@ export interface Terrain {
  * The class for calculating the information for all our terrain types
  */
 export const Terrains: { [id: number]: Terrain } = {
-  //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts
+  //NOTE: WHEN ADD TERRAINS CHANGE NUM_TERRAINS in glslPath.ts and Lighting.frag
   // 0: Grass
   0: {
     color: Color.fromHex("#6BAA3A"),
+    material: {
+      texScale: 0.1,
+      colorMap: "assets/textures/dirt/Ground103_2K-JPG_Color.jpg", 
+      normalMap: "assets/textures/dirt/Ground103_2K-JPG_NormalGL.jpg" , 
+      AOMap: "assets/textures/dirt/Ground103_2K-JPG_AmbientOcclusion.jpg",
+      roughnessMap: "assets/textures/dirt/Ground103_2K-JPG_Roughness.jpg" , 
+      metallicityMap: undefined,
+      displacementMap: "assets/textures/dirt/Ground103_2K-JPG_Displacement.jpg" 
+    },
     reflectiveness: 0.02,
     roughness: 0.9,
     metallicity: 0,
     emissivity: vec3.fromValues(0,0,0),
-    type: 3
+    brdfType: 3
   },
   // 1: Dirt
   1: {
     color: Color.fromHex("#7A5229"),
+    material: {
+      texScale: 1,
+      colorMap: "assets/textures/dirt/Ground103_2K-JPG_Color.jpg", 
+      normalMap: "assets/textures/dirt/Ground103_2K-JPG_NormalGL.jpg" , 
+      AOMap: "assets/textures/dirt/Ground103_2K-JPG_AmbientOcclusion.jpg",
+      roughnessMap: "assets/textures/dirt/Ground103_2K-JPG_Roughness.jpg" , 
+      metallicityMap: undefined,
+      displacementMap: "assets/textures/dirt/Ground103_2K-JPG_Displacement.jpg" 
+    },
     reflectiveness: 0.03,
     roughness: 0.9,
     metallicity: 0,
     emissivity: vec3.fromValues(0,0,0),
-    type: 3
+    brdfType: 3
   },
   // 2: Rock
   2: {
     color: Color.fromHex("#8B8F91"),
+    material: {
+      texScale: 0.1,
+      colorMap: "assets/textures/rocks/Rocks024L_2K-JPG_Color.jpg", 
+      normalMap: "assets/textures/rocks/Rocks024L_2K-JPG_NormalGL.jpg" , 
+      AOMap: "assets/textures/rocks/Rocks024L_2K-JPG_AmbientOcclusion.jpg",
+      roughnessMap: "assets/textures/rocks/Rocks024L_2K-JPG_Roughness.jpg" , 
+      metallicityMap: undefined,
+      displacementMap: "assets/textures/rocks/Rocks024L_2K-JPG_Displacement.jpg" 
+    },
     reflectiveness: 0.04,
     roughness: 0.85,
     metallicity: 0,
     emissivity: vec3.fromValues(0,0,0),
-    type: 3
+    brdfType: 3
   },
   // 3: Snow
   3: {
@@ -147,7 +177,7 @@ export const Terrains: { [id: number]: Terrain } = {
     roughness: 0.95,
     metallicity: 0,
     emissivity: vec3.fromValues(0,0,0),
-    type: 3
+    brdfType: 3
   },
   // 4: Water (slightly transmissive)
   4: {
@@ -156,15 +186,25 @@ export const Terrains: { [id: number]: Terrain } = {
     roughness: 0.1,
     metallicity: 0,
     emissivity: vec3.fromValues(0,0,0),
-    type: 4
+    brdfType: 4
   },
   // 5: Sand / Beach
   5: {
     color: Color.fromHex("#E3D2A3"),
+    material: {
+      texScale: 0.1,
+      colorMap: "assets/textures/sand/Ground054_2K-JPG_Color.jpg", 
+      normalMap: "assets/textures/sand/Ground054_2K-JPG_NormalGL.jpg" , 
+      AOMap: "assets/textures/sand/Ground054_2K-JPG_AmbientOcclusion.jpg",
+      roughnessMap: "assets/textures/sand/Ground054_2K-JPG_Roughness.jpg" , 
+      metallicityMap: undefined,
+      displacementMap: "assets/textures/sand/Ground054_2K-JPG_Displacement.jpg" 
+    },
     reflectiveness: 0.02,
     roughness: 0.92,
     metallicity: 0,
     emissivity: vec3.fromValues(0,0,0),
-    type: 3
+    brdfType: 3
   }
 };
+export const TerrainNorm = Object.values(Terrains).length*2;

@@ -58,7 +58,7 @@ export class ShadowBlurPass extends RenderPass{
         const pointShadowMaskC = textures["pointShadowMaskC"];
         const pointShadowMaskD = textures["pointShadowMaskD"];
         const pointShadowMaskE = textures["pointShadowMaskE"];
-        const depthTexture = textures["depth"];
+        const gDepth = textures["depth"];
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, this.renderTarget!.fbo);
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
@@ -73,7 +73,7 @@ export class ShadowBlurPass extends RenderPass{
         TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskC, "pointShadowMaskC", 3);
         TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskD, "pointShadowMaskD", 4);
         TextureUtils.bindTex(this.gl, this.program!, pointShadowMaskE, "pointShadowMaskE", 5);
-        TextureUtils.bindTex(this.gl, this.program!, depthTexture, "depthTexture", 6);
+        TextureUtils.bindTex(this.gl, this.program!, gDepth, "gDepth", 6);
         this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
         this.gl.bindVertexArray(null);
         this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);

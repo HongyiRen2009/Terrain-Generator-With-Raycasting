@@ -121,14 +121,14 @@ export class SSAOPass extends RenderPass {
       this.gl,
       this.program!,
       gBuffer["normal"],
-      "normalTexture",
+      "gNormal",
       0
     );
     TextureUtils.bindTex(
       this.gl,
       this.program!,
       gBuffer["depth"],
-      "depthTexture",
+      "gDepth",
       1
     );
     TextureUtils.bindTex(

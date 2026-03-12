@@ -107,7 +107,7 @@ export class BVHUtils {
       out[i * numberFloats + 2] = terrain.color.b / 255;
       out[i * numberFloats + 3] = terrain.reflectiveness;
       out[i * numberFloats + 4] = terrain.roughness;
-      out[i * numberFloats + 5] = terrain.type;
+      out[i * numberFloats + 5] = terrain.brdfType;
       i++;
     }
     return out;

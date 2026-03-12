@@ -2,6 +2,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import webpack from "webpack";
 import "webpack-dev-server";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,9 +19,14 @@ const config: webpack.Configuration = {
     publicPath: "/"
   },
   devServer: {
-    static: path.resolve(__dirname, "public"),
+    static: [
+      path.resolve(__dirname, "public"),
+      { directory: path.resolve(__dirname, "assets"), publicPath: "/assets" }
+    ],
     hot: true,
-    open: true,
+    open: process.env.BROWSER
+      ? { app: { name: process.env.BROWSER } }
+      : true,
     port: 3000
   },
   resolve: {

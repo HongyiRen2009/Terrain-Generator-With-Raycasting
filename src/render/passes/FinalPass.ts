@@ -90,7 +90,7 @@ export class FinalPass extends RenderPass {
     SettingsManager.instance.addCheckboxToSection("Post Processing", {
       id: "enableBloom",
       label: "Enable Bloom",
-      defaultValue: true
+      defaultValue: false
     });
     SettingsManager.instance.addSliderToSection("Post Processing", {
       id: "bloomThreshold",
@@ -194,9 +194,10 @@ export class FinalPass extends RenderPass {
 public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
     const vao = Array.isArray(vao_info) ? vao_info[0] : vao_info;
     const textures = this.renderGraph!.getOutputs(this);
+    debugger
     const sceneTexture = textures["sceneTexture"];
-    const cloudsTexture = textures["cloudsTexture"]; // <-- Add this line
-
+    const cloudsTexture = textures["cloudsTexture"];
+    const waterColorTexture = textures["waterColorTexture"]; 
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
     this.gl.useProgram(this.program);
 
@@ -221,7 +222,13 @@ public render(vao_info: VaoInfo | VaoInfo[], pathtracerOn: boolean): void {
       "cloudsTexture",
       1
     );
-
+    TextureUtils.bindTex(
+      this.gl,
+      this.program!,
+      waterColorTexture!,
+      "waterTexture",
+      2
+    );
     this.gl.bindVertexArray(vao.vao);
     if (!pathtracerOn || this.pathtracerRender) {
       this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);

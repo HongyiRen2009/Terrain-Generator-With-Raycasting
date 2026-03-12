@@ -60,9 +60,10 @@ export class RenderUtils {
     gl.compileShader(Shader);
 
     if (!gl.getShaderParameter(Shader, gl.COMPILE_STATUS)) {
-      console.error("Shader compilation error: ", gl.getShaderInfoLog(Shader));
+      const log = gl.getShaderInfoLog(Shader) || "Unknown error";
+      console.error("Shader compilation error:", log);
       gl.deleteShader(Shader); // Clean up the failed shader
-      throw new Error("Shader compilation failed.");
+      throw new Error(`Shader compilation failed: ${log}`);
     }
 
     return Shader;
@@ -111,6 +112,19 @@ export class RenderUtils {
     return buffer;
   }
   /**
+   * Creates a buffer for integer vertex attributes.
+   * @param gl The WebGL2RenderingContext to use for creating the buffer.
+   * @param data The array of integer data.
+   * @returns WebGLBuffer containing the attribute data.
+   */
+  static CreateIntegerBuffer(gl: WebGL2RenderingContext, data: Uint32Array): WebGLBuffer {
+    const buffer = gl.createBuffer();
+    if (!buffer) throw new Error("Failed to create integer buffer");
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    return buffer;
+  }
+  /**
    * Creates an index buffer for the given indices.
    * @param gl The WebGL2RenderingContext to use for creating the buffer.
    * @param indices The array of indices to be stored in the buffer.
@@ -154,6 +168,7 @@ export class RenderUtils {
         size: number;
         sizeOverride?: number; //For example, positions are vec4 but only use 3 components
         location?: number; // Optional location override
+        type?: GLenum; // Optional type override (default is gl.FLOAT)
       };
     },
     program: WebGLProgram
@@ -171,16 +186,29 @@ export class RenderUtils {
         continue;
       }
       const size = layoutInfo.sizeOverride ?? layoutInfo.size;
+      const type = layoutInfo.type ?? gl.FLOAT;
 
       gl.enableVertexAttribArray(location);
-      gl.vertexAttribPointer(
-        location,
-        size,
-        gl.FLOAT,
-        false,
-        layoutInfo.stride,
-        layoutInfo.offset
-      );
+      
+      // Use vertexAttribIPointer for integer types
+      if (type === gl.UNSIGNED_INT || type === gl.INT || type === gl.UNSIGNED_BYTE || type === gl.BYTE || type === gl.SHORT || type === gl.UNSIGNED_SHORT) {
+        gl.vertexAttribIPointer(
+          location,
+          size,
+          type,
+          layoutInfo.stride,
+          layoutInfo.offset
+        );
+      } else {
+        gl.vertexAttribPointer(
+          location,
+          size,
+          type,
+          false,
+          layoutInfo.stride,
+          layoutInfo.offset
+        );
+      }
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -223,7 +251,13 @@ export class RenderUtils {
 
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.enableVertexAttribArray(attribLocation);
-      gl.vertexAttribPointer(attribLocation, size, type, false, 0, 0);
+      
+      // Use vertexAttribIPointer for integer types
+      if (type === gl.UNSIGNED_INT || type === gl.INT || type === gl.UNSIGNED_BYTE || type === gl.BYTE || type === gl.SHORT || type === gl.UNSIGNED_SHORT) {
+        gl.vertexAttribIPointer(attribLocation, size, type, 0, 0);
+      } else {
+        gl.vertexAttribPointer(attribLocation, size, type, false, 0, 0);
+      }
     }
 
     gl.bindVertexArray(null);

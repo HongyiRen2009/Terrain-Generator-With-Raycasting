@@ -6,6 +6,7 @@ export enum VAOInputType {
   SCENE,
   FULLSCREENQUAD,
   GRASS,
+  WATER,
   NONE
 }
 export abstract class RenderPass {
