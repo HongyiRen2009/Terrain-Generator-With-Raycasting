@@ -710,11 +710,10 @@ export class VAOManager {
         worldObject.buffer.vertex,
         worldObject.buffer.indices,
         {
-          position: { offset: 0, size: 3, stride: 52 },
-          normal: { offset: 12, size: 3, stride: 52 },
-          color: { offset: 24, size: 3, stride: 52 },
-          uv: { offset: 36, size: 2, stride: 52 },
-          materialID: { offset: 44, size: 1, stride: 52, type: this.gl.UNSIGNED_INT }
+          position: { offset: 0, size: 3, stride: 36 },
+          normal: { offset: 12, size: 3, stride: 36 },
+          uv: { offset: 24, size: 2, stride: 36 },
+          materialID: { offset: 32, size: 1, stride: 36, type: this.gl.UNSIGNED_INT }
         },
         this.geometryProgram!
       );

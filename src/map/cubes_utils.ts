@@ -20,7 +20,8 @@ function packEmissivity(terrain: (typeof Terrains)[number]): number {
 export const meshToInterleavedVerticesAndIndices = (
   mesh: Mesh
 ): { vertices: Float32Array; indices: Uint32Array } => {
-  // Per vertex: position(3), normal(3), color(3), reflectiveness(1), metallicity(1), roughness(1), emissivity(1) = 13 floats
+  // Per vertex: position(3), normal(3), uv(2), materialID(1) = 9 floats = 36 bytes stride
+  // Color comes from textures or defaults to magenta if no texture
   const vertexMap = new Map<string, number>();
   const vertices: number[] = [];
   const indices: number[] = [];
@@ -33,17 +34,20 @@ export const meshToInterleavedVerticesAndIndices = (
       const normal = mesh.normals[i][j];
       const key = vertexKey(vertex);
       if (!vertexMap.has(key)) {
-        const terrain = Terrains[types[j]];
         vertices.push(
+          // Position (3 floats)
           vertex[0],
           vertex[1],
           vertex[2],
+          // Normal (3 floats)
           normal[0],
           normal[1],
           normal[2],
-          0.0, // Placeholder for uv
+          // UV (2 floats)
           0.0,
-          0, // Placeholder for block id
+          0.0,
+          // Material ID (1 float as uint)
+          types[j]
         );
         vertexMap.set(key, vertexIndex);
         vertexIndex++;

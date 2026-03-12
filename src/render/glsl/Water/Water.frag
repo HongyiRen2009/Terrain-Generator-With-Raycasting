@@ -9,6 +9,8 @@ uniform sampler2D normalMap;
 uniform mat4 proj;
 uniform mat4 view;
 uniform float time;
+uniform float near;
+uniform float far;
 //Settings
 uniform float ambientStrength;
 uniform float specularStrength;
@@ -99,22 +101,16 @@ float attenuation(float distance) {
 // Convert NDC depth to linear view space depth
 float linearizeDepth(float depthNDC) {
     // Extract near and far planes from projection matrix
-    float n = 0.1;  // near plane (adjust to match your camera)
-    float f = 100.0; // far plane (adjust to match your camera)
+
     
-    // Convert NDC depth to linear depth: depth in view space from camera
-    // NDC depth ranges from 0 (far) to 1 (near) after perspective division
-    float linearDepth = (2.0 * n * f) / (f + n - (2.0 * depthNDC - 1.0) * (f - n));
+    float linearDepth = (2.0 * near * far) / (far + near - (2.0 * depthNDC - 1.0) * (far - near));
     return linearDepth;
 }
 
 float distanceInWater(float sceneDepth, float waterDepth) {
-    // Convert both depth values to linear (view space) depth
     float linearSceneDepth = linearizeDepth(sceneDepth);
     float linearWaterDepth = linearizeDepth(waterDepth);
     
-    // Return the distance light travels through water
-    // sceneDepth is closer to camera (smaller depth value), waterDepth is farther
     return max(0.0, linearSceneDepth - linearWaterDepth);  
 }
 vec3 getNormalMapNormal(vec2 uv) {
@@ -149,7 +145,7 @@ void main() {
     if(unDistortedSceneDepth < 1.0 && gl_FragCoord.z >= unDistortedSceneDepth) {
         discard;
     }
-    float refractionDistance = distanceInWater(sceneDepthAtPixel, gl_FragCoord.z);
+    float refractionDistance = distanceInWater(unDistortedSceneDepth, gl_FragCoord.z);
     vec3 waterColor = CalculateLighting(viewDir,distortedNormal,refractionDistance);
 
     vec3 refractionColor = texture(sceneTexture, screenUV+distortion).rgb;

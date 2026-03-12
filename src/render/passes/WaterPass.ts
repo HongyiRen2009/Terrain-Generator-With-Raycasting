@@ -165,9 +165,9 @@ export class WaterPass extends RenderPass {
         SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "ssrThickness",
             label: "SSR Thickness",
-            min: 0.01,
-            max: 1.0,
-            step: 0.01,
+            min: 0.0,
+            max: 0.1,
+            step: 0.0001,
             defaultValue: 0.03,
         });
         SettingsManager.instance.addSliderToSection("Water Settings", {
@@ -301,7 +301,14 @@ export class WaterPass extends RenderPass {
         this.gl.uniformMatrix4fv(this.uniforms["proj"], false, cameraInfo.matProj);
         this.gl.uniform1f(this.uniforms["time"], performance.now() / 1000);
         this.gl.uniform3fv(this.uniforms["cameraPos"], cameraPos);
-        this.attachWavePropertiesToShader();
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.program!, "near"),
+      this.resourceCache.getData("nearFarPlanes").near
+    );
+    this.gl.uniform1f(
+      this.gl.getUniformLocation(this.program!, "far"),
+      this.resourceCache.getData("nearFarPlanes").far
+    );        this.attachWavePropertiesToShader();
         SettingsManager.instance.updateProgramUniforms(this.gl, this.program!);
         const disableSun = this.resourceCache.getData("disableSun") ?? false;
         WorldUtils.updateLights(

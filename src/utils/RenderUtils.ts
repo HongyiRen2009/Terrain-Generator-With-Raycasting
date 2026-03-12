@@ -186,16 +186,29 @@ export class RenderUtils {
         continue;
       }
       const size = layoutInfo.sizeOverride ?? layoutInfo.size;
+      const type = layoutInfo.type ?? gl.FLOAT;
 
       gl.enableVertexAttribArray(location);
-      gl.vertexAttribPointer(
-        location,
-        size,
-        layoutInfo.type ?? gl.FLOAT,
-        false,
-        layoutInfo.stride,
-        layoutInfo.offset
-      );
+      
+      // Use vertexAttribIPointer for integer types
+      if (type === gl.UNSIGNED_INT || type === gl.INT || type === gl.UNSIGNED_BYTE || type === gl.BYTE || type === gl.SHORT || type === gl.UNSIGNED_SHORT) {
+        gl.vertexAttribIPointer(
+          location,
+          size,
+          type,
+          layoutInfo.stride,
+          layoutInfo.offset
+        );
+      } else {
+        gl.vertexAttribPointer(
+          location,
+          size,
+          type,
+          false,
+          layoutInfo.stride,
+          layoutInfo.offset
+        );
+      }
     }
 
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
