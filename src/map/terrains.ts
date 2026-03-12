@@ -121,12 +121,12 @@ export const Terrains: { [id: number]: Terrain } = {
     color: Color.fromHex("#6BAA3A"),
     material: {
       texScale: 0.1,
-      colorMap: "assets/textures/grass/Grass005_2K-JPG_Color.jpg", 
-      normalMap: "assets/textures/grass/Grass005_2K-JPG_NormalGL.jpg" , 
-      AOMap: "assets/textures/grass/Grass005_2K-JPG_AmbientOcclusion.jpg",
-      roughnessMap: "assets/textures/grass/Grass005_2K-JPG_Roughness.jpg" , 
+      colorMap: "assets/textures/dirt/Ground103_2K-JPG_Color.jpg", 
+      normalMap: "assets/textures/dirt/Ground103_2K-JPG_NormalGL.jpg" , 
+      AOMap: "assets/textures/dirt/Ground103_2K-JPG_AmbientOcclusion.jpg",
+      roughnessMap: "assets/textures/dirt/Ground103_2K-JPG_Roughness.jpg" , 
       metallicityMap: undefined,
-      displacementMap: "assets/textures/grass/Grass005_2K-JPG_Displacement.jpg" 
+      displacementMap: "assets/textures/dirt/Ground103_2K-JPG_Displacement.jpg" 
     },
     reflectiveness: 0.02,
     roughness: 0.9,

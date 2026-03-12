@@ -264,7 +264,7 @@ export class LightingPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.1,
+      defaultValue: 0.05,
       numType: "float"
     });
 
