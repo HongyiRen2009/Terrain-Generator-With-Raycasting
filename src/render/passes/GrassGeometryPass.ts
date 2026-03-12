@@ -164,7 +164,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.3
+      defaultValue: 0.38
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "grassBaseDarkness",
@@ -172,7 +172,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.7
+      defaultValue: 0.44
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "grassSpecularStrength",
@@ -180,7 +180,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.25
+      defaultValue: 0.21
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "grassShininess",
@@ -188,7 +188,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 1,
       max: 100,
       step: 1,
-      defaultValue: 32
+      defaultValue: 13
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "grassTranslucencyStrength",
@@ -196,7 +196,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.7
+      defaultValue: 0.1
     });
 
     // Transition settings
@@ -206,7 +206,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0.1,
       max: 5,
       step: 0.1,
-      defaultValue: 1
+      defaultValue: 1.8
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "grassSpecularTransitionPower",
@@ -214,7 +214,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0.1,
       max: 5,
       step: 0.1,
-      defaultValue: 2
+      defaultValue: 2.1
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "grassTranslucencyTransitionPower",
@@ -222,7 +222,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0.1,
       max: 5,
       step: 0.1,
-      defaultValue: 0.7
+      defaultValue: 1
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "sunShadowStrength",
@@ -230,7 +230,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.3
+      defaultValue: 1
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "pointLightShadowStrength",
@@ -238,7 +238,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.3
+      defaultValue: 1
     });
     // Wind settings
     SettingsManager.instance.addSliderToSection("Grass Settings", {
@@ -271,7 +271,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 5,
       step: 0.1,
-      defaultValue: 1.2
+      defaultValue: 2.8
     });
     SettingsManager.instance.addSliderToSection("Grass Settings", {
       id: "grassPointLightDiffuseSoftness",
@@ -279,7 +279,7 @@ export class GrassGeometryPass extends RenderPass {
       min: 0,
       max: 1,
       step: 0.01,
-      defaultValue: 0.6
+      defaultValue: 0.59
     });
     SettingsManager.instance.attatchProgram(this.program!, [
       "grassWindStrength",
