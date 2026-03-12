@@ -26,6 +26,7 @@ uniform float refractionDistortionStrength;
 uniform float normalMapFrequency;
 uniform float normalMapScrollSpeed;
 uniform float normalMapStrength;
+uniform bool useSSR;
 struct DirectionalLight {
     vec3 direction;
     vec3 color;
@@ -72,6 +73,7 @@ vec3 Raycast(vec3 rayDir,vec3 normal) {
     return vec3(0.0);
 }
 vec3 SSR(vec3 normal) {
+    if(!useSSR) return vec3(0.0);
     vec3 fragToCamera = normalize(cameraPos - vPosition);
     vec3 reflectionDir = normalize(reflect(-fragToCamera, normal));
     vec3 reflectionColor = Raycast(reflectionDir, normal);
@@ -82,7 +84,7 @@ if (!ssrHit) {
     return reflectionColor;
 }
 float Fresnel(vec3 normal, vec3 viewDir){
-    float cosTheta = max(dot(normal, viewDir), 0.0);
+    float cosTheta = abs(dot(normal, viewDir));
     float F0 = fresnelF0;
     float fresnel = F0 + (1.0 - F0) * pow(1.0 - cosTheta, fresnelPower);
     return fresnel;
@@ -123,10 +125,18 @@ void main() {
     vec2 distortion = refractedDir.xy * refractionDistortionStrength;
     float sceneDepthAtPixel = texture(depthTexture, screenUV+distortion).r;
     if(sceneDepthAtPixel < 1.0 && gl_FragCoord.z >= sceneDepthAtPixel) {
+        distortion = vec2(0.0);
+    }
+    float unDistortedSceneDepth = texture(depthTexture, screenUV).r;
+    if(unDistortedSceneDepth < 1.0 && gl_FragCoord.z >= unDistortedSceneDepth) {
         discard;
     }
+
     vec3 refractionColor = texture(sceneTexture, screenUV+distortion).rgb;
-    float fresnel = Fresnel(distortedNormal, viewDir);
+    float fresnel = Fresnel(normal, viewDir);
+    if(!useSSR) {
+        reflectionColor = refractionColor; // If SSR is disabled, use refraction color as reflection color for fresnel blending
+    }
     vec3 reflectionRefractionColor = mix(refractionColor, reflectionColor, fresnel);
     float refractionDistance = distanceInWater(sceneDepthAtPixel, gl_FragCoord.z);
     float atten = attenuation(refractionDistance);

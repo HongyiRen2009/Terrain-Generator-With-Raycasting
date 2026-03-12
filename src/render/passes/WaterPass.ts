@@ -136,6 +136,11 @@ export class WaterPass extends RenderPass {
             step: 0.001,
             defaultValue: 0.5,
         });
+        SettingsManager.instance.addCheckboxToSection("Water Settings", {
+            id: "useSSR",
+            label: "Use SSR",
+            defaultValue: true,
+        });
         SettingsManager.instance.addSliderToSection("Water Settings", {
             id: "ssrThickness",
             label: "SSR Thickness",
@@ -209,7 +214,7 @@ export class WaterPass extends RenderPass {
         });
 
         SettingsManager.instance.attatchProgram(this.program!,
-            ["waterColor", "waterObscurity","waterAttenuation", "ambientStrength", "diffuseStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency","ssrThickness", "ssrMaxDistance", "ssrResolution", "fresnelF0", "fresnelPower","refractionDistortionStrength","normalMapFrequency", "normalMapScrollSpeed", "normalMapStrength","globalWaveSpeed"]);
+            ["waterColor", "waterObscurity","waterAttenuation", "ambientStrength", "diffuseStrength", "specularStrength", "shininess", "waterAmplitude", "waterFrequency","ssrThickness", "ssrMaxDistance", "ssrResolution", "fresnelF0", "fresnelPower","refractionDistortionStrength","normalMapFrequency", "normalMapScrollSpeed", "normalMapStrength","globalWaveSpeed","useSSR"]);
 
     }
     private GenerateWaveProperties(count: number) {
