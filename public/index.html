@@ -10,19 +10,18 @@
       integrity="sha512-zhHQR0/H5SEBL3Wn6yYSaTTZej12z0hVZKOv3TwCUXT1z5qeqGcXJLLrbERYRScEDDpYIJhPC1fk31gqR783iQ=="
       crossorigin="anonymous"
       defer></script>
-      
   </head>
 
-  <body id = "body">
+  <body id="body">
 
-    <div class="loading-box" id = "loadingBox">Loading World</div>
+    <div class="loading-box" id="loadingBox">Loading World</div>
 
-    <div id = "debugMenu">Hallo</div>
+    <div id="debugMenu">Hallo</div>
     <div id="topBarWrapper" class="top-bar-wrapper">
       <div id="topBar" class="top-bar">
         <button id="raytracing" class="toggle-button active">Raster</button>
         <button id="pathtracing" class="toggle-button">Path Tracer</button>
-        <button id="menu-toggle" class="menu-button">☰</button>
+        <button id="menu-toggle" class="menu-button">&#9776;</button>
       </div>
     </div>
 
@@ -32,14 +31,26 @@
       <br>
       <h3>Noise preview</h3>
       <canvas id="noisePreview" width="256" height="256"></canvas>
-      <div id = "settings-section"></div>
+      <div id="settings-section"></div>
       <h3>World Objects</h3>
       <button id="open-popup-btn">Add World Object</button>
       <br><br><br>
-      <div id = "world-objects">
 
+      <h3>Capture Image</h3>
+      <div id="render-panel">
+        <label class="render-label">
+          Width
+          <input type="number" id="capture-width" value="1920" min="1">
+        </label>
+        <label class="render-label">
+          Height
+          <input type="number" id="capture-height" value="1080" min="1">
+        </label>
+        <button id="capture-btn">Capture</button>
       </div>
-    </div>
+      <br>
+
+      <div id="world-objects"></div>
     </div>
 
     <div id="popup" class="popup hidden">
@@ -71,7 +82,7 @@
         </label>
         <br/>
 
-        <!-- NEW: Scale Input -->
+        <!-- Scale Input -->
         <label>
           Scale Factor:
           <input type="number" id="model-scale" value="1" step="0.1" min="0.001" />
@@ -80,7 +91,7 @@
         </label>
         <br/>
 
-        <!-- NEW: Quality/Decimation Input -->
+        <!-- Quality/Decimation Input -->
         <label>
           Mesh Quality:
           <input type="range" id="model-quality" value="1" min="0.1" max="1" step="0.1" />
@@ -103,7 +114,7 @@
                 <p><u>These are the types currently supported:</u></p>
                 <ul>
                   <li>Diffuse (Lambertian): Matte surface</li>
-                  <li>Specular (Perfect Mirror) – color ignored</li>
+                  <li>Specular (Perfect Mirror) &ndash; color ignored</li>
                   <li>Glossy (Microfacet Reflection)<br>(roughness 0=mirror, 1=diffuse)</li>
                   <li>Transmission (Glass/Dielectric)<br>(reflectiveness ~ index of refraction, roughness 0 = clear glass, roughness 1 = frosted)</li>
                   <li>Emission: Emissive surface</li>
@@ -112,11 +123,11 @@
           </div>
         </div>
 
-
         <br/><br/>
         <button id="submit-object">Submit</button>
       </div>
     </div>
+
     <canvas id="#MainCanvas" width="500" height="500"></canvas>
     <style src="css/style.css"></style>
   </body>

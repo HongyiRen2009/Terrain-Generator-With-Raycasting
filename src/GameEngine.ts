@@ -178,6 +178,7 @@ export class GameEngine {
       return;
     }
 
+    this.initRenderPanel();
     this.initialize();
   }
 
@@ -223,6 +224,7 @@ export class GameEngine {
       this.pathTracer.dispose();
     } catch (e) { }
   }
+
   public async initialize() {
 
     this.generateChunksAroundCamera();
@@ -263,6 +265,7 @@ export class GameEngine {
     this.canvas.style.display = "block";
     document.getElementById("loadingBox")!.style.display = "none";
   }
+
   private initWorldSettings() {
     SettingsManager.instance.createSection(
       document.getElementById("settings-section")!,
@@ -281,8 +284,86 @@ export class GameEngine {
       }
     });
     SettingsManager.instance.addButtonToSection("World Settings", "Regenerate Terrain", () => {
-      this.generateChunksAroundCamera(true
-      );
+      this.generateChunksAroundCamera(true);
+    });
+  }
+
+  private initRenderPanel() {
+    document.getElementById("capture-btn")!.addEventListener("click", () => {
+      const width  = parseInt((document.getElementById("capture-width")  as HTMLInputElement).value);
+      const height = parseInt((document.getElementById("capture-height") as HTMLInputElement).value);
+
+      if (this.mode === 1) {
+        // Path tracing mode — prompt for samples then call stub
+        const samplesStr = prompt("Number of samples:", "256");
+        if (samplesStr === null) return; // user cancelled
+        const samples = parseInt(samplesStr);
+        if (isNaN(samples) || samples < 1) {
+          alert("Invalid sample count.");
+          return;
+        }
+        this.renderPathTrace(width, height, samples);
+      } else {
+        // Raster mode — snapshot canvas at requested resolution
+        this.renderRaster(width, height);
+      }
+    });
+  }
+
+  /**
+   * Captures the current raster frame at the requested resolution and downloads it as a PNG.
+   * For a true off-screen render at arbitrary resolution, replace the body of this method
+   * with an off-screen framebuffer draw + readPixels export.
+   */
+  private renderRaster(width: number, height: number): void {
+    // Save current dimensions
+    const prevWidth  = this.canvas.width;
+    const prevHeight = this.canvas.height;
+
+    // Resize to target, draw one frame, capture, then restore
+    this.canvas.width  = width;
+    this.canvas.height = height;
+    this.gl.viewport(0, 0, width, height);
+    this.renderer.render(this.lastRenderTime);
+
+    this.canvas.toBlob(blob => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob!);
+      a.download = `gras_render_${width}x${height}.png`;
+      a.click();
+
+      // Restore
+      this.canvas.width  = prevWidth;
+      this.canvas.height = prevHeight;
+      this.gl.viewport(0, 0, prevWidth, prevHeight);
+      this.renderer.resizeGBuffer(prevWidth, prevHeight);
+    });
+  }
+
+  /** TODO: run GPU path tracer at width x height for given sample count, export PNG */
+  private renderPathTrace(width: number, height: number, samples: number): void {
+    // TODO: re-render at width x height for the given sample count
+    // For now, snapshot the current path tracer output at the requested resolution
+    const prevWidth  = this.canvas.width;
+    const prevHeight = this.canvas.height;
+  
+    this.canvas.width  = width;
+    this.canvas.height = height;
+    this.gl.viewport(0, 0, width, height);
+    this.renderer.render(this.lastRenderTime, true);
+  
+    this.canvas.toBlob(blob => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob!);
+      a.download = `gras_pathtrace_${width}x${height}_${samples}spp.png`;
+      a.click();
+  
+      // Restore
+      this.canvas.width  = prevWidth;
+      this.canvas.height = prevHeight;
+      this.gl.viewport(0, 0, prevWidth, prevHeight);
+      this.renderer.resizeGBuffer(prevWidth, prevHeight);
+      this.pathTracer.resetAccumulation();
     });
   }
 
@@ -318,74 +399,75 @@ export class GameEngine {
     this.debug.update();
   }
 
-generateChunksAroundCamera(deleteAllChunks: boolean = false) {
-  if (this.world.isGeneratingChunk) return;
-  
-  const cameraChunk = this.world.getChunkCoordsFromPosition(
-    this.mainCamera.position
-  );
-  
-  // Unload distant chunks
-  for (const chunkKey in this.world.chunks) {
-    const chunkPos = WorldUtils.chunkKeyToPosition(chunkKey);
-    const distance = Math.max(
-      Math.abs(chunkPos[0] - cameraChunk[0]) / this.world.resolution,
-      Math.abs(chunkPos[1] - cameraChunk[1]) / this.world.height,
-      Math.abs(chunkPos[2] - cameraChunk[2]) / this.world.resolution
-    );
-    if (distance > this.renderDistance || deleteAllChunks) {
-      this.world.unloadChunk(chunkPos);
-      this.renderer.vaoManager.deleteTerrainVao(chunkKey);
-    }
-  }
+  generateChunksAroundCamera(deleteAllChunks: boolean = false) {
+    if (this.world.isGeneratingChunk) return;
 
-  // Find which chunks need to be generated
-  const chunksToGenerate: vec3[] = [];
-  for (let j = -this.renderDistance; j <= this.renderDistance; j++) {
-    for (let i = -this.renderDistance; i <= this.renderDistance; i++) {
-      const chunkPos = vec3.fromValues(
-        cameraChunk[0] + i * this.world.resolution,
-        0,
-        cameraChunk[2] + j * this.world.resolution
+    const cameraChunk = this.world.getChunkCoordsFromPosition(
+      this.mainCamera.position
+    );
+
+    // Unload distant chunks
+    for (const chunkKey in this.world.chunks) {
+      const chunkPos = WorldUtils.chunkKeyToPosition(chunkKey);
+      const distance = Math.max(
+        Math.abs(chunkPos[0] - cameraChunk[0]) / this.world.resolution,
+        Math.abs(chunkPos[1] - cameraChunk[1]) / this.world.height,
+        Math.abs(chunkPos[2] - cameraChunk[2]) / this.world.resolution
       );
-      if (!this.world.hasChunkAt(chunkPos)) {
-        chunksToGenerate.push(chunkPos);
+      if (distance > this.renderDistance || deleteAllChunks) {
+        this.world.unloadChunk(chunkPos);
+        this.renderer.vaoManager.deleteTerrainVao(chunkKey);
       }
     }
-  }
 
-  if (chunksToGenerate.length === 0) return;
-
-  // Find bounding box of chunks to generate
-  let minX = Infinity, minZ = Infinity;
-  let maxX = -Infinity, maxZ = -Infinity;
-  
-  for (const pos of chunksToGenerate) {
-    minX = Math.min(minX, pos[0]);
-    minZ = Math.min(minZ, pos[2]);
-    maxX = Math.max(maxX, pos[0]);
-    maxZ = Math.max(maxZ, pos[2]);
-  }
-
-  // Calculate strip dimensions in chunks
-  const lengthInChunks = Math.round((maxX - minX) / this.world.resolution) + 1;
-  const widthInChunks = Math.round((maxZ - minZ) / this.world.resolution) + 1;
-  const startPos = vec3.fromValues(minX, 0, minZ);
-
-  // Generate all chunks in one strip
-  this.world.loadChunkStrip(
-    startPos,
-    lengthInChunks,
-    widthInChunks,
-    (chunk: Chunk) => {
-      this.renderer.vaoManager.createTerrainVAO(
-        chunk,
-        WorldUtils.chunkKeyFromPosition(chunk.ChunkPosition, this.world)
-      );
+    // Find which chunks need to be generated
+    const chunksToGenerate: vec3[] = [];
+    for (let j = -this.renderDistance; j <= this.renderDistance; j++) {
+      for (let i = -this.renderDistance; i <= this.renderDistance; i++) {
+        const chunkPos = vec3.fromValues(
+          cameraChunk[0] + i * this.world.resolution,
+          0,
+          cameraChunk[2] + j * this.world.resolution
+        );
+        if (!this.world.hasChunkAt(chunkPos)) {
+          chunksToGenerate.push(chunkPos);
+        }
+      }
     }
-  );
-  this.world.processChunkQueue();
-}
+
+    if (chunksToGenerate.length === 0) return;
+
+    // Find bounding box of chunks to generate
+    let minX = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxZ = -Infinity;
+
+    for (const pos of chunksToGenerate) {
+      minX = Math.min(minX, pos[0]);
+      minZ = Math.min(minZ, pos[2]);
+      maxX = Math.max(maxX, pos[0]);
+      maxZ = Math.max(maxZ, pos[2]);
+    }
+
+    // Calculate strip dimensions in chunks
+    const lengthInChunks = Math.round((maxX - minX) / this.world.resolution) + 1;
+    const widthInChunks  = Math.round((maxZ - minZ) / this.world.resolution) + 1;
+    const startPos = vec3.fromValues(minX, 0, minZ);
+
+    // Generate all chunks in one strip
+    this.world.loadChunkStrip(
+      startPos,
+      lengthInChunks,
+      widthInChunks,
+      (chunk: Chunk) => {
+        this.renderer.vaoManager.createTerrainVAO(
+          chunk,
+          WorldUtils.chunkKeyFromPosition(chunk.ChunkPosition, this.world)
+        );
+      }
+    );
+    this.world.processChunkQueue();
+  }
+
   updateChunksForCamera() {
     const cameraChunk = this.world.getChunkCoordsFromPosition(
       this.mainCamera.position
@@ -397,6 +479,7 @@ generateChunksAroundCamera(deleteAllChunks: boolean = false) {
     this.lastCameraChunk = cameraChunk;
     this.generateChunksAroundCamera();
   }
+
   /**
    * Controls to move the camera!
    */
