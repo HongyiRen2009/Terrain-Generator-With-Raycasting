@@ -18,7 +18,7 @@ const config: webpack.Configuration = {
   devServer: {
     static: path.resolve(__dirname, "public"),
     hot: true,
-    open: true,
+    open: false,
     port: 3000
   },
   resolve: {
@@ -71,7 +71,7 @@ const config: webpack.Configuration = {
         test: /\.png$/,
         type: 'asset/resource',
       },
-    ]
+    ],
   },
   plugins: [new webpack.HotModuleReplacementPlugin()]
 };

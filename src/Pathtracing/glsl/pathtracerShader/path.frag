@@ -5,6 +5,9 @@
 //Hongyi Ren - Cloud sampling functions
 //https://www.reddit.com/r/GraphicsProgramming/comments/pjssze/directional_lighting_in_a_path_tracer/ - More specifically the two stackoverflow links in the comments - NEE implementation
 //https://www.cg.tuwien.ac.at/sites/default/files/course/4854/attachments/12_3_next%20event%20estimation_notes.pdf - NEE theory
+//https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/simulating-sky/simulating-colors-of-the-sky.html - Sky color sim
+//https://media.disneyanimation.com/uploads/production/publication_asset/177/asset/a.pdf - wOaH this is super cool
+//I got the above link from here: https://github.com/Zydak/Vulkan-Path-Tracer
 
 precision highp float;
 precision highp sampler3D;
@@ -99,7 +102,12 @@ uniform float ambientLightIntensity;
 uniform float u_skyBrightnessBoost; 
 
 in vec2 v_uv;
-out vec4 fragColor;
+uniform sampler2D u_varianceTexture; // Texture Unit 1: RGB=M2, A=Converged
+uniform float u_varianceThreshold;   // e.g. 0.05
+uniform int u_copyMode;              // If true, we copy from sourceTexture to output
+// Multiple Render Targets (MRT)
+layout(location = 0) out vec4 out_Color;    // RGB=Mean, A=SampleCount
+layout(location = 1) out vec4 out_Variance; // RGB=M2,   A=Converged
 
 struct BVH{
     vec3 min;
@@ -298,97 +306,184 @@ vec3 rotateY(vec3 v, float angle) {
 
 // --- Intersection Function ---
 // Returns true if hit, writes distance to 'dist' and fills 'result' struct
-bool intersectGrassBlade(Ray mainRay,vec3 instancePos,float lean, float rotation, out float dist, out Triangle result) {
+bool intersectGrassBlade(Ray mainRay, vec3 instancePos, float lean, float rotation, out float dist, out Triangle result) {
     // ------------------------------------
+    // GEOMETRY CONFIGURATION
+    const float HEIGHT = 1.0;
+    const float WIDTH  = 0.12;  // Half-width at the base
+    const float THICK  = 0.02;  // Thickness of the volume
+    const float CURVE_X = 2.0;  // Strength of the "taco" curl
     
     // 1. TRANSFORM RAY TO LOCAL SPACE
-    vec3 localOrigin = mainRay.origin - instancePos;
-    vec3 localDir = mainRay.dir;
-    float hitY = 0.0;
+    vec3 ro = mainRay.origin - instancePos;
+    vec3 rd = mainRay.dir;
 
-    // Inverse Rotation (Rotate by -rotation)
-    localOrigin = rotateY(localOrigin, -rotation);
-    localDir = rotateY(localDir, -rotation);
+    // Inverse Rotation (Rotate ray by -rotation around Y)
+    float cr = cos(-rotation);
+    float sr = sin(-rotation);
+    vec3 localO = vec3(ro.x * cr + ro.z * sr, ro.y, -ro.x * sr + ro.z * cr);
+    vec3 localD = vec3(rd.x * cr + rd.z * sr, rd.y, -rd.x * sr + rd.z * cr);
 
-    // Inverse Shear (Undo the lean: x' = x - lean*y)
-    localOrigin.x -= lean * localOrigin.y;
-    localOrigin.z -= lean * localOrigin.y;
-    localDir.x -= lean * localDir.y;
-    localDir.z -= lean * localDir.y;
-
+    // Track the closest hit
     float tClosest = 1e20;
-    vec3 normalClosest = vec3(0.0);
-    bool hitAny = false;
+    vec3  nClosest = vec3(0.0);
+    bool  hit = false;
+    float hitH = 0.0; // Height of intersection for shading
+
+    // ---------------------------------------------------------
+    // 2. INTERSECT CURVED FACES (Front & Back)
+    // Equation: Z = lean * y^2 + CURVE_X * x^2 +/- THICK
+    // We solve for both Front (+THICK) and Back (-THICK) offsets.
     
-    float bladeHeight = 1.0;
-    float baseWidth = 0.1; 
-    
-    // --- Test Plane A (Z-facing part) ---
-    if (abs(localDir.z) > 1e-6) {
-        float t = -localOrigin.z / localDir.z;
-        if (t > 0.0) { // Removed t < tClosest check since it's the first check
-            vec3 p = localOrigin + t * localDir;
-            if (p.y >= 0.0 && p.y <= bladeHeight) {
-                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));
-                if (abs(p.x) <= currentWidth) {
-                    tClosest = t;
-                    hitAny = true;
-                    // Base normal (0,0,1) -> Sheared normal -> Rotated normal
-                    // Sheared Plane Z: z - lean*y = 0. Normal is (0, -lean, 1)
-                    normalClosest = normalize(vec3(0.0, -lean, 1.0));
-                    hitY = p.y;
-                    // Flip if hitting backface
-                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;
+    // Quadratic Coefficients for Ray-Surface Intersection
+    // Substituted P(t) into Surface Equation: A*t^2 + B*t + C = 0
+    float A = lean * localD.y * localD.y + CURVE_X * localD.x * localD.x;
+    float B_core = 2.0 * (lean * localO.y * localD.y + CURVE_X * localO.x * localD.x) - localD.z;
+    float C_core = lean * localO.y * localO.y + CURVE_X * localO.x * localO.x - localO.z;
+
+    float offsets[2]; 
+    offsets[0] = THICK; 
+    offsets[1] = -THICK;
+
+    for(int i = 0; i < 2; i++) {
+        float C = C_core + offsets[i];
+        float t1 = -1.0, t2 = -1.0;
+
+        // Solve Quadratic
+        if (abs(A) < 1e-6) {
+            // Linear case (rare)
+            if (abs(B_core) > 1e-6) t1 = -C / B_core;
+        } else {
+            float det = B_core * B_core - 4.0 * A * C;
+            if (det >= 0.0) {
+                float sqrtD = sqrt(det);
+                t1 = (-B_core - sqrtD) / (2.0 * A);
+                t2 = (-B_core + sqrtD) / (2.0 * A);
+            }
+        }
+
+        // Check Candidates
+        float candidates[2]; candidates[0] = t1; candidates[1] = t2;
+        for(int k = 0; k < 2; k++) {
+            float t = candidates[k];
+            if (t > 1e-4 && t < tClosest) {
+                vec3 p = localO + t * localD;
+                
+                // BOUNDS CHECK:
+                // 1. Height: Must be between 0 and HEIGHT
+                // 2. Width: Must be inside the tapered edge |x| <= WIDTH * (1 - y)
+                if (p.y >= 0.0 && p.y <= HEIGHT) {
+                    float currentWidth = WIDTH * (1.0 - p.y / HEIGHT);
+                    if (abs(p.x) <= currentWidth) {
+                        tClosest = t;
+                        hit = true;
+                        hitH = p.y;
+                        
+                        // Calculate Normal (Gradient of implicit surface)
+                        // F = lean*y^2 + k*x^2 - z
+                        // Normal = (2kx, 2ky, -1)
+                        vec3 grad = vec3(2.0 * CURVE_X * p.x, 2.0 * lean * p.y, -1.0);
+                        nClosest = normalize(grad);
+                    }
                 }
             }
         }
     }
 
-    // --- Test Plane B (X-facing part) ---
-    if (abs(localDir.x) > 1e-6) {
-        float t = -localOrigin.x / localDir.x;
-        // Only update if this hit is closer than the previous one
-        if (t > 0.0 && t < tClosest) {
-            vec3 p = localOrigin + t * localDir;
-            if (p.y >= 0.0 && p.y <= bladeHeight) {
-                float currentWidth = baseWidth * (1.0 - (p.y / bladeHeight));
-                if (abs(p.z) <= currentWidth) {
-                    tClosest = t;
-                    hitAny = true;
-                    // Base normal (1,0,0) -> Sheared normal -> Rotated normal
-                    // Sheared Plane X: x - lean*y = 0. Normal is (1, -lean, 0)
-                    normalClosest = normalize(vec3(1.0, -lean, 0.0));
-                    hitY = p.y;
-                    if (dot(localDir, normalClosest) > 0.0) normalClosest = -normalClosest;
+    // ---------------------------------------------------------
+    // 3. INTERSECT SIDE EDGES (Left & Right)
+    // Planar Taper: x = +/- WIDTH * (1 - y/HEIGHT)
+    // Rearranged: x +/- (WIDTH/HEIGHT)*y -/+ WIDTH = 0
+    
+    // Slopes for the planes
+    float slope = WIDTH / HEIGHT; // Change in X per Y
+    // We check Right Plane (x > 0) and Left Plane (x < 0)
+    // Right Normal: (1, slope, 0), D = -WIDTH
+    // Left Normal:  (-1, slope, 0), D = -WIDTH (if formulated as -x - slope*y + width = 0)
+    
+    // Simplified Loop for Sides: s=1 (Right), s=-1 (Left)
+    float signs[2]; signs[0] = 1.0; signs[1] = -1.0;
+    
+    for(int i = 0; i < 2; i++) {
+        float s = signs[i];
+        vec3 nPlane = normalize(vec3(s, slope, 0.0));
+        float dPlane = -WIDTH / length(vec3(s, slope, 0.0)); // Plane constant
+        
+        // Ray-Plane Intersection: t = -(dot(N,O) + d) / dot(N,D)
+        float denom = dot(nPlane, localD);
+        if (abs(denom) > 1e-6) {
+            float t = -(dot(nPlane, localO) + dPlane) / denom;
+            
+            if (t > 1e-4 && t < tClosest) {
+                vec3 p = localO + t * localD;
+                
+                // BOUNDS CHECK:
+                // 1. Height: 0 <= y <= HEIGHT
+                // 2. Thickness: The point must lie BETWEEN the front and back curves.
+                //    Center Z at this point = lean*y^2 + curveX*x^2
+                if (p.y >= 0.0 && p.y <= HEIGHT) {
+                    float zCenter = lean * p.y * p.y + CURVE_X * p.x * p.x;
+                    // Check if z is within [zCenter - THICK, zCenter + THICK]
+                    if (abs(p.z - zCenter) <= THICK) {
+                        tClosest = t;
+                        hit = true;
+                        hitH = p.y;
+                        nClosest = nPlane;
+                    }
                 }
             }
         }
     }
 
-    if (!hitAny) {
-        return false;
+    // ---------------------------------------------------------
+    // 4. INTERSECT BOTTOM CAP (y = 0)
+    if (abs(localD.y) > 1e-6) {
+        float t = -localO.y / localD.y;
+        if (t > 1e-4 && t < tClosest) {
+            vec3 p = localO + t * localD;
+            
+            // BOUNDS CHECK:
+            // 1. Width: |x| <= WIDTH
+            // 2. Thickness: |z - lean*0 - curve*x^2| <= THICK => |z - curve*x^2| <= THICK
+            //    (At y=0, lean term is 0)
+            float zCenter = CURVE_X * p.x * p.x;
+            
+            if (abs(p.x) <= WIDTH && abs(p.z - zCenter) <= THICK) {
+                tClosest = t;
+                hit = true;
+                hitH = 0.0;
+                nClosest = vec3(0.0, -1.0, 0.0); // Pointing down
+            }
+        }
     }
 
-    // Output 1: Distance
+    if (!hit) return false;
+
+    // ---------------------------------------------------------
+    // 5. OUTPUT RESULTS
     dist = tClosest;
 
-    // Output 2: Triangle Struct
-    // Rotate the normal back to world space
-    vec3 worldNormal = rotateY(normalClosest, rotation);
-    
-    // Fill required dummy data to prevent compilation errors/undefined behavior
-    result.vertices = vec3[3](vec3(0.), vec3(0.), vec3(0.));
-    result.types[1] = 0;
-    result.types[2] = 0;
-    result.min = vec3(0.);
-    result.max = vec3(0.);
-    result.center = vec3(0.);
-    result.normals = vec3[3](vec3(0.), vec3(0.), vec3(0.));
+    // Ensure Normal Faces the Ray (Double Sided Rendering)
+    if (dot(localD, nClosest) > 0.0) nClosest = -nClosest;
 
-    // Fill only the required fields
-    result.types[0] = -1;       // As requested
-    result.triNormal = worldNormal; // The calculated normal
-    result.normals[0].x = hitY; //Height
+    // Transform Normal back to World Space
+    vec3 worldNormal = vec3(
+        nClosest.x * cr + nClosest.z * sr,
+        nClosest.y,
+        -nClosest.x * sr + nClosest.z * cr
+    );
+
+    // Fill struct dummy data to prevent undefined behavior
+    result.vertices[0] = vec3(0.); result.vertices[1] = vec3(0.); result.vertices[2] = vec3(0.);
+    result.types[1] = 0; result.types[2] = 0;
+    result.min = vec3(0.); result.max = vec3(0.); result.center = vec3(0.);
+    result.normals[1] = vec3(0.); result.normals[2] = vec3(0.);
+
+    // Fill Required Fields
+    result.types[0] = -1;       
+    result.triNormal = worldNormal; 
+    result.normals[0].x = hitH; // Height of intersection (0.0 to 1.0)
+
     return true;
 }
 
@@ -795,26 +890,22 @@ vec3 EvalUnifiedBRDF(vec3 N, vec3 V, vec3 L, float roughness, vec3 F0, vec3 albe
 //Get sky color. AI generated
 vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     // -------------------------------------
-    // Constants
+    // Constants & Setup
     // -------------------------------------
-    const float RE = 6360e3;          // Earth Radius (meters)
-    const float RA = 6420e3;          // Atmosphere Radius (meters)
-    const float HR = 8000.0;          // Rayleigh Scale Height
-    const float HM = 1200.0;          // Mie Scale Height
-    float G_MIE = u_haloSize;         // Mie Anisotropy
+    const float RE = 6360e3;
+    const float RA = 6420e3;
+    const float HR = 8000.0;
+    const float HM = 1200.0;
+    float G_MIE = u_haloSize;
     
-
-
     vec3 BETA_R = vec3(u_redScatter, u_greenScatter, u_blueScatter) * 0.001; 
     vec3 BETA_M = vec3(u_MIE * 0.001);                 
+    vec3 BETA_O = vec3(0.01035, 0.02507, 0.00107) * BETA_R.z; // Ozone absorption
 
     float SUN_INTENSITY = u_sunIntensity; 
     int STEPS_PRIMARY = u_skyGradientQuality;   
     int STEPS_LIGHT = u_sunsetQuality;       
 
-    // -------------------------------------
-    // Setup Geometry
-    // -------------------------------------
     Light atmosphere;
     atmosphere.position = vec3(0.0);
     atmosphere.radius = RA;
@@ -822,11 +913,17 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     vec3 camPos = vec3(0.0, RE + u_cameraPos.y, 0.0); 
     vec3 dummyNormal; 
 
-    // Calculate distance to leave the atmosphere
     float distToTop = intersectLight(camPos, rayDir, atmosphere, dummyNormal);
     
-    // If we look down and don't hit the atmosphere cap (or hit ground logic),
-    // we initialize with White instead of Black.
+    float a = dot(rayDir, rayDir);
+    float b = 2.0 * dot(camPos, rayDir);
+    float c = dot(camPos, camPos) - RE * RE;
+    float delta = b * b - 4.0 * a * c;
+    if (delta >= 0.0) {
+        float distToEarth = (-b - sqrt(delta)) / (2.0 * a);
+        if (distToEarth > 0.0) distToTop = min(distToTop, distToEarth);
+    }
+    
     if (distToTop < 0.0) return vec3(1.0); 
 
     // -------------------------------------
@@ -839,6 +936,7 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     vec3 totalM = vec3(0.0); 
     float optDepthR = 0.0;
     float optDepthM = 0.0;
+    float optDepthO = 0.0; 
     
     float mu = dot(rayDir, sunDir);
     float phaseR = 3.0 / (16.0 * PI) * (1.0 + mu * mu);
@@ -854,31 +952,50 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
 
         float hr = exp(-height / HR) * stepSize;
         float hm = exp(-height / HM) * stepSize;
+        float ho = max(0.0, 1.0 - abs(height - 25000.0) / 15000.0) * stepSize;
         
-        optDepthR += hr;
-        optDepthM += hm;
+        // --- FIX #1: NUMERICAL INTEGRATION ---
+        // Calculate optical depth to the *middle* of the step.
+        // Prevents the massive horizon steps from artificially deleting near-camera blue light.
+        float sampleOptDepthR = optDepthR + hr * 0.5;
+        float sampleOptDepthM = optDepthM + hm * 0.5;
+        float sampleOptDepthO = optDepthO + ho * 0.5;
         
         float distToSun = intersectLight(samplePos, sunDir, atmosphere, dummyNormal);
         float stepSizeSun = distToSun / float(STEPS_LIGHT);
+        
         float sunDepthR = 0.0;
         float sunDepthM = 0.0;
+        float sunDepthO = 0.0;
         vec3 sunPos = samplePos;
+        
+        bool inShadow = false;
         
         for (int j = 0; j < STEPS_LIGHT; ++j) {
             vec3 sPos = sunPos + sunDir * (stepSizeSun * 0.5);
             float h = length(sPos) - RE;
-            if (h < 0.0) h = 0.0;
+            if (h < 0.0) { inShadow = true; break; }
             
             sunDepthR += exp(-h / HR) * stepSizeSun;
             sunDepthM += exp(-h / HM) * stepSizeSun;
+            sunDepthO += max(0.0, 1.0 - abs(h - 25000.0) / 15000.0) * stepSizeSun;
             sunPos += sunDir * stepSizeSun;
         }
         
-        vec3 tau = BETA_R * (optDepthR + sunDepthR) + BETA_M * 1.1 * (optDepthM + sunDepthM);
-        vec3 attenuation = exp(-tau);
+        if (!inShadow) {
+            vec3 tau = BETA_R * (sampleOptDepthR + sunDepthR) + 
+                       BETA_M * 1.1 * (sampleOptDepthM + sunDepthM) + 
+                       BETA_O * (sampleOptDepthO + sunDepthO);
+            vec3 attenuation = exp(-tau);
+            
+            totalR += hr * attenuation;
+            totalM += hm * attenuation;
+        }
         
-        totalR += hr * attenuation;
-        totalM += hm * attenuation;
+        // Accumulate full step for the next iteration
+        optDepthR += hr;
+        optDepthM += hm;
+        optDepthO += ho;
         
         currentPos += rayDir * stepSize;
     }
@@ -887,21 +1004,28 @@ vec3 getSkyColor(vec3 rayDir, vec3 sunDir) {
     // Final Color Calculation
     // -------------------------------------
     vec3 skyColor = SUN_INTENSITY * (totalR * BETA_R * phaseR + totalM * BETA_M * phaseM);
-    
+
+    // --- FIX #2: MULTIPLE SCATTERING APPROXIMATION ---
+    // Inject a soft ambient blue to replace the light artificially lost to the single-scatter model.
+    // Scales by sunDir.y so it disappears safely during sunset, preserving your dark red horizons!
+    float sunHeight = max(0.0, sunDir.y);
+    vec3 multiScat = vec3(0.5, 0.7, 1.0) * SUN_INTENSITY * 0.15 * sunHeight;
+    vec3 viewTau = BETA_R * optDepthR + BETA_M * 1.1 * optDepthM + BETA_O * optDepthO;
+    skyColor += multiScat * (1.0 - exp(-viewTau));
+
     // Apply Brightness
     skyColor *= u_skyBrightnessBoost;
 
-    // --- [CHANGE #2 PART B] Smooth Horizon Blend ---
-    // Instead of a sharp cut, we mix the calculated sky with a white color
-    // based on how far the ray is looking down. 
-    // -0.1 to 0.1 creates a small foggy blur at the horizon line.
-    // If rayDir.y is very negative (looking down), blendingFactor becomes 0.0 (All white).
-    
-    vec3 groundColor = vec3(1.0); // White
-    float horizonBlend = smoothstep(-0.05, 0.05, rayDir.y);
+    // ACES Tonemapping
+    skyColor = clamp((skyColor * (2.51 * skyColor + 0.03)) / (skyColor * (2.43 * skyColor + 0.59) + 0.14), 0.0, 1.0);
+
+    // Smooth Horizon Blend (Shifted down slightly so the sky evaluates cleanly to 1.0 at rayDir.y == 0.0)
+    vec3 groundColor = vec3(0.5, 0.55, 0.6); 
+    float horizonBlend = smoothstep(-0.03, 0.0, rayDir.y);
     
     return mix(groundColor, skyColor, horizonBlend);
 }
+
 vec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_state){
     vec3 directLight = vec3(0.0);
     bool autoNormal = false;
@@ -933,14 +1057,25 @@ vec3 shootShadowRay(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     Ray shadowRay;
     shadowRay.origin = mainRay.origin;
     shadowRay.dir = lightDir;
+    int hitLightIndex = -1;
+    for (int j = 0; j < numActiveLights; j++) {
+        if(j == i) continue; // Skip the light we're sampling
+        vec3 lightHitNormal;
+        float lightHitDistance = intersectLight(shadowRay.origin, shadowRay.dir, lights[j], lightHitNormal);
+        if (lightHitDistance > 0.0 && lightHitDistance < lightDistance) {
+            hitLightIndex = j;
+            break;
+        }
+    }
+    if(hitLightIndex ==0){
+        // Fast Shadow Check
+        bool blocked = traverseBVHShadow(shadowRay, lightDistance);
 
-    // Fast Shadow Check
-    bool blocked = traverseBVHShadow(shadowRay, lightDistance);
-
-    if(!blocked){
-        float P = 1.0/(lightDistance*lightDistance);
-        float NdotL = max(dot(smoothNormal, lightDir), 0.0);
-        directLight += BRDF * light.color * light.intensity * NdotL * P * PI * light.radius * light.radius;
+        if(!blocked){
+            float P = 1.0/(lightDistance*lightDistance);
+            float NdotL = max(dot(smoothNormal, lightDir), 0.0);
+            directLight += BRDF * light.color * light.intensity * NdotL * P * PI * light.radius * light.radius;
+        }
     }
     return directLight;
 }
@@ -961,23 +1096,34 @@ vec3 sampleSunLight(Ray mainRay, vec3 BRDF, vec3 smoothNormal, inout uint rng_st
     Ray shadowRay;
     shadowRay.origin = mainRay.origin;
     shadowRay.dir = lightDir;
+    int hitLightIndex = -1;
+    for (int i = 0; i < numActiveLights; i++) {
+        vec3 lightHitNormal;
+        float lightHitDistance = intersectLight(shadowRay.origin, shadowRay.dir, lights[i], lightHitNormal);
+        if (lightHitDistance > 0.0) {
+            hitLightIndex = i;
+            break;
+        }
+    }
 
-    // Fast Shadow Check (Max distance is effectively infinite for sun)
-    bool blocked = traverseBVHShadow(shadowRay, 1e20);
+    if (hitLightIndex == -1) {
+        // Fast Shadow Check (Max distance is effectively infinite for sun)
+        bool blocked = traverseBVHShadow(shadowRay, 1e20);
 
-    if (!blocked) {
-        // Ray is not blocked, calculate light contribution
-        // --- Light Contribution (Radiance) ---
-        // float cos_alpha = cos(u_sunAngularRadius);
-        // float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
-        // float PDF = 1.0 / solidAngle; 
-        // L_i = BRDF * NdotL / PDF * Radiance
-        // Radiance (L_e) = Intensity / SolidAngle
-        // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
-        // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
-        // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
-        vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
-        return directLight;
+        if (!blocked) {
+            // Ray is not blocked, calculate light contribution
+            // --- Light Contribution (Radiance) ---
+            // float cos_alpha = cos(u_sunAngularRadius);
+            // float solidAngle = 2.0 * PI * (1.0 - cos_alpha);
+            // float PDF = 1.0 / solidAngle; 
+            // L_i = BRDF * NdotL / PDF * Radiance
+            // Radiance (L_e) = Intensity / SolidAngle
+            // L_i = BRDF * NdotL / PDF * (u_sunIntensity / solidAngle) 
+            // L_i = BRDF * NdotL * (1 / PDF) * (u_sunIntensity / solidAngle)
+            // Since (1/PDF) = solidAngle, the solidAngle terms cancel out perfectly:
+            vec3 directLight = BRDF * u_sunColor * u_sunIntensity * NdotL;
+            return directLight;
+        }
     }
     
     return vec3(0.0);
@@ -1244,16 +1390,61 @@ vec3 PathTrace(Ray OGRay, inout uint rng_state) {
     return min(color, vec3(10.0));
 }
 
-void main() {
+
+// ACES Filmic Tone Mapping Curve
+vec3 ACESFilmic(vec3 x) {
+    const float a = 2.51;
+    const float b = 0.03;
+    const float c = 2.43;
+    const float d = 0.59;
+    const float e = 0.14;
+    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
+// Helper to get brightness for variance calculation
+float getLuminance(vec3 c) {
+    return dot(c, vec3(0.2126, 0.7152, 0.0722));
+}
+
+void copyCode() {
+    // We only care about RGB for display, ignore Alpha (count)
+    vec3 sumColor = texture(u_lastFrame, v_uv).rgb;
+
+    float exposure = 1.0;
+    vec3 tonedColor = ACESFilmic(sumColor * exposure);
+    
+    float gamma = 2.2;
+    vec3 finalColor = pow(tonedColor, vec3(1.0 / gamma));
+
+    // Write to location 0 (Screen/Backbuffer)
+    out_Color = vec4(finalColor, 1.0);
+}
+
+void runCode() {
     int pixelX = int(v_uv.x * u_resolution.x);
     int pixelY = int(v_uv.y * u_resolution.y);
     int patternIndex = pixelX + pixelY * 199;
 
+    // --- 1. LOAD PREVIOUS STATE ---
+    // Texture 0: rgb = Mean Color, a = Sample Count
+    vec4 prevColorData = textureLod(u_lastFrame, v_uv, 0.0);
+    // Texture 1: rgb = M2 (Variance accumulator), a = Converged Flag
+    vec4 prevVarData   = textureLod(u_varianceTexture, v_uv, 0.0);
+
+    vec3 oldMean = prevColorData.rgb;
+    float oldCount = prevColorData.a; // Retrieved from Alpha
+    vec3 oldM2 = prevVarData.rgb;
+    float isConverged = prevVarData.a;
+
     // Check if we should render this frame
-    if(patternIndex % u_skips != u_frameNumber % u_skips){
-        fragColor = vec4(textureLod(u_lastFrame, v_uv, 0.0).rgb, 1.0);
+    // Optimization: If pixel is already converged (isConverged > 0.5), skip tracing
+    if((patternIndex % u_skips != u_frameNumber % u_skips) || isConverged > 0.5){
+        // Pass through existing data to keep it alive
+        out_Color = prevColorData;
+        out_Variance = prevVarData;
         return;
     }
+
     //Random Hash
     uint pixel_x = uint(v_uv.x * u_resolution.x); 
     uint pixel_y = uint(v_uv.y * u_resolution.y);
@@ -1286,18 +1477,63 @@ void main() {
     mainRay.origin = u_cameraPos;
     mainRay.dir = normalize(rayWorld.xyz - u_cameraPos);
 
-
+    // --- 2. TRACE ---
     vec3 newSampleColor = PathTrace(mainRay, rng_state); // Sample Color
-    vec3 newSum;
-    float effectiveSampleCount = ceil(float(u_frameNumber) / float(u_skips));
-    
-    effectiveSampleCount = max(effectiveSampleCount, 1.0);
+
+    // --- 3. ACCUMULATE (WELFORD'S ALGORITHM) ---
+    vec3 newMean;
+    vec3 newM2;
+    float newCount;
+    float newConverged = 0.0;
+
+    // Reset if it's the very first frame or resize
     if(u_frameNumber <= u_skips){ 
-        newSum = newSampleColor;
+        newMean = newSampleColor;
+        newM2 = vec3(0.0);
+        newCount = 1.0;
     } else {
-        vec3 lastSum = textureLod(u_lastFrame, v_uv, 0.0).rgb;
-        newSum = lastSum + (newSampleColor - lastSum) / effectiveSampleCount;
+        // Increment per-pixel count
+        newCount = oldCount + 1.0;
+
+        // Welford online variance update
+        vec3 delta = newSampleColor - oldMean;
+        newMean = oldMean + delta / newCount;
+        vec3 delta2 = newSampleColor - newMean;
+        newM2 = oldM2 + delta * delta2;
     }
 
-    fragColor = vec4(newSum,1.0); 
+    // --- 4. CHECK CONVERGENCE ---
+    // Only check after we have a statistical base (e.g. 32 samples)
+    if (newCount > 32.0) {
+        float lumM2 = getLuminance(newM2);
+        float lumMean = getLuminance(newMean);
+        
+        // Variance = M2 / (N - 1)
+        float variance = lumM2 / (newCount - 1.0);
+        float stdDev = sqrt(max(variance, 0.0));
+        
+        // Standard Error (Confidence Interval 95%)
+        // Error = 1.96 * sigma / sqrt(N)
+        float stdError = 1.96 * stdDev / sqrt(newCount);
+
+        // Threshold relative to brightness (allow brighter pixels more noise)
+        // Ensure threshold isn't 0.0 for black pixels
+        float threshold = max(u_varianceThreshold * lumMean, 0.001);
+
+        if (stdError < threshold) {
+            newConverged = 1.0; // Stop tracing this pixel
+        }
+    }
+
+    // Output Data
+    out_Color = vec4(newMean, newCount);       // Update Color + Count
+    out_Variance = vec4(newM2, newConverged);  // Update M2 + Converged Status
+}
+
+void main(){
+    if(u_copyMode==1){
+        copyCode();
+        return;
+    }
+    runCode();
 }
