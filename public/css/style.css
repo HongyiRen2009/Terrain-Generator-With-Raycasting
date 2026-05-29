@@ -370,3 +370,51 @@ input[type="range"]::-ms-thumb {
   font-size: 0.9rem;
   color:white;
 }
+
+/********************** Capture Image Panel **********************/
+#render-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+}
+
+.render-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #ddd;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+}
+
+.render-label input[type="number"] {
+  width: 80px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background-color: #1e1e1e;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  text-align: right;
+}
+
+#capture-btn {
+  padding: 7px 14px;
+  border: 1px solid #888;
+  border-radius: 4px;
+  background-color: #3a3a3a;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  align-self: flex-start;
+}
+
+#capture-btn:hover {
+  background-color: #4b4b4b;
+}
